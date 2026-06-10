@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --nba-dark:   #0a0e1a;
+  --nba-panel:  #0f1e33;
+  --nba-border: #1e3a5f;
+  --nba-muted:  #7090b0;
+  --nba-text:   #e8eaf0;
+}
+body {
+  background: var(--nba-dark);
+  color: var(--nba-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+}
+.nba-panel  { background: var(--nba-panel);  border: 1px solid var(--nba-border); border-radius: 10px; }
+.nba-muted  { color: var(--nba-muted); }
+.nba-border { border-color: var(--nba-border); }
