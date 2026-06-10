@@ -3,6 +3,7 @@ export interface Team {
   color: string; arena: string; city: string
   wins: number; losses: number; pts_for: number; pts_against: number
   salary_cap: number; cap_used: number
+  logo_url?: string
 }
 export interface Player {
   id: string; name: string; pos: string; nationality?: string; age?: number
@@ -15,6 +16,7 @@ export interface Player {
   pass_vis: number; pass_iq: number; pressure: number; consistency: number
   crowd_effect: number; streaky: number; trash_talk: number; assist_role: number
   mins: number
+  photo_url?: string
 }
 export interface PlayerStats {
   id: string; player_id: string; season: string
