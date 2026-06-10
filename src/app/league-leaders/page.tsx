@@ -1,37 +1,39 @@
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 export const revalidate = 60
 
 export default async function LeagueLeadersPage() {
   const { data: stats } = await supabase
     .from('player_stats')
-    .select('*, players(name, pos, team_id)')
-    .eq('season','2025-26')
-    .gt('games', 0)
-    .order('pts', { ascending: false })
-    .limit(200)
+    .select('*, players(id,name,pos,team_id,photo_url,teams(color,logo_url))')
+    .eq('season','2025-26').gt('games',0)
+    .order('pts',{ ascending:false }).limit(300)
 
   const rows = (stats||[]).map((s:any) => ({
     ...s,
-    name: s.players?.name || '—',
-    pos:  s.players?.pos  || '—',
-    team: s.players?.team_id || '—',
-    ppg:  s.games > 0 ? (s.pts/s.games).toFixed(1) : '—',
-    rpg:  s.games > 0 ? (s.reb/s.games).toFixed(1) : '—',
-    apg:  s.games > 0 ? (s.ast/s.games).toFixed(1) : '—',
-    spg:  s.games > 0 ? (s.stl/s.games).toFixed(1) : '—',
-    bpg:  s.games > 0 ? (s.blk/s.games).toFixed(1) : '—',
-    fgpct: s.fga > 0 ? (s.fgm/s.fga*100).toFixed(1)+'%' : '—',
-    tppct: s.tpa > 0 ? (s.tpm/s.tpa*100).toFixed(1)+'%' : '—',
+    pid:   s.players?.id,
+    name:  s.players?.name||'—',
+    pos:   s.players?.pos||'—',
+    team:  s.players?.team_id||'—',
+    photo: s.players?.photo_url,
+    teamColor: s.players?.teams?.color,
+    ppg: s.games>0?(s.pts/s.games).toFixed(1):'—',
+    rpg: s.games>0?(s.reb/s.games).toFixed(1):'—',
+    apg: s.games>0?(s.ast/s.games).toFixed(1):'—',
+    spg: s.games>0?(s.stl/s.games).toFixed(1):'—',
+    bpg: s.games>0?(s.blk/s.games).toFixed(1):'—',
+    fgpct: s.fga>0?(s.fgm/s.fga*100).toFixed(1)+'%':'—',
+    tppct: s.tpa>0?(s.tpm/s.tpa*100).toFixed(1)+'%':'—',
   }))
 
   const cats = [
-    { label:'Points', key:'ppg', color:'#ffa040' },
-    { label:'Rebounds', key:'rpg', color:'#40e080' },
-    { label:'Assists', key:'apg', color:'#60a0ff' },
-    { label:'Steals', key:'spg', color:'#c040ff' },
-    { label:'Blocks', key:'bpg', color:'#ff6040' },
-    { label:'FG%', key:'fgpct', color:'#40d0d0' },
-    { label:'3P%', key:'tppct', color:'#ffd040' },
+    {label:'Points Per Game',  key:'ppg',  sortKey:'pts', color:'#ffa040'},
+    {label:'Rebounds Per Game',key:'rpg',  sortKey:'reb', color:'#40e080'},
+    {label:'Assists Per Game', key:'apg',  sortKey:'ast', color:'#60a0ff'},
+    {label:'Steals Per Game',  key:'spg',  sortKey:'stl', color:'#c040ff'},
+    {label:'Blocks Per Game',  key:'bpg',  sortKey:'blk', color:'#ff6040'},
+    {label:'FG%',              key:'fgpct',sortKey:'fgm', color:'#40d0d0'},
+    {label:'3-Point %',        key:'tppct',sortKey:'tpm', color:'#ffd040'},
   ]
 
   return (
@@ -44,27 +46,44 @@ export default async function LeagueLeadersPage() {
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
           {cats.map(cat => {
-            const sorted = [...rows].sort((a:any,b:any)=>parseFloat(b[cat.key])||0 - parseFloat(a[cat.key])||0).slice(0,10)
+            const sorted = [...rows]
+              .sort((a:any,b:any)=>(parseFloat(b[cat.key])||0)-(parseFloat(a[cat.key])||0))
+              .slice(0,10)
             return (
               <div key={cat.key} className="rounded-xl overflow-hidden"
-                   style={{ background:'#0f1e33', border:'1px solid #1e3a5f' }}>
-                <div className="px-4 py-3" style={{ background:'#060c18', borderBottom:'1px solid #1e3a5f' }}>
+                   style={{ background:'#0f1e33',border:'1px solid #1e3a5f' }}>
+                <div className="px-4 py-3" style={{ background:'#060c18',borderBottom:'1px solid #1e3a5f' }}>
                   <h3 className="font-bold text-sm" style={{ color:cat.color }}>{cat.label}</h3>
                 </div>
-                <table className="w-full text-xs">
-                  <tbody>
-                    {sorted.map((p:any,i:number)=>(
-                      <tr key={p.id} style={{ borderBottom:'1px solid #0a1628',
-                        background:i%2===0?'#0f1e33':'#0c1a2c' }}>
-                        <td className="px-3 py-2 font-bold w-6" style={{ color:'#405060' }}>{i+1}</td>
-                        <td className="px-2 py-2 font-semibold text-white">{p.name}</td>
-                        <td className="px-2 py-2" style={{ color:'#7090b0' }}>{p.team}</td>
-                        <td className="px-2 py-2" style={{ color:'#506070' }}>{p.pos}</td>
-                        <td className="px-3 py-2 text-right font-bold" style={{ color:cat.color }}>{p[cat.key]}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div>
+                  {sorted.map((p:any,i:number) => (
+                    <Link key={p.id} href={`/player/${p.pid}`} className="no-underline">
+                      <div className="flex items-center gap-3 px-3 py-2.5 hover:brightness-110 transition-all"
+                           style={{ background:i%2===0?'#0f1e33':'#0c1a2c',
+                                    borderBottom:'1px solid #0a1628' }}>
+                        <span className="text-xs font-bold w-5 text-right flex-shrink-0"
+                              style={{ color:i===0?cat.color:'#405060' }}>{i+1}</span>
+                        {/* Photo */}
+                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0"
+                             style={{ background:'#'+(p.teamColor||'333')+'22' }}>
+                          {p.photo
+                            ? <img src={p.photo} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center text-xs font-black"
+                                   style={{ color:'#'+(p.teamColor||'666') }}>
+                                {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                              </div>
+                          }
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold text-white truncate">{p.name}</div>
+                          <div className="text-xs" style={{ color:'#506070' }}>{p.team} · {p.pos}</div>
+                        </div>
+                        <span className="text-sm font-black flex-shrink-0"
+                              style={{ color:i===0?cat.color:'#c0ccd8' }}>{p[cat.key]}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               </div>
             )
           })}
