@@ -11,6 +11,7 @@ const NAV = [
   { label: 'Transactions',  href: '/transactions' },
   { label: 'Free Agents',   href: '/free-agents' },
   { label: 'Trade Center',  href: '/trade-center' },
+  { label: '⭐ All-Star',    href: '/all-star' },
 ]
 
 export default function Navbar() {
