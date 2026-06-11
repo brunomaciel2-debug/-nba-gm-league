@@ -92,41 +92,40 @@ export default function TradeCenterPage() {
                   const tbPlayerIds = new Set(tradeBlock.filter(tb=>tb.teams?.id===t.id).map(tb=>tb.players?.id))
                   return (
                     <div key={t.id} className="rounded-xl overflow-hidden"
-                         style={{border:'1px solid '+(isMyTeam?tc+'44':'#3a3228')}}>
-                      <div className="flex items-center gap-2 px-4 py-2.5"
-                           style={{background:'#120f0a',borderBottom:'1px solid #3a3228'}}>
-                        {t.logo_url && <img src={t.logo_url} alt="" className="w-5 h-5 object-contain"/>}
-                        <span className="font-bold text-sm" style={{color:isMyTeam?tc:'#f0ebe0'}}>{t.name}</span>
-                        {isMyTeam && <span className="text-xs ml-auto" style={{color:tc}}>Your Team</span>}
-                        {!isMyTeam && user && (
-                          <Link href={`/trade-center/propose?to=${t.id}`}
-                                className="ml-auto text-xs px-2 py-1 rounded no-underline font-semibold"
-                                style={{background:'#1e3a5f',color:'#60a0ff'}}>
-                            Propose →
-                          </Link>
-                        )}
-                      </div>
-                      <div className="p-3" style={{background:'#1a1610'}}>
-                        {(t.players||[]).slice(0,8).map((p:any) => {
-                          const onBlock = tbPlayerIds.has(p.id)
-                          return (
-                            <div key={p.id} className="flex items-center gap-2 py-1.5"
+                         style={{border:'1px solid '+(isMyTeam?tc+'55':'#3a3228')}}>
+                      {/* Team header — clickable */}
+                      <Link href={`/team/${t.id}`} className="no-underline">
+                        <div className="flex items-center gap-2 px-4 py-3 transition-all hover:brightness-125"
+                             style={{background:'#1a1610',borderBottom:tbPlayerIds.size>0?'1px solid #3a3228':'none'}}>
+                          {t.logo_url && <img src={t.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
+                          <span className="font-bold text-sm flex-1" style={{color:isMyTeam?tc:'#f0ebe0'}}>{t.name}</span>
+                          {isMyTeam && <span className="text-xs" style={{color:tc}}>Your Team</span>}
+                        </div>
+                      </Link>
+                      {/* Trade block players — only if any */}
+                      {tbPlayerIds.size > 0 && (
+                        <div className="px-4 py-2" style={{background:'#120f0a'}}>
+                          <div className="text-xs mb-1.5 font-semibold" style={{color:'#ffd040'}}>📋 Trade Block</div>
+                          {tradeBlock.filter(tb=>tb.teams?.id===t.id).map((tb:any)=>(
+                            <div key={tb.id} className="flex items-center gap-2 py-1"
                                  style={{borderBottom:'1px solid #2a2218'}}>
-                              <span className="text-xs w-7 flex-shrink-0" style={{color:'#6a5a4a'}}>{p.pos}</span>
-                              <span className="text-xs flex-1 font-semibold" style={{color:onBlock?'#ffd040':'#c0b8a8'}}>
-                                {p.name}
-                                {onBlock && <span className="ml-1 text-xs">📋</span>}
-                              </span>
-                              <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(p.salary)}</span>
+                              <span className="text-xs w-7 flex-shrink-0" style={{color:'#6a5a4a'}}>{tb.players?.pos}</span>
+                              <span className="text-xs flex-1 font-semibold" style={{color:'#ffd040'}}>{tb.players?.name}</span>
+                              <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(tb.players?.salary)}</span>
                             </div>
-                          )
-                        })}
-                        {(t.players||[]).length > 8 && (
-                          <p className="text-xs mt-1 text-center" style={{color:'#4a3a2a'}}>
-                            +{(t.players||[]).length-8} more players
-                          </p>
-                        )}
-                      </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Propose button */}
+                      {!isMyTeam && user && (
+                        <div className="px-4 py-2" style={{borderTop:'1px solid #2a2218'}}>
+                          <Link href={`/trade-center/propose?to=${t.id}`}
+                                className="block text-center text-xs font-semibold py-1.5 rounded-lg no-underline"
+                                style={{background:'#1e3a5f',color:'#60a0ff'}}>
+                            Propose Trade →
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
