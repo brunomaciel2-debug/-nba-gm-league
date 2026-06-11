@@ -37,7 +37,7 @@ export default function ManageTradeBlockPage() {
         player_id:playerId, team_id:profile.team_id,
         added_by:user.id, notes:notes[playerId]||'', status:'available'
       })
-      setOnBlock(s=>new Set([...s,playerId]))
+      setOnBlock(s=>{ const n=new Set(Array.from(s)); n.add(playerId); return n })
     }
     setSaving(s=>({...s,[playerId]:false}))
   }
