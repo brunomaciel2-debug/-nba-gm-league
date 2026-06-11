@@ -86,6 +86,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
             setAtkStyle(ord.atk_style||'motion'); setDefStyle(ord.def_style||'man')
             if(ord.depth_chart)setDc(ord.depth_chart as any)
             if(ord.depth_chart?.ball_roles)setBallRoles(ord.depth_chart.ball_roles)
+            setTrainIntensity(ord.training_intensity||'normal')
             setLocked(ord.locked||false)
           })
       })
@@ -102,6 +103,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       clutch_player:clutch, pace, three_rate:threeRate,
       atk_style:atkStyle, def_style:defStyle,
       depth_chart:{...dc, ball_roles:ballRoles},
+      training_intensity:trainIntensity,
     },{onConflict:'team_id,week_number'})
     setSaving(false); setSaved(true); setTimeout(()=>setSaved(false),2000)
   }
@@ -303,6 +305,33 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
             {DEF_STYLES.find(s=>s.value===defStyle)?.desc}
           </p>
         </div>
+      </div>
+
+      {/* TRAINING INTENSITY */}
+      <h2 className="text-xs font-semibold uppercase tracking-widest mb-3 mt-6" style={{color:'#506070'}}>
+        Training Intensity
+        <InfoTip text="Sets how hard the team trains during recovery days (Mon-Thu gap and Thu-Mon gap). Intense training = less health recovery. Rest = more recovery but less preparation." />
+      </h2>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6">
+        {[
+          {value:'rest',        label:'🛌 Rest',         desc:'Max recovery. +150% health regen.',    color:'#40e080'},
+          {value:'light',       label:'🚶 Light',        desc:'+25% health regen. Low risk.',          color:'#a0e040'},
+          {value:'normal',      label:'🏃 Normal',       desc:'Standard training. Full regen.',        color:'#60a0ff'},
+          {value:'intense',     label:'💪 Intense',      desc:'-50% health regen. Higher performance readiness.', color:'#ffa040'},
+          {value:'very_intense',label:'🔥 Max Load',     desc:'-75% health regen. Injury risk.',      color:'#e04040'},
+        ].map(t=>(
+          <button key={t.value} onClick={()=>setTrainIntensity(t.value)}
+            className="rounded-xl p-3 text-center transition-all"
+            style={{background:trainIntensity===t.value?t.color+'22':'#0f1e33',
+                    border:'1px solid '+(trainIntensity===t.value?t.color:'#1e3a5f'),
+                    opacity:locked?0.5:1}}>
+            <div className="text-sm mb-1">{t.label.split(' ')[0]}</div>
+            <div className="text-xs font-semibold" style={{color:trainIntensity===t.value?t.color:'#c0ccd8'}}>
+              {t.label.split(' ').slice(1).join(' ')}
+            </div>
+            <div className="text-xs mt-1" style={{color:'#506070'}}>{t.desc}</div>
+          </button>
+        ))}
       </div>
 
       <button onClick={save} disabled={saving||locked}

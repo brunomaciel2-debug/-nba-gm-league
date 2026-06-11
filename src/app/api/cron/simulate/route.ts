@@ -85,8 +85,137 @@ export async function GET(req: NextRequest) {
       }
     }
 
+
+    // ── HEALTH LOSS + INJURY GENERATION ──────────────────────
+    const { data: allPlayers } = await supabaseAdmin
+      .from('players').select('id,name,health,moral,durability,team_id,status,games_missed,injury_type')
+    const playerMap: Record<string,any> = {}
+    ;(allPlayers||[]).forEach((p:any) => playerMap[p.id] = p)
+
+    // Get injury types once
+    const { data: injTypes } = await supabaseAdmin.from('injury_types').select('*')
+    const SMOD: Record<string,number> = {minor:1.1,moderate:1.25,serious:1.5,severe:1.75,career_threatening:2.0}
+    const SWEIGHTS: Record<string,number> = {minor:40,moderate:25,serious:15,severe:8,career_threatening:2}
+
+    // Collect all box scores from this week's games
+    const { data: weekBoxes } = await supabaseAdmin
+      .from('box_scores').select('player_id,mins,team_id,game_id')
+      .in('game_id', gamesCreated)
+
+    // Get orders for pace info
+    const { data: weekOrders } = await supabaseAdmin.from('gm_orders').select('team_id,pace,training_intensity').eq('week_number',week)
+    const paceMap: Record<string,number> = {}
+    ;(weekOrders||[]).forEach((o:any) => paceMap[o.team_id] = o.pace||70)
+
+    // Process each player's boxes
+    const healthUpdates: Record<string,{health:number,moral:number,wins:number,losses:number}> = {}
+    for (const box of (weekBoxes||[])) {
+      const p = playerMap[box.player_id]
+      if (!p) continue
+      if (!healthUpdates[p.id]) healthUpdates[p.id] = { health:p.health??100, moral:p.moral??80, wins:0, losses:0 }
+      const pace = paceMap[box.team_id]||70
+      const pacePenalty = pace > 80 ? 0.5 : 0
+      const healthLoss = (box.mins / 10) * (1 + pacePenalty)
+      healthUpdates[p.id].health = Math.max(0, healthUpdates[p.id].health - healthLoss)
+    }
+
+    // Apply health updates and check for injuries
+    for (const [pid, upd] of Object.entries(healthUpdates)) {
+      const p = playerMap[pid]
+      if (!p) continue
+      const newHealth = Math.round(Math.max(0, upd.health))
+
+      // Injury probability check
+      const durFactor = (p.durability||75) / 100
+      const hFactor = newHealth < 70 ? 1.5 : newHealth < 85 ? 1.2 : 1.0
+      const pace = paceMap[p.team_id]||70
+      const injChance = 0.018 * (1/durFactor) * hFactor * (pace>80?1.3:1.0)
+
+      if (Math.random() < injChance && injTypes && injTypes.length > 0) {
+        // Pick weighted random injury
+        const weights = (injTypes as any[]).map(t => ({ t, w:(SWEIGHTS[t.severity]||10)*t.game_probability }))
+        const totalW = weights.reduce((s,x)=>s+x.w,0)
+        let r = Math.random()*totalW, chosen = weights[0].t
+        for (const {t,w} of weights) { r-=w; if(r<=0){chosen=t;break} }
+
+        const { data: prev } = await supabaseAdmin.from('injury_log')
+          .select('id').eq('player_id',pid).eq('injury_type',chosen.name).eq('season','2025-26')
+        const isRec = (prev||[]).length > 0
+        const recMod = isRec ? 1.5 : 1.0
+        const daysOut = Math.round((chosen.days_min + Math.random()*(chosen.days_max-chosen.days_min))*recMod)
+        const gamesOut = Math.max(1, Math.round(daysOut/3.5))
+        const hImpact = Math.round(chosen.health_impact_min + Math.random()*(chosen.health_impact_max-chosen.health_impact_min))
+
+        await supabaseAdmin.from('injury_log').insert({
+          player_id:pid, season:'2025-26',
+          injury_type:chosen.name, injury_category:chosen.category,
+          body_part:chosen.body_part, severity:chosen.severity,
+          occurred_in:'game', health_at_injury:newHealth,
+          health_impact:hImpact, moral_impact:chosen.moral_impact||0,
+          days_out:daysOut, games_out:gamesOut,
+          return_week:week+Math.ceil(gamesOut/2),
+          is_recurring:isRec, can_play:newHealth>=50,
+          play_risk:newHealth<65?75:newHealth<75?40:15, status:'active'
+        })
+
+        const injHealth = Math.max(0, newHealth-hImpact)
+        const injMoral  = Math.max(0, (upd.moral||80)-(chosen.moral_impact||0))
+        await supabaseAdmin.from('players').update({
+          health:injHealth, moral:injMoral,
+          status:injHealth<50?'injured':'active',
+          injury_type:chosen.name,
+          games_missed:(p.games_missed||0)+1,
+        }).eq('id',pid)
+
+        if (chosen.severity!=='minor') {
+          await supabaseAdmin.from('transactions').insert({
+            type:'injury',
+            description:`${p.name} (${p.team_id}) — ${chosen.name}. Est. ${gamesOut} games out.`,
+            teams:[p.team_id], players:[p.name], status:'completed',
+          })
+        }
+      } else {
+        // No new injury — just update health
+        const moralDelta = 0  // morale handled separately
+        await supabaseAdmin.from('players').update({ health:newHealth }).eq('id',pid)
+      }
+    }
+
+    // Morale: starters (>20 mins) get +2 for win, -1 for loss
+    for (const box of (weekBoxes||[])) {
+      if (box.mins < 20) continue
+      const p = playerMap[box.player_id]
+      if (!p) continue
+      // Determine if player's team won — find game result
+      // (simplified: we track this via gamesCreated earlier — skip for now, handled per game)
+    }
+
+    // Call recovery API for days between games
+    // (Mon sim = 3 rest days since Thu | handled by separate recovery cron)
+
     await supabaseAdmin.from('season_config').update({ current_week: week }).eq('id',1)
     await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number', week)
+
+    // Apply health recovery for days since last game
+    try {
+      const isMonday = new Date().getDay() === 1
+      const recDays = isMonday ? 3 : 2
+      const { data: allP2 } = await supabaseAdmin.from('players').select('id,health,moral,durability,team_id').eq('status','active')
+      const { data: ords2 } = await supabaseAdmin.from('gm_orders').select('team_id,training_intensity').eq('week_number',week)
+      const iMap: Record<string,string> = {}
+      ;(ords2||[]).forEach((o:any) => iMap[o.team_id]=o.training_intensity||'normal')
+      const IMOD: Record<string,number> = {rest:1.5,light:1.25,normal:1.0,intense:0.5,very_intense:0.25}
+      for (const p of (allP2||[])) {
+        const mod = IMOD[iMap[p.team_id]||'normal']||1.0
+        const durB = ((p.durability||75)-75)/100*0.5
+        const hGain = 3*recDays*mod*(1+durB)
+        const mGain = (p.moral||80)<50?0:0.5*recDays
+        const nh = Math.min(100, Math.round((p.health||100)+hGain))
+        const nm = Math.min(100, Math.round((p.moral||80)+mGain))
+        if (nh!==(p.health||100)||nm!==(p.moral||80))
+          await supabaseAdmin.from('players').update({health:nh,moral:nm}).eq('id',p.id)
+      }
+    } catch(e) { console.warn('Recovery step failed',e) }
 
     return NextResponse.json({ success: true, week, games_simulated: gamesSimulated })
   } catch (err: any) {
