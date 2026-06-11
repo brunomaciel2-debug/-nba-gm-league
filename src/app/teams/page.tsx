@@ -5,7 +5,7 @@ import { readableTeamColor } from '@/lib/color'
 export const revalidate = 60
 
 export default async function TeamsPage() {
-  const { data: teams } = await supabase.from('teams').select('*')
+  const { data: teams } = await supabase.from('teams').select('*').not('id','in','(ALL,RVS)')
   const byConf: Record<string,Record<string,Team[]>> = {}
   ;(teams||[]).forEach((t:Team)=>{
     if(!byConf[t.conference]) byConf[t.conference]={}

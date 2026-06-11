@@ -16,7 +16,7 @@ export default async function HomePage() {
         .order('played_at', { ascending: false }).limit(8),
       supabase.from('transactions').select('*')
         .order('created_at', { ascending: false }).limit(5),
-      supabase.from('teams').select('*'),
+      supabase.from('teams').select('*').not('id','in','(ALL,RVS)'),
     ])
 
   const teamMap = Object.fromEntries((teams||[]).map((t:Team) => [t.id, t]))
