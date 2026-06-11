@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useSearchParams, useRouter } from 'next/navigation'
 
-export default function ProposeTradePage() {
+function ProposeTradePage() {
   const { user, profile } = useAuth()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -235,4 +235,9 @@ export default function ProposeTradePage() {
       </button>
     </div>
   )
+}
+
+import { Suspense } from 'react'
+export default function ProposeTradePageWrapper() {
+  return <Suspense fallback={<div className="p-8 text-center" style={{color:'#8a7a6a'}}>Loading...</div>}><ProposeTradePage /></Suspense>
 }

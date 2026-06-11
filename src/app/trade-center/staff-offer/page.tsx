@@ -4,7 +4,7 @@ import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { useSearchParams, useRouter } from 'next/navigation'
 
-export default function StaffOfferPage() {
+function StaffOfferPage() {
   const { user, profile } = useAuth()
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -139,4 +139,9 @@ export default function StaffOfferPage() {
       </button>
     </div>
   )
+}
+
+import { Suspense } from 'react'
+export default function StaffOfferPageWrapper() {
+  return <Suspense fallback={<div className="p-8 text-center" style={{color:'#8a7a6a'}}>Loading...</div>}><StaffOfferPage /></Suspense>
 }
