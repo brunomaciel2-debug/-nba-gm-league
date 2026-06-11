@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
     const allPairs = [...pairs, ...pairs]  // 4 games per team
 
     let gamesSimulated = 0
+const gamesCreated: string[] = []
     for (let gi=0; gi<allPairs.length; gi++) {
       const [ht, at] = allPairs[gi]
       const [{ data: hp }, { data: ap }] = await Promise.all([
@@ -46,6 +47,7 @@ export async function GET(req: NextRequest) {
       }).select().single()
       if (!gameRec) continue
       gamesSimulated++
+gamesCreated.push(gameRec.id)
 
       await supabaseAdmin.from('box_scores').insert([
         ...result.homeBox.map((b:any) => ({ ...b, game_id: gameRec.id, team_id: ht.id })),

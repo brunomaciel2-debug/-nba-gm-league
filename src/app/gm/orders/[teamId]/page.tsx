@@ -59,6 +59,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   const [threeRate, setThreeRate] = useState(38)
   const [atkStyle, setAtkStyle] = useState('motion')
   const [defStyle, setDefStyle] = useState('man')
+  const [trainIntensity, setTrainIntensity] = useState('normal')
   const [dc, setDc] = useState<Record<string,any>>({
     PG:{s:{name:'',mins:0},b1:{name:'',mins:0},b2:{name:'',mins:0}},
     SG:{s:{name:'',mins:0},b1:{name:'',mins:0},b2:{name:'',mins:0}},
