@@ -18,9 +18,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
         .order('week_number').order('game_number'),
       supabase.from('teams').select('id,name,color,logo_url,arena'),
-      supabase.from('injury_log').select('*')
-        .eq('status','active')
-        .in('player_id', supabase.from('players').select('id').eq('team_id', teamId) as any),
+      supabase.from('injury_log').select('*').eq('status','active').limit(100),
     ])
 
   if (!team) return <div className="p-8 text-center" style={{color:'#8a7a6a'}}>Team not found.</div>
@@ -30,6 +28,10 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const cap=t.salary_cap, used=t.cap_used, space=cap-used
   const capFmt = (n:number) => '$'+Math.round(n/1000000).toFixed(1)+'M'
   const teamsMap = Object.fromEntries((allTeams||[]).map((x:any)=>[x.id,x]))
+
+  // Filter injuries to only this team's players
+  const teamPlayerIds = new Set((players||[]).map((p:any)=>p.id))
+  const teamInjuries = (injuries||[]).filter((i:any)=>teamPlayerIds.has(i.player_id))
 
   const played = (games||[]).filter((g:any)=>g.status==='final')
   const wins   = played.filter((g:any)=>
@@ -109,7 +111,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
       {/* INJURY REPORT — always at bottom */}
       <div className="mt-6 rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
         <InjuryReport
-          injuries={injuries||[]}
+          injuries={teamInjuries||[]}
           players={players||[]}
         />
       </div>
