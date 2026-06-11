@@ -131,45 +131,6 @@ export default async function PlayerPage({ params }: { params: { id: string } })
               <OVR value={ovr} />
             </div>
             {/* Current season quick info */}
-            {/* Health & Morale */}
-            {(() => {
-              const health = (p as any).health ?? 100
-              const moral  = (p as any).moral  ?? 80
-              const hColor = health>=90?'#40e080':health>=80?'#a0e040':health>=65?'#ffd040':health>=50?'#ffa040':'#e04040'
-              const hLabel = health>=90?'Healthy':health>=80?'Good':health>=65?'Limited':health>=50?'Questionable':'Out'
-              const mColor = moral>=80?'#c040ff':moral>=60?'#8030cc':'#e04040'
-              const mLabel = moral>=80?'High':moral>=60?'Normal':'Low'
-              const perfNote = health>=90?'Full potential':health>=80?'~90% performance':health>=65?'~75% performance':health>=50?'~60% performance — risk of aggravation':'Cannot play'
-              return (
-                <div className="flex gap-3 mt-3 flex-wrap">
-                  <div className="rounded-xl px-4 py-3 flex-1 min-w-[120px]"
-                       style={{background:hColor+'18',border:'1px solid '+hColor+'44'}}>
-                    <div className="text-xs mb-2" style={{color:'#6a5a4a'}}>❤️ Health</div>
-                    <div className="h-2 rounded-full overflow-hidden mb-1.5" style={{background:'#3a3228'}}>
-                      <div className="h-full rounded-full transition-all" style={{width:health+'%',background:hColor}}></div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xl font-black" style={{color:hColor}}>{health}%</span>
-                      <span className="text-xs font-semibold" style={{color:hColor}}>{hLabel}</span>
-                    </div>
-                    <div className="text-xs mt-1" style={{color:'#6a5a4a'}}>{perfNote}</div>
-                  </div>
-                  <div className="rounded-xl px-4 py-3 flex-1 min-w-[120px]"
-                       style={{background:mColor+'18',border:'1px solid '+mColor+'44'}}>
-                    <div className="text-xs mb-2" style={{color:'#6a5a4a'}}>🧠 Morale</div>
-                    <div className="h-2 rounded-full overflow-hidden mb-1.5" style={{background:'#3a3228'}}>
-                      <div className="h-full rounded-full transition-all" style={{width:moral+'%',background:mColor}}></div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xl font-black" style={{color:mColor}}>{moral}%</span>
-                      <span className="text-xs font-semibold" style={{color:mColor}}>{mLabel}</span>
-                    </div>
-                    <div className="text-xs mt-1" style={{color:'#6a5a4a'}}>Affects consistency & clutch</div>
-                  </div>
-                </div>
-              )
-            })()}
-
             {currentContract && (
               <div className="flex gap-6 mt-3 flex-wrap">
                 <div>
@@ -197,6 +158,47 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           </div>
         </div>
       </div>
+
+      {/* HEALTH & MORALE */}
+      {(() => {
+        const health = p.health ?? 100
+        const moral  = p.moral  ?? 80
+        const hColor = health>=90?'#40e080':health>=80?'#a0e040':health>=65?'#ffd040':health>=50?'#ffa040':'#e04040'
+        const hLabel = health>=90?'Healthy':health>=80?'Good':health>=65?'Limited':health>=50?'Questionable':'OUT'
+        const mColor = moral>=80?'#c040ff':moral>=60?'#8030cc':'#e04040'
+        const mLabel = moral>=80?'High':moral>=60?'Normal':'Low'
+        const perfNote = health>=90?'Full potential':health>=80?'~90% output':health>=65?'~75% output':health>=50?'~60% output · risk of aggravation':'Cannot play'
+        return (
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="rounded-xl p-4" style={{background:hColor+'18',border:'1px solid '+hColor+'55'}}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6a5a4a'}}>❤️ Health</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:hColor+'33',color:hColor}}>{hLabel}</span>
+              </div>
+              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#3a3228'}}>
+                <div className="h-full rounded-full" style={{width:health+'%',background:hColor}}></div>
+              </div>
+              <div className="flex items-end justify-between">
+                <span className="text-3xl font-black" style={{color:hColor}}>{health}%</span>
+                <span className="text-xs text-right" style={{color:'#6a5a4a',maxWidth:140}}>{perfNote}</span>
+              </div>
+            </div>
+            <div className="rounded-xl p-4" style={{background:mColor+'18',border:'1px solid '+mColor+'55'}}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6a5a4a'}}>🧠 Morale</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:mColor+'33',color:mColor}}>{mLabel}</span>
+              </div>
+              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#3a3228'}}>
+                <div className="h-full rounded-full" style={{width:moral+'%',background:mColor}}></div>
+              </div>
+              <div className="flex items-end justify-between">
+                <span className="text-3xl font-black" style={{color:mColor}}>{moral}%</span>
+                <span className="text-xs text-right" style={{color:'#6a5a4a'}}>Affects consistency & clutch performance</span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
