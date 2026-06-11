@@ -1,243 +1,374 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 
+// ── helpers ──────────────────────────────────────────────
+const capFmt = (n: number) => n >= 1000000 ? '$' + (n / 1000000).toFixed(2) + 'M' : n ? '$' + n.toLocaleString() : '$0'
+
+function toggle(arr: string[], id: string): string[] {
+  return arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id]
+}
+
+// ── PlayerPickPanel ───────────────────────────────────────
+function PlayerPickPanel({
+  label, teamInfo, players, picks, allTeams,
+  selPlayers, selPicks, onTogglePlayer, onTogglePick,
+  isMyTeam = false, onSelectTeam
+}: {
+  label: string
+  teamInfo: any
+  players: any[]
+  picks: any[]
+  allTeams: any[]
+  selPlayers: string[]
+  selPicks: string[]
+  onTogglePlayer: (id: string) => void
+  onTogglePick: (id: string) => void
+  isMyTeam?: boolean
+  onSelectTeam?: (id: string) => void
+}) {
+  const tc = teamInfo ? readableTeamColor(teamInfo.color) : '#8a7a6a'
+  const totalSalary = players.filter(p => selPlayers.includes(p.id)).reduce((s, p) => s + (p.salary || 0), 0)
+
+  return (
+    <div className="rounded-xl overflow-hidden flex flex-col"
+         style={{ border: '1px solid ' + (teamInfo ? tc + '44' : '#3a3228'), borderTop: '3px solid ' + (teamInfo ? tc : '#3a3228') }}>
+      {/* Header */}
+      <div className="px-4 py-3" style={{ background: '#120f0a', borderBottom: '1px solid #3a3228' }}>
+        {isMyTeam ? (
+          <div className="flex items-center gap-2">
+            {teamInfo?.logo_url && <img src={teamInfo.logo_url} alt="" className="w-6 h-6 object-contain" />}
+            <span className="font-bold" style={{ color: tc }}>{teamInfo?.name || 'Your Team'}</span>
+            <span className="text-xs ml-2" style={{ color: '#6a5a4a' }}>sends →</span>
+          </div>
+        ) : (
+          <div>
+            <div className="text-xs mb-2" style={{ color: '#8a7a6a' }}>{label} — select team:</div>
+            <select onChange={e => onSelectTeam?.(e.target.value)}
+              value={teamInfo?.id || ''}
+              className="w-full text-sm px-3 py-2 rounded-lg outline-none"
+              style={{ background: '#1a1610', border: '1px solid #3a3228', color: '#f0ebe0' }}>
+              <option value="">— Choose team —</option>
+              {allTeams.map((t: any) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {teamInfo && (
+        <div className="flex-1 overflow-y-auto p-3" style={{ background: '#1a1610', maxHeight: 420 }}>
+          {/* Players */}
+          <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#6a5a4a' }}>Players</div>
+          {players.length === 0 && <p className="text-xs mb-3" style={{ color: '#4a3a2a' }}>No players found.</p>}
+          {players.map((p: any) => {
+            const isSel = selPlayers.includes(p.id)
+            return (
+              <button key={p.id} onClick={() => onTogglePlayer(p.id)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg mb-1 text-left transition-all"
+                style={{ background: isSel ? tc + '22' : '#241f18', border: '1px solid ' + (isSel ? tc + '66' : '#3a3228') }}>
+                <span className="text-xs w-7 flex-shrink-0" style={{ color: '#6a5a4a' }}>{p.pos}</span>
+                <span className="text-sm flex-1 font-semibold" style={{ color: isSel ? '#fff' : '#c0b8a8' }}>{p.name}</span>
+                <span className="text-xs font-semibold" style={{ color: isSel ? tc : '#6a5a4a' }}>{capFmt(p.salary)}</span>
+                {isSel && <span className="text-sm flex-shrink-0" style={{ color: tc }}>✓</span>}
+              </button>
+            )
+          })}
+
+          {/* Draft Picks */}
+          <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-4" style={{ color: '#6a5a4a' }}>Draft Picks</div>
+          {picks.length === 0 && <p className="text-xs" style={{ color: '#4a3a2a' }}>No picks available.</p>}
+          <div className="flex flex-wrap gap-2">
+            {picks.map((pk: any) => {
+              const isSel = selPicks.includes(pk.id)
+              const isOwn = pk.original_team_id === teamInfo?.id
+              return (
+                <button key={pk.id} onClick={() => onTogglePick(pk.id)}
+                  className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
+                  style={{ background: isSel ? tc + '33' : '#241f18', border: '1px solid ' + (isSel ? tc : '#3a3228'), color: isSel ? tc : '#8a7a6a' }}>
+                  {pk.season} R{pk.round}
+                  {!isOwn && <span className="ml-1" style={{ color: '#ffa040' }}>(via {pk.original_team_id})</span>}
+                  {pk.protection !== 'unprotected' && <span className="ml-1" style={{ color: '#e04040' }}>({pk.protection})</span>}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Salary total */}
+      {teamInfo && (
+        <div className="px-4 py-2.5 flex items-center justify-between"
+             style={{ background: '#120f0a', borderTop: '1px solid #3a3228' }}>
+          <span className="text-xs" style={{ color: '#6a5a4a' }}>
+            {selPlayers.length} player{selPlayers.length !== 1 ? 's' : ''} · {selPicks.length} pick{selPicks.length !== 1 ? 's' : ''}
+          </span>
+          <span className="font-bold text-sm" style={{ color: tc }}>{capFmt(totalSalary)}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────
 function ProposeTradePage() {
   const { user, profile } = useAuth()
-  const searchParams = useSearchParams()
   const router = useRouter()
-  const toTeamId = searchParams.get('to')
 
-  const [myPlayers,    setMyPlayers]    = useState<any[]>([])
-  const [theirPlayers, setTheirPlayers] = useState<any[]>([])
-  const [myPicks,      setMyPicks]      = useState<any[]>([])
-  const [theirPicks,   setTheirPicks]   = useState<any[]>([])
-  const [theirTeam,    setTheirTeam]    = useState<any>(null)
-  const [myTeam,       setMyTeam]       = useState<any>(null)
-  const [extraTeams,   setExtraTeams]   = useState<string[]>([])
+  const [allTeams,    setAllTeams]    = useState<any[]>([])
+  const [myPlayers,   setMyPlayers]   = useState<any[]>([])
+  const [myPicks,     setMyPicks]     = useState<any[]>([])
+  const [myTeam,      setMyTeam]      = useState<any>(null)
 
-  // Selected items
-  const [sendPlayers,  setSendPlayers]  = useState<string[]>([])
-  const [recvPlayers,  setRecvPlayers]  = useState<string[]>([])
-  const [sendPicks,    setSendPicks]    = useState<string[]>([])
-  const [recvPicks,    setRecvPicks]    = useState<string[]>([])
-  const [notes,        setNotes]        = useState('')
-  const [submitting,   setSubmitting]   = useState(false)
-  const [submitted,    setSubmitted]    = useState(false)
+  // Team 2
+  const [team2Id,     setTeam2Id]     = useState('')
+  const [team2,       setTeam2]       = useState<any>(null)
+  const [t2Players,   setT2Players]   = useState<any[]>([])
+  const [t2Picks,     setT2Picks]     = useState<any[]>([])
+
+  // Team 3 (optional)
+  const [show3,       setShow3]       = useState(false)
+  const [team3Id,     setTeam3Id]     = useState('')
+  const [team3,       setTeam3]       = useState<any>(null)
+  const [t3Players,   setT3Players]   = useState<any[]>([])
+  const [t3Picks,     setT3Picks]     = useState<any[]>([])
+
+  // Selections
+  const [mySend,      setMySend]      = useState<string[]>([])
+  const [myPicksSend, setMyPicksSend] = useState<string[]>([])
+  const [t2Recv,      setT2Recv]      = useState<string[]>([])
+  const [t2PicksRecv, setT2PicksRecv] = useState<string[]>([])
+  const [t3Recv,      setT3Recv]      = useState<string[]>([])
+  const [t3PicksRecv, setT3PicksRecv] = useState<string[]>([])
+
+  const [notes,       setNotes]       = useState('')
+  const [submitting,  setSubmitting]  = useState(false)
+  const [submitted,   setSubmitted]   = useState(false)
 
   const myTeamId = profile?.team_id
 
+  // Load my team data
   useEffect(() => {
-    if (!myTeamId || !toTeamId) return
+    if (!myTeamId) return
     Promise.all([
-      supabase.from('players').select('id,name,pos,salary').eq('team_id',myTeamId).eq('status','active').order('usage',{ascending:false}),
-      supabase.from('players').select('id,name,pos,salary').eq('team_id',toTeamId).eq('status','active').order('usage',{ascending:false}),
-      supabase.from('draft_picks').select('*').eq('team_id',myTeamId),
-      supabase.from('draft_picks').select('*').eq('team_id',toTeamId),
-      supabase.from('teams').select('*').eq('id',toTeamId).single(),
-      supabase.from('teams').select('*').eq('id',myTeamId).single(),
-    ]).then(([{data:mp},{data:tp},{data:mpick},{data:tpick},{data:tt},{data:mt}])=>{
-      setMyPlayers(mp||[])
-      setTheirPlayers(tp||[])
-      setMyPicks(mpick||[])
-      setTheirPicks(tpick||[])
-      setTheirTeam(tt)
+      supabase.from('teams').select('*').not('id', 'in', '(ALL,RVS)').order('name'),
+      supabase.from('players').select('id,name,pos,salary,usage').eq('team_id', myTeamId).eq('status', 'active').order('usage', { ascending: false }),
+      supabase.from('draft_picks').select('*').eq('team_id', myTeamId).order('season').order('round'),
+      supabase.from('teams').select('*').eq('id', myTeamId).single(),
+    ]).then(([{ data: ts }, { data: ps }, { data: picks }, { data: mt }]) => {
+      setAllTeams((ts || []).filter((t: any) => t.id !== myTeamId))
+      setMyPlayers(ps || [])
+      setMyPicks(picks || [])
       setMyTeam(mt)
     })
-  }, [myTeamId, toTeamId])
+  }, [myTeamId])
 
-  const capFmt = (n:number) => n>=1000000?'$'+(n/1000000).toFixed(1)+'M':'$'+n?.toLocaleString()
+  // Load team 2 data
+  useEffect(() => {
+    if (!team2Id) return
+    Promise.all([
+      supabase.from('players').select('id,name,pos,salary,usage').eq('team_id', team2Id).eq('status', 'active').order('usage', { ascending: false }),
+      supabase.from('draft_picks').select('*').eq('team_id', team2Id).order('season').order('round'),
+      supabase.from('teams').select('*').eq('id', team2Id).single(),
+    ]).then(([{ data: ps }, { data: picks }, { data: t }]) => {
+      setT2Players(ps || [])
+      setT2Picks(picks || [])
+      setTeam2(t)
+      setT2Recv([]); setT2PicksRecv([])
+    })
+  }, [team2Id])
 
-  const sendSalary = myPlayers.filter(p=>sendPlayers.includes(p.id)).reduce((s,p)=>s+p.salary,0)
-  const recvSalary = theirPlayers.filter(p=>recvPlayers.includes(p.id)).reduce((s,p)=>s+p.salary,0)
-  const diff = Math.abs(sendSalary - recvSalary)
-  const maxDiff = Math.max(sendSalary, recvSalary) * 0.15
-  const isValid = sendSalary > 0 && recvSalary > 0 && diff <= maxDiff + 1000000
+  // Load team 3 data
+  useEffect(() => {
+    if (!team3Id) return
+    Promise.all([
+      supabase.from('players').select('id,name,pos,salary,usage').eq('team_id', team3Id).eq('status', 'active').order('usage', { ascending: false }),
+      supabase.from('draft_picks').select('*').eq('team_id', team3Id).order('season').order('round'),
+      supabase.from('teams').select('*').eq('id', team3Id).single(),
+    ]).then(([{ data: ps }, { data: picks }, { data: t }]) => {
+      setT3Players(ps || [])
+      setT3Picks(picks || [])
+      setTeam3(t)
+      setT3Recv([]); setT3PicksRecv([])
+    })
+  }, [team3Id])
 
-  const toggle = (arr: string[], setArr: (a:string[])=>void, id: string) => {
-    setArr(arr.includes(id) ? arr.filter(x=>x!==id) : [...arr, id])
-  }
+  // ── Salary calculations ─────────────────────────────────
+  const mySalarySent = myPlayers.filter(p => mySend.includes(p.id)).reduce((s, p) => s + (p.salary || 0), 0)
+  const t2SalarySent = t2Players.filter(p => t2Recv.includes(p.id)).reduce((s, p) => s + (p.salary || 0), 0)
+  const t3SalarySent = t3Players.filter(p => t3Recv.includes(p.id)).reduce((s, p) => s + (p.salary || 0), 0)
+
+  // In a 2-team trade: my sends ≈ t2 sends (±15% + $1M)
+  const totalOut = mySalarySent
+  const totalIn  = t2SalarySent + t3SalarySent
+  const diff     = Math.abs(totalOut - totalIn)
+  const maxDiff  = Math.max(totalOut, totalIn) * 0.15 + 1000000
+  const hasPlayers = (mySend.length + myPicksSend.length > 0) && (t2Recv.length + t2PicksRecv.length > 0 || t3Recv.length + t3PicksRecv.length > 0)
+  const salaryValid = totalOut === 0 && totalIn === 0 ? true : diff <= maxDiff
+  const isValid = hasPlayers && salaryValid
 
   const submitTrade = async () => {
-    if (!user || !myTeamId || !toTeamId || !isValid) return
+    if (!user || !myTeamId || !team2Id || !isValid) return
     setSubmitting(true)
 
-    // Create proposal
     const { data: proposal } = await supabase.from('trade_proposals').insert({
       initiator_team: myTeamId, status: 'pending', notes
     }).select().single()
-
     if (!proposal) { setSubmitting(false); return }
 
-    // Create team entries
-    await supabase.from('trade_proposal_teams').insert([
-      { proposal_id: proposal.id, team_id: myTeamId,
-        players_out: sendPlayers, players_in: recvPlayers,
-        picks_out: sendPicks, picks_in: recvPicks,
-        salary_out: sendSalary, salary_in: recvSalary },
-      { proposal_id: proposal.id, team_id: toTeamId,
-        players_out: recvPlayers, players_in: sendPlayers,
-        picks_out: recvPicks, picks_in: sendPicks,
-        salary_out: recvSalary, salary_in: sendSalary },
-    ])
+    const teams: any[] = [
+      { team_id: myTeamId,  players_out: mySend,  picks_out: myPicksSend, players_in: [...t2Recv, ...t3Recv], picks_in: [...t2PicksRecv, ...t3PicksRecv], salary_out: mySalarySent, salary_in: totalIn },
+      { team_id: team2Id,   players_out: t2Recv,  picks_out: t2PicksRecv, players_in: mySend, picks_in: myPicksSend, salary_out: t2SalarySent, salary_in: mySalarySent },
+    ]
+    if (team3Id) teams.push({ team_id: team3Id, players_out: t3Recv, picks_out: t3PicksRecv, players_in: [], picks_in: [], salary_out: t3SalarySent, salary_in: 0 })
 
-    // Find target GM and send message
-    const { data: targetProfile } = await supabase.from('gm_profiles').select('id').eq('team_id',toTeamId).single()
-    if (targetProfile) {
-      const sendNames = myPlayers.filter(p=>sendPlayers.includes(p.id)).map(p=>p.name).join(', ')
-      const recvNames = theirPlayers.filter(p=>recvPlayers.includes(p.id)).map(p=>p.name).join(', ')
-      await supabase.from('messages').insert({
-        from_user: user.id, to_user: targetProfile.id,
-        subject: `Trade Proposal from ${myTeam?.name}`,
-        body: `${myTeam?.name} proposes: Send ${sendNames || 'picks'} → Receive ${recvNames || 'picks'}.\n\n${notes||''}`,
-        type: 'trade_proposal', ref_id: proposal.id
-      })
+    await supabase.from('trade_proposal_teams').insert(teams.map(t => ({ ...t, proposal_id: proposal.id })))
+
+    // Notify GMs
+    for (const tid of [team2Id, team3Id].filter(Boolean)) {
+      const { data: gm } = await supabase.from('gm_profiles').select('id').eq('team_id', tid).single()
+      if (gm) {
+        const sendNames = myPlayers.filter(p => mySend.includes(p.id)).map(p => p.name).join(', ')
+        const t2Names   = t2Players.filter(p => t2Recv.includes(p.id)).map(p => p.name).join(', ')
+        await supabase.from('messages').insert({
+          from_user: user.id, to_user: gm.id,
+          subject: `Trade Proposal from ${myTeam?.name}`,
+          body: `${myTeam?.name} proposes a trade:\n→ Sends: ${sendNames || 'picks only'}\n← Receives: ${t2Names || 'picks only'}\n\n${notes}`,
+          type: 'trade_proposal', ref_id: proposal.id
+        })
+      }
     }
-
-    setSubmitting(false)
-    setSubmitted(true)
+    setSubmitting(false); setSubmitted(true)
   }
 
-  if (!user) return (
+  if (!user || !myTeamId) return (
     <div className="max-w-2xl mx-auto px-4 py-12 text-center">
-      <p className="mb-4" style={{color:'#8a7a6a'}}>You must be signed in to propose a trade.</p>
-      <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold no-underline"
-         style={{background:'#3a8adf',color:'#fff'}}>Sign In</a>
+      <p className="mb-4" style={{ color: '#8a7a6a' }}>Sign in to propose a trade.</p>
+      <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#3a8adf', color: '#fff' }}>Sign In</a>
     </div>
   )
 
   if (submitted) return (
-    <div className="max-w-2xl mx-auto px-4 py-12 text-center">
+    <div className="max-w-lg mx-auto px-4 py-12 text-center">
       <div className="text-5xl mb-4">✅</div>
-      <h2 className="text-xl font-bold mb-2" style={{color:'#f0ebe0'}}>Trade Proposal Sent!</h2>
-      <p className="mb-6" style={{color:'#8a7a6a'}}>
-        The GM of {theirTeam?.name} will receive a notification and can accept, reject or counter.
-      </p>
-      <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline"
-         style={{background:'#3a8adf',color:'#fff'}}>Back to Trade Center</a>
+      <h2 className="text-xl font-bold mb-2" style={{ color: '#f0ebe0' }}>Trade Proposal Sent!</h2>
+      <p className="mb-6" style={{ color: '#8a7a6a' }}>The GM(s) received a notification and can accept, reject or counter.</p>
+      <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#3a8adf', color: '#fff' }}>← Back</a>
     </div>
   )
 
-  const myColor   = readableTeamColor(myTeam?.color||'555')
-  const theirColor = readableTeamColor(theirTeam?.color||'555')
-
-  const PlayerList = ({ players, selected, onToggle, color }: any) => (
-    <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
-      {players.map((p:any) => {
-        const isSel = selected.includes(p.id)
-        return (
-          <button key={p.id} onClick={()=>onToggle(p.id)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all"
-            style={{background:isSel?color+'22':'#1a1610',border:'1px solid '+(isSel?color:'#3a3228')}}>
-            <span className="text-xs w-7" style={{color:'#6a5a4a'}}>{p.pos}</span>
-            <span className="text-sm flex-1 font-semibold" style={{color:isSel?'#fff':'#c0b8a8'}}>{p.name}</span>
-            <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(p.salary)}</span>
-            {isSel && <span className="text-sm">✓</span>}
-          </button>
-        )
-      })}
-    </div>
-  )
-
-  const PickList = ({ picks, selected, onToggle, color }: any) => (
-    <div className="flex flex-wrap gap-2 mt-2">
-      {picks.map((pk:any) => {
-        const isSel = selected.includes(pk.id)
-        return (
-          <button key={pk.id} onClick={()=>onToggle(pk.id)}
-            className="text-xs px-2 py-1 rounded font-semibold"
-            style={{background:isSel?color+'33':'#1a1610',border:'1px solid '+(isSel?color:'#3a3228'),
-                    color:isSel?color:'#8a7a6a'}}>
-            {pk.season} R{pk.round}
-            {pk.protection!=='unprotected'&&` (${pk.protection})`}
-          </button>
-        )
-      })}
-    </div>
-  )
+  const tc2 = team2 ? readableTeamColor(team2.color) : '#8a7a6a'
+  const tc3 = team3 ? readableTeamColor(team3.color) : '#8a7a6a'
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-3 mb-6">
-        <a href="/trade-center" className="text-xs no-underline" style={{color:'#8a7a6a'}}>← Trade Center</a>
-        <h1 className="text-xl font-bold" style={{color:'#f0ebe0'}}>
-          Propose Trade: {myTeam?.name} ↔ {theirTeam?.name}
-        </h1>
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
+        <a href="/trade-center" className="text-xs no-underline" style={{ color: '#8a7a6a' }}>← Trade Center</a>
+        <h1 className="text-xl font-bold" style={{ color: '#f0ebe0' }}>🔄 Propose Trade</h1>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6 mb-6">
-        {/* My team — sending */}
-        <div className="rounded-xl p-4" style={{background:'#241f18',border:'1px solid '+myColor+'44',borderTop:'3px solid '+myColor}}>
-          <div className="flex items-center gap-2 mb-3">
-            {myTeam?.logo_url&&<img src={myTeam.logo_url} alt="" className="w-6 h-6 object-contain"/>}
-            <span className="font-bold" style={{color:myColor}}>{myTeam?.name} sends</span>
-          </div>
-          <p className="text-xs mb-2" style={{color:'#6a5a4a'}}>Select players to send:</p>
-          <PlayerList players={myPlayers} selected={sendPlayers}
-            onToggle={(id:string)=>toggle(sendPlayers,setSendPlayers,id)} color={myColor} />
-          <p className="text-xs mt-3 mb-1" style={{color:'#6a5a4a'}}>Draft picks to send:</p>
-          <PickList picks={myPicks} selected={sendPicks}
-            onToggle={(id:string)=>toggle(sendPicks,setSendPicks,id)} color={myColor} />
-          <div className="mt-3 text-sm font-bold" style={{color:myColor}}>
-            Total salary out: {capFmt(sendSalary)}
-          </div>
-        </div>
+      {/* Teams grid */}
+      <div className={`grid gap-4 mb-6 ${show3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+        {/* My team */}
+        <PlayerPickPanel
+          label="Your Team" teamInfo={myTeam} players={myPlayers} picks={myPicks}
+          allTeams={allTeams} selPlayers={mySend} selPicks={myPicksSend}
+          onTogglePlayer={id => setMySend(p => toggle(p, id))}
+          onTogglePick={id => setMyPicksSend(p => toggle(p, id))}
+          isMyTeam />
 
-        {/* Their team — receiving */}
-        <div className="rounded-xl p-4" style={{background:'#241f18',border:'1px solid '+theirColor+'44',borderTop:'3px solid '+theirColor}}>
-          <div className="flex items-center gap-2 mb-3">
-            {theirTeam?.logo_url&&<img src={theirTeam.logo_url} alt="" className="w-6 h-6 object-contain"/>}
-            <span className="font-bold" style={{color:theirColor}}>{theirTeam?.name} sends</span>
-          </div>
-          <p className="text-xs mb-2" style={{color:'#6a5a4a'}}>Select players to receive:</p>
-          <PlayerList players={theirPlayers} selected={recvPlayers}
-            onToggle={(id:string)=>toggle(recvPlayers,setRecvPlayers,id)} color={theirColor} />
-          <p className="text-xs mt-3 mb-1" style={{color:'#6a5a4a'}}>Draft picks to receive:</p>
-          <PickList picks={theirPicks} selected={recvPicks}
-            onToggle={(id:string)=>toggle(recvPicks,setRecvPicks,id)} color={theirColor} />
-          <div className="mt-3 text-sm font-bold" style={{color:theirColor}}>
-            Total salary in: {capFmt(recvSalary)}
-          </div>
-        </div>
+        {/* Team 2 */}
+        <PlayerPickPanel
+          label="Team 2" teamInfo={team2} players={t2Players} picks={t2Picks}
+          allTeams={allTeams.filter(t => t.id !== team3Id)} selPlayers={t2Recv} selPicks={t2PicksRecv}
+          onTogglePlayer={id => setT2Recv(p => toggle(p, id))}
+          onTogglePick={id => setT2PicksRecv(p => toggle(p, id))}
+          onSelectTeam={setTeam2Id} />
+
+        {/* Team 3 */}
+        {show3 && (
+          <PlayerPickPanel
+            label="Team 3" teamInfo={team3} players={t3Players} picks={t3Picks}
+            allTeams={allTeams.filter(t => t.id !== team2Id)} selPlayers={t3Recv} selPicks={t3PicksRecv}
+            onTogglePlayer={id => setT3Recv(p => toggle(p, id))}
+            onTogglePick={id => setT3PicksRecv(p => toggle(p, id))}
+            onSelectTeam={setTeam3Id} />
+        )}
       </div>
 
-      {/* Validation */}
-      <div className="rounded-xl p-4 mb-4" style={{background:isValid?'#0a2a10':'#2a0a0a',
-           border:'1px solid '+(isValid?'#1a5a20':'#5a1a1a')}}>
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-sm font-bold" style={{color:isValid?'#40e080':'#e04040'}}>
-            {isValid?'✅ Trade is valid':'❌ Trade invalid'}
-          </span>
-          <span className="text-xs" style={{color:'#8a7a6a'}}>
-            Salary difference: {capFmt(diff)} (max allowed: {capFmt(maxDiff + 1000000)} = 15% + $1M)
-          </span>
-          {sendSalary === 0 && <span className="text-xs" style={{color:'#e04040'}}>Select at least 1 player or pick to send</span>}
-          {recvSalary === 0 && <span className="text-xs" style={{color:'#e04040'}}>Select at least 1 player or pick to receive</span>}
+      {/* Add/remove 3rd team */}
+      <div className="flex justify-center mb-6">
+        <button onClick={() => { setShow3(!show3); if (show3) { setTeam3Id(''); setTeam3(null); setT3Recv([]); setT3PicksRecv([]) } }}
+          className="text-xs px-4 py-2 rounded-lg font-semibold"
+          style={{ background: show3 ? '#2a0a0a' : '#1e3a5f', color: show3 ? '#e04040' : '#60a0ff', border: '1px solid ' + (show3 ? '#5a1a1a' : '#1e3a5f') }}>
+          {show3 ? '✕ Remove 3rd Team' : '+ Add 3rd Team (3-way trade)'}
+        </button>
+      </div>
+
+      {/* Trade calculator */}
+      <div className="rounded-xl p-4 mb-4" style={{ background: '#120f0a', border: '1px solid #3a3228' }}>
+        <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#6a5a4a' }}>🧮 Trade Calculator</div>
+        <div className="grid grid-cols-3 gap-4 mb-3">
+          <div className="rounded-lg p-3 text-center" style={{ background: '#1a1610' }}>
+            <div className="text-xs mb-1" style={{ color: '#6a5a4a' }}>You send</div>
+            <div className="text-xl font-black" style={{ color: myTeam ? readableTeamColor(myTeam.color) : '#8a7a6a' }}>{capFmt(mySalarySent)}</div>
+            <div className="text-xs mt-0.5" style={{ color: '#6a5a4a' }}>{mySend.length} players · {myPicksSend.length} picks</div>
+          </div>
+          <div className="rounded-lg p-3 text-center" style={{ background: '#1a1610' }}>
+            <div className="text-xs mb-1" style={{ color: '#6a5a4a' }}>Difference</div>
+            <div className="text-xl font-black" style={{ color: salaryValid ? '#40e080' : '#e04040' }}>{capFmt(diff)}</div>
+            <div className="text-xs mt-0.5" style={{ color: '#6a5a4a' }}>Max allowed: {capFmt(maxDiff)}</div>
+          </div>
+          <div className="rounded-lg p-3 text-center" style={{ background: '#1a1610' }}>
+            <div className="text-xs mb-1" style={{ color: '#6a5a4a' }}>You receive</div>
+            <div className="text-xl font-black" style={{ color: tc2 }}>{capFmt(totalIn)}</div>
+            <div className="text-xs mt-0.5" style={{ color: '#6a5a4a' }}>{t2Recv.length + t3Recv.length} players · {t2PicksRecv.length + t3PicksRecv.length} picks</div>
+          </div>
+        </div>
+        {/* Validation message */}
+        <div className="rounded-lg px-4 py-2.5 flex items-center gap-3"
+             style={{ background: isValid ? '#0a2a10' : '#2a0a0a', border: '1px solid ' + (isValid ? '#1a5a20' : '#5a1a1a') }}>
+          <span className="text-lg">{isValid ? '✅' : '❌'}</span>
+          <div>
+            <span className="font-bold text-sm" style={{ color: isValid ? '#40e080' : '#e04040' }}>
+              {isValid ? 'Trade is valid' : 'Trade is invalid'}
+            </span>
+            <div className="text-xs mt-0.5" style={{ color: '#8a7a6a' }}>
+              {!hasPlayers && 'Select at least 1 player or pick on each side · '}
+              {!salaryValid && `Salary difference $${(diff / 1000000).toFixed(2)}M exceeds limit of $${(maxDiff / 1000000).toFixed(2)}M (±15% + $1M) · `}
+              {!team2Id && 'Select a team to trade with · '}
+              {isValid && 'Salaries match within NBA rules. Ready to send.'}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Notes */}
       <div className="mb-4">
-        <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>Message to other GM (optional)</label>
-        <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3}
+        <label className="block text-xs font-semibold mb-1.5" style={{ color: '#8a7a6a' }}>Message to other GM (optional)</label>
+        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
           className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
-          style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0'}}
-          placeholder="Explain your trade offer..." />
+          style={{ background: '#1a1610', border: '1px solid #3a3228', color: '#f0ebe0' }}
+          placeholder="Explain your offer..." />
       </div>
 
-      <button onClick={submitTrade} disabled={!isValid||submitting}
-        className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40"
-        style={{background:'#ffd040',color:'#1a1610'}}>
-        {submitting?'Sending...':'Send Trade Proposal 🔄'}
+      <button onClick={submitTrade} disabled={!isValid || submitting}
+        className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-all"
+        style={{ background: isValid ? '#ffd040' : '#2a2218', color: isValid ? '#1a1610' : '#5a4a3a' }}>
+        {submitting ? 'Sending...' : 'Send Trade Proposal 🔄'}
       </button>
     </div>
   )
 }
 
-import { Suspense } from 'react'
 export default function ProposeTradePageWrapper() {
-  return <Suspense fallback={<div className="p-8 text-center" style={{color:'#8a7a6a'}}>Loading...</div>}><ProposeTradePage /></Suspense>
+  return (
+    <Suspense fallback={<div className="p-8 text-center" style={{ color: '#8a7a6a' }}>Loading...</div>}>
+      <ProposeTradePage />
+    </Suspense>
+  )
 }
