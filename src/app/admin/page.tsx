@@ -50,6 +50,7 @@ export default function AdminPage() {
           {icon:'🤝',label:'Trade Approvals',   desc:'Review pending trade proposals',         href:'/admin/trades',    color:'#ffa040'},
           {icon:'🏥',label:'Injury Report',     desc:'Add/update player injuries',             href:'/admin/injuries',  color:'#e04040'},
           {icon:'👥',label:'Manage GMs',        desc:'Assign GMs to teams, send invites',      href:'/admin/gms',       color:'#40e080'},
+          {icon:'🎯',label:'Coaching Staff',     desc:'View all coaches, free agents',          href:'/admin/coaches',   color:'#ffd040'},
         ].map(item=>(
           <Link key={item.href} href={item.href} className="no-underline group">
             <div className="rounded-xl p-5 h-full transition-all"

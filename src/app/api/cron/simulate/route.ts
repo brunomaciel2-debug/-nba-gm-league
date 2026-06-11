@@ -196,6 +196,123 @@ export async function GET(req: NextRequest) {
     await supabaseAdmin.from('season_config').update({ current_week: week }).eq('id',1)
     await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number', week)
 
+
+    // ── ATTRIBUTE DEVELOPMENT ─────────────────────────────
+    try {
+      const { data: allPlayers3 } = await supabaseAdmin
+        .from('players').select('id,name,age,health,moral,dev_rate,team_id,'+
+          'three,layup,dunk,mid,ft,siq,draw_foul,blk,stl,idef,pdef,def_reb,off_reb,'+
+          'stamina,durability,ball_hdl,pass_vis,pass_iq,pressure,consistency,assist_role,'+
+          'pot_three,pot_layup,pot_dunk,pot_mid,pot_ft,pot_siq,pot_draw_foul,pot_blk,pot_stl,'+
+          'pot_idef,pot_pdef,pot_def_reb,pot_off_reb,pot_stamina,pot_durability,'+
+          'pot_ball_hdl,pot_pass_vis,pot_pass_iq,pot_pressure,pot_consistency,pot_assist_role')
+
+      const { data: coaches3 } = await supabaseAdmin.from('coaches').select('team_id,role,player_dev,offense_iq,defense_iq,specialty,specialty_boost,conditioning')
+
+      // Build coach bonuses per team
+      const coachBonus: Record<string,{dev:number,off:number,def:number,conditioning:number,specialties:Record<string,number>}> = {}
+      for (const c of (coaches3||[])) {
+        if (!c.team_id) continue
+        if (!coachBonus[c.team_id]) coachBonus[c.team_id] = {dev:60,off:60,def:60,conditioning:60,specialties:{}}
+        if (c.role==='head_coach') {
+          coachBonus[c.team_id].dev = c.player_dev||60
+          coachBonus[c.team_id].off = c.offense_iq||60
+          coachBonus[c.team_id].def = c.defense_iq||60
+        }
+        if (c.role==='assistant_coach' && c.specialty) {
+          coachBonus[c.team_id].specialties[c.specialty] = (c.specialty_boost||10)
+        }
+        if (c.role==='trainer') {
+          coachBonus[c.team_id].conditioning = Math.max(coachBonus[c.team_id].conditioning, c.conditioning||60)
+        }
+      }
+
+      // Training intensity development modifier
+      const TRAIN_DEV: Record<string,number> = {rest:-0.5,light:0.5,normal:1.0,intense:1.5,very_intense:1.8}
+
+      const ATTRS = ['three','layup','dunk','mid','ft','siq','draw_foul','blk','stl',
+        'idef','pdef','def_reb','off_reb','stamina','durability',
+        'ball_hdl','pass_vis','pass_iq','pressure','consistency','assist_role']
+
+      const OFF_ATTRS = new Set(['three','layup','dunk','mid','ft','siq','draw_foul'])
+      const DEF_ATTRS = new Set(['blk','stl','idef','pdef'])
+      const PHYS_ATTRS = new Set(['stamina','durability','def_reb','off_reb'])
+      const PLAY_ATTRS = new Set(['ball_hdl','pass_vis','pass_iq','assist_role'])
+
+      const SPECIALTY_MAP: Record<string,string[]> = {
+        offense:     ['three','mid','layup','dunk','siq'],
+        defense:     ['blk','stl','idef','pdef'],
+        shooting:    ['three','mid','ft'],
+        playmaking:  ['ball_hdl','pass_vis','pass_iq','assist_role'],
+        bigs:        ['blk','def_reb','off_reb','idef','dunk'],
+      }
+
+      const { data: weekOrds3 } = await supabaseAdmin.from('gm_orders').select('team_id,training_intensity,pace').eq('week_number',week)
+      const ordMap3: Record<string,any> = {}
+      ;(weekOrds3||[]).forEach((o:any) => ordMap3[o.team_id]=o)
+
+      for (const p of (allPlayers3||[])) {
+        const ord = ordMap3[p.team_id] || {training_intensity:'normal'}
+        const coach = coachBonus[p.team_id] || {dev:60,off:60,def:60,conditioning:60,specialties:{}}
+        const trainMod = TRAIN_DEV[ord.training_intensity||'normal'] || 1.0
+        const coachDevMod = (coach.dev - 60) / 100  // -0.4 to +0.4
+        const moralMod = ((p.moral||80) - 80) / 200  // -0.4 to +0.1
+        const ageFactor = p.age <= 22 ? 1.5 : p.age <= 25 ? 1.2 : p.age <= 28 ? 1.0 : p.age <= 31 ? 0.7 : p.age <= 34 ? 0.3 : 0.0
+        const healthMod = (p.health||100) < 60 ? 0 : (p.health||100) < 80 ? 0.5 : 1.0
+        const devRate = (p.dev_rate||1.0) * ageFactor * healthMod
+
+        const updates: Record<string,number> = {}
+        const devLogs: any[] = []
+
+        for (const attr of ATTRS) {
+          const curr = (p as any)[attr] || 0
+          const pot  = (p as any)[`pot_${attr}`] || curr
+          if (curr >= pot) continue  // already at ceiling
+
+          // Base growth chance
+          let growthChance = 0.15 * trainMod * (1 + coachDevMod) * devRate
+
+          // Coach specialty bonus
+          const specialty = Object.entries(coach.specialties).find(([sp]) => SPECIALTY_MAP[sp]?.includes(attr))
+          if (specialty) growthChance *= (1 + specialty[1]/100)
+
+          // Coach IQ bonus per category
+          if (OFF_ATTRS.has(attr))  growthChance *= (1 + (coach.off-60)/200)
+          if (DEF_ATTRS.has(attr))  growthChance *= (1 + (coach.def-60)/200)
+          if (PHYS_ATTRS.has(attr)) growthChance *= (1 + (coach.conditioning-60)/200)
+
+          // Morale affects development
+          growthChance *= (1 + moralMod)
+
+          if (Math.random() < growthChance) {
+            const gain = Math.min(2, Math.max(1, Math.round(devRate * trainMod)))
+            const newVal = Math.min(pot, curr + gain)
+            if (newVal > curr) {
+              updates[attr] = newVal
+              devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:attr, old_value:curr, new_value:newVal, change:newVal-curr, reason:`training_${ord.training_intensity||'normal'}` })
+            }
+          }
+
+          // Age-related decline for old players
+          if (p.age > 34 && Math.random() < 0.08) {
+            const decline = -1
+            const newVal = Math.max(30, curr + decline)
+            if (newVal < curr) {
+              updates[attr] = newVal
+              devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:attr, old_value:curr, new_value:newVal, change:decline, reason:'age_decline' })
+            }
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await supabaseAdmin.from('players').update(updates).eq('id', p.id)
+        }
+        if (devLogs.length > 0) {
+          await supabaseAdmin.from('attribute_development').insert(devLogs)
+        }
+      }
+    } catch(devErr) { console.warn('Development step failed', devErr) }
+
     // Apply health recovery for days since last game
     try {
       const isMonday = new Date().getDay() === 1

@@ -93,6 +93,10 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   const currentContract = (contracts||[]).find((c:any) => c.season==='2025-26')
   const totalValue = (contracts||[]).reduce((sum:number,c:any) => sum+c.salary, 0)
 
+  const potGrade = (p as any).potential_grade || 'C'
+  const potColor: Record<string,string> = {A:'#ffd040',B:'#40e080',C:'#60a0ff',D:'#ffa040',E:'#e06040',F:'#e04040'}
+  const potBg:    Record<string,string> = {A:'#2a2000',B:'#0a2a10',C:'#0a1a3a',D:'#2a1500',E:'#2a0800',F:'#2a0000'}
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
 
@@ -128,7 +132,14 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                   )}
                 </div>
               </div>
-              <OVR value={ovr} />
+              <div className="flex flex-col gap-2 items-end">
+                <OVR value={ovr} />
+                <div className="rounded-lg px-2.5 py-1.5 text-center"
+                     style={{background:potBg[potGrade]||'#1a1610',border:'1px solid '+(potColor[potGrade]||'#8a7a6a')+'44'}}>
+                  <div className="text-lg font-black leading-none" style={{color:potColor[potGrade]||'#8a7a6a'}}>{potGrade}</div>
+                  <div style={{fontSize:9,color:'#6a5a4a'}}>POT</div>
+                </div>
+              </div>
             </div>
             {/* Current season quick info */}
             {currentContract && (

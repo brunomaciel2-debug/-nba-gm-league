@@ -4,6 +4,7 @@ import RosterTable from './RosterTable'
 import TeamSchedule from './TeamSchedule'
 import TeamPageTabs from './TeamPageTabs'
 import InjuryReport from './InjuryReport'
+import CoachingStaff from './CoachingStaff'
 import { readableTeamColor } from '@/lib/color'
 export const revalidate = 60
 
@@ -108,8 +109,13 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         teamsMap={teamsMap}
       />
 
-      {/* INJURY REPORT — always at bottom */}
+      {/* COACHING STAFF */}
       <div className="mt-6 rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+        <CoachingStaff teamId={teamId} />
+      </div>
+
+      {/* INJURY REPORT */}
+      <div className="mt-4 rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
         <InjuryReport
           injuries={teamInjuries||[]}
           players={players||[]}
