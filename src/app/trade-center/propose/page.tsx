@@ -154,11 +154,11 @@ function ProposeTradePage() {
   const isCommissioner = profile?.role === 'commissioner'
   const effectiveTeamId = myTeamId || (isCommissioner ? commTeamId : '')
 
-  // Load all teams immediately (needed for commissioner dropdown)
+  // Load all teams immediately on mount
   useEffect(() => {
     supabase.from('teams').select('*').not('id','in','(ALL,RVS)').order('name')
-      .then(({data}) => { if(data) setAllTeams(data.filter((t:any)=>t.id!==effectiveTeamId)) })
-  }, [effectiveTeamId])
+      .then(({data}) => { if(data) setAllTeams(data) })
+  }, [])
 
   // Load my team data
   useEffect(() => {
@@ -169,7 +169,6 @@ function ProposeTradePage() {
       supabase.from('draft_picks').select('*').eq('team_id', effectiveTeamId).order('season').order('round'),
       supabase.from('teams').select('*').eq('id', effectiveTeamId).single(),
     ]).then(([{ data: ts }, { data: ps }, { data: picks }, { data: mt }]) => {
-      setAllTeams((ts || []).filter((t: any) => t.id !== myTeamId))
       setMyPlayers(ps || [])
       setMyPicks(picks || [])
       setMyTeam(mt)
