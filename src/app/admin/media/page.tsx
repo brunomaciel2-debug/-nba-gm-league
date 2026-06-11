@@ -37,7 +37,7 @@ export default function AdminMediaPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold text-white mb-2">🖼️ Media Manager</h1>
-      <p className="text-sm mb-6" style={{ color:'#7090b0' }}>
+      <p className="text-sm mb-6" style={{ color:'#8a7a6a' }}>
         Upload team logos and player photos. Paste any public image URL (e.g. from ESPN, NBA.com, Wikipedia).
       </p>
 
@@ -46,9 +46,9 @@ export default function AdminMediaPage() {
         {(['logos','photos'] as const).map(t=>(
           <button key={t} onClick={()=>setTab(t)}
             className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all"
-            style={{ background:tab===t?'#1e3a5f':'#0f1e33',
-                     color:tab===t?'#60a0ff':'#7090b0',
-                     border:'1px solid '+(tab===t?'#3a6a9f':'#1e3a5f') }}>
+            style={{ background:tab===t?'#3a3228':'#241f18',
+                     color:tab===t?'#60a0ff':'#8a7a6a',
+                     border:'1px solid '+(tab===t?'#3a6a9f':'#3a3228') }}>
             {t==='logos'?'🏀 Team Logos':'👤 Player Photos'}
           </button>
         ))}
@@ -57,12 +57,12 @@ export default function AdminMediaPage() {
       {/* LOGOS TAB */}
       {tab === 'logos' && (
         <div className="flex flex-col gap-3">
-          <p className="text-xs mb-2" style={{ color:'#506070' }}>
+          <p className="text-xs mb-2" style={{ color:'#6a5a4a' }}>
             Tip: Find logos on Wikipedia (right-click image → Copy image address) or wikimedia.org
           </p>
           {teams.map(team => (
             <div key={team.id} className="flex items-center gap-4 p-4 rounded-xl"
-                 style={{ background:'#0f1e33',border:'1px solid #1e3a5f' }}>
+                 style={{ background:'#241f18',border:'1px solid #3a3228' }}>
               {/* Preview */}
               <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
                    style={{ background:'#'+team.color+'22',border:'1px solid #'+team.color+'44' }}>
@@ -78,11 +78,11 @@ export default function AdminMediaPage() {
                   onBlur={e=>saveLogo(team.id,e.target.value)}
                   placeholder="Paste logo URL here..."
                   className="w-full text-xs px-3 py-2 rounded-lg"
-                  style={{ background:'#060c18',border:'1px solid #1e3a5f',color:'#c0ccd8',outline:'none' }}
+                  style={{ background:'#120f0a',border:'1px solid #3a3228',color:'#e8e0d0',outline:'none' }}
                 />
               </div>
               <span className="text-xs flex-shrink-0 w-16 text-center"
-                    style={{ color:saved===team.id?'#40e080':saving===team.id?'#7090b0':'transparent' }}>
+                    style={{ color:saved===team.id?'#40e080':saving===team.id?'#8a7a6a':'transparent' }}>
                 {saved===team.id?'✓ Saved':saving===team.id?'Saving...':''}
               </span>
             </div>
@@ -94,31 +94,31 @@ export default function AdminMediaPage() {
       {tab === 'photos' && (
         <div>
           <div className="mb-4">
-            <label className="text-xs font-semibold uppercase tracking-widest mb-2 block" style={{ color:'#7090b0' }}>
+            <label className="text-xs font-semibold uppercase tracking-widest mb-2 block" style={{ color:'#8a7a6a' }}>
               Select Team
             </label>
             <select value={selTeam} onChange={e=>setSelTeam(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl text-sm"
-              style={{ background:'#0f1e33',border:'1px solid #1e3a5f',color:'#c0ccd8',outline:'none' }}>
+              style={{ background:'#241f18',border:'1px solid #3a3228',color:'#e8e0d0',outline:'none' }}>
               <option value="">— Choose a team —</option>
               {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           {selTeam && (
             <div className="flex flex-col gap-3">
-              <p className="text-xs mb-1" style={{ color:'#506070' }}>
+              <p className="text-xs mb-1" style={{ color:'#6a5a4a' }}>
                 Tip: Find headshots on ESPN (right-click → Copy image address) or cdn.nba.com
               </p>
               {players.map(p => (
                 <div key={p.id} className="flex items-center gap-4 p-3 rounded-xl"
-                     style={{ background:'#0f1e33',border:'1px solid #1e3a5f' }}>
+                     style={{ background:'#241f18',border:'1px solid #3a3228' }}>
                   {/* Photo preview */}
                   <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden"
-                       style={{ background:'#1e3a5f' }}>
+                       style={{ background:'#3a3228' }}>
                     {p.photo_url
                       ? <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center text-sm font-black"
-                              style={{ color:'#506070' }}>
+                              style={{ color:'#6a5a4a' }}>
                           {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                         </div>
                     }
@@ -127,18 +127,18 @@ export default function AdminMediaPage() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold text-white">{p.name}</span>
                       <span className="text-xs px-1.5 py-0.5 rounded"
-                            style={{ background:'#1e3a5f',color:'#7090b0' }}>{p.pos}</span>
+                            style={{ background:'#3a3228',color:'#8a7a6a' }}>{p.pos}</span>
                     </div>
                     <input
                       defaultValue={p.photo_url||''}
                       onBlur={e=>savePhoto(p.id,e.target.value)}
                       placeholder="Paste photo URL..."
                       className="w-full text-xs px-3 py-1.5 rounded-lg"
-                      style={{ background:'#060c18',border:'1px solid #1e3a5f',color:'#c0ccd8',outline:'none' }}
+                      style={{ background:'#120f0a',border:'1px solid #3a3228',color:'#e8e0d0',outline:'none' }}
                     />
                   </div>
                   <span className="text-xs flex-shrink-0 w-16 text-center"
-                        style={{ color:saved===p.id?'#40e080':saving===p.id?'#7090b0':'transparent' }}>
+                        style={{ color:saved===p.id?'#40e080':saving===p.id?'#8a7a6a':'transparent' }}>
                     {saved===p.id?'✓ Saved':saving===p.id?'Saving...':''}
                   </span>
                 </div>

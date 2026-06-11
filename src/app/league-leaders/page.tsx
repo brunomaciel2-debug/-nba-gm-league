@@ -40,8 +40,8 @@ export default async function LeagueLeadersPage() {
     <div className="max-w-6xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold text-white mb-6">📊 League Leaders — 2025-26</h1>
       {rows.length === 0 ? (
-        <div className="rounded-xl p-8 text-center" style={{ background:'#0f1e33',border:'1px solid #1e3a5f' }}>
-          <p style={{ color:'#506070' }}>Stats will appear here once the season begins.</p>
+        <div className="rounded-xl p-8 text-center" style={{ background:'#241f18',border:'1px solid #3a3228' }}>
+          <p style={{ color:'#6a5a4a' }}>Stats will appear here once the season begins.</p>
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-6">
@@ -51,18 +51,18 @@ export default async function LeagueLeadersPage() {
               .slice(0,10)
             return (
               <div key={cat.key} className="rounded-xl overflow-hidden"
-                   style={{ background:'#0f1e33',border:'1px solid #1e3a5f' }}>
-                <div className="px-4 py-3" style={{ background:'#060c18',borderBottom:'1px solid #1e3a5f' }}>
+                   style={{ background:'#241f18',border:'1px solid #3a3228' }}>
+                <div className="px-4 py-3" style={{ background:'#120f0a',borderBottom:'1px solid #3a3228' }}>
                   <h3 className="font-bold text-sm" style={{ color:cat.color }}>{cat.label}</h3>
                 </div>
                 <div>
                   {sorted.map((p:any,i:number) => (
                     <Link key={p.id} href={`/player/${p.pid}`} className="no-underline">
                       <div className="flex items-center gap-3 px-3 py-2.5 hover:brightness-110 transition-all"
-                           style={{ background:i%2===0?'#0f1e33':'#0c1a2c',
-                                    borderBottom:'1px solid #0a1628' }}>
+                           style={{ background:i%2===0?'#241f18':'#1e1a14',
+                                    borderBottom:'1px solid #16120d' }}>
                         <span className="text-xs font-bold w-5 text-right flex-shrink-0"
-                              style={{ color:i===0?cat.color:'#405060' }}>{i+1}</span>
+                              style={{ color:i===0?cat.color:'#5a4a3a' }}>{i+1}</span>
                         {/* Photo */}
                         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0"
                              style={{ background:'#'+(p.teamColor||'333')+'22' }}>
@@ -76,10 +76,10 @@ export default async function LeagueLeadersPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-semibold text-white truncate">{p.name}</div>
-                          <div className="text-xs" style={{ color:'#506070' }}>{p.team} · {p.pos}</div>
+                          <div className="text-xs" style={{ color:'#6a5a4a' }}>{p.team} · {p.pos}</div>
                         </div>
                         <span className="text-sm font-black flex-shrink-0"
-                              style={{ color:i===0?cat.color:'#c0ccd8' }}>{p[cat.key]}</span>
+                              style={{ color:i===0?cat.color:'#e8e0d0' }}>{p[cat.key]}</span>
                       </div>
                     </Link>
                   ))}

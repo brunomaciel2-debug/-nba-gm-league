@@ -14,18 +14,18 @@ export default function AdminPage() {
 
   if (!authed) return (
     <div className="max-w-md mx-auto px-4 py-16">
-      <div className="rounded-2xl p-8" style={{ background:'#0f1e33',border:'1px solid #1e3a5f' }}>
+      <div className="rounded-2xl p-8" style={{ background:'#241f18',border:'1px solid #3a3228' }}>
         <div className="text-4xl mb-4 text-center">🏀</div>
         <h1 className="text-xl font-bold text-white mb-2 text-center">Commissioner Login</h1>
-        <p className="text-sm mb-6 text-center" style={{ color:'#7090b0' }}>Enter your commissioner password.</p>
+        <p className="text-sm mb-6 text-center" style={{ color:'#8a7a6a' }}>Enter your commissioner password.</p>
         <input type="password" value={secret} onChange={e=>setSecret(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&login()}
           placeholder="Commissioner password"
           className="w-full px-4 py-3 rounded-xl text-sm text-white mb-3"
-          style={{ background:'#060c18',border:'1px solid #1e3a5f',outline:'none' }} />
+          style={{ background:'#120f0a',border:'1px solid #3a3228',outline:'none' }} />
         {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
         <button onClick={login} className="w-full py-3 rounded-xl font-bold text-sm"
-          style={{ background:'#1e3a5f',color:'#60a0ff' }}>
+          style={{ background:'#3a3228',color:'#60a0ff' }}>
           Enter Admin Panel →
         </button>
       </div>
@@ -37,7 +37,7 @@ export default function AdminPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Commissioner Panel</h1>
-          <p className="text-sm" style={{ color:'#7090b0' }}>Manage the league.</p>
+          <p className="text-sm" style={{ color:'#8a7a6a' }}>Manage the league.</p>
         </div>
         <span className="px-3 py-1.5 rounded-lg text-xs font-semibold"
               style={{ background:'#0a2a10',color:'#40e080' }}>● NBA GM League 2025-26</span>
@@ -53,10 +53,10 @@ export default function AdminPage() {
         ].map(item=>(
           <Link key={item.href} href={item.href} className="no-underline group">
             <div className="rounded-xl p-5 h-full transition-all"
-                 style={{ background:'#0f1e33',border:'1px solid #1e3a5f',borderLeft:'3px solid '+item.color }}>
+                 style={{ background:'#241f18',border:'1px solid #3a3228',borderLeft:'3px solid '+item.color }}>
               <div className="text-2xl mb-2">{item.icon}</div>
               <div className="font-semibold text-white mb-1 group-hover:text-blue-300 transition-colors">{item.label}</div>
-              <div className="text-xs" style={{ color:'#7090b0' }}>{item.desc}</div>
+              <div className="text-xs" style={{ color:'#8a7a6a' }}>{item.desc}</div>
             </div>
           </Link>
         ))}

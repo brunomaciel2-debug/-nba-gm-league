@@ -16,14 +16,14 @@ const NAV = [
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   return (
-    <nav style={{ background: '#060c18', borderBottom: '1px solid #1e3a5f' }}
+    <nav style={{ background: '#120f0a', borderBottom: '1px solid #3a3228' }}
          className="sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 font-bold text-white text-lg no-underline">
           🏀 <span style={{ color: '#60a0ff' }}>NBA</span> GM League
           <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full"
-                style={{ background: '#1e3a5f', color: '#7090b0' }}>2025-26</span>
+                style={{ background: '#3a3228', color: '#8a7a6a' }}>2025-26</span>
         </Link>
 
         {/* Desktop nav */}
@@ -31,14 +31,14 @@ export default function Navbar() {
           {NAV.map(n => (
             <Link key={n.href} href={n.href}
               className="px-3 py-1.5 rounded-lg text-xs font-medium no-underline transition-colors"
-              style={{ color: '#7090b0' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#e8eaf0')}
-              onMouseLeave={e => (e.currentTarget.style.color = '#7090b0')}>
+              style={{ color: '#8a7a6a' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#f0ebe0')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#8a7a6a')}>
               {n.label}
             </Link>
           ))}
           <Link href="/admin" className="ml-3 px-3 py-1.5 rounded-lg text-xs font-semibold no-underline"
-            style={{ background: '#1e3a5f', color: '#60a0ff' }}>
+            style={{ background: '#3a3228', color: '#60a0ff' }}>
             Commissioner
           </Link>
           <Link href="/gm" className="ml-1 px-3 py-1.5 rounded-lg text-xs font-semibold no-underline"
@@ -49,7 +49,7 @@ export default function Navbar() {
 
         {/* Mobile burger */}
         <button className="md:hidden p-2" onClick={() => setOpen(!open)}
-          style={{ color: '#7090b0' }}>
+          style={{ color: '#8a7a6a' }}>
           {open ? '✕' : '☰'}
         </button>
       </div>
@@ -57,11 +57,11 @@ export default function Navbar() {
       {/* Mobile menu */}
       {open && (
         <div className="md:hidden px-4 pb-4 flex flex-col gap-1"
-             style={{ borderTop: '1px solid #1e3a5f' }}>
+             style={{ borderTop: '1px solid #3a3228' }}>
           {NAV.map(n => (
             <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
               className="px-3 py-2 rounded-lg text-sm no-underline"
-              style={{ color: '#c0ccd8' }}>
+              style={{ color: '#e8e0d0' }}>
               {n.label}
             </Link>
           ))}

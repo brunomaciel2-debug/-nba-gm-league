@@ -57,17 +57,17 @@ function TH({ col, sortKey, sortDir, onSort }: {
         className={`px-3 py-2.5 font-semibold select-none whitespace-nowrap
           ${col.numeric ? 'text-right cursor-pointer' : 'text-left'}
           ${col.key === 'name' ? 'sticky left-0 z-10' : ''}`}
-        style={{ color: isActive ? (col.color||'#60a0ff') : '#7090b0',
-                 background: col.key==='name' ? '#060c18' : undefined }}>
+        style={{ color: isActive ? (col.color||'#60a0ff') : '#8a7a6a',
+                 background: col.key==='name' ? '#120f0a' : undefined }}>
       <span className="inline-flex items-center gap-0.5 group relative">
         {col.label}
         {tip && (
           <>
             <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full ml-0.5 flex-shrink-0"
-                  style={{ background:'#1e3a5f', color:'#60a0ff', fontSize:8, lineHeight:1 }}>i</span>
-            <span className="absolute bottom-full left-0 mb-2 px-2.5 py-1.5 rounded-lg text-xs
+                  style={{ background:'#3a3228', color:'#60a0ff', fontSize:8, lineHeight:1 }}>i</span>
+            <span className="absolute top-full left-0 mt-1 px-2.5 py-1.5 rounded-lg text-xs
                              opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50"
-                  style={{ background:'#0a1628', border:'1px solid #2a5a8f', color:'#c0ccd8',
+                  style={{ background:'#16120d', border:'1px solid #2a5a8f', color:'#e8e0d0',
                            width:180, whiteSpace:'normal', lineHeight:1.5, fontWeight:400 }}>
               {tip}
             </span>
@@ -89,13 +89,13 @@ const STAT_COLS = [
   { key:'apg',    label:'APG',    color:'#40d0d0', numeric:true  },
   { key:'spg',    label:'SPG',    color:'#c040ff', numeric:true  },
   { key:'bpg',    label:'BPG',    color:'#ff6040', numeric:true  },
-  { key:'fgpct',  label:'FG%',    color:'#c0ccd8', numeric:true  },
+  { key:'fgpct',  label:'FG%',    color:'#e8e0d0', numeric:true  },
   { key:'tppct',  label:'3P%',    color:'#ffd040', numeric:true  },
   { key:'ftpct',  label:'FT%',    color:'#40d0d0', numeric:true  },
   { key:'topg',   label:'TO',     color:'#e04040', numeric:true  },
   { key:'pfpg',   label:'PF',     color:'#e06060', numeric:true  },
   { key:'tf',     label:'TF',     color:'#ff4040', numeric:true  },
-  { key:'salary', label:'Salary', color:'#7090b0', numeric:true  },
+  { key:'salary', label:'Salary', color:'#8a7a6a', numeric:true  },
 ]
 
 const ATTR_COLS = [
@@ -130,9 +130,9 @@ function attrColor(v: number) {
   if (v >= 90) return '#ffd040'
   if (v >= 80) return '#40e080'
   if (v >= 70) return '#60a0ff'
-  if (v >= 60) return '#c0ccd8'
-  if (v >= 50) return '#7090b0'
-  return '#506070'
+  if (v >= 60) return '#e8e0d0'
+  if (v >= 50) return '#8a7a6a'
+  return '#6a5a4a'
 }
 
 export default function RosterTable({ players, teamColor }: { players: any[], teamColor: string }) {
@@ -193,25 +193,25 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
     <div>
       {/* Toggle */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="flex gap-1 p-1 rounded-xl" style={{background:'#060c18',border:'1px solid #1e3a5f'}}>
+        <div className="flex gap-1 p-1 rounded-xl" style={{background:'#120f0a',border:'1px solid #3a3228'}}>
           {(['stats','attributes'] as Mode[]).map(m=>(
             <button key={m} onClick={()=>{setMode(m);setSortKey(m==='stats'?'ppg':'three');setSortDir('desc')}}
               className="px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
-              style={{background:mode===m?'#1e3a5f':'transparent',color:mode===m?'#60a0ff':'#7090b0'}}>
+              style={{background:mode===m?'#3a3228':'transparent',color:mode===m?'#60a0ff':'#8a7a6a'}}>
               {m==='stats'?'📊 Stats':'⚡ Attributes'}
             </button>
           ))}
         </div>
-        <span className="text-xs" style={{color:'#405060'}}>
-          Click column to sort · hover <span style={{background:'#1e3a5f',color:'#60a0ff',borderRadius:3,padding:'0 3px',fontSize:8}}>i</span> for definitions
+        <span className="text-xs" style={{color:'#5a4a3a'}}>
+          Click column to sort · hover <span style={{background:'#3a3228',color:'#60a0ff',borderRadius:3,padding:'0 3px',fontSize:8}}>i</span> for definitions
         </span>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-x-auto mb-2" style={{border:'1px solid #1e3a5f', overflowY:'visible'}}>
+      <div className="rounded-xl overflow-x-auto mb-2" style={{border:'1px solid #3a3228', overflowY:'visible'}}>
         <table className="w-full text-xs" style={{minWidth:mode==='attributes'?900:640, borderCollapse:'collapse'}}>
           <thead>
-            <tr style={{background:'#060c18',borderBottom:'1px solid #1e3a5f'}}>
+            <tr style={{background:'#120f0a',borderBottom:'1px solid #3a3228'}}>
               {cols.map(col=>(
                 <TH key={col.key} col={col} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               ))}
@@ -220,12 +220,12 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
           <tbody>
             {sorted.map((p:any,i:number)=>(
               <tr key={p.id}
-                  style={{background:i%2===0?'#0f1e33':'#0c1a2c',borderBottom:'1px solid #0a1628'}}
+                  style={{background:i%2===0?'#241f18':'#1e1a14',borderBottom:'1px solid #16120d'}}
                   className="hover:brightness-110 transition-all">
                 {cols.map(col=>{
                   if (col.key==='name') return (
                     <td key="name" className="px-3 py-2 sticky left-0 z-10"
-                        style={{background:i%2===0?'#0f1e33':'#0c1a2c'}}>
+                        style={{background:i%2===0?'#241f18':'#1e1a14'}}>
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0"
                              style={{background:teamColor+'22'}}>
@@ -244,7 +244,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
                     </td>
                   )
                   if (col.key==='pos') return (
-                    <td key="pos" className="px-3 py-2" style={{color:'#7090b0'}}>{p.pos}</td>
+                    <td key="pos" className="px-3 py-2" style={{color:'#8a7a6a'}}>{p.pos}</td>
                   )
                   const val=(p as any)[col.key]
                   const isActive=sortKey===col.key
@@ -252,7 +252,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
                     <td key={col.key} className="px-3 py-2 text-right font-semibold"
                         style={{
                           color:mode==='attributes'&&col.numeric&&typeof val==='number'
-                            ?attrColor(val):isActive?'#fff':col.color||'#c0ccd8',
+                            ?attrColor(val):isActive?'#fff':col.color||'#e8e0d0',
                           background:isActive?teamColor+'11':undefined,
                         }}>
                       {fmtVal(col.key,val)}
@@ -264,7 +264,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
           </tbody>
         </table>
       </div>
-      <p className="text-xs" style={{color:'#304050'}}>
+      <p className="text-xs" style={{color:'#4a3a2a'}}>
         {sorted.length} players · {mode==='stats'
           ?'Per game averages · TF = season total technical fouls'
           :'Ratings 0–100 · Gold ≥90 · Green ≥80 · Blue ≥70'}
