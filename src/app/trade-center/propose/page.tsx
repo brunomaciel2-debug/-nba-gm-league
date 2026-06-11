@@ -148,8 +148,11 @@ function ProposeTradePage() {
   const [notes,       setNotes]       = useState('')
   const [submitting,  setSubmitting]  = useState(false)
   const [submitted,   setSubmitted]   = useState(false)
+  const [commTeamId,  setCommTeamId]  = useState('')
 
   const myTeamId = profile?.team_id
+  const isCommissioner = profile?.role === 'commissioner'
+  const effectiveTeamId = myTeamId || (isCommissioner ? commTeamId : '')
 
   // Load my team data
   useEffect(() => {
@@ -244,10 +247,6 @@ function ProposeTradePage() {
     }
     setSubmitting(false); setSubmitted(true)
   }
-
-  const [commTeamId, setCommTeamId] = useState('')
-  const isCommissioner = profile?.role === 'commissioner'
-  const effectiveTeamId = myTeamId || (isCommissioner ? commTeamId : '')
 
   if (!user) return (
     <div className="max-w-2xl mx-auto px-4 py-12 text-center">
