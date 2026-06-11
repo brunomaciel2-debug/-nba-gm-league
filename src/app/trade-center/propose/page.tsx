@@ -153,19 +153,19 @@ function ProposeTradePage() {
 
   // Load my team data
   useEffect(() => {
-    if (!myTeamId) return
+    if (!effectiveTeamId) return
     Promise.all([
       supabase.from('teams').select('*').not('id', 'in', '(ALL,RVS)').order('name'),
-      supabase.from('players').select('id,name,pos,salary,usage').eq('team_id', myTeamId).eq('status', 'active').order('usage', { ascending: false }),
-      supabase.from('draft_picks').select('*').eq('team_id', myTeamId).order('season').order('round'),
-      supabase.from('teams').select('*').eq('id', myTeamId).single(),
+      supabase.from('players').select('id,name,pos,salary,usage').eq('team_id', effectiveTeamId).eq('status', 'active').order('usage', { ascending: false }),
+      supabase.from('draft_picks').select('*').eq('team_id', effectiveTeamId).order('season').order('round'),
+      supabase.from('teams').select('*').eq('id', effectiveTeamId).single(),
     ]).then(([{ data: ts }, { data: ps }, { data: picks }, { data: mt }]) => {
       setAllTeams((ts || []).filter((t: any) => t.id !== myTeamId))
       setMyPlayers(ps || [])
       setMyPicks(picks || [])
       setMyTeam(mt)
     })
-  }, [myTeamId])
+  }, [effectiveTeamId])
 
   // Load team 2 data
   useEffect(() => {
@@ -212,16 +212,16 @@ function ProposeTradePage() {
   const isValid = hasPlayers && salaryValid
 
   const submitTrade = async () => {
-    if (!user || !myTeamId || !team2Id || !isValid) return
+    if (!user || !effectiveTeamId || !team2Id || !isValid) return
     setSubmitting(true)
 
     const { data: proposal } = await supabase.from('trade_proposals').insert({
-      initiator_team: myTeamId, status: 'pending', notes
+      initiator_team: effectiveTeamId, status: 'pending', notes
     }).select().single()
     if (!proposal) { setSubmitting(false); return }
 
     const teams: any[] = [
-      { team_id: myTeamId,  players_out: mySend,  picks_out: myPicksSend, players_in: [...t2Recv, ...t3Recv], picks_in: [...t2PicksRecv, ...t3PicksRecv], salary_out: mySalarySent, salary_in: totalIn },
+      { team_id: effectiveTeamId,  players_out: mySend,  picks_out: myPicksSend, players_in: [...t2Recv, ...t3Recv], picks_in: [...t2PicksRecv, ...t3PicksRecv], salary_out: mySalarySent, salary_in: totalIn },
       { team_id: team2Id,   players_out: t2Recv,  picks_out: t2PicksRecv, players_in: mySend, picks_in: myPicksSend, salary_out: t2SalarySent, salary_in: mySalarySent },
     ]
     if (team3Id) teams.push({ team_id: team3Id, players_out: t3Recv, picks_out: t3PicksRecv, players_in: [], picks_in: [], salary_out: t3SalarySent, salary_in: 0 })
@@ -245,10 +245,28 @@ function ProposeTradePage() {
     setSubmitting(false); setSubmitted(true)
   }
 
-  if (!user || !myTeamId) return (
+  const [commTeamId, setCommTeamId] = useState('')
+  const isCommissioner = profile?.role === 'commissioner'
+  const effectiveTeamId = myTeamId || (isCommissioner ? commTeamId : '')
+
+  if (!user) return (
     <div className="max-w-2xl mx-auto px-4 py-12 text-center">
       <p className="mb-4" style={{ color: '#8a7a6a' }}>Sign in to propose a trade.</p>
       <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#3a8adf', color: '#fff' }}>Sign In</a>
+    </div>
+  )
+
+  // Commissioner team selector
+  if (isCommissioner && !commTeamId) return (
+    <div className="max-w-md mx-auto px-4 py-12">
+      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#8a7a6a'}}>← Trade Center</a>
+      <h2 className="text-lg font-bold mb-4" style={{color:'#f0ebe0'}}>Commissioner — Select Team to Propose As</h2>
+      <select onChange={e=>setCommTeamId(e.target.value)} defaultValue=""
+        className="w-full text-sm px-3 py-3 rounded-xl outline-none"
+        style={{background:'#241f18',border:'1px solid #3a3228',color:'#f0ebe0'}}>
+        <option value="">— Choose a team —</option>
+        {allTeams.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}
+      </select>
     </div>
   )
 

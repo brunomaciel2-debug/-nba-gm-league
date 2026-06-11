@@ -32,6 +32,7 @@ export default function TradeCenterPage() {
   }, [])
 
   const myTeamId = profile?.team_id
+  const isCommissioner = profile?.role === 'commissioner'
   const capFmt = (n:number) => n>=1000000?'$'+(n/1000000).toFixed(1)+'M':'$'+n?.toLocaleString()
 
   const ROLE_COLORS: Record<string,string> = {
@@ -88,7 +89,7 @@ export default function TradeCenterPage() {
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {teams.map(t => {
                   const tc = readableTeamColor(t.color)
-                  const isMyTeam = t.id === myTeamId
+                  const isMyTeam = myTeamId ? t.id === myTeamId : false
                   const tbPlayerIds = new Set(tradeBlock.filter(tb=>tb.teams?.id===t.id).map(tb=>tb.players?.id))
                   return (
                     <div key={t.id} className="rounded-xl overflow-hidden"
@@ -117,7 +118,7 @@ export default function TradeCenterPage() {
                         </div>
                       )}
                       {/* Propose button */}
-                      {!isMyTeam && user && (
+                      {!isMyTeam && user && myTeamId !== t.id && (
                         <div className="px-4 py-2" style={{borderTop:'1px solid #2a2218'}}>
                           <Link href={`/trade-center/propose?to=${t.id}`}
                                 className="block text-center text-xs font-semibold py-1.5 rounded-lg no-underline"
