@@ -101,6 +101,8 @@ const STAT_COLS = [
 const ATTR_COLS = [
   { key:'name',        label:'Player', color:'',        numeric:false },
   { key:'pos',         label:'Pos',    color:'',        numeric:false },
+  { key:'health',      label:'HLTH',   color:'#40e080', numeric:true },
+  { key:'moral',       label:'MRL',    color:'#c040ff', numeric:true },
   { key:'three',       label:'3PT',    color:'#ffd040', numeric:true },
   { key:'layup',       label:'LAY',    color:'#ffa040', numeric:true },
   { key:'dunk',        label:'DNK',    color:'#ff6040', numeric:true },
@@ -157,6 +159,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
       topg:avg(s.turnovers),
       pfpg:gp>0?parseFloat(((s.fouls||0)/gp).toFixed(1)):0,
       tf:s.tech_fouls||0,
+      health:p.health??100, moral:p.moral??80,
       three:p.three, layup:p.layup, dunk:p.dunk, mid:p.mid, ft:p.ft,
       siq:p.siq, draw_foul:p.draw_foul, blk:p.blk, stl:p.stl,
       idef:p.idef, pdef:p.pdef, def_reb:p.def_reb, off_reb:p.off_reb,
