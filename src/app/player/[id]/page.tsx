@@ -70,7 +70,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
     await Promise.all([
       supabase.from('players').select('*, teams(name,color,id,logo_url)').eq('id', params.id).single(),
       supabase.from('player_stats').select('*').eq('player_id', params.id).order('season', { ascending: false }),
-      supabase.from('injuries').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
+      supabase.from('injury_log').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', { ascending: true }),
     ])
 

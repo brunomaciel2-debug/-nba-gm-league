@@ -2,40 +2,41 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import RosterTable from './RosterTable'
 import TeamSchedule from './TeamSchedule'
+import TeamPageTabs from './TeamPageTabs'
+import InjuryReport from './InjuryReport'
 import { readableTeamColor } from '@/lib/color'
 export const revalidate = 60
 
 export default async function TeamPage({ params }: { params: { id: string } }) {
   const teamId = params.id.toUpperCase()
-  const [{ data: team }, { data: players }, { data: games }, { data: allTeams }] = await Promise.all([
-    supabase.from('teams').select('*').eq('id', teamId).single(),
-    supabase.from('players').select('*, player_stats(*)').eq('team_id', teamId)
-      .eq('status','active').order('usage', { ascending: false }),
-    supabase.from('games')
-      .select('*')
-      .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
-      .order('week_number').order('game_number'),
-    supabase.from('teams').select('id,name,color,logo_url,arena'),
-  ])
+  const [{ data: team }, { data: players }, { data: games }, { data: allTeams }, { data: injuries }] =
+    await Promise.all([
+      supabase.from('teams').select('*').eq('id', teamId).single(),
+      supabase.from('players').select('*, player_stats(*)')
+        .eq('team_id', teamId).eq('status','active').order('usage', { ascending: false }),
+      supabase.from('games').select('*')
+        .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
+        .order('week_number').order('game_number'),
+      supabase.from('teams').select('id,name,color,logo_url,arena'),
+      supabase.from('injury_log').select('*')
+        .eq('status','active')
+        .in('player_id', supabase.from('players').select('id').eq('team_id', teamId) as any),
+    ])
+
   if (!team) return <div className="p-8 text-center" style={{color:'#8a7a6a'}}>Team not found.</div>
 
   const t = team as any
   const color = readableTeamColor(t.color)
   const cap=t.salary_cap, used=t.cap_used, space=cap-used
   const capFmt = (n:number) => '$'+Math.round(n/1000000).toFixed(1)+'M'
-  const gp=t.wins+t.losses
-  const pct=gp>0?(t.wins/gp).toFixed(3):'—'
-
-  // Build teams map for schedule
   const teamsMap = Object.fromEntries((allTeams||[]).map((x:any)=>[x.id,x]))
 
-  // Recent results for quick view (last 5)
-  const recentResults = (games||[]).filter((g:any)=>g.status==='final').slice(-5).reverse()
-
-  // Record
   const played = (games||[]).filter((g:any)=>g.status==='final')
-  const wins   = played.filter((g:any)=>(g.home_team===teamId?g.home_score:g.away_score) > (g.home_team===teamId?g.away_score:g.home_score)).length
+  const wins   = played.filter((g:any)=>
+    (g.home_team===teamId?g.home_score:g.away_score) > (g.home_team===teamId?g.away_score:g.home_score)
+  ).length
   const losses = played.length - wins
+  const pct    = played.length>0?(wins/played.length).toFixed(3):'—'
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -96,7 +97,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      {/* TABS: Roster / Schedule */}
+      {/* ROSTER + SCHEDULE TABS */}
       <TeamPageTabs
         players={players||[]}
         games={games||[]}
@@ -104,9 +105,14 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         teamColor={color}
         teamsMap={teamsMap}
       />
+
+      {/* INJURY REPORT — always at bottom */}
+      <div className="mt-6 rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+        <InjuryReport
+          injuries={injuries||[]}
+          players={players||[]}
+        />
+      </div>
     </div>
   )
 }
-
-// Client wrapper for tabs
-import TeamPageTabs from './TeamPageTabs'
