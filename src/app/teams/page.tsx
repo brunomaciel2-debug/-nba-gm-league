@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import type { Team } from '@/lib/types'
+import { readableTeamColor } from '@/lib/color'
 export const revalidate = 60
 
 export default async function TeamsPage() {
@@ -16,37 +17,47 @@ export default async function TeamsPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold text-white mb-6">🏀 All 30 Teams</h1>
+      <h1 className="text-2xl font-bold mb-6" style={{color:'#f0ebe0'}}>🏀 All 30 Teams</h1>
       {['Eastern','Western'].map(conf=>(
         <div key={conf} className="mb-8">
-          <h2 className="text-lg font-bold mb-4" style={{ color:conf==='Eastern'?'#e04040':'#3a8adf' }}>
-            {conf} Conference
-          </h2>
+          <h2 className="text-lg font-bold mb-4"
+              style={{color:conf==='Eastern'?'#e05050':'#5090d0'}}>{conf} Conference</h2>
           {Object.entries(byConf[conf]||{}).map(([div,divTeams])=>(
             <div key={div} className="mb-4">
               <h3 className="text-xs font-semibold uppercase tracking-widest mb-3"
-                  style={{ color:'#6a5a4a' }}>{div} Division</h3>
+                  style={{color:'#6a5a4a'}}>{div} Division</h3>
               <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                {(divTeams as Team[]).map((t:Team)=>(
-                  <Link key={t.id} href={`/team/${t.id}`} className="no-underline group">
-                    <div className="rounded-xl p-4 h-full transition-all"
-                         style={{ background:'#241f18', border:'1px solid #3a3228',
-                                  borderTop:'3px solid #'+t.color }}>
-                      <div className="text-xs font-bold mb-1" style={{ color:'#'+t.color }}>{t.id}</div>
-                      <div className="text-sm font-semibold text-white group-hover:text-blue-300 transition-colors leading-tight mb-2">
-                        {t.name}
+                {(divTeams as Team[]).map((t:Team)=>{
+                  const tc = readableTeamColor(t.color)
+                  return (
+                    <Link key={t.id} href={`/team/${t.id}`} className="no-underline group">
+                      <div className="rounded-xl p-4 h-full transition-all"
+                           style={{background:'#241f18',border:'1px solid #3a3228',
+                                   borderTop:'3px solid '+tc}}>
+                        <div className="flex items-center gap-2 mb-2">
+                          {t.logo_url
+                            ?<img src={t.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>
+                            :<span className="text-xs font-black" style={{color:tc}}>{t.id}</span>
+                          }
+                          {!t.logo_url && <span className="text-xs font-black" style={{color:tc}}></span>}
+                        </div>
+                        <div className="text-sm font-semibold group-hover:brightness-125 transition-all leading-tight mb-2"
+                             style={{color:'#f0ebe0'}}>
+                          {t.name}
+                        </div>
+                        <div className="text-xs" style={{color:'#6a5a4a'}}>{t.arena}</div>
+                        <div className="flex gap-3 mt-2">
+                          <span className="text-xs font-bold" style={{color:'#40e080'}}>{t.wins}W</span>
+                          <span className="text-xs" style={{color:'#8a7a6a'}}>{t.losses}L</span>
+                        </div>
+                        <div className="text-xs mt-1"
+                             style={{color:space(t)>0?'#40e080':'#e04040'}}>
+                          {space(t)>0?'Cap space: '+capFmt(space(t)):'Over cap'}
+                        </div>
                       </div>
-                      <div className="text-xs" style={{ color:'#6a5a4a' }}>{t.arena}</div>
-                      <div className="flex gap-3 mt-2">
-                        <span className="text-xs font-bold" style={{ color:'#40e080' }}>{t.wins}W</span>
-                        <span className="text-xs" style={{ color:'#8a7a6a' }}>{t.losses}L</span>
-                      </div>
-                      <div className="text-xs mt-1" style={{ color: space(t)>0?'#40e080':'#e04040' }}>
-                        Cap: {capFmt(space(t))} {space(t)>0?'space':'over'}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  )
+                })}
               </div>
             </div>
           ))}

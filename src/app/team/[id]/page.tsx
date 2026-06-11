@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { readableTeamColor } from '@/lib/color'
 import RosterTable from './RosterTable'
 export const revalidate = 60
 
@@ -17,7 +18,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   if (!team) return <div className="p-8 text-center" style={{color:'#8a7a6a'}}>Team not found.</div>
 
   const t = team as any
-  const color = '#'+t.color
+  const color = readableTeamColor(t.color)
   const cap=t.salary_cap, used=t.cap_used, space=cap-used
   const capFmt = (n:number) => '$'+Math.round(n/1000000).toFixed(1)+'M'
   const gp=t.wins+t.losses

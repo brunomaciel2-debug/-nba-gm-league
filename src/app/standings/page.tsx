@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { readableTeamColor } from '@/lib/color'
 
 type View = 'conference' | 'division' | 'league'
 
@@ -49,12 +50,13 @@ export default function StandingsPage() {
   const byConf = (conf: string) => teams.filter(t => t.conference === conf)
   const byDiv  = (div: string)  => teams.filter(t => DIV_MAP[t.name] === div)
 
-  const TeamLogo = ({ t }: { t: any }) => (
-    t.logo_url
+  const TeamLogo = ({ t }: { t: any }) => {
+    const tc = readableTeamColor(t.color)
+    return t.logo_url
       ? <img src={t.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0" />
       : <span className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-black flex-shrink-0"
-              style={{ background:'#'+t.color+'33', color:'#'+t.color }}>{t.id.slice(0,2)}</span>
-  )
+              style={{ background:tc+'33', color:tc }}>{t.id.slice(0,2)}</span>
+  }
 
   const Row = ({ t, rank, showDiv }: { t: any, rank: number, showDiv?: boolean }) => {
     const gp = t.wins + t.losses

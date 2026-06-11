@@ -1,8 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import type { Article, Game, Team, Transaction } from '@/lib/types'
+import { readableTeamColor } from '@/lib/color'
 
-function teamColor(t?: Team) { return t ? '#'+t.color : '#3a8adf' }
+function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#3a8adf' }
 
 export const revalidate = 60  // revalidate every minute
 

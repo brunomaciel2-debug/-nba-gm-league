@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { readableTeamColor } from '@/lib/color'
 export const revalidate = 60
 
 export default async function LeagueLeadersPage() {
@@ -65,11 +66,11 @@ export default async function LeagueLeadersPage() {
                               style={{ color:i===0?cat.color:'#5a4a3a' }}>{i+1}</span>
                         {/* Photo */}
                         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0"
-                             style={{ background:'#'+(p.teamColor||'333')+'22' }}>
+                             style={{ background:readableTeamColor(p.teamColor||'555')+'22' }}>
                           {p.photo
                             ? <img src={p.photo} alt="" className="w-full h-full object-cover" />
                             : <div className="w-full h-full flex items-center justify-center text-xs font-black"
-                                   style={{ color:'#'+(p.teamColor||'666') }}>
+                                   style={{ color:readableTeamColor(p.teamColor||'555') }}>
                                 {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                               </div>
                           }
