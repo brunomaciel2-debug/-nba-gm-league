@@ -20,19 +20,21 @@ export default async function HomePage() {
     ])
 
   const teamMap = Object.fromEntries((teams||[]).map((t:Team) => [t.id, t]))
-  const featured = articles?.[0]
-  const rest = articles?.slice(1) || []
+  const hero       = articles?.find((a:any) => a.position === 'hero')       || articles?.[0]
+  const featured1  = articles?.find((a:any) => a.position === 'featured_1') || articles?.[1]
+  const featured2  = articles?.find((a:any) => a.position === 'featured_2') || articles?.[2]
+  const newsItems  = articles?.filter((a:any) => a.position === 'news' || !['hero','featured_1','featured_2'].includes(a.position)) || []
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
 
       {/* HERO */}
       {featured ? (
-        <Link href={`/news/${featured.slug}`} className="no-underline block mb-8">
+        <Link href={`/news/${hero.slug}`} className="no-underline block mb-8">
           <div className="relative rounded-2xl overflow-hidden"
                style={{ background: '#241f18', border: '1px solid #3a3228', minHeight: 260 }}>
-            {featured.cover_image && (
-              <img src={featured.cover_image} alt=""
+            {hero.cover_image && (
+              <img src={hero.cover_image} alt=""
                    className="absolute inset-0 w-full h-full object-cover opacity-30" />
             )}
             <div className="relative p-8">
@@ -43,15 +45,15 @@ export default async function HomePage() {
                 ))}
               </div>
               <h1 className="text-2xl md:text-3xl font-bold text-white mb-3 leading-tight">
-                {featured.title}
+                {hero.title}
               </h1>
-              {featured.excerpt && (
+              {hero.excerpt && (
                 <p className="text-sm md:text-base" style={{ color: '#8a7a6a', maxWidth: 600 }}>
-                  {featured.excerpt}
+                  {hero.excerpt}
                 </p>
               )}
               <div className="mt-4 text-xs" style={{ color: '#6a5a4a' }}>
-                {new Date(featured.created_at).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}
+                {new Date(hero.created_at).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' })}
               </div>
             </div>
           </div>
@@ -73,9 +75,28 @@ export default async function HomePage() {
 
         {/* ARTICLES GRID */}
         <div className="md:col-span-2">
+          {/* FEATURED COLUMNS */}
+          {(featured1||featured2) && (
+            <div className="grid sm:grid-cols-2 gap-4 mb-6">
+              {[featured1,featured2].map((art,i) => art && (
+                <a key={art.id} href={`/news/${art.slug}`} className="no-underline group">
+                  <div className="rounded-xl overflow-hidden transition-all group-hover:brightness-110"
+                       style={{background:'#241f18',border:'1px solid #3a3228'}}>
+                    {art.cover_image && <div className="h-32 overflow-hidden"><img src={art.cover_image} alt="" className="w-full h-full object-cover"/></div>}
+                    <div className="p-3">
+                      <div className="text-xs mb-1 font-semibold" style={{color:i===0?'#60a0ff':'#40e080'}}>📌 Featured</div>
+                      <div className="font-bold text-sm mb-1" style={{color:'#f0ebe0'}}>{art.title}</div>
+                      {art.excerpt&&<div className="text-xs" style={{color:'#8a7a6a'}}>{art.excerpt}</div>}
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+
           <h2 className="text-sm font-semibold uppercase tracking-widest mb-4"
               style={{ color: '#6a5a4a' }}>Latest News</h2>
-          {rest.length > 0 ? (
+          {newsItems.length > 0 ? (
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
               {rest.map((a:Article) => (
                 <Link key={a.id} href={`/news/${a.slug}`} className="no-underline group">
