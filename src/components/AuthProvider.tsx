@@ -22,8 +22,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const loadProfile = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('gm_profiles').select('*, teams(*)').eq('id', userId).single()
+    if (error) console.error('Profile load error:', error)
+    else console.log('Profile loaded:', data?.display_name, data?.role)
     setProfile(data)
   }
 
