@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 const POSITIONS = [
-  {value:'hero',       label:'🏆 Hero Banner',    color:'#ffd040'},
   {value:'featured_1', label:'📌 Featured Left',  color:'#60a0ff'},
   {value:'featured_2', label:'📌 Featured Right', color:'#40e080'},
   {value:'news',       label:'📰 Latest News',    color:'#8a7a6a'},
@@ -31,7 +30,7 @@ export default function EditArticlePage({ params }: { params: { id: string } }) 
         setContent(data.content||'')
         setImageUrl(data.cover_image||'')
         setTags((data.tags||[]).join(', '))
-        setPosition(data.position||'news')
+        setPosition(['featured_1','featured_2','news'].includes(data.position) ? data.position : 'news')
         setPublished(data.published??true)
       }
       setLoading(false)

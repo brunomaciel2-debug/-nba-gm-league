@@ -5,14 +5,6 @@ import { useAuth } from '@/components/AuthProvider'
 
 const POSITIONS = [
   {
-    value: 'hero',
-    label: '🏆 Hero Banner',
-    desc: 'Large featured image at the top of the homepage. Best for major announcements, season previews, big trades.',
-    preview: 'Full-width banner · 1 article max · Most visible',
-    color: '#ffd040',
-    bg: '#2a2000',
-  },
-  {
     value: 'featured_1',
     label: '📌 Featured Left',
     desc: 'Left column highlight below the hero. Good for important news, injury reports, trade summaries.',
