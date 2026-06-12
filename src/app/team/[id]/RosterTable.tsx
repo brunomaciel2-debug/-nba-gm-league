@@ -57,7 +57,7 @@ function TH({ col, sortKey, sortDir, onSort }: {
         className={`px-3 py-2.5 font-semibold select-none whitespace-nowrap
           ${col.numeric ? 'text-right cursor-pointer' : 'text-left'}
           ${col.key === 'name' ? 'sticky left-0 z-10' : ''}`}
-        style={{ color: isActive ? (col.color||'#60a0ff') : '#5c554e',
+        style={{ color: isActive ? (col.color||'#1d4ed8') : '#5c554e',
                  background: col.key==='name' ? '#eee8df' : undefined }}>
       <span className="inline-flex items-center gap-0.5 group relative">
         {col.label}
@@ -240,7 +240,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
                              </div>}
                         </div>
                         <Link href={`/player/${p.id}`}
-                              className="font-semibold text-white no-underline hover:text-blue-400 transition-colors whitespace-nowrap">
+                              className="font-semibold no-underline transition-colors whitespace-nowrap" style={{color:'#1a1512'}} onMouseEnter={e=>e.currentTarget.style.color='#c8102e'} onMouseLeave={e=>e.currentTarget.style.color='#1a1512'}>
                           {p.name}
                         </Link>
                       </div>
