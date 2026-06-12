@@ -37,7 +37,7 @@ export default function NewArticlePage() {
   const [content,  setContent]  = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [tags,     setTags]     = useState('')
-  const [position, setPosition] = useState('hero')
+  const [position, setPosition] = useState('featured_1')
   const [published,setPublished]= useState(true)
   const [saving,   setSaving]   = useState(false)
   const [saved,    setSaved]    = useState(false)
