@@ -230,7 +230,7 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
 
           {/* Natural role note */}
           {coach.natural_role && coach.natural_role !== coach.role && (
-            <div className="rounded-xl p-4" style={{background:'#fef3c7'?'#fff8e8':'#fff8e8',border:'1px solid #b45309',borderLeft:'4px solid #b45309'}}>
+            <div className="rounded-xl p-4" style={{background:'#fff8e8',border:'1px solid #b45309',borderLeft:'4px solid #b45309'}}>
               <div className="text-xs font-bold mb-1" style={{color:'#b45309'}}>
                 <i className="ti ti-alert-triangle" style={{marginRight:4}}></i>Role Mismatch
               </div>
