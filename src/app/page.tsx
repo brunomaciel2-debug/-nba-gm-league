@@ -71,10 +71,10 @@ export default async function HomePage() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div>
 
-        {/* ARTICLES GRID */}
-        <div className="md:col-span-2">
+        {/* ARTICLES GRID — full width */}
+        <div>
           {/* FEATURED COLUMNS */}
           {(featured1||featured2) && (
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
@@ -82,11 +82,11 @@ export default async function HomePage() {
                 <a key={art.id} href={`/news/${art.slug}`} className="no-underline group">
                   <div className="rounded-xl overflow-hidden transition-all group-hover:brightness-110"
                        style={{background:'#241f18',border:'1px solid #3a3228'}}>
-                    {art.cover_image && <div className="h-32 overflow-hidden"><img src={art.cover_image} alt="" className="w-full h-full object-cover"/></div>}
+                    {art.cover_image && <div className="h-48 overflow-hidden"><img src={art.cover_image} alt="" className="w-full h-full object-cover"/></div>}
                     <div className="p-3">
                       <div className="text-xs mb-1 font-semibold" style={{color:i===0?'#60a0ff':'#40e080'}}>📌 Featured</div>
-                      <div className="font-bold text-sm mb-1" style={{color:'#f0ebe0'}}>{art.title}</div>
-                      {art.excerpt&&<div className="text-xs" style={{color:'#8a7a6a'}}>{art.excerpt}</div>}
+                      <div className="font-bold text-base mb-1" style={{color:'#f0ebe0'}}>{art.title}</div>
+                      {art.excerpt&&<div className="text-sm mt-1" style={{color:'#8a7a6a'}}>{art.excerpt}</div>}
                     </div>
                   </div>
                 </a>
@@ -97,19 +97,19 @@ export default async function HomePage() {
           <h2 className="text-sm font-semibold uppercase tracking-widest mb-4"
               style={{ color: '#6a5a4a' }}>Latest News</h2>
           {newsItems.length > 0 ? (
-            <div className="grid sm:grid-cols-2 gap-4 mb-6">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
               {newsItems.map((a:Article) => (
                 <Link key={a.id} href={`/news/${a.slug}`} className="no-underline group">
                   <div className="rounded-xl overflow-hidden h-full"
                        style={{ background: '#241f18', border: '1px solid #3a3228' }}>
                     {a.cover_image && (
-                      <img src={a.cover_image} alt="" className="w-full h-36 object-cover" />
+                      <img src={a.cover_image} alt="" className="w-full h-48 object-cover" />
                     )}
                     <div className="p-4">
-                      <p className="font-semibold text-sm text-white leading-snug mb-1 group-hover:text-blue-400 transition-colors">
+                      <p className="font-bold text-base text-white leading-snug mb-2 group-hover:text-blue-400 transition-colors">
                         {a.title}
                       </p>
-                      {a.excerpt && <p className="text-xs line-clamp-2" style={{ color: '#8a7a6a' }}>{a.excerpt}</p>}
+                      {a.excerpt && <p className="text-sm line-clamp-2" style={{ color: '#8a7a6a' }}>{a.excerpt}</p>}
                       <p className="text-xs mt-2" style={{ color: '#5a4a3a' }}>
                         {new Date(a.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric' })}
                       </p>
@@ -164,60 +164,6 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* SIDEBAR */}
-        <div className="flex flex-col gap-6">
-
-          {/* STANDINGS PREVIEW */}
-          <div className="rounded-xl p-4" style={{ background: '#241f18', border: '1px solid #3a3228' }}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#6a5a4a' }}>Standings</h3>
-              <Link href="/standings" className="text-xs no-underline" style={{ color: '#3a8adf' }}>Full →</Link>
-            </div>
-            {['Eastern','Western'].map(conf => (
-              <div key={conf} className="mb-3">
-                <p className="text-xs font-semibold mb-1" style={{ color: '#3a8adf' }}>{conf}</p>
-                {(teams||[]).filter((t:Team)=>t.conference===conf)
-                  .sort((a:Team,b:Team) => b.wins-a.wins || (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against))
-                  .slice(0,5).map((t:Team,i:number) => (
-                  <div key={t.id} className="flex items-center gap-2 py-1">
-                    <span className="text-xs w-4 text-right" style={{ color: '#5a4a3a' }}>{i+1}</span>
-                    <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: '#'+t.color }}></span>
-                    <span className="text-xs flex-1 font-medium text-white">{t.id}</span>
-                    <span className="text-xs font-bold" style={{ color: t.wins>t.losses?'#40e080':'#e04040' }}>{t.wins}</span>
-                    <span className="text-xs" style={{ color: '#5a4a3a' }}>-</span>
-                    <span className="text-xs" style={{ color: '#8a7a6a' }}>{t.losses}</span>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          {/* TRANSACTIONS FEED */}
-          <div className="rounded-xl p-4" style={{ background: '#241f18', border: '1px solid #3a3228' }}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#6a5a4a' }}>Transactions</h3>
-              <Link href="/transactions" className="text-xs no-underline" style={{ color: '#3a8adf' }}>All →</Link>
-            </div>
-            {(transactions||[]).length > 0 ? (transactions||[]).map((tx:Transaction) => (
-              <div key={tx.id} className="py-2" style={{ borderBottom: '1px solid #3a3228' }}>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs px-1.5 py-0.5 rounded font-semibold"
-                        style={{ background: tx.type==='trade'?'#2a2010':tx.type==='signing'?'#0a2a10':'#1a0a0a',
-                                 color: tx.type==='trade'?'#ffa040':tx.type==='signing'?'#40e080':'#e04040' }}>
-                    {tx.type.toUpperCase()}
-                  </span>
-                  <span className="text-xs" style={{ color: '#5a4a3a' }}>
-                    {new Date(tx.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
-                  </span>
-                </div>
-                <p className="text-xs" style={{ color: '#e8e0d0' }}>{tx.description}</p>
-              </div>
-            )) : (
-              <p className="text-xs" style={{ color: '#5a4a3a' }}>No transactions yet.</p>
-            )}
-          </div>
-
-        </div>
       </div>
     </div>
   )
