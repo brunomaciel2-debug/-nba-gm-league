@@ -6,12 +6,12 @@ export const revalidate = 60
 
 
 const TIPS: Record<string,string> = {
-  off_adjustment:  'Ability to counter the opponent's defence in real time. Impacts shot quality and offensive efficiency.',
-  def_adjustment:  'Ability to adapt the team's defence to neutralise the opponent's offence.',
+  off_adjustment:  "Ability to counter the opponent's defence in real time. Impacts shot quality and offensive efficiency.",
+  def_adjustment:  "Ability to adapt the team's defence to neutralise the opponent's offence.",
   substitutions:   'Making the right substitutions at the right moment. Affects fatigue management and matchup exploitation.',
-  timeout_mgmt:    'Knowing when to call a timeout. Boosts morale during runs and in late-game pressure situations.',
-  off_development: 'Improves players' offensive attributes over time: Three Point, Layup, Dunk, Mid-Range, Free Throws, Shot IQ, Draw Foul.',
-  def_development: 'Improves players' defensive attributes: Block, Steal, Interior Defense, Perimeter Defense.',
+  timeout_mgmt:    "Knowing when to call a timeout. Boosts morale during runs and in late-game pressure situations.",
+  off_development: "Improves players offensive attributes: Three Point, Layup, Dunk, Mid-Range, Free Throws, Shot IQ, Draw Foul.",
+  def_development: "Improves players defensive attributes: Block, Steal, Interior Defense, Perimeter Defense.",
   tactical_dev:    'Improves basketball IQ: Pass Vision, Pass IQ, Assist Role, Offensive and Defensive Rebound positioning.',
   physical_dev:    'Improves athletic attributes: Stamina and Durability.',
   mental_dev:      'Improves psychological resilience: Clutch, Consistency, Crowd Effect resistance, Morale stability.',
