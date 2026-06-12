@@ -6,6 +6,7 @@ import InboxButton from './InboxButton'
 
 const NAV = [
   { label: 'Home',          href: '/' },
+  { label: '📋 Job Vacancies', href: '/jobs' },
   { label: 'Standings',     href: '/standings' },
   { label: 'Schedule',      href: '/schedule' },
   { label: 'Teams',         href: '/teams' },
