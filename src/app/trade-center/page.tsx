@@ -7,6 +7,155 @@ import Link from 'next/link'
 
 type Tab = 'players' | 'staff' | 'tradeblock'
 
+
+// ── STAFF TABLE COMPONENT ───────────────────────────────────────
+function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
+  const [sortKey, setSortKey] = useState('name')
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc')
+
+  const ROLE_COLORS: Record<string,string> = {
+    head_coach:'#ffd040', assistant_coach:'#60a0ff', trainer:'#40e080', physio:'#c040ff'
+  }
+
+  const filtered = staff.filter((c:any) => filter==='all' || c.role===filter)
+
+  const mainAttr = (c: any) => {
+    if (c.role==='physio') return c.rehab_speed||0
+    if (c.role==='trainer') return Math.round(((c.conditioning||0)+(c.recovery_boost||0)+(c.injury_prevent||0))/3)
+    return Math.round(((c.off_adjustment||0)+(c.def_adjustment||0)+(c.off_development||0)+(c.def_development||0)+(c.tactical_dev||0))/5)
+  }
+
+  const suggestedSalary = (c: any) => {
+    const avg = mainAttr(c)
+    const base = c.role==='head_coach'?12000000:c.role==='assistant_coach'?3000000:c.role==='trainer'?900000:700000
+    return Math.round((avg/100)*base/100000)*100000
+  }
+
+  const sorted = [...filtered].sort((a:any,b:any) => {
+    let av = 0, bv = 0
+    if (sortKey==='name') { av = a.name?.localeCompare(b.name)||0; return sortDir==='asc'?av:-av }
+    if (sortKey==='age') { av=a.age||0; bv=b.age||0 }
+    if (sortKey==='attr') { av=mainAttr(a); bv=mainAttr(b) }
+    if (sortKey==='salary') { av=suggestedSalary(a); bv=suggestedSalary(b) }
+    if (sortKey==='oa') { av=a.off_adjustment||0; bv=b.off_adjustment||0 }
+    if (sortKey==='da') { av=a.def_adjustment||0; bv=b.def_adjustment||0 }
+    if (sortKey==='od') { av=a.off_development||0; bv=b.off_development||0 }
+    if (sortKey==='dd') { av=a.def_development||0; bv=b.def_development||0 }
+    if (sortKey==='cond') { av=a.conditioning||0; bv=b.conditioning||0 }
+    if (sortKey==='rec') { av=a.recovery_boost||0; bv=b.recovery_boost||0 }
+    if (sortKey==='inj') { av=a.injury_prevent||0; bv=b.injury_prevent||0 }
+    if (sortKey==='rehab') { av=a.rehab_speed||0; bv=b.rehab_speed||0 }
+    return sortDir==='asc' ? av-bv : bv-av
+  })
+
+  const toggleSort = (key: string) => {
+    if (sortKey===key) setSortDir(d => d==='asc'?'desc':'asc')
+    else { setSortKey(key); setSortDir('desc') }
+  }
+
+  const Th = ({ k, label }: { k:string, label:string }) => (
+    <th className="px-3 py-2.5 text-left cursor-pointer select-none whitespace-nowrap"
+        style={{color:sortKey===k?'#F5A623':'#6a5a4a',fontSize:11,fontWeight:600,letterSpacing:'0.5px',
+                background:'#120f0a',borderBottom:'1px solid #2a2218'}}
+        onClick={()=>toggleSort(k)}>
+      {label}{sortKey===k&&<span className="ml-1">{sortDir==='asc'?'↑':'↓'}</span>}
+    </th>
+  )
+
+  const isCoach = (role:string) => role==='head_coach'||role==='assistant_coach'
+
+  return (
+    <div>
+      {/* Filters */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
+        {['all','head_coach','assistant_coach','trainer','physio'].map(f=>(
+          <button key={f} onClick={()=>setFilter(f)}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+            style={{background:filter===f?'#1f2937':'#241f18',
+                    color:filter===f?'#f0ebe0':'#8a7a6a',
+                    border:'1px solid '+(filter===f?'#374151':'#3a3228')}}>
+            {f==='all'?'All Roles':f.replace(/_/g,' ').replace(/\w/g,(c:string)=>c.toUpperCase())}
+          </button>
+        ))}
+        <span className="ml-auto text-xs" style={{color:'#5a4a3a'}}>{sorted.length} available</span>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-xl overflow-hidden" style={{border:'1px solid #2a2218'}}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs" style={{borderCollapse:'collapse'}}>
+            <thead>
+              <tr>
+                <Th k="name"   label="NAME" />
+                <Th k="age"    label="AGE" />
+                {(filter==='all'||isCoach(filter)) && <>
+                  <Th k="oa"   label="OFF ADJ" />
+                  <Th k="da"   label="DEF ADJ" />
+                  <Th k="od"   label="OFF DEV" />
+                  <Th k="dd"   label="DEF DEV" />
+                </>}
+                {(filter==='all'||filter==='trainer') && <>
+                  <Th k="cond" label="COND" />
+                  <Th k="rec"  label="REC" />
+                  <Th k="inj"  label="INJ PREV" />
+                </>}
+                {(filter==='all'||filter==='physio') && <Th k="rehab" label="REHAB" />}
+                <Th k="attr"   label="RATING" />
+                <Th k="salary" label="AI SALARY" />
+                <th style={{background:'#120f0a',borderBottom:'1px solid #2a2218'}}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.length===0 ? (
+                <tr><td colSpan={12} className="px-4 py-8 text-center" style={{color:'#5a4a3a'}}>No staff available.</td></tr>
+              ) : sorted.map((c:any, i:number) => {
+                const rc = ROLE_COLORS[c.role]||'#8a7a6a'
+                const attr = mainAttr(c)
+                const sal = suggestedSalary(c)
+                const attrColor = attr>=80?'#ffd040':attr>=70?'#40e080':attr>=60?'#60a0ff':'#6a5a4a'
+                return (
+                  <tr key={c.id} style={{background:i%2===0?'#1a1610':'#181410',borderBottom:'1px solid #242018'}}>
+                    <td className="px-3 py-2.5">
+                      <div className="font-semibold" style={{color:'#f0ebe0'}}>{c.name}</div>
+                      <div className="text-xs mt-0.5" style={{color:rc}}>{c.role.replace(/_/g,' ')}</div>
+                    </td>
+                    <td className="px-3 py-2.5" style={{color:'#8a7a6a'}}>{c.age||'—'}<span className="ml-0.5" style={{color:'#4a3a2a',fontSize:10}}>{c.nationality?` ${c.nationality}`:''}</span></td>
+                    {(filter==='all'||isCoach(filter)) && <>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_adjustment>=75?'#ffa040':'#6a5a4a'}}>{c.off_adjustment||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_adjustment>=75?'#40e080':'#6a5a4a'}}>{c.def_adjustment||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_development>=75?'#ffa040':'#6a5a4a'}}>{c.off_development||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_development>=75?'#40e080':'#6a5a4a'}}>{c.def_development||'—'}</td>
+                    </>}
+                    {(filter==='all'||filter==='trainer') && <>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.conditioning>=75?'#40e080':'#6a5a4a'}}>{c.conditioning||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.recovery_boost>=75?'#60a0ff':'#6a5a4a'}}>{c.recovery_boost||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.injury_prevent>=75?'#ffd040':'#6a5a4a'}}>{c.injury_prevent||'—'}</td>
+                    </>}
+                    {(filter==='all'||filter==='physio') && <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.rehab_speed>=75?'#c040ff':'#6a5a4a'}}>{c.rehab_speed||'—'}</td>}
+                    <td className="px-3 py-2.5 text-center">
+                      <span className="font-black" style={{color:attrColor}}>{attr}</span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold" style={{color:'#F5A623'}}>{capFmt(sal)}</td>
+                    <td className="px-3 py-2.5">
+                      {user && myTeamId && (
+                        <a href={`/trade-center/staff-offer?coach=${c.id}`}
+                           className="text-xs font-bold px-3 py-1.5 rounded-lg no-underline whitespace-nowrap"
+                           style={{background:rc+'22',color:rc,border:'1px solid '+rc+'33'}}>
+                          Offer
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TradeCenterPage() {
   const { user, profile } = useAuth()
   const [tab, setTab] = useState<Tab>('players')
@@ -136,105 +285,14 @@ export default function TradeCenterPage() {
 
           {/* ── STAFF FREE AGENCY ──────────────────────── */}
           {tab==='staff' && (
-            <div>
-              <div className="flex items-center gap-3 mb-4 flex-wrap">
-                <span className="text-xs font-semibold" style={{color:'#8a7a6a'}}>Filter:</span>
-                {['all','head_coach','assistant_coach','trainer','physio'].map(f=>(
-                  <button key={f} onClick={()=>setStaffFilter(f)}
-                    className="px-3 py-1 rounded-lg text-xs font-semibold"
-                    style={{background:staffFilter===f?'#3a3228':'#241f18',
-                            color:staffFilter===f?'#f0ebe0':'#8a7a6a',
-                            border:'1px solid '+(staffFilter===f?'#5a4a3a':'#3a3228')}}>
-                    {f==='all'?'All':f.replace('_',' ')}
-                  </button>
-                ))}
-                <span className="text-xs ml-auto" style={{color:'#5a4a3a'}}>{filteredStaff.length} available</span>
-              </div>
-
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredStaff.map(c => {
-                  const rc = ROLE_COLORS[c.role]||'#8a7a6a'
-                  // AI salary suggestion based on attributes
-                  const avgAttr = c.role==='physio'?c.rehab_speed:
-                    c.role==='trainer'?Math.round((c.conditioning+c.recovery_boost+c.injury_prevent)/3):
-                    Math.round((c.off_adjustment+c.def_adjustment+c.off_development+c.def_development+c.tactical_dev)/5)
-                  const suggestedSalary = Math.round((avgAttr/100) * (
-                    c.role==='head_coach'?12000000:c.role==='assistant_coach'?3000000:
-                    c.role==='trainer'?900000:700000
-                  ))
-
-                  return (
-                    <div key={c.id} className="rounded-xl p-4"
-                         style={{background:'#241f18',border:'1px solid #3a3228',borderTop:'2px solid '+rc}}>
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="text-xs font-semibold" style={{color:rc}}>
-                            {c.role.replace(/_/g,' ')}
-                          </div>
-                          <div className="font-bold" style={{color:'#f0ebe0'}}>{c.name}</div>
-                          <div className="text-xs" style={{color:'#6a5a4a'}}>{c.nationality}{c.age?` · Age ${c.age}`:''}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs" style={{color:'#8a7a6a'}}>AI Suggestion</div>
-                          <div className="text-sm font-bold" style={{color:'#ffa040'}}>{capFmt(suggestedSalary)}/yr</div>
-                        </div>
-                      </div>
-
-                      {/* Key attributes */}
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {c.role==='head_coach'&&[
-                          ['OA',c.off_adjustment],['DA',c.def_adjustment],
-                          ['OD',c.off_development],['DD',c.def_development],['P',c.personality]
-                        ].map(([l,v])=>(
-                          <div key={l as string} className="rounded px-2 py-0.5 text-xs text-center"
-                               style={{background:'#1a1610'}}>
-                            <span style={{color:'#8a7a6a'}}>{l} </span>
-                            <span className="font-bold" style={{color:rc}}>{v}</span>
-                          </div>
-                        ))}
-                        {c.role==='assistant_coach'&&[
-                          ['OA',c.off_adjustment],['OD',c.off_development],['DD',c.def_development]
-                        ].map(([l,v])=>(
-                          <div key={l as string} className="rounded px-2 py-0.5 text-xs"
-                               style={{background:'#1a1610'}}>
-                            <span style={{color:'#8a7a6a'}}>{l} </span>
-                            <span className="font-bold" style={{color:rc}}>{v}</span>
-                          </div>
-                        ))}
-                        {c.role==='trainer'&&[
-                          ['COND',c.conditioning],['REC',c.recovery_boost],['INJ',c.injury_prevent]
-                        ].map(([l,v])=>(
-                          <div key={l as string} className="rounded px-2 py-0.5 text-xs"
-                               style={{background:'#1a1610'}}>
-                            <span style={{color:'#8a7a6a'}}>{l} </span>
-                            <span className="font-bold" style={{color:rc}}>{v}</span>
-                          </div>
-                        ))}
-                        {c.role==='physio'&&(
-                          <div className="rounded px-2 py-0.5 text-xs" style={{background:'#1a1610'}}>
-                            <span style={{color:'#8a7a6a'}}>Rehab </span>
-                            <span className="font-bold" style={{color:rc}}>{c.rehab_speed}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {user && myTeamId && (
-                        <Link href={`/trade-center/staff-offer?coach=${c.id}`}
-                              className="block text-center text-xs font-bold py-2 rounded-lg no-underline"
-                              style={{background:rc+'22',color:rc,border:'1px solid '+rc+'44'}}>
-                          Make Offer
-                        </Link>
-                      )}
-                    </div>
-                  )
-                })}
-                {filteredStaff.length===0&&(
-                  <div className="col-span-3 text-center py-8" style={{color:'#6a5a4a'}}>
-                    No free agent staff available in this category.
-                  </div>
-                )}
-              </div>
-            </div>
+            <StaffTable
+              staff={freeStaff}
+              filter={staffFilter}
+              setFilter={setStaffFilter}
+              user={user}
+              myTeamId={myTeamId}
+              capFmt={capFmt}
+            />
           )}
 
           {/* ── TRADE BLOCK ─────────────────────────────── */}
