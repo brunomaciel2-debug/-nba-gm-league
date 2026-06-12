@@ -18,7 +18,7 @@ const NAV = [
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
-  const { user, profile, signOut } = useAuth()
+  const { user, profile, loading, signOut } = useAuth()
 
   return (
     <nav style={{ background: '#120f0a', borderBottom: '1px solid #3a3228' }}
@@ -47,7 +47,7 @@ export default function Navbar() {
           {user ? (
             <div className="hidden sm:flex items-center gap-2">
               <span className="text-xs font-semibold" style={{color:'#8a7a6a'}}>
-                {profile?.teams?.name || 'Commissioner'}
+                {profile?.role==='commissioner' ? '👑 ' : ''}{profile?.display_name || profile?.teams?.name || user?.email?.split('@')[0] || 'User'}
               </span>
               <button onClick={signOut}
                 className="text-xs px-3 py-1.5 rounded-lg font-semibold"

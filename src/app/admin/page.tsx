@@ -1,18 +1,23 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
+import { useAuth } from '@/components/AuthProvider'
 
 export default function AdminPage() {
+  const { user, profile, loading } = useAuth()
   const [secret, setSecret] = useState('')
   const [authed, setAuthed] = useState(false)
   const [error, setError] = useState('')
+
+  // Commissioner auto-auth via Supabase
+  const isCommissioner = profile?.role === 'commissioner'
 
   const login = () => {
     if (secret.length >= 6) { setAuthed(true); setError('') }
     else setError('Incorrect password.')
   }
 
-  if (!authed) return (
+  if (!isCommissioner && !authed) return (
     <div className="max-w-md mx-auto px-4 py-16">
       <div className="rounded-2xl p-8" style={{ background:'#241f18',border:'1px solid #3a3228' }}>
         <div className="text-4xl mb-4 text-center">🏀</div>

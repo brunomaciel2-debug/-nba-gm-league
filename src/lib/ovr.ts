@@ -1,3 +1,7 @@
+/**
+ * Calculate Overall Rating (OVR) for a player.
+ * Single source of truth — used everywhere.
+ */
 export function calcOvr(p: any): number {
   if (!p) return 0
   return Math.round(
