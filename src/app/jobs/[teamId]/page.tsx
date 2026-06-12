@@ -9,8 +9,8 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
   const teamId = params.teamId.toUpperCase()
   const [{ data: team }, { data: players }, { data: coaches }, { data: profile }] = await Promise.all([
     supabase.from('teams').select('*').eq('id', teamId).single(),
-    supabase.from('players').select('id,name,pos,salary,usage,three,layup,dunk,mid,ft,siq,blk,stl,idef,pdef,def_reb,off_reb,stamina,durability,ball_hdl,pass_iq,pressure,consistency,crowd_effect')
-      .eq('team_id', teamId).eq('status','active').order('usage',{ascending:false}),
+    supabase.from('players').select('id,name,pos,usage,three,layup,dunk,mid,ft,siq,blk,stl,idef,pdef,def_reb,off_reb,stamina,durability,ball_hdl,pass_iq,pressure,consistency,crowd_effect, contracts!inner(salary,season)')
+      .eq('team_id', teamId).eq('status','active').eq('contracts.season','2025-26').order('usage',{ascending:false}),
     supabase.from('coaches').select('name,role').eq('team_id', teamId),
     supabase.from('gm_profiles').select('id,display_name').eq('team_id', teamId).single(),
   ])
@@ -99,7 +99,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
                   const c = ovr>=85?'#ffd040':ovr>=75?'#40e080':ovr>=65?'#60a0ff':'#6a5a4a'
                   return <span className="text-xs font-black w-6 text-right" style={{color:c}}>{ovr}</span>
                 })()}
-                <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(p.salary)}</span>
+                <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(p.contracts?.[0]?.salary || 0)}</span>
               </div>
             </Link>
           ))}
