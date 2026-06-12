@@ -39,7 +39,7 @@ export default async function HomePage() {
   const sortedGames = [...(recentGames||[])].sort((a:any,b:any) => new Date(b.played_at).getTime()-new Date(a.played_at).getTime())
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="max-w-7xl mx-auto px-4 py-6">
 
       {/* ── BANNER ─────────────────────────────────── */}
       {bannerUrl ? (
@@ -63,6 +63,12 @@ export default async function HomePage() {
 
       {/* ── FEATURED ARTICLES ──────────────────────── */}
       {(featured1 || featured2) && (
+        <>
+        <div className="section-header mb-5">
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#f0ebe0',letterSpacing:'1.5px'}}>
+            <i className="ti ti-pin" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Featured
+          </span>
+        </div>
         <div className="grid md:grid-cols-2 gap-5 mb-8">
           {[featured1, featured2].map((art, i) => art && (
             <Link key={art.id} href={`/news/${art.slug}`} className="no-underline group">
@@ -90,9 +96,15 @@ export default async function HomePage() {
             </Link>
           ))}
         </div>
+        </>
       )}
 
       {/* ── WEEKLY HIGHLIGHTS ──────────────────────── */}
+      <div className="section-header mb-5">
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#f0ebe0',letterSpacing:'1.5px'}}>
+          <i className="ti ti-flame" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Weekly Highlights
+        </span>
+      </div>
       <div className="grid md:grid-cols-3 gap-5 mb-8">
 
         {/* Performance of the Week */}
@@ -257,9 +269,12 @@ export default async function HomePage() {
       {/* ── RECENT RESULTS ─────────────────────────── */}
       {(recentGames||[]).length > 0 && (
         <>
-          <h2 className="text-sm font-semibold uppercase tracking-widest mb-4" style={{color:'#6a5a4a'}}>
-            Recent Results
-          </h2>
+          <div className="section-header mb-4">
+            <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#f0ebe0',letterSpacing:'1.5px'}}>
+              <i className="ti ti-ball-basketball" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Recent Results
+            </span>
+            <Link href="/schedule" className="text-xs no-underline font-semibold" style={{color:'#F5A623'}}>Full Schedule →</Link>
+          </div>
           <div className="flex flex-col gap-2">
             {(recentGames||[]).map((g:any) => {
               const home = g.home as Team

@@ -46,12 +46,11 @@ export default async function LeagueLeadersMini() {
 
   return (
     <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-semibold uppercase tracking-widest" style={{color:'#6a5a4a'}}>
-          League Leaders
-        </h2>
-        <Link href="/league-leaders" className="text-xs no-underline font-semibold"
-              style={{color:'#3a8adf'}}>
+      <div className="section-header mb-5">
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#f0ebe0',letterSpacing:'1.5px'}}>
+          <i className="ti ti-chart-bar" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>League Leaders
+        </span>
+        <Link href="/league-leaders" className="text-xs no-underline font-semibold" style={{color:'#F5A623'}}>
           Full Leaders →
         </Link>
       </div>

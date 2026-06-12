@@ -19,3 +19,16 @@ body {
 .nba-panel  { background: var(--nba-panel);  border: 1px solid var(--nba-border); border-radius: 10px; }
 .nba-muted  { color: var(--nba-muted); }
 .nba-border { border-color: var(--nba-border); }
+
+/* Tabler Icons */
+@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
+
+/* ESPN-style section headers */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #F5A623;
+}
