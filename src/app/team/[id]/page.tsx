@@ -22,7 +22,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
       supabase.from('injury_log').select('*').eq('status','active').limit(100),
     ])
 
-  if (!team) return <div className="p-8 text-center" style={{color:'#8a7a6a'}}>Team not found.</div>
+  if (!team) return <div className="p-8 text-center" style={{color:'#6b5f4e'}}>Team not found.</div>
 
   const t = team as any
   const color = readableTeamColor(t.color)
@@ -46,7 +46,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
 
       {/* HEADER */}
       <div className="rounded-2xl p-6 mb-4"
-           style={{background:'#241f18',borderTop:'4px solid '+color,border:'1px solid #3a3228'}}>
+           style={{background:'#e8e2d6',borderTop:'4px solid '+color,border:'1px solid #d4cec3'}}>
         <div className="flex flex-wrap items-center gap-6">
           <div className="w-20 h-20 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                style={{background:color+'22',border:'2px solid '+color+'44'}}>
@@ -56,14 +56,14 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold mb-1" style={{color}}>{t.conference} · {t.division}</div>
-            <h1 className="text-3xl font-bold mb-1" style={{color:'#f0ebe0'}}>{t.name}</h1>
-            <div className="text-sm" style={{color:'#8a7a6a'}}>{t.arena} · {t.city}</div>
+            <h1 className="text-3xl font-bold mb-1" style={{color:'#1a1612'}}>{t.name}</h1>
+            <div className="text-sm" style={{color:'#6b5f4e'}}>{t.arena} · {t.city}</div>
           </div>
           <div className="flex gap-6">
             {[{v:wins,l:'W',c:'#40e080'},{v:losses,l:'L',c:'#e04040'},{v:pct,l:'PCT',c:'#e8e0d0'}].map(x=>(
               <div key={x.l} className="text-center">
                 <div className="text-3xl font-black" style={{color:x.c}}>{x.v}</div>
-                <div className="text-xs" style={{color:'#6a5a4a'}}>{x.l}</div>
+                <div className="text-xs" style={{color:'#6b5f4e'}}>{x.l}</div>
               </div>
             ))}
           </div>
@@ -72,29 +72,29 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
 
       {/* CAP ROOM + GM PANEL */}
       <div className="grid sm:grid-cols-2 gap-4 mb-4">
-        <div className="rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
-          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6a5a4a'}}>💰 Cap Room</h3>
+        <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>💰 Cap Room</h3>
           <div className="flex justify-between text-xs mb-1">
-            <span style={{color:'#8a7a6a'}}>Used</span>
-            <span className="font-bold" style={{color:'#f0ebe0'}}>{capFmt(used)}</span>
+            <span style={{color:'#6b5f4e'}}>Used</span>
+            <span className="font-bold" style={{color:'#1a1612'}}>{capFmt(used)}</span>
           </div>
           <div className="h-2 rounded-full overflow-hidden mb-1" style={{background:'#3a3228'}}>
             <div className="h-full rounded-full" style={{width:Math.min(100,used/cap*100)+'%',
               background:space>0?'#3a8adf':'#e04040'}}></div>
           </div>
           <div className="flex justify-between text-xs">
-            <span style={{color:'#8a7a6a'}}>Cap: {capFmt(cap)}</span>
+            <span style={{color:'#6b5f4e'}}>Cap: {capFmt(cap)}</span>
             <span className="font-bold" style={{color:space>0?'#40e080':'#e04040'}}>
               {space>0?'Space: +'+capFmt(space):'Over: '+capFmt(Math.abs(space))}
             </span>
           </div>
         </div>
-        <div className="rounded-xl p-4" style={{background:'#0a2a10',border:'1px solid #1a5a2a'}}>
-          <h3 className="text-xs font-semibold uppercase tracking-widest mb-2" style={{color:'#40e080'}}>🏀 GM Panel</h3>
+        <div className="rounded-xl p-4" style={{background:'#dcfce7',border:'1px solid #1a5a2a'}}>
+          <h3 className="text-xs font-semibold uppercase tracking-widest mb-2" style={{color:'#166534'}}>🏀 GM Panel</h3>
           <p className="text-xs mb-3" style={{color:'#5a8a5a'}}>Depth chart, ball roles and tactics. Deadline: Sunday 23:59.</p>
           <Link href={`/gm/orders/${teamId}`}
                 className="block text-center text-sm font-bold py-2.5 rounded-lg no-underline"
-                style={{background:'#0a5a20',color:'#40e080'}}>
+                style={{background:'#0a5a20',color:'#166534'}}>
             Set Weekly Orders →
           </Link>
         </div>
@@ -110,12 +110,12 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
       />
 
       {/* COACHING STAFF */}
-      <div className="mt-6 rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+      <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
         <CoachingStaff teamId={teamId} />
       </div>
 
       {/* INJURY REPORT */}
-      <div className="mt-4 rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+      <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
         <InjuryReport
           injuries={teamInjuries||[]}
           players={players||[]}

@@ -29,15 +29,15 @@ export default function TeamPageTabs({
           <button key={t.key} onClick={() => setTab(t.key as Tab)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
             style={{
-              background: tab === t.key ? '#1f2937' : '#241f18',
-              color: tab === t.key ? '#f0ebe0' : '#8a7a6a',
-              border: '1px solid ' + (tab === t.key ? '#374151' : '#3a3228'),
+              background: tab === t.key ? '#1f2937' : '#ede8df',
+              color: tab === t.key ? '#1c1917' : '#6b6258',
+              border: '1px solid ' + (tab === t.key ? '#3d3731' : '#cec8be'),
               borderBottom: tab === t.key ? '2px solid #F5A623' : '2px solid transparent'
             }}>
             <i className={`ti ${t.icon}`} style={{ fontSize: 15 }} aria-hidden="true"></i>
             {t.label}
             <span className="text-xs px-1.5 py-0.5 rounded"
-                  style={{ background: tab === t.key ? '#374151' : '#3a3228', color: tab === t.key ? '#9ca3af' : '#5a4a3a' }}>
+                  style={{ background: tab === t.key ? '#3d3731' : '#cec8be', color: tab === t.key ? '#9c9088' : '#9c9088' }}>
               {t.badge}
             </span>
           </button>

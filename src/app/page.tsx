@@ -49,12 +49,12 @@ export default async function HomePage() {
       ) : (
         <div className="rounded-2xl mb-6 flex items-center justify-center"
              style={{height:280,background:'linear-gradient(135deg,#1a1610 0%,#2a2218 50%,#1a1610 100%)',
-                     border:'1px solid #3a3228'}}>
+                     border:'1px solid #d4cec3'}}>
           <div className="text-center">
             <div className="text-5xl mb-3">🏀</div>
-            <h1 className="text-4xl font-black mb-2" style={{color:'#111827'}}>NBA GM League</h1>
-            <p className="text-lg" style={{color:'#6b7280'}}>2025-26 Season</p>
-            <p className="text-xs mt-2" style={{color:'#d1d5db'}}>
+            <h1 className="text-4xl font-black mb-2" style={{color:'#1a1612'}}>NBA GM League</h1>
+            <p className="text-lg" style={{color:'#6b5f4e'}}>2025-26 Season</p>
+            <p className="text-xs mt-2" style={{color:'#b8ae9e'}}>
               Commissioner: upload a banner in the admin panel (recommended: 1200×280px)
             </p>
           </div>
@@ -65,7 +65,7 @@ export default async function HomePage() {
       {(featured1 || featured2) && (
         <>
         <div className="section-header mb-5">
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#111827',letterSpacing:'1.5px'}}>
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
             <i className="ti ti-pin" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Featured
           </span>
         </div>
@@ -73,7 +73,7 @@ export default async function HomePage() {
           {[featured1, featured2].map((art, i) => art && (
             <Link key={art.id} href={`/news/${art.slug}`} className="no-underline group">
               <div className="rounded-2xl overflow-hidden h-full transition-all group-hover:brightness-110"
-                   style={{background:'#fff',border:'1px solid #e5e1d8',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+                   style={{background:'#e8e2d6',border:'1px solid #d4cec3',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
                 {art.cover_image && (
                   <div className="h-56 overflow-hidden">
                     <img src={art.cover_image} alt="" className="w-full h-full object-cover"/>
@@ -82,13 +82,13 @@ export default async function HomePage() {
                 <div className="p-5">
                   <div className="text-xs font-bold mb-2 uppercase tracking-widest"
                        style={{color:i===0?'#60a0ff':'#40e080'}}>📌 Featured</div>
-                  <h2 className="text-xl font-black mb-2 leading-tight" style={{color:'#111827'}}>
+                  <h2 className="text-xl font-black mb-2 leading-tight" style={{color:'#1a1612'}}>
                     {art.title}
                   </h2>
                   {art.excerpt && (
-                    <p className="text-sm" style={{color:'#374151',lineHeight:1.6}}>{art.excerpt}</p>
+                    <p className="text-sm" style={{color:'#3d3529',lineHeight:1.6}}>{art.excerpt}</p>
                   )}
-                  <p className="text-sm mt-3" style={{color:'#9ca3af'}}>
+                  <p className="text-sm mt-3" style={{color:'#9c8e7a'}}>
                     {new Date(art.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
                   </p>
                 </div>
@@ -101,15 +101,15 @@ export default async function HomePage() {
 
       {/* ── WEEKLY HIGHLIGHTS ──────────────────────── */}
       <div className="section-header mb-5">
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#111827',letterSpacing:'1.5px'}}>
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
           <i className="ti ti-flame" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Weekly Highlights
         </span>
       </div>
       <div className="grid md:grid-cols-3 gap-5 mb-8">
 
         {/* Performance of the Week */}
-        <div className="rounded-2xl p-5" style={{background:'#fff',border:'1px solid #e5e1d8',borderTop:'3px solid #f59e0b',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-          <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #f0ede6'}}>
+        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #f59e0b',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+          <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #ddd8ce'}}>
             <i className="ti ti-award" style={{fontSize:18,color:'#d97706'}}></i>
             <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#92400e',letterSpacing:'1px'}}>Performance of the Week</span>
           </div>
@@ -127,7 +127,7 @@ export default async function HomePage() {
                      </div>}
                 </div>
                 <div>
-                  <div className="font-black text-lg" style={{color:'#111827'}}>{hl.potw.name}</div>
+                  <div className="font-black text-lg" style={{color:'#1a1612'}}>{hl.potw.name}</div>
                   <div className="text-sm" style={{color:teamColor(teamMap[hl.potw.team_id])}}>
                     {hl.potw.pos} · {teamMap[hl.potw.team_id]?.name}
                   </div>
@@ -135,16 +135,16 @@ export default async function HomePage() {
               </div>
               <div className="grid grid-cols-3 gap-2 mb-4">
                 {[['PTS',hl.potw_pts,'#ffa040'],['REB',hl.potw_reb,'#60a0ff'],['AST',hl.potw_ast,'#40e080']].map(([l,v,c])=>(
-                  <div key={l as string} className="rounded-xl p-2 text-center" style={{background:'#1a1610'}}>
+                  <div key={l as string} className="rounded-xl p-2 text-center" style={{background:'#ede8de'}}>
                     <div className="text-xl font-black" style={{color:c as string}}>{v}</div>
-                    <div className="text-xs" style={{color:'#6b7280'}}>{l}</div>
+                    <div className="text-xs" style={{color:'#6b5f4e'}}>{l}</div>
                   </div>
                 ))}
               </div>
               {hl.potw_game && (
                 <Link href={`/game/${hl.potw_game.id}`}
                       className="block text-center text-xs no-underline py-2 rounded-lg font-semibold"
-                      style={{background:'#2a2000',color:'#ffd040'}}>
+                      style={{background:'#fef3c7',color:'#b45309'}}>
                   View Box Score →
                 </Link>
               )}
@@ -152,14 +152,14 @@ export default async function HomePage() {
           ) : (
             <div className="text-center py-6">
               <div className="text-3xl mb-2">⭐</div>
-              <p className="text-sm" style={{color:'#6b7280'}}>Available after first simulation</p>
+              <p className="text-sm" style={{color:'#6b5f4e'}}>Available after first simulation</p>
             </div>
           )}
         </div>
 
         {/* Upset of the Week */}
-        <div className="rounded-2xl p-5" style={{background:'#fff',border:'1px solid #e5e1d8',borderTop:'3px solid #dc2626',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-          <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #f0ede6'}}>
+        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #dc2626',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+          <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #ddd8ce'}}>
             <i className="ti ti-bolt" style={{fontSize:18,color:'#dc2626'}}></i>
             <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#991b1b',letterSpacing:'1px'}}>Upset of the Week</span>
           </div>
@@ -174,13 +174,13 @@ export default async function HomePage() {
                       :<div className="w-full h-full flex items-center justify-center font-black text-sm"
                             style={{color:teamColor(hl.uotw_winner)}}>{hl.uotw_winner.id}</div>}
                   </div>
-                  <div className="text-xs font-bold text-center" style={{color:'#40e080'}}>WIN</div>
-                  <div className="text-xs text-center" style={{color:'#111827'}}>{hl.uotw_winner.name}</div>
+                  <div className="text-xs font-bold text-center" style={{color:'#166534'}}>WIN</div>
+                  <div className="text-xs text-center" style={{color:'#1a1612'}}>{hl.uotw_winner.name}</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-black" style={{color:'#e04040'}}>💥</div>
-                  <div className="text-base font-black" style={{color:'#111827'}}>{hl.uotw_score}</div>
-                  <div className="text-xs" style={{color:'#9ca3af'}}>
+                  <div className="text-lg font-black" style={{color:'#dc2626'}}>💥</div>
+                  <div className="text-base font-black" style={{color:'#1a1612'}}>{hl.uotw_score}</div>
+                  <div className="text-xs" style={{color:'#9c8e7a'}}>
                     {hl.uotw_odds ? `${Math.round(hl.uotw_odds*100)}% underdog` : ''}
                   </div>
                 </div>
@@ -192,15 +192,15 @@ export default async function HomePage() {
                       :<div className="w-full h-full flex items-center justify-center font-black text-sm"
                             style={{color:teamColor(hl.uotw_loser)}}>{hl.uotw_loser?.id}</div>}
                   </div>
-                  <div className="text-xs font-bold text-center" style={{color:'#e04040'}}>LOSS</div>
-                  <div className="text-xs text-center" style={{color:'#6b7280'}}>{hl.uotw_loser?.name}</div>
+                  <div className="text-xs font-bold text-center" style={{color:'#dc2626'}}>LOSS</div>
+                  <div className="text-xs text-center" style={{color:'#6b5f4e'}}>{hl.uotw_loser?.name}</div>
                 </div>
               </div>
-              {hl.uotw_notes && <p className="text-sm mb-3" style={{color:'#6b7280'}}>{hl.uotw_notes}</p>}
+              {hl.uotw_notes && <p className="text-sm mb-3" style={{color:'#6b5f4e'}}>{hl.uotw_notes}</p>}
               {hl.uotw_game && (
                 <Link href={`/game/${hl.uotw_game.id}`}
                       className="block text-center text-xs no-underline py-2 rounded-lg font-semibold"
-                      style={{background:'#2a0a0a',color:'#e04040'}}>
+                      style={{background:'#fee2e2',color:'#dc2626'}}>
                   View Box Score →
                 </Link>
               )}
@@ -208,14 +208,14 @@ export default async function HomePage() {
           ) : (
             <div className="text-center py-6">
               <div className="text-3xl mb-2">💥</div>
-              <p className="text-sm" style={{color:'#6b7280'}}>Available after first simulation</p>
+              <p className="text-sm" style={{color:'#6b5f4e'}}>Available after first simulation</p>
             </div>
           )}
         </div>
 
         {/* Hot Streak */}
-        <div className="rounded-2xl p-5" style={{background:'#fff',border:'1px solid #e5e1d8',borderTop:'3px solid #f97316',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-          <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #f0ede6'}}>
+        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #f97316',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+          <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #ddd8ce'}}>
             <i className="ti ti-flame" style={{fontSize:18,color:'#ea580c'}}></i>
             <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#9a3412',letterSpacing:'1px'}}>Hot Streak</span>
           </div>
@@ -230,7 +230,7 @@ export default async function HomePage() {
                           style={{color:teamColor(hl.hstreak_team)}}>{hl.hstreak_team.id}</div>}
                 </div>
                 <div>
-                  <div className="font-black text-lg" style={{color:'#111827'}}>{hl.hstreak_team.name}</div>
+                  <div className="font-black text-lg" style={{color:'#1a1612'}}>{hl.hstreak_team.name}</div>
                   <div className="flex items-center gap-1.5 mt-1">
                     <i className="ti ti-flame" style={{fontSize:16,color:'#ea580c'}}></i>
                     <span className="text-xl font-black" style={{color:'#ea580c'}}>{hl.hstreak_wins}-game win streak</span>
@@ -248,11 +248,11 @@ export default async function HomePage() {
                 return (
                   <Link key={gid} href={`/game/${gid}`} className="no-underline">
                     <div className="flex items-center gap-2 py-1.5 text-xs"
-                         style={{borderBottom:'1px solid #3a3228'}}>
+                         style={{borderBottom:'1px solid #d4cec3'}}>
                       <span className="font-bold px-1.5 py-0.5 rounded"
-                            style={{background:'#0a2a10',color:'#40e080'}}>W</span>
-                      <span style={{color:'#6b7280'}}>{isHome?'vs':'@'} {opp?.name}</span>
-                      <span className="ml-auto font-bold" style={{color:'#40e080'}}>{us}–{them}</span>
+                            style={{background:'#dcfce7',color:'#166534'}}>W</span>
+                      <span style={{color:'#6b5f4e'}}>{isHome?'vs':'@'} {opp?.name}</span>
+                      <span className="ml-auto font-bold" style={{color:'#166534'}}>{us}–{them}</span>
                     </div>
                   </Link>
                 )
@@ -261,7 +261,7 @@ export default async function HomePage() {
           ) : (
             <div className="text-center py-6">
               <div className="text-3xl mb-2">🔥</div>
-              <p className="text-sm" style={{color:'#6b7280'}}>Available after first simulation</p>
+              <p className="text-sm" style={{color:'#6b5f4e'}}>Available after first simulation</p>
             </div>
           )}
         </div>
@@ -274,7 +274,7 @@ export default async function HomePage() {
       {(recentGames||[]).length > 0 && (
         <>
           <div className="section-header mb-4">
-            <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#111827',letterSpacing:'1.5px'}}>
+            <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
               <i className="ti ti-ball-basketball" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Recent Results
             </span>
             <Link href="/schedule" className="text-xs no-underline font-semibold" style={{color:'#F5A623'}}>Full Schedule →</Link>
@@ -287,22 +287,22 @@ export default async function HomePage() {
               return (
                 <Link key={g.id} href={`/game/${g.id}`} className="no-underline">
                   <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                       style={{background:'#241f18',border:'1px solid #3a3228'}}>
-                    <span className="text-xs w-6 font-semibold" style={{color:'#6b7280'}}>W{g.week_number}</span>
+                       style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+                    <span className="text-xs w-6 font-semibold" style={{color:'#6b5f4e'}}>W{g.week_number}</span>
                     <div className="flex-1 flex items-center gap-3">
-                      <span className="text-sm font-semibold" style={{color:winner==='home'?'#fff':'#8a7a6a'}}>
+                      <span className="text-sm font-semibold" style={{color:winner==='home'?'#e8e2d6':'#6b6258'}}>
                         <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{background:teamColor(home)}}></span>
                         {home?.name||g.home_team}
                       </span>
-                      <span className="text-base font-black" style={{color:winner==='home'?'#fff':'#6a5a4a'}}>{g.home_score}</span>
-                      <span className="text-sm" style={{color:'#d1d5db'}}>–</span>
-                      <span className="text-base font-black" style={{color:winner==='away'?'#fff':'#6a5a4a'}}>{g.away_score}</span>
-                      <span className="text-sm font-semibold" style={{color:winner==='away'?'#fff':'#8a7a6a'}}>
+                      <span className="text-base font-black" style={{color:winner==='home'?'#e8e2d6':'#6b6258'}}>{g.home_score}</span>
+                      <span className="text-sm" style={{color:'#b8ae9e'}}>–</span>
+                      <span className="text-base font-black" style={{color:winner==='away'?'#e8e2d6':'#6b6258'}}>{g.away_score}</span>
+                      <span className="text-sm font-semibold" style={{color:winner==='away'?'#e8e2d6':'#6b6258'}}>
                         {away?.name||g.away_team}
                         <span className="inline-block w-2 h-2 rounded-full ml-1.5" style={{background:teamColor(away)}}></span>
                       </span>
                     </div>
-                    <span className="text-xs" style={{color:'#d1d5db'}}>Box Score →</span>
+                    <span className="text-xs" style={{color:'#b8ae9e'}}>Box Score →</span>
                   </div>
                 </Link>
               )

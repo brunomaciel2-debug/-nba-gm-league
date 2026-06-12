@@ -10,7 +10,7 @@ export default async function GamePage({ params }: { params: { id: string } }) {
       .order('quarter').order('id'),
     supabase.from('box_scores').select('*, players(name,pos)').eq('game_id', params.id),
   ])
-  if (!game) return <div className="p-8 text-center" style={{ color:'#8a7a6a' }}>Game not found.</div>
+  if (!game) return <div className="p-8 text-center" style={{ color:'#6b5f4e' }}>Game not found.</div>
 
   const home = (game as any).home
   const away = (game as any).away
@@ -26,27 +26,27 @@ export default async function GamePage({ params }: { params: { id: string } }) {
     }, {})
     return (
       <div className="mb-6">
-        <div className="px-4 py-2 font-bold text-sm" style={{ background:'#120f0a', borderBottom:'1px solid #3a3228', color:'#'+team.color }}>
+        <div className="px-4 py-2 font-bold text-sm" style={{ background:'#ddd7ca', borderBottom:'1px solid #d4cec3', color:'#'+team.color }}>
           {team.name}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs min-w-[540px]">
             <thead>
-              <tr style={{ background:'#120f0a', borderBottom:'1px solid #3a3228' }}>
+              <tr style={{ background:'#ddd7ca', borderBottom:'1px solid #d4cec3' }}>
                 {['Player','MIN','PTS','REB','AST','STL','BLK','FG','FG%','3P','3P%','FT','FT%','TO'].map(h=>(
-                  <th key={h} className="px-2 py-2 text-right font-semibold first:text-left" style={{ color:'#8a7a6a' }}>{h}</th>
+                  <th key={h} className="px-2 py-2 text-right font-semibold first:text-left" style={{ color:'#6b5f4e' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {rows.map((r:any,i:number)=>(
-                <tr key={r.id} style={{ background:i%2===0?'#241f18':'#1e1a14', borderBottom:'1px solid #16120d' }}>
-                  <td className="px-2 py-2 font-medium text-white">{r.players?.name||'—'} <span style={{ color:'#6a5a4a' }}>{r.players?.pos}</span></td>
-                  <td className="px-2 py-2 text-right" style={{ color:'#8a7a6a' }}>{r.mins}</td>
-                  <td className="px-2 py-2 text-right font-bold" style={{ color:'#ffa040' }}>{r.pts}</td>
-                  <td className="px-2 py-2 text-right" style={{ color:'#40e080' }}>{r.reb}</td>
-                  <td className="px-2 py-2 text-right" style={{ color:'#60a0ff' }}>{r.ast}</td>
-                  <td className="px-2 py-2 text-right" style={{ color:'#c040ff' }}>{r.stl}</td>
+                <tr key={r.id} style={{ background:i%2===0?'#ece7dd':'#e8e2d6', borderBottom:'1px solid #16120d' }}>
+                  <td className="px-2 py-2 font-medium text-white">{r.players?.name||'—'} <span style={{ color:'#6b5f4e' }}>{r.players?.pos}</span></td>
+                  <td className="px-2 py-2 text-right" style={{ color:'#6b5f4e' }}>{r.mins}</td>
+                  <td className="px-2 py-2 text-right font-bold" style={{ color:'#c2410c' }}>{r.pts}</td>
+                  <td className="px-2 py-2 text-right" style={{ color:'#166534' }}>{r.reb}</td>
+                  <td className="px-2 py-2 text-right" style={{ color:'#1e40af' }}>{r.ast}</td>
+                  <td className="px-2 py-2 text-right" style={{ color:'#7c3aed' }}>{r.stl}</td>
                   <td className="px-2 py-2 text-right" style={{ color:'#ff6040' }}>{r.blk}</td>
                   <td className="px-2 py-2 text-right">{r.fgm}/{r.fga}</td>
                   <td className="px-2 py-2 text-right">{pct(r.fgm,r.fga)}</td>
@@ -57,11 +57,11 @@ export default async function GamePage({ params }: { params: { id: string } }) {
                   <td className="px-2 py-2 text-right">{r.turnovers}</td>
                 </tr>
               ))}
-              <tr style={{ background:'#120f0a', borderTop:'1px solid #3a3228' }}>
+              <tr style={{ background:'#ddd7ca', borderTop:'1px solid #3a3228' }}>
                 <td className="px-2 py-2 font-bold text-white" colSpan={2}>TOTALS</td>
-                <td className="px-2 py-2 text-right font-bold" style={{ color:'#ffa040' }}>{tot.pts}</td>
-                <td className="px-2 py-2 text-right font-bold" style={{ color:'#40e080' }}>{tot.reb}</td>
-                <td className="px-2 py-2 text-right font-bold" style={{ color:'#60a0ff' }}>{tot.ast}</td>
+                <td className="px-2 py-2 text-right font-bold" style={{ color:'#c2410c' }}>{tot.pts}</td>
+                <td className="px-2 py-2 text-right font-bold" style={{ color:'#166534' }}>{tot.reb}</td>
+                <td className="px-2 py-2 text-right font-bold" style={{ color:'#1e40af' }}>{tot.ast}</td>
                 <td className="px-2 py-2 text-right">{tot.stl}</td>
                 <td className="px-2 py-2 text-right">{tot.blk}</td>
                 <td className="px-2 py-2 text-right">{tot.fgm}/{tot.fga}</td>
@@ -83,21 +83,21 @@ export default async function GamePage({ params }: { params: { id: string } }) {
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Scoreboard */}
       <div className="flex items-center rounded-2xl overflow-hidden mb-6"
-           style={{ background:'#241f18', border:'1px solid #3a3228' }}>
+           style={{ background:'#e8e2d6', border:'1px solid #d4cec3' }}>
         {[{t:home,sc:game.home_score,side:'home'},{t:away,sc:game.away_score,side:'away'}].map(({t,sc,side},i)=>(
           <div key={side} className="flex-1 p-6 text-center" style={i===0?{borderRight:'1px solid #3a3228'}:{}}>
             <div className="text-xs font-bold mb-1" style={{ color:'#'+t.color }}>{t.id}</div>
             <div className="text-sm font-medium mb-2" style={{ color:'#e8e0d0' }}>{t.name}</div>
             <div className="text-5xl font-black"
-                 style={{ color: winner===side?'#fff':'#8a7a6a' }}>{sc??'—'}</div>
+                 style={{ color: winner===side?'#e8e2d6':'#8a7a6a' }}>{sc??'—'}</div>
           </div>
         ))}
       </div>
 
       {/* Tabs — box + PBP */}
       <div className="mb-6">
-        <h2 className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color:'#6a5a4a' }}>Box Score</h2>
-        <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #3a3228' }}>
+        <h2 className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color:'#6b5f4e' }}>Box Score</h2>
+        <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>
           <BoxTable rows={homeBox} team={home} />
           <BoxTable rows={awayBox} team={away} />
         </div>
@@ -106,28 +106,28 @@ export default async function GamePage({ params }: { params: { id: string } }) {
       {/* PBP */}
       {(pbp||[]).length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color:'#6a5a4a' }}>Play-by-Play</h2>
-          <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #3a3228' }}>
+          <h2 className="text-sm font-semibold uppercase tracking-widest mb-4" style={{ color:'#6b5f4e' }}>Play-by-Play</h2>
+          <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>
             {[1,2,3,4].map(q=>{
               const qPlays = (pbp||[]).filter((p:any)=>p.quarter===q)
               if(!qPlays.length) return null
               return (
                 <div key={q}>
                   <div className="px-4 py-2 text-xs font-bold uppercase tracking-widest"
-                       style={{ background:'#120f0a',borderBottom:'1px solid #3a3228',color:'#6a5a4a' }}>
+                       style={{ background:'#ddd7ca',borderBottom:'1px solid #d4cec3',color:'#6b5f4e' }}>
                     Q{q}
                   </div>
                   {qPlays.map((p:any,i:number)=>(
                     <div key={p.id} className="flex gap-3 px-4 py-2 text-xs"
-                         style={{ background:i%2===0?'#241f18':'#1e1a14', borderBottom:'1px solid #16120d' }}>
-                      <span className="min-w-[36px] font-mono" style={{ color:'#5a4a3a' }}>{p.time_left}</span>
+                         style={{ background:i%2===0?'#ece7dd':'#e8e2d6', borderBottom:'1px solid #16120d' }}>
+                      <span className="min-w-[36px] font-mono" style={{ color:'#9c8e7a' }}>{p.time_left}</span>
                       <span className="px-1.5 py-0.5 rounded text-xs font-semibold flex-shrink-0"
                             style={{ background:p.team_id===home.id?'#'+home.color+'22':'#'+away.color+'22',
                                      color:p.team_id===home.id?'#'+home.color:'#'+away.color }}>
                         {p.team_id||'—'}
                       </span>
                       <span className="flex-1 text-white">{p.description}</span>
-                      <span className="font-bold" style={{ color:'#6a5a4a' }}>{p.home_score}–{p.away_score}</span>
+                      <span className="font-bold" style={{ color:'#6b5f4e' }}>{p.home_score}–{p.away_score}</span>
                     </div>
                   ))}
                 </div>

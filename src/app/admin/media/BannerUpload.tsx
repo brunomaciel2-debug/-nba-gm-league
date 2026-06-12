@@ -32,7 +32,7 @@ export default function BannerUpload() {
         <input value={url} onChange={e=>setUrl(e.target.value)}
           placeholder="Paste banner image URL (1200×280px recommended)..."
           className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
-          style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0'}}/>
+          style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}}/>
         <button onClick={save} disabled={saving||!url}
           className="px-5 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40"
           style={{background:saved?'#0a5a20':'#ffd040',color:saved?'#40e080':'#1a1610'}}>
@@ -41,7 +41,7 @@ export default function BannerUpload() {
         {current && (
           <button onClick={async()=>{await supabase.from('site_config').update({banner_url:null}).eq('id',1);setCurrent('');setUrl('')}}
             className="px-4 py-2.5 rounded-xl text-sm font-semibold"
-            style={{background:'#2a0a0a',color:'#e04040'}}>
+            style={{background:'#fee2e2',color:'#dc2626'}}>
             Remove
           </button>
         )}

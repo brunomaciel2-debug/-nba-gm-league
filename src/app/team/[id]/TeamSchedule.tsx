@@ -13,7 +13,7 @@ function AttendanceBar({ value, max=20000 }: { value:number, max?:number }) {
       <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{background:'#3a3228'}}>
         <div className="h-full rounded-full" style={{width:pct+'%',background:color}}></div>
       </div>
-      <span className="text-xs" style={{color:'#8a7a6a'}}>{value.toLocaleString()}</span>
+      <span className="text-xs" style={{color:'#6b5f4e'}}>{value.toLocaleString()}</span>
     </div>
   )
 }
@@ -50,12 +50,12 @@ export default function TeamSchedule({
 
   const W = (label: string) => (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#0a2a10',color:'#40e080'}}>{label}</span>
+      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#dcfce7',color:'#166534'}}>{label}</span>
     </div>
   )
   const L = (label: string) => (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#2a0a0a',color:'#e04040'}}>{label}</span>
+      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#fee2e2',color:'#dc2626'}}>{label}</span>
     </div>
   )
 
@@ -72,7 +72,7 @@ export default function TeamSchedule({
             {f.label}
           </button>
         ))}
-        <span className="ml-auto text-xs self-center" style={{color:'#6a5a4a'}}>
+        <span className="ml-auto text-xs self-center" style={{color:'#6b5f4e'}}>
           {filtered.length} games
         </span>
       </div>
@@ -89,7 +89,7 @@ export default function TeamSchedule({
               </span>
               {isAllStar && (
                 <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                      style={{background:'#2a2000',color:'#ffd040'}}>February</span>
+                      style={{background:'#fef3c7',color:'#b45309'}}>February</span>
               )}
             </div>
 
@@ -110,10 +110,10 @@ export default function TeamSchedule({
                 if (isAllStarGame || isRookieGame) {
                   return (
                     <div key={g.id} className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                         style={{background:'#2a2000',border:'1px solid #5a4a00'}}>
+                         style={{background:'#fef3c7',border:'1px solid #5a4a00'}}>
                       <span className="text-lg">⭐</span>
                       <div className="flex-1">
-                        <div className="font-bold text-sm" style={{color:'#ffd040'}}>
+                        <div className="font-bold text-sm" style={{color:'#b45309'}}>
                           {isRookieGame?'Rookies vs Sophomores':'All-Star Game: East vs West'}
                         </div>
                         <div className="text-xs" style={{color:'#8a6a00'}}>
@@ -121,13 +121,13 @@ export default function TeamSchedule({
                         </div>
                       </div>
                       {final && g.home_score!=null && (
-                        <span className="font-bold text-sm" style={{color:'#ffd040'}}>
+                        <span className="font-bold text-sm" style={{color:'#b45309'}}>
                           {g.home_score}–{g.away_score}
                         </span>
                       )}
                       {final && (
                         <Link href={`/game/${g.id}`} className="no-underline text-xs px-2 py-1 rounded"
-                              style={{background:'#3a3228',color:'#f0ebe0'}}>Box →</Link>
+                              style={{background:'#3a3228',color:'#1a1612'}}>Box →</Link>
                       )}
                     </div>
                   )
@@ -135,7 +135,7 @@ export default function TeamSchedule({
 
                 return (
                   <div key={g.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
-                       style={{background:'#241f18',border:'1px solid #3a3228'}}>
+                       style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                     {/* Home/Away badge */}
                     <span className="text-xs font-bold w-8 text-center flex-shrink-0"
                           style={{color:isHome?'#60a0ff':'#8a7a6a'}}>
@@ -143,7 +143,7 @@ export default function TeamSchedule({
                     </span>
 
                     {/* Day */}
-                    <span className="text-xs w-6 flex-shrink-0" style={{color:'#6a5a4a'}}>
+                    <span className="text-xs w-6 flex-shrink-0" style={{color:'#6b5f4e'}}>
                       {g.day_of_week==='Monday'?'MON':'THU'}
                     </span>
 
@@ -157,11 +157,11 @@ export default function TeamSchedule({
                                 style={{color:tc,fontSize:8}}>{oppId?.slice(0,2)}</div>}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold truncate" style={{color:'#f0ebe0'}}>
+                        <div className="text-xs font-semibold truncate" style={{color:'#1a1612'}}>
                           {isHome?'vs':'@'} {opp?.name||oppId}
                         </div>
                         {opp?.arena && isHome && (
-                          <div className="text-xs truncate" style={{color:'#6a5a4a'}}>{opp.arena}</div>
+                          <div className="text-xs truncate" style={{color:'#6b5f4e'}}>{opp.arena}</div>
                         )}
                       </div>
                     </div>
@@ -182,12 +182,12 @@ export default function TeamSchedule({
                           <AttendanceBar value={g.attendance} />
                         )}
                         <Link href={`/game/${g.id}`} className="no-underline text-xs px-2 py-1 rounded flex-shrink-0"
-                              style={{background:'#3a3228',color:'#60a0ff'}}>
+                              style={{background:'#3a3228',color:'#1e40af'}}>
                           Box →
                         </Link>
                       </div>
                     ) : (
-                      <span className="text-xs flex-shrink-0" style={{color:'#5a4a3a'}}>Scheduled</span>
+                      <span className="text-xs flex-shrink-0" style={{color:'#9c8e7a'}}>Scheduled</span>
                     )}
                   </div>
                 )
@@ -198,8 +198,8 @@ export default function TeamSchedule({
       })}
 
       {filtered.length===0 && (
-        <div className="rounded-xl p-6 text-center" style={{background:'#241f18',border:'1px solid #3a3228'}}>
-          <p className="text-sm" style={{color:'#6a5a4a'}}>No games to show.</p>
+        <div className="rounded-xl p-6 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <p className="text-sm" style={{color:'#6b5f4e'}}>No games to show.</p>
         </div>
       )}
     </div>

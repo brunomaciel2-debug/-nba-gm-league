@@ -53,19 +53,19 @@ function StaffOfferPage() {
   if (submitted) return (
     <div className="max-w-md mx-auto px-4 py-12 text-center">
       <div className="text-5xl mb-4">📋</div>
-      <h2 className="text-xl font-bold mb-2" style={{color:'#f0ebe0'}}>Offer Submitted!</h2>
-      <p className="mb-2" style={{color:'#8a7a6a'}}>
+      <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>Offer Submitted!</h2>
+      <p className="mb-2" style={{color:'#6b5f4e'}}>
         {coach?.name} will decide at midnight tonight. You'll receive a notification with their decision.
       </p>
-      <p className="text-xs mb-6" style={{color:'#5a4a3a'}}>
+      <p className="text-xs mb-6" style={{color:'#9c8e7a'}}>
         If multiple teams make offers, the coach will choose based on prestige, salary, and project.
       </p>
       <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline"
-         style={{background:'#3a8adf',color:'#fff'}}>Back to Trade Center</a>
+         style={{background:'#3a8adf',color:'#e8e2d6'}}>Back to Trade Center</a>
     </div>
   )
 
-  if (!coach) return <div className="p-8 text-center" style={{color:'#8a7a6a'}}>Loading...</div>
+  if (!coach) return <div className="p-8 text-center" style={{color:'#6b5f4e'}}>Loading...</div>
 
   const ROLE_OPTIONS = [
     {value:'head_coach',label:'Head Coach'},
@@ -79,69 +79,69 @@ function StaffOfferPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
-      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#8a7a6a'}}>← Trade Center</a>
-      <h1 className="text-xl font-bold mb-6" style={{color:'#f0ebe0'}}>Make Staff Offer — {coach.name}</h1>
+      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#6b5f4e'}}>← Trade Center</a>
+      <h1 className="text-xl font-bold mb-6" style={{color:'#1a1612'}}>Make Staff Offer — {coach.name}</h1>
 
-      <div className="rounded-xl p-4 mb-6" style={{background:'#241f18',border:'1px solid #3a3228'}}>
-        <div className="font-bold text-lg mb-1" style={{color:'#f0ebe0'}}>{coach.name}</div>
-        <div className="text-xs" style={{color:'#8a7a6a'}}>
-          Natural role: <strong style={{color:'#ffa040'}}>{coach.natural_role.replace(/_/g,' ')}</strong> ·
+      <div className="rounded-xl p-4 mb-6" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+        <div className="font-bold text-lg mb-1" style={{color:'#1a1612'}}>{coach.name}</div>
+        <div className="text-xs" style={{color:'#6b5f4e'}}>
+          Natural role: <strong style={{color:'#c2410c'}}>{coach.natural_role.replace(/_/g,' ')}</strong> ·
           Age {coach.age} · {coach.nationality}
         </div>
       </div>
 
       {/* Estimated Contract */}
-      <div className="rounded-xl p-4 mb-4" style={{background:'#1a1610',border:'1px solid #3a3228',borderLeft:'3px solid #F5A623'}}>
+      <div className="rounded-xl p-4 mb-4" style={{background:'#ede8de',border:'1px solid #d4cec3',borderLeft:'3px solid #F5A623'}}>
         <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#F5A623'}}>
           Estimated Contract
         </div>
         <div className="flex items-end gap-3">
           <div>
-            <div className="text-2xl font-black" style={{color:'#f0ebe0'}}>${(salary/1000000).toFixed(2)}M<span className="text-sm font-normal" style={{color:'#6a5a4a'}}>/yr</span></div>
-            <div className="text-xs mt-0.5" style={{color:'#6a5a4a'}}>Based on {coach?.natural_role?.replace(/_/g,' ')} market rate × attributes</div>
+            <div className="text-2xl font-black" style={{color:'#1a1612'}}>${(salary/1000000).toFixed(2)}M<span className="text-sm font-normal" style={{color:'#6b5f4e'}}>/yr</span></div>
+            <div className="text-xs mt-0.5" style={{color:'#6b5f4e'}}>Based on {coach?.natural_role?.replace(/_/g,' ')} market rate × attributes</div>
           </div>
-          <div className="text-xs px-2 py-1 rounded-lg ml-auto" style={{background:'#2a2000',color:'#ffa040'}}>
+          <div className="text-xs px-2 py-1 rounded-lg ml-auto" style={{background:'#fef3c7',color:'#c2410c'}}>
             {years} year{years>1?'s':''} · ${Math.round(salary*years/1000000).toFixed(1)}M total
           </div>
         </div>
       </div>
 
       <div className="mb-4">
-        <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>Role in your team</label>
+        <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Role in your team</label>
         <select value={role} onChange={e=>setRole(e.target.value)}
           className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-          style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0'}}>
+          style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}}>
           {ROLE_OPTIONS.map(r=>(
             <option key={r.value} value={r.value}>{r.label}</option>
           ))}
         </select>
         {penaltyNote && (
-          <p className="text-xs mt-1" style={{color:'#ffa040'}}>{penaltyNote}</p>
+          <p className="text-xs mt-1" style={{color:'#c2410c'}}>{penaltyNote}</p>
         )}
       </div>
 
       <div className="mb-4">
-        <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>
+        <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>
           Annual Salary — {capFmt(salary)}
         </label>
         <input type="range" min={200000} max={15000000} step={100000}
           value={salary} onChange={e=>setSalary(+e.target.value)} className="w-full" />
-        <div className="flex justify-between text-xs mt-0.5" style={{color:'#5a4a3a'}}>
+        <div className="flex justify-between text-xs mt-0.5" style={{color:'#9c8e7a'}}>
           <span>$200K</span><span>$15M</span>
         </div>
       </div>
 
       <div className="mb-6">
-        <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>Contract Length — {years} year{years>1?'s':''}</label>
+        <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Contract Length — {years} year{years>1?'s':''}</label>
         <input type="range" min={1} max={5} step={1} value={years}
           onChange={e=>setYears(+e.target.value)} className="w-full" />
-        <div className="flex justify-between text-xs mt-0.5" style={{color:'#5a4a3a'}}>
+        <div className="flex justify-between text-xs mt-0.5" style={{color:'#9c8e7a'}}>
           <span>1yr</span><span>5yr</span>
         </div>
       </div>
 
-      <div className="rounded-xl p-4 mb-4" style={{background:'#2a2000',border:'1px solid #5a4a00'}}>
-        <div className="text-xs font-semibold mb-1" style={{color:'#ffd040'}}>⏰ Offer expires at midnight tonight</div>
+      <div className="rounded-xl p-4 mb-4" style={{background:'#fef3c7',border:'1px solid #5a4a00'}}>
+        <div className="text-xs font-semibold mb-1" style={{color:'#b45309'}}>⏰ Offer expires at midnight tonight</div>
         <div className="text-xs" style={{color:'#8a6a00'}}>
           If multiple teams bid, the coach chooses based on: franchise prestige · roster quality · salary offered · project trajectory.
           A rejected offer can be renegotiated at a higher value.
@@ -159,5 +159,5 @@ function StaffOfferPage() {
 
 import { Suspense } from 'react'
 export default function StaffOfferPageWrapper() {
-  return <Suspense fallback={<div className="p-8 text-center" style={{color:'#8a7a6a'}}>Loading...</div>}><StaffOfferPage /></Suspense>
+  return <Suspense fallback={<div className="p-8 text-center" style={{color:'#6b5f4e'}}>Loading...</div>}><StaffOfferPage /></Suspense>
 }

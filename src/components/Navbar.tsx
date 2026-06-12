@@ -59,12 +59,12 @@ export default function Navbar() {
                   </button>
                   {commOpen && (
                     <div className="absolute right-0 top-full mt-1 z-50 rounded-xl overflow-hidden py-1"
-                         style={{ background: '#fff', border: '1px solid #e5e1d8', minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+                         style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
                       {COMM_LINKS.map(item => (
                         <Link key={item.href} href={item.href} onClick={() => setCommOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
-                          style={{ color: '#374151', borderBottom: '1px solid #f3f0e8' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = '#f8f7f4')}
+                          style={{ color: '#3d3731', borderBottom: '1px solid #d6d0c6' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                           <i className={`ti ${item.icon}`} style={{ fontSize: 14, color: '#c8102e' }}></i>
                           {item.label}
@@ -73,7 +73,7 @@ export default function Navbar() {
                       <button onClick={() => { signOut(); setCommOpen(false) }}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs"
                         style={{ color: '#dc2626' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#f8f7f4')}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         <i className="ti ti-logout" style={{ fontSize: 14 }}></i>
                         Sign Out
@@ -107,14 +107,14 @@ export default function Navbar() {
       </div>
 
       {/* NAV BAR */}
-      <nav style={{ background: '#fff', borderBottom: '1px solid #e5e1d8', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+      <nav style={{ background: '#ede8df', borderBottom: '1px solid #cec8be', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         <div className="max-w-7xl mx-auto px-4 hidden lg:flex items-center">
           {NAV.map(item => (
             <Link key={item.href} href={item.href}
               className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
-              style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#1f2937', borderBottom: '3px solid transparent', marginBottom: -2 }}
+              style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#3d3731', borderBottom: '3px solid transparent', marginBottom: -2 }}
               onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#1f2937'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
+              onMouseLeave={e => { e.currentTarget.style.color = '#3d3731'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
               <i className={`ti ${item.icon}`} style={{ fontSize: 15 }}></i>
               {item.label}
             </Link>
@@ -126,7 +126,7 @@ export default function Navbar() {
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm no-underline"
                 style={{ color: '#374151' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#f8f7f4')}
+                onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <i className={`ti ${item.icon}`} style={{ fontSize: 16 }}></i>
                 {item.label}

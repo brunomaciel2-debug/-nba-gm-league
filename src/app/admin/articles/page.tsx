@@ -5,10 +5,10 @@ import { useAuth } from '@/components/AuthProvider'
 import Link from 'next/link'
 
 const POSITION_LABELS: Record<string,{label:string,color:string}> = {
-  hero:       {label:'🏆 Hero',         color:'#ffd040'},
-  featured_1: {label:'📌 Featured L',   color:'#60a0ff'},
-  featured_2: {label:'📌 Featured R',   color:'#40e080'},
-  news:       {label:'📰 News',         color:'#8a7a6a'},
+  hero:       {label:'🏆 Hero',         color:'#b45309'},
+  featured_1: {label:'📌 Featured L',   color:'#1e40af'},
+  featured_2: {label:'📌 Featured R',   color:'#166534'},
+  news:       {label:'📰 News',         color:'#6b5f4e'},
 }
 
 export default function ManageArticlesPage() {
@@ -41,34 +41,34 @@ export default function ManageArticlesPage() {
     setDeleting(null)
   }
 
-  const posStyle = (pos: string) => POSITION_LABELS[pos] || {label:'📰 News',color:'#8a7a6a'}
+  const posStyle = (pos: string) => POSITION_LABELS[pos] || {label:'📰 News',color:'#6b5f4e'}
 
-  if (loading) return <div className="p-8 text-center" style={{color:'#8a7a6a'}}>Loading...</div>
+  if (loading) return <div className="p-8 text-center" style={{color:'#6b5f4e'}}>Loading...</div>
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold" style={{color:'#f0ebe0'}}>📋 Manage Articles</h1>
-          <p className="text-sm" style={{color:'#8a7a6a'}}>{articles.length} articles total</p>
+          <h1 className="text-xl font-bold" style={{color:'#1a1612'}}>📋 Manage Articles</h1>
+          <p className="text-sm" style={{color:'#6b5f4e'}}>{articles.length} articles total</p>
         </div>
         <div className="flex gap-2">
           <Link href="/admin/article/new"
             className="text-sm font-bold px-4 py-2 rounded-lg no-underline"
-            style={{background:'#3a8adf',color:'#fff'}}>
+            style={{background:'#3a8adf',color:'#e8e2d6'}}>
             ✍️ New Article
           </Link>
           <Link href="/admin"
             className="text-xs px-3 py-2 rounded-lg no-underline"
-            style={{background:'#3a3228',color:'#8a7a6a'}}>
+            style={{background:'#cec8be',color:'#6b5f4e'}}>
             ← Admin
           </Link>
         </div>
       </div>
 
       {articles.length === 0 ? (
-        <div className="rounded-xl p-8 text-center" style={{background:'#241f18',border:'1px solid #3a3228'}}>
-          <p style={{color:'#6a5a4a'}}>No articles yet. Write your first one!</p>
+        <div className="rounded-xl p-8 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <p style={{color:'#6b5f4e'}}>No articles yet. Write your first one!</p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -76,7 +76,7 @@ export default function ManageArticlesPage() {
             const ps = posStyle(a.position||'news')
             return (
               <div key={a.id} className="rounded-xl overflow-hidden"
-                   style={{background:'#241f18',border:'1px solid #3a3228'}}>
+                   style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="flex items-start gap-4 p-4">
                   {/* Cover thumbnail */}
                   {a.cover_image && (
@@ -97,11 +97,11 @@ export default function ManageArticlesPage() {
                         {a.published?'Published':'Draft'}
                       </span>
                     </div>
-                    <div className="font-bold text-sm mb-0.5" style={{color:'#f0ebe0'}}>{a.title}</div>
+                    <div className="font-bold text-sm mb-0.5" style={{color:'#1a1612'}}>{a.title}</div>
                     {a.excerpt && (
-                      <div className="text-xs truncate mb-1" style={{color:'#8a7a6a'}}>{a.excerpt}</div>
+                      <div className="text-xs truncate mb-1" style={{color:'#6b5f4e'}}>{a.excerpt}</div>
                     )}
-                    <div className="text-xs" style={{color:'#5a4a3a'}}>
+                    <div className="text-xs" style={{color:'#9c8e7a'}}>
                       {new Date(a.created_at).toLocaleDateString('en-US',{
                         year:'numeric',month:'short',day:'numeric',
                         hour:'2-digit',minute:'2-digit'
@@ -110,7 +110,7 @@ export default function ManageArticlesPage() {
                         <span className="ml-2">
                           {a.tags.map((t:string) => (
                             <span key={t} className="mr-1 px-1.5 py-0.5 rounded text-xs"
-                                  style={{background:'#3a3228',color:'#8a7a6a'}}>{t}</span>
+                                  style={{background:'#cec8be',color:'#6b5f4e'}}>{t}</span>
                           ))}
                         </span>
                       )}
@@ -120,7 +120,7 @@ export default function ManageArticlesPage() {
                   <div className="flex flex-col gap-2 flex-shrink-0">
                     <Link href={`/admin/article/edit/${a.id}`}
                           className="text-xs px-3 py-1.5 rounded-lg no-underline text-center font-semibold"
-                          style={{background:'#1e3a5f',color:'#60a0ff'}}>
+                          style={{background:'#dbeafe',color:'#1e40af'}}>
                       ✏️ Edit
                     </Link>
                     <button onClick={() => togglePublished(a.id, a.published)}
@@ -133,7 +133,7 @@ export default function ManageArticlesPage() {
                     <button onClick={() => deleteArticle(a.id)}
                       disabled={deleting===a.id}
                       className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
-                      style={{background:'#2a0a0a',color:'#e04040'}}>
+                      style={{background:'#fee2e2',color:'#dc2626'}}>
                       {deleting===a.id?'...':'🗑️ Delete'}
                     </button>
                   </div>
@@ -142,7 +142,7 @@ export default function ManageArticlesPage() {
                 {a.published && a.slug && (
                   <div className="px-4 pb-3">
                     <Link href={`/news/${a.slug}`}
-                          className="text-xs no-underline" style={{color:'#5a4a3a'}}>
+                          className="text-xs no-underline" style={{color:'#9c8e7a'}}>
                       🔗 /news/{a.slug}
                     </Link>
                   </div>

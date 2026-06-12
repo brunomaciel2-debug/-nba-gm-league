@@ -87,15 +87,15 @@ export default function AllStarPage() {
     <div className="max-w-5xl mx-auto px-4 py-6">
       {/* Header — always visible */}
       <div className="rounded-2xl p-6 mb-6"
-           style={{background:'#2a2000',border:'1px solid #5a4a00',borderTop:'4px solid #ffd040'}}>
+           style={{background:'#fef3c7',border:'1px solid #5a4a00',borderTop:'4px solid #ffd040'}}>
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold mb-1" style={{color:'#ffd040'}}>⭐ All-Star Weekend 2025-26</h1>
+            <h1 className="text-2xl font-bold mb-1" style={{color:'#b45309'}}>⭐ All-Star Weekend 2025-26</h1>
             <p className="text-sm" style={{color:'#8a6a00'}}>Week 14 · Rookies vs Sophomores (Sat) · East vs West (Sun)</p>
           </div>
           <div className="text-right">
             {!ready ? (
-              <span className="text-xs px-3 py-1.5 rounded-full" style={{background:'#241f18',color:'#8a7a6a'}}>Loading...</span>
+              <span className="text-xs px-3 py-1.5 rounded-full" style={{background:'#e8e2d6',color:'#6b5f4e'}}>Loading...</span>
             ) : (
               <span className="text-xs px-3 py-1.5 rounded-full font-semibold inline-block"
                     style={{background:votingOpen?'#0a2a10':votingClosed?'#2a0a0a':'#241f18',
@@ -103,22 +103,22 @@ export default function AllStarPage() {
                 {votingOpen?'🗳️ Voting Open':votingClosed?'🔒 Voting Closed':`Opens Week ${VOTING_OPENS}`}
               </span>
             )}
-            <div className="text-xs mt-1" style={{color:'#6a5a4a'}}>Current: Week {curWeek}</div>
+            <div className="text-xs mt-1" style={{color:'#6b5f4e'}}>Current: Week {curWeek}</div>
           </div>
         </div>
       </div>
 
       {!ready ? (
-        <div className="rounded-xl p-8 text-center" style={{background:'#241f18',border:'1px solid #3a3228'}}>
-          <p style={{color:'#8a7a6a'}}>Loading All-Star data...</p>
+        <div className="rounded-xl p-8 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <p style={{color:'#6b5f4e'}}>Loading All-Star data...</p>
         </div>
       ) : (
         <>
           {/* Rules bar */}
-          <div className="rounded-xl px-4 py-3 mb-5 text-xs" style={{background:'#241f18',border:'1px solid #3a3228',color:'#8a7a6a'}}>
-            <strong style={{color:'#f0ebe0'}}>Eligibility:</strong> ≥{minGames} games played (75% of ~{expectedGames} games) · No injured players ·{' '}
-            <strong style={{color:'#f0ebe0'}}>Starters:</strong> top-voted per position (5 per team) + 7 reserves ·{' '}
-            <strong style={{color:'#f0ebe0'}}>Auto-vote:</strong> GMs who miss deadline get system votes
+          <div className="rounded-xl px-4 py-3 mb-5 text-xs" style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#6b5f4e'}}>
+            <strong style={{color:'#1a1612'}}>Eligibility:</strong> ≥{minGames} games played (75% of ~{expectedGames} games) · No injured players ·{' '}
+            <strong style={{color:'#1a1612'}}>Starters:</strong> top-voted per position (5 per team) + 7 reserves ·{' '}
+            <strong style={{color:'#1a1612'}}>Auto-vote:</strong> GMs who miss deadline get system votes
           </div>
 
           {/* Tabs */}
@@ -136,26 +136,26 @@ export default function AllStarPage() {
           {/* VOTE */}
           {tab==='vote' && <>
             {!votingOpen && !votingClosed && (
-              <div className="rounded-xl p-10 text-center" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+              <div className="rounded-xl p-10 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="text-5xl mb-4">🔒</div>
-                <h2 className="text-xl font-bold mb-2" style={{color:'#f0ebe0'}}>Voting opens Week {VOTING_OPENS}</h2>
-                <p style={{color:'#8a7a6a'}}>The league is currently in Week {curWeek}. Voting opens at the start of Week {VOTING_OPENS}.</p>
+                <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>Voting opens Week {VOTING_OPENS}</h2>
+                <p style={{color:'#6b5f4e'}}>The league is currently in Week {curWeek}. Voting opens at the start of Week {VOTING_OPENS}.</p>
               </div>
             )}
             {votingClosed && (
-              <div className="rounded-xl p-10 text-center" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+              <div className="rounded-xl p-10 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="text-5xl mb-4">⏳</div>
-                <h2 className="text-xl font-bold mb-2" style={{color:'#f0ebe0'}}>Voting Closed</h2>
-                <p style={{color:'#8a7a6a'}}>Commissioner is finalising the rosters. Announcement coming soon.</p>
+                <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>Voting Closed</h2>
+                <p style={{color:'#6b5f4e'}}>Commissioner is finalising the rosters. Announcement coming soon.</p>
               </div>
             )}
             {votingOpen && <>
               <div className="flex items-center gap-3 mb-5 p-3 rounded-xl"
-                   style={{background:'#241f18',border:'1px solid #3a3228'}}>
-                <span className="text-xs font-semibold" style={{color:'#8a7a6a'}}>Your team:</span>
+                   style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+                <span className="text-xs font-semibold" style={{color:'#6b5f4e'}}>Your team:</span>
                 <select value={gmTeam} onChange={e=>setGmTeam(e.target.value)}
                   className="text-sm px-3 py-1.5 rounded-lg flex-1"
-                  style={{background:'#120f0a',border:'1px solid #3a3228',color:'#f0ebe0',outline:'none'}}>
+                  style={{background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1612',outline:'none'}}>
                   <option value="">— Select your team —</option>
                   {Object.values(teams).map((t:any)=>(
                     <option key={t.id} value={t.id}>{t.name}</option>
@@ -170,17 +170,17 @@ export default function AllStarPage() {
                   {POSITIONS.map(pos=>{
                     const pool=confPlayers(conf,pos); const sel=votes[conf]?.[pos]||[]
                     return (
-                      <div key={pos} className="mb-3 rounded-xl overflow-hidden" style={{border:'1px solid #3a3228'}}>
-                        <div className="px-4 py-2 flex justify-between" style={{background:'#120f0a',borderBottom:'1px solid #3a3228'}}>
-                          <span className="font-bold" style={{color:'#f0ebe0'}}>{pos}</span>
+                      <div key={pos} className="mb-3 rounded-xl overflow-hidden" style={{border:'1px solid #d4cec3'}}>
+                        <div className="px-4 py-2 flex justify-between" style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
+                          <span className="font-bold" style={{color:'#1a1612'}}>{pos}</span>
                           <span className="text-xs" style={{color:sel.length===2?'#40e080':'#8a7a6a'}}>{sel.length}/2</span>
                         </div>
                         {pool.length===0?(
-                          <div className="p-4 text-xs text-center" style={{color:'#6a5a4a'}}>
+                          <div className="p-4 text-xs text-center" style={{color:'#6b5f4e'}}>
                             No eligible players yet.
                           </div>
                         ):(
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3" style={{background:'#1a1610'}}>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3" style={{background:'#ede8de'}}>
                             {pool.map((p:any)=>{
                               const isSel=sel.includes(p.id); const t=teams[p.team_id]; const tc=readableTeamColor(t?.color||'555555')
                               return (
@@ -197,7 +197,7 @@ export default function AllStarPage() {
                                   <div className="text-xs font-semibold" style={{color:isSel?'#ffd040':'#f0ebe0'}}>
                                     {p.name.split(' ').slice(-1)[0]}
                                   </div>
-                                  <div className="text-xs" style={{color:'#6a5a4a'}}>{p.ppg}pts</div>
+                                  <div className="text-xs" style={{color:'#6b5f4e'}}>{p.ppg}pts</div>
                                   {isSel&&<span>⭐</span>}
                                 </button>
                               )
@@ -221,10 +221,10 @@ export default function AllStarPage() {
           {/* RESULTS */}
           {tab==='results' && (
             !announced?(
-              <div className="rounded-xl p-10 text-center" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+              <div className="rounded-xl p-10 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="text-5xl mb-4">⭐</div>
-                <h2 className="text-xl font-bold mb-2" style={{color:'#f0ebe0'}}>Not yet announced</h2>
-                <p style={{color:'#8a7a6a'}}>Roster will be announced by the Commissioner after Week {VOTING_CLOSES}.</p>
+                <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>Not yet announced</h2>
+                <p style={{color:'#6b5f4e'}}>Roster will be announced by the Commissioner after Week {VOTING_CLOSES}.</p>
               </div>
             ):(
               CONFS.map(conf=>{
@@ -238,15 +238,15 @@ export default function AllStarPage() {
                         return (
                           <div key={r.id} className="rounded-xl p-3 text-center"
                                style={{background:r.is_starter?'#2a2000':'#241f18',border:'1px solid '+(r.is_starter?'#ffd040':'#3a3228')}}>
-                            {r.is_starter&&<div className="text-xs font-bold mb-1" style={{color:'#ffd040'}}>⭐ STARTER</div>}
+                            {r.is_starter&&<div className="text-xs font-bold mb-1" style={{color:'#b45309'}}>⭐ STARTER</div>}
                             <div className="w-12 h-12 rounded-full overflow-hidden mx-auto mb-2" style={{background:tc+'22'}}>
                               {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
                                 :<div className="w-full h-full flex items-center justify-center font-black" style={{color:tc}}>
                                    {p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                                  </div>}
                             </div>
-                            <div className="text-xs font-bold" style={{color:'#f0ebe0'}}>{p?.name?.split(' ').slice(-1)[0]}</div>
-                            <div className="text-xs" style={{color:'#6a5a4a'}}>{r.position} · {t?.id}</div>
+                            <div className="text-xs font-bold" style={{color:'#1a1612'}}>{p?.name?.split(' ').slice(-1)[0]}</div>
+                            <div className="text-xs" style={{color:'#6b5f4e'}}>{r.position} · {t?.id}</div>
                           </div>
                         )
                       })}

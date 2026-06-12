@@ -46,9 +46,9 @@ export default function ManageTradeBlockPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#8a7a6a'}}>← Trade Center</a>
-      <h1 className="text-xl font-bold mb-2" style={{color:'#f0ebe0'}}>📋 Manage Trade Block</h1>
-      <p className="text-xs mb-6" style={{color:'#8a7a6a'}}>
+      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#6b5f4e'}}>← Trade Center</a>
+      <h1 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>📋 Manage Trade Block</h1>
+      <p className="text-xs mb-6" style={{color:'#6b5f4e'}}>
         Add players to the trade block to signal your willingness to trade them. Other GMs will see this.
       </p>
       <div className="flex flex-col gap-2">
@@ -59,9 +59,9 @@ export default function ManageTradeBlockPage() {
                  style={{background:isOn?'#2a2000':'#241f18',
                          border:'1px solid '+(isOn?'#ffd04044':'#3a3228')}}>
               <div className="flex items-center gap-3">
-                <span className="text-xs w-7" style={{color:'#6a5a4a'}}>{p.pos}</span>
-                <span className="font-semibold flex-1" style={{color:'#f0ebe0'}}>{p.name}</span>
-                <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(p.salary)}</span>
+                <span className="text-xs w-7" style={{color:'#6b5f4e'}}>{p.pos}</span>
+                <span className="font-semibold flex-1" style={{color:'#1a1612'}}>{p.name}</span>
+                <span className="text-xs" style={{color:'#6b5f4e'}}>{capFmt(p.salary)}</span>
                 <button onClick={()=>toggle(p.id)} disabled={saving[p.id]}
                   className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
                   style={{background:isOn?'#5a4a00':'#3a3228',color:isOn?'#ffd040':'#8a7a6a'}}>
@@ -72,7 +72,7 @@ export default function ManageTradeBlockPage() {
                 <input value={notes[p.id]||''} onChange={e=>setNotes(n=>({...n,[p.id]:e.target.value}))}
                   placeholder="Note for other GMs (optional)..."
                   className="mt-2 w-full px-3 py-1.5 rounded-lg text-xs outline-none"
-                  style={{background:'#1a1610',border:'1px solid #3a3228',color:'#c0b8a8'}} />
+                  style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#3d3529'}} />
               )}
             </div>
           )

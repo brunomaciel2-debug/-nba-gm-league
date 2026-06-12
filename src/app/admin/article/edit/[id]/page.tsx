@@ -4,9 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
 const POSITIONS = [
-  {value:'featured_1', label:'📌 Featured Left',  color:'#60a0ff'},
-  {value:'featured_2', label:'📌 Featured Right', color:'#40e080'},
-  {value:'news',       label:'📰 Latest News',    color:'#8a7a6a'},
+  {value:'featured_1', label:'📌 Featured Left',  color:'#1e40af'},
+  {value:'featured_2', label:'📌 Featured Right', color:'#166534'},
+  {value:'news',       label:'📰 Latest News',    color:'#6b5f4e'},
 ]
 
 export default function EditArticlePage({ params }: { params: { id: string } }) {
@@ -49,13 +49,13 @@ export default function EditArticlePage({ params }: { params: { id: string } }) 
     setTimeout(()=>setSaved(false), 2000)
   }
 
-  if (loading) return <div className="p-8 text-center" style={{color:'#8a7a6a'}}>Loading...</div>
+  if (loading) return <div className="p-8 text-center" style={{color:'#6b5f4e'}}>Loading...</div>
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="flex items-center gap-3 mb-6">
-        <a href="/admin/articles" className="text-xs no-underline" style={{color:'#8a7a6a'}}>← Articles</a>
-        <h1 className="text-xl font-bold" style={{color:'#f0ebe0'}}>✏️ Edit Article</h1>
+        <a href="/admin/articles" className="text-xs no-underline" style={{color:'#6b5f4e'}}>← Articles</a>
+        <h1 className="text-xl font-bold" style={{color:'#1a1612'}}>✏️ Edit Article</h1>
       </div>
 
       {/* Position selector */}
@@ -64,53 +64,53 @@ export default function EditArticlePage({ params }: { params: { id: string } }) 
           <button key={pos.value} onClick={()=>setPosition(pos.value)}
             className="rounded-xl p-2.5 text-center text-xs font-semibold transition-all"
             style={{background:position===pos.value?pos.color+'22':'#241f18',
-                    border:'2px solid '+(position===pos.value?pos.color:'#3a3228'),
-                    color:position===pos.value?pos.color:'#6a5a4a'}}>
+                    border:'2px solid '+(position===pos.value?pos.color:'#b8ae9e'),
+                    color:position===pos.value?pos.color:'#6b5f4e'}}>
             {pos.label}
           </button>
         ))}
       </div>
 
-      <div className="rounded-xl p-6" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+      <div className="rounded-xl p-6" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
         <div className="mb-4">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>Title</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Title</label>
           <input value={title} onChange={e=>setTitle(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-            style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0'}} />
+            style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}} />
         </div>
         <div className="mb-4">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>Excerpt</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Excerpt</label>
           <input value={excerpt} onChange={e=>setExcerpt(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-            style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0'}} />
+            style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}} />
         </div>
         <div className="mb-4">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>Cover Image URL</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Cover Image URL</label>
           <input value={imageUrl} onChange={e=>setImageUrl(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-            style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0'}} />
+            style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}} />
           {imageUrl && <div className="mt-2 h-28 rounded-lg overflow-hidden"><img src={imageUrl} alt="" className="w-full h-full object-cover"/></div>}
         </div>
         <div className="mb-4">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>Tags</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Tags</label>
           <input value={tags} onChange={e=>setTags(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-            style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0'}} />
+            style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}} />
         </div>
         <div className="mb-6">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>Content</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Content</label>
           <textarea value={content} onChange={e=>setContent(e.target.value)} rows={12}
             className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
-            style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0',lineHeight:1.6}} />
+            style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612',lineHeight:1.6}} />
         </div>
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={published} onChange={e=>setPublished(e.target.checked)} />
-            <span className="text-sm" style={{color:'#8a7a6a'}}>Published</span>
+            <span className="text-sm" style={{color:'#6b5f4e'}}>Published</span>
           </label>
           <button onClick={save} disabled={saving}
             className="px-8 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40"
-            style={{background:saved?'#0a5a20':'#3a8adf',color:saved?'#40e080':'#fff'}}>
+            style={{background:saved?'#0a5a20':'#3a8adf',color:saved?'#40e080':'#e8e2d6'}}>
             {saving?'Saving...':saved?'✓ Saved!':'Save Changes'}
           </button>
         </div>

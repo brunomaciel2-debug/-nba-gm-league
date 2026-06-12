@@ -64,7 +64,7 @@ function TH({ col, sortKey, sortDir, onSort }: {
         {tip && (
           <>
             <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full ml-0.5 flex-shrink-0"
-                  style={{ background:'#3a3228', color:'#60a0ff', fontSize:8, lineHeight:1 }}>i</span>
+                  style={{ background:'#3a3228', color:'#1e40af', fontSize:8, lineHeight:1 }}>i</span>
             <span className="absolute top-full left-0 mt-1 px-2.5 py-1.5 rounded-lg text-xs
                              opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50"
                   style={{ background:'#16120d', border:'1px solid #2a5a8f', color:'#e8e0d0',
@@ -82,50 +82,50 @@ function TH({ col, sortKey, sortDir, onSort }: {
 const STAT_COLS = [
   { key:'name',   label:'Player', color:'',        numeric:false },
   { key:'pos',    label:'Pos',    color:'',        numeric:false },
-  { key:'ppg',    label:'PPG',    color:'#ffa040', numeric:true  },
-  { key:'rpg',    label:'RPG',    color:'#60a0ff', numeric:true  },
+  { key:'ppg',    label:'PPG',    color:'#c2410c', numeric:true  },
+  { key:'rpg',    label:'RPG',    color:'#1e40af', numeric:true  },
   { key:'orpg',   label:'OREB',   color:'#3a9aff', numeric:true  },
   { key:'drpg',   label:'DREB',   color:'#2a7acf', numeric:true  },
-  { key:'apg',    label:'APG',    color:'#40d0d0', numeric:true  },
-  { key:'spg',    label:'SPG',    color:'#c040ff', numeric:true  },
+  { key:'apg',    label:'APG',    color:'#0e7490', numeric:true  },
+  { key:'spg',    label:'SPG',    color:'#7c3aed', numeric:true  },
   { key:'bpg',    label:'BPG',    color:'#ff6040', numeric:true  },
   { key:'fgpct',  label:'FG%',    color:'#e8e0d0', numeric:true  },
-  { key:'tppct',  label:'3P%',    color:'#ffd040', numeric:true  },
-  { key:'ftpct',  label:'FT%',    color:'#40d0d0', numeric:true  },
-  { key:'topg',   label:'TO',     color:'#e04040', numeric:true  },
+  { key:'tppct',  label:'3P%',    color:'#b45309', numeric:true  },
+  { key:'ftpct',  label:'FT%',    color:'#0e7490', numeric:true  },
+  { key:'topg',   label:'TO',     color:'#dc2626', numeric:true  },
   { key:'pfpg',   label:'PF',     color:'#e06060', numeric:true  },
   { key:'tf',     label:'TF',     color:'#ff4040', numeric:true  },
-  { key:'salary', label:'Salary', color:'#8a7a6a', numeric:true  },
+  { key:'salary', label:'Salary', color:'#6b5f4e', numeric:true  },
 ]
 
 const ATTR_COLS = [
   { key:'name',        label:'Player', color:'',        numeric:false },
   { key:'pos',         label:'Pos',    color:'',        numeric:false },
-  { key:'health',      label:'HLTH',   color:'#40e080', numeric:true },
-  { key:'moral',       label:'MRL',    color:'#c040ff', numeric:true },
-  { key:'three',       label:'3PT',    color:'#ffd040', numeric:true },
-  { key:'layup',       label:'LAY',    color:'#ffa040', numeric:true },
+  { key:'health',      label:'HLTH',   color:'#166534', numeric:true },
+  { key:'moral',       label:'MRL',    color:'#7c3aed', numeric:true },
+  { key:'three',       label:'3PT',    color:'#b45309', numeric:true },
+  { key:'layup',       label:'LAY',    color:'#c2410c', numeric:true },
   { key:'dunk',        label:'DNK',    color:'#ff6040', numeric:true },
-  { key:'mid',         label:'MID',    color:'#ffa040', numeric:true },
-  { key:'ft',          label:'FT',     color:'#40d0d0', numeric:true },
-  { key:'siq',         label:'SIQ',    color:'#ffa040', numeric:true },
-  { key:'draw_foul',   label:'DF',     color:'#ffa040', numeric:true },
+  { key:'mid',         label:'MID',    color:'#c2410c', numeric:true },
+  { key:'ft',          label:'FT',     color:'#0e7490', numeric:true },
+  { key:'siq',         label:'SIQ',    color:'#c2410c', numeric:true },
+  { key:'draw_foul',   label:'DF',     color:'#c2410c', numeric:true },
   { key:'blk',         label:'BLK',    color:'#ff6040', numeric:true },
-  { key:'stl',         label:'STL',    color:'#c040ff', numeric:true },
-  { key:'idef',        label:'IDEF',   color:'#40e080', numeric:true },
-  { key:'pdef',        label:'PDEF',   color:'#40e080', numeric:true },
-  { key:'def_reb',     label:'DREB',   color:'#60a0ff', numeric:true },
-  { key:'off_reb',     label:'OREB',   color:'#60a0ff', numeric:true },
-  { key:'stamina',     label:'STA',    color:'#c040ff', numeric:true },
-  { key:'durability',  label:'DUR',    color:'#c040ff', numeric:true },
-  { key:'ball_hdl',    label:'BH',     color:'#40d0d0', numeric:true },
-  { key:'pass_vis',    label:'PV',     color:'#40d0d0', numeric:true },
-  { key:'pass_iq',     label:'PIQ',    color:'#40d0d0', numeric:true },
-  { key:'assist_role', label:'AR',     color:'#40d0d0', numeric:true },
-  { key:'pressure',    label:'CLU',    color:'#ffd040', numeric:true },
-  { key:'consistency', label:'CON',    color:'#ffd040', numeric:true },
-  { key:'crowd_effect',label:'CE',     color:'#ffd040', numeric:true },
-  { key:'streaky',     label:'STR',    color:'#ffd040', numeric:true },
+  { key:'stl',         label:'STL',    color:'#7c3aed', numeric:true },
+  { key:'idef',        label:'IDEF',   color:'#166534', numeric:true },
+  { key:'pdef',        label:'PDEF',   color:'#166534', numeric:true },
+  { key:'def_reb',     label:'DREB',   color:'#1e40af', numeric:true },
+  { key:'off_reb',     label:'OREB',   color:'#1e40af', numeric:true },
+  { key:'stamina',     label:'STA',    color:'#7c3aed', numeric:true },
+  { key:'durability',  label:'DUR',    color:'#7c3aed', numeric:true },
+  { key:'ball_hdl',    label:'BH',     color:'#0e7490', numeric:true },
+  { key:'pass_vis',    label:'PV',     color:'#0e7490', numeric:true },
+  { key:'pass_iq',     label:'PIQ',    color:'#0e7490', numeric:true },
+  { key:'assist_role', label:'AR',     color:'#0e7490', numeric:true },
+  { key:'pressure',    label:'CLU',    color:'#b45309', numeric:true },
+  { key:'consistency', label:'CON',    color:'#b45309', numeric:true },
+  { key:'crowd_effect',label:'CE',     color:'#b45309', numeric:true },
+  { key:'streaky',     label:'STR',    color:'#b45309', numeric:true },
 ]
 
 function attrColor(v: number) {
@@ -196,7 +196,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
     <div>
       {/* Toggle */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div className="flex gap-1 p-1 rounded-xl" style={{background:'#120f0a',border:'1px solid #3a3228'}}>
+        <div className="flex gap-1 p-1 rounded-xl" style={{background:'#ddd7ca',border:'1px solid #d4cec3'}}>
           {(['stats','attributes'] as Mode[]).map(m=>(
             <button key={m} onClick={()=>{setMode(m);setSortKey(m==='stats'?'ppg':'three');setSortDir('desc')}}
               className="px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
@@ -205,16 +205,16 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
             </button>
           ))}
         </div>
-        <span className="text-xs" style={{color:'#5a4a3a'}}>
-          Click column to sort · hover <span style={{background:'#3a3228',color:'#60a0ff',borderRadius:3,padding:'0 3px',fontSize:8}}>i</span> for definitions
+        <span className="text-xs" style={{color:'#9c8e7a'}}>
+          Click column to sort · hover <span style={{background:'#3a3228',color:'#1e40af',borderRadius:3,padding:'0 3px',fontSize:8}}>i</span> for definitions
         </span>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-x-auto mb-2" style={{border:'1px solid #3a3228', overflowY:'visible'}}>
+      <div className="rounded-xl overflow-x-auto mb-2" style={{border:'1px solid #d4cec3', overflowY:'visible'}}>
         <table className="w-full text-xs" style={{minWidth:mode==='attributes'?900:640, borderCollapse:'collapse'}}>
           <thead>
-            <tr style={{background:'#120f0a',borderBottom:'1px solid #3a3228'}}>
+            <tr style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
               {cols.map(col=>(
                 <TH key={col.key} col={col} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
               ))}
@@ -223,12 +223,12 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
           <tbody>
             {sorted.map((p:any,i:number)=>(
               <tr key={p.id}
-                  style={{background:i%2===0?'#241f18':'#1e1a14',borderBottom:'1px solid #16120d'}}
+                  style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #16120d'}}
                   className="hover:brightness-110 transition-all">
                 {cols.map(col=>{
                   if (col.key==='name') return (
                     <td key="name" className="px-3 py-2 sticky left-0 z-10"
-                        style={{background:i%2===0?'#241f18':'#1e1a14'}}>
+                        style={{background:i%2===0?'#ece7dd':'#e8e2d6'}}>
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0"
                              style={{background:teamColor+'22'}}>
@@ -247,7 +247,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
                     </td>
                   )
                   if (col.key==='pos') return (
-                    <td key="pos" className="px-3 py-2" style={{color:'#8a7a6a'}}>{p.pos}</td>
+                    <td key="pos" className="px-3 py-2" style={{color:'#6b5f4e'}}>{p.pos}</td>
                   )
                   const val=(p as any)[col.key]
                   const isActive=sortKey===col.key
@@ -255,7 +255,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
                     <td key={col.key} className="px-3 py-2 text-right font-semibold"
                         style={{
                           color:mode==='attributes'&&col.numeric&&typeof val==='number'
-                            ?attrColor(val):isActive?'#fff':col.color||'#e8e0d0',
+                            ?attrColor(val):isActive?'#e8e2d6':col.color||'#e8e0d0',
                           background:isActive?teamColor+'11':undefined,
                         }}>
                       {fmtVal(col.key,val)}
@@ -267,7 +267,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
           </tbody>
         </table>
       </div>
-      <p className="text-xs" style={{color:'#4a3a2a'}}>
+      <p className="text-xs" style={{color:'#b8ae9e'}}>
         {sorted.length} players · {mode==='stats'
           ?'Per game averages · TF = season total technical fouls'
           :'Ratings 0–100 · Gold ≥90 · Green ≥80 · Blue ≥70'}

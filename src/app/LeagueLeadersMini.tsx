@@ -47,7 +47,7 @@ export default async function LeagueLeadersMini() {
   return (
     <div className="mb-8">
       <div className="section-header mb-5">
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#111827',letterSpacing:'1.5px'}}>
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
           <i className="ti ti-chart-bar" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>League Leaders
         </span>
         <Link href="/league-leaders" className="text-xs no-underline font-semibold" style={{color:'#F5A623'}}>
@@ -59,14 +59,14 @@ export default async function LeagueLeadersMini() {
         {CATS.map((cat, ci) => {
           const leaders = lists[ci]
           const leader = leaders[0]
-          const tc = leader?.teams ? readableTeamColor((leader.teams as any).color) : '#6b7280'
+          const tc = leader?.teams ? readableTeamColor((leader.teams as any).color) : '#6b6258'
 
           return (
             <div key={cat.key} className="rounded-2xl overflow-hidden"
-                 style={{background:'#fff',border:'1px solid #e5e1d8',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',borderTop:'3px solid '+cat.color}}>
+                 style={{background:'#e8e2d6',border:'1px solid #d4cec3',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',borderTop:'3px solid '+cat.color}}>
               {/* Header */}
               <div className="px-5 py-3 flex items-center justify-between"
-                   style={{borderBottom:'1px solid #3a3228'}}>
+                   style={{borderBottom:'1px solid #d4cec3'}}>
                 <span className="text-xs font-bold uppercase tracking-widest" style={{color:cat.color}}>
                   <i className={`ti ${cat.icon}`} style={{fontSize:14,marginRight:6}}></i>{cat.label} Leaders
                 </span>
@@ -75,7 +75,7 @@ export default async function LeagueLeadersMini() {
 
               {leaders.length === 0 ? (
                 <div className="p-6 text-center">
-                  <p className="text-sm" style={{color:'#9ca3af'}}>Available after games are played</p>
+                  <p className="text-sm" style={{color:'#9c8e7a'}}>Available after games are played</p>
                 </div>
               ) : (
                 <div>
@@ -83,7 +83,7 @@ export default async function LeagueLeadersMini() {
                   {leader && (
                     <Link href={`/player/${leader.id}`} className="no-underline group">
                       <div className="p-5 flex items-center gap-4 transition-all group-hover:brightness-110"
-                           style={{borderBottom:'1px solid #2a2218'}}>
+                           style={{borderBottom:'1px solid #ddd8ce'}}>
                         <div className="relative flex-shrink-0">
                           <div className="w-16 h-16 rounded-full overflow-hidden"
                                style={{background:tc+'22',border:'2px solid '+tc+'55'}}>
@@ -95,18 +95,18 @@ export default async function LeagueLeadersMini() {
                                </div>}
                           </div>
                           <div className="absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-black"
-                               style={{background:cat.color,color:'#f8f7f4'}}>1</div>
+                               style={{background:cat.color,color:'#e8e2d9'}}>1</div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-bold text-base truncate" style={{color:'#111827'}}>{leader.name}</div>
+                          <div className="font-bold text-base truncate" style={{color:'#1a1612'}}>{leader.name}</div>
                           <div className="text-xs" style={{color:tc}}>
                             {leader.pos} · {(leader.teams as any)?.name}
                           </div>
-                          <div className="text-xs mt-0.5" style={{color:'#9ca3af'}}>{leader.gp} GP</div>
+                          <div className="text-xs mt-0.5" style={{color:'#9c8e7a'}}>{leader.gp} GP</div>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <div className="text-3xl font-black" style={{color:cat.color}}>{leader.statValue}</div>
-                          <div className="text-xs" style={{color:'#9ca3af'}}>{cat.unit}</div>
+                          <div className="text-xs" style={{color:'#9c8e7a'}}>{cat.unit}</div>
                         </div>
                       </div>
                     </Link>
@@ -114,12 +114,12 @@ export default async function LeagueLeadersMini() {
 
                   {/* #2-5 */}
                   {leaders.slice(1).map((p, i) => {
-                    const ptc = p?.teams ? readableTeamColor((p.teams as any).color) : '#6b7280'
+                    const ptc = p?.teams ? readableTeamColor((p.teams as any).color) : '#6b6258'
                     return (
                       <Link key={p.id} href={`/player/${p.id}`} className="no-underline group">
                         <div className="flex items-center gap-3 px-5 py-2.5 transition-all group-hover:brightness-125"
                              style={{borderBottom: i < 3 ? '1px solid #1e1a14' : 'none'}}>
-                          <span className="text-sm font-bold w-4 flex-shrink-0" style={{color:'#d1d5db'}}>{i+2}</span>
+                          <span className="text-sm font-bold w-4 flex-shrink-0" style={{color:'#b8ae9e'}}>{i+2}</span>
                           <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0"
                                style={{background:ptc+'22'}}>
                             {p.photo_url
@@ -130,8 +130,8 @@ export default async function LeagueLeadersMini() {
                                </div>}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold truncate" style={{color:'#e8e0d0'}}>{p.name}</div>
-                            <div className="text-xs" style={{color:'#9ca3af'}}>{(p.teams as any)?.id}</div>
+                            <div className="text-sm font-semibold truncate" style={{color:'#2d2723'}}>{p.name}</div>
+                            <div className="text-xs" style={{color:'#9c8e7a'}}>{(p.teams as any)?.id}</div>
                           </div>
                           <div className="font-bold text-sm flex-shrink-0" style={{color:cat.color}}>{p.statValue}</div>
                         </div>

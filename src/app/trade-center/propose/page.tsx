@@ -37,7 +37,7 @@ function PlayerPickPanel({
     <div className="rounded-xl overflow-hidden flex flex-col"
          style={{ border: '1px solid ' + (teamInfo ? tc + '44' : '#3a3228'), borderTop: '3px solid ' + (teamInfo ? tc : '#3a3228') }}>
       {/* Header */}
-      <div className="px-4 py-3" style={{ background: '#120f0a', borderBottom: '1px solid #3a3228' }}>
+      <div className="px-4 py-3" style={{ background: '#ddd7ca', borderBottom: '1px solid #3a3228' }}>
         {isMyTeam ? (
           <div className="flex items-center gap-2">
             {teamInfo?.logo_url && <img src={teamInfo.logo_url} alt="" className="w-6 h-6 object-contain" />}
@@ -50,7 +50,7 @@ function PlayerPickPanel({
             <select onChange={e => onSelectTeam?.(e.target.value)}
               value={teamInfo?.id || ''}
               className="w-full text-sm px-3 py-2 rounded-lg outline-none"
-              style={{ background: '#1a1610', border: '1px solid #3a3228', color: '#f0ebe0' }}>
+              style={{ background: '#ede8de', border: '1px solid #3a3228', color: '#1a1612' }}>
               <option value="">— Choose team —</option>
               {allTeams.map((t: any) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
@@ -61,7 +61,7 @@ function PlayerPickPanel({
       </div>
 
       {teamInfo && (
-        <div className="flex-1 overflow-y-auto p-3" style={{ background: '#1a1610', maxHeight: 420 }}>
+        <div className="flex-1 overflow-y-auto p-3" style={{ background: '#ede8de', maxHeight: 420 }}>
           {/* Players */}
           <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#6a5a4a' }}>Players</div>
           {players.length === 0 && <p className="text-xs mb-3" style={{ color: '#4a3a2a' }}>No players found.</p>}
@@ -72,7 +72,7 @@ function PlayerPickPanel({
                 className="w-full flex items-center gap-2 px-3 py-2 rounded-lg mb-1 text-left transition-all"
                 style={{ background: isSel ? tc + '22' : '#241f18', border: '1px solid ' + (isSel ? tc + '66' : '#3a3228') }}>
                 <span className="text-xs w-7 flex-shrink-0" style={{ color: '#6a5a4a' }}>{p.pos}</span>
-                <span className="text-sm flex-1 font-semibold" style={{ color: isSel ? '#fff' : '#c0b8a8' }}>{p.name}</span>
+                <span className="text-sm flex-1 font-semibold" style={{ color: isSel ? '#e8e2d6' : '#c0b8a8' }}>{p.name}</span>
                 <span className="text-xs font-semibold" style={{ color: isSel ? tc : '#6a5a4a' }}>{capFmt(p.salary)}</span>
                 {isSel && <span className="text-sm flex-shrink-0" style={{ color: tc }}>✓</span>}
               </button>
@@ -103,7 +103,7 @@ function PlayerPickPanel({
       {/* Salary total */}
       {teamInfo && (
         <div className="px-4 py-2.5 flex items-center justify-between"
-             style={{ background: '#120f0a', borderTop: '1px solid #3a3228' }}>
+             style={{ background: '#ddd7ca', borderTop: '1px solid #3a3228' }}>
           <span className="text-xs" style={{ color: '#6a5a4a' }}>
             {selPlayers.length} player{selPlayers.length !== 1 ? 's' : ''} · {selPicks.length} pick{selPicks.length !== 1 ? 's' : ''}
           </span>
@@ -256,18 +256,18 @@ function ProposeTradePage() {
   if (!user) return (
     <div className="max-w-2xl mx-auto px-4 py-12 text-center">
       <p className="mb-4" style={{ color: '#8a7a6a' }}>Sign in to propose a trade.</p>
-      <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#3a8adf', color: '#fff' }}>Sign In</a>
+      <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#3a8adf', color: '#e8e2d6' }}>Sign In</a>
     </div>
   )
 
   // Commissioner team selector
   if (isCommissioner && !commTeamId) return (
     <div className="max-w-md mx-auto px-4 py-12">
-      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#8a7a6a'}}>← Trade Center</a>
-      <h2 className="text-lg font-bold mb-4" style={{color:'#f0ebe0'}}>Commissioner — Select Team to Propose As</h2>
+      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#6b5f4e'}}>← Trade Center</a>
+      <h2 className="text-lg font-bold mb-4" style={{color:'#1a1612'}}>Commissioner — Select Team to Propose As</h2>
       <select onChange={e=>setCommTeamId(e.target.value)} defaultValue=""
         className="w-full text-sm px-3 py-3 rounded-xl outline-none"
-        style={{background:'#241f18',border:'1px solid #3a3228',color:'#f0ebe0'}}>
+        style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1612'}}>
         <option value="">— Choose a team —</option>
         {allTeams.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
@@ -277,9 +277,9 @@ function ProposeTradePage() {
   if (submitted) return (
     <div className="max-w-lg mx-auto px-4 py-12 text-center">
       <div className="text-5xl mb-4">✅</div>
-      <h2 className="text-xl font-bold mb-2" style={{ color: '#f0ebe0' }}>Trade Proposal Sent!</h2>
+      <h2 className="text-xl font-bold mb-2" style={{ color: '#1a1612' }}>Trade Proposal Sent!</h2>
       <p className="mb-6" style={{ color: '#8a7a6a' }}>The GM(s) received a notification and can accept, reject or counter.</p>
-      <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#3a8adf', color: '#fff' }}>← Back</a>
+      <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#3a8adf', color: '#e8e2d6' }}>← Back</a>
     </div>
   )
 
@@ -290,7 +290,7 @@ function ProposeTradePage() {
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <a href="/trade-center" className="text-xs no-underline" style={{ color: '#8a7a6a' }}>← Trade Center</a>
-        <h1 className="text-xl font-bold" style={{ color: '#f0ebe0' }}>🔄 Propose Trade</h1>
+        <h1 className="text-xl font-bold" style={{ color: '#1a1612' }}>🔄 Propose Trade</h1>
       </div>
 
       {/* Teams grid */}
@@ -332,20 +332,20 @@ function ProposeTradePage() {
       </div>
 
       {/* Trade calculator */}
-      <div className="rounded-xl p-4 mb-4" style={{ background: '#120f0a', border: '1px solid #3a3228' }}>
+      <div className="rounded-xl p-4 mb-4" style={{ background: '#ddd7ca', border: '1px solid #3a3228' }}>
         <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#6a5a4a' }}>🧮 Trade Calculator</div>
         <div className="grid grid-cols-3 gap-4 mb-3">
-          <div className="rounded-lg p-3 text-center" style={{ background: '#1a1610' }}>
+          <div className="rounded-lg p-3 text-center" style={{ background: '#ede8de' }}>
             <div className="text-xs mb-1" style={{ color: '#6a5a4a' }}>You send</div>
             <div className="text-xl font-black" style={{ color: myTeam ? readableTeamColor(myTeam.color) : '#8a7a6a' }}>{capFmt(mySalarySent)}</div>
             <div className="text-xs mt-0.5" style={{ color: '#6a5a4a' }}>{mySend.length} players · {myPicksSend.length} picks</div>
           </div>
-          <div className="rounded-lg p-3 text-center" style={{ background: '#1a1610' }}>
+          <div className="rounded-lg p-3 text-center" style={{ background: '#ede8de' }}>
             <div className="text-xs mb-1" style={{ color: '#6a5a4a' }}>Difference</div>
             <div className="text-xl font-black" style={{ color: salaryValid ? '#40e080' : '#e04040' }}>{capFmt(diff)}</div>
             <div className="text-xs mt-0.5" style={{ color: '#6a5a4a' }}>Max allowed: {capFmt(maxDiff)}</div>
           </div>
-          <div className="rounded-lg p-3 text-center" style={{ background: '#1a1610' }}>
+          <div className="rounded-lg p-3 text-center" style={{ background: '#ede8de' }}>
             <div className="text-xs mb-1" style={{ color: '#6a5a4a' }}>You receive</div>
             <div className="text-xl font-black" style={{ color: tc2 }}>{capFmt(totalIn)}</div>
             <div className="text-xs mt-0.5" style={{ color: '#6a5a4a' }}>{t2Recv.length + t3Recv.length} players · {t2PicksRecv.length + t3PicksRecv.length} picks</div>
@@ -374,7 +374,7 @@ function ProposeTradePage() {
         <label className="block text-xs font-semibold mb-1.5" style={{ color: '#8a7a6a' }}>Message to other GM (optional)</label>
         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
           className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
-          style={{ background: '#1a1610', border: '1px solid #3a3228', color: '#f0ebe0' }}
+          style={{ background: '#ede8de', border: '1px solid #3a3228', color: '#1a1612' }}
           placeholder="Explain your offer..." />
       </div>
 

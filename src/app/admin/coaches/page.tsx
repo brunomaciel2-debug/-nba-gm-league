@@ -22,17 +22,17 @@ export default async function CoachesAdminPage() {
   })
 
   const personality = (v:number) => {
-    if (v<=3) return {label:'Calm',color:'#60a0ff'}
-    if (v<=6) return {label:'Balanced',color:'#40e080'}
-    if (v<=8) return {label:'Intense',color:'#ffa040'}
-    return {label:'Hot-headed',color:'#e04040'}
+    if (v<=3) return {label:'Calm',color:'#1e40af'}
+    if (v<=6) return {label:'Balanced',color:'#166534'}
+    if (v<=8) return {label:'Intense',color:'#c2410c'}
+    return {label:'Hot-headed',color:'#dc2626'}
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold" style={{color:'#f0ebe0'}}>🎯 Coaching Staff — All Teams</h1>
-        <Link href="/admin" className="text-xs px-3 py-1.5 rounded-lg no-underline" style={{background:'#3a3228',color:'#8a7a6a'}}>← Admin</Link>
+        <h1 className="text-2xl font-bold" style={{color:'#1a1612'}}>🎯 Coaching Staff — All Teams</h1>
+        <Link href="/admin" className="text-xs px-3 py-1.5 rounded-lg no-underline" style={{background:'#3a3228',color:'#6b5f4e'}}>← Admin</Link>
       </div>
 
       {/* Teams */}
@@ -40,18 +40,18 @@ export default async function CoachesAdminPage() {
         {Object.entries(byTeam).sort().map(([tid, staff]) => {
           const t = teamMap[tid]
           return (
-            <div key={tid} className="rounded-xl overflow-hidden" style={{border:'1px solid #3a3228'}}>
-              <div className="flex items-center gap-2 px-4 py-2" style={{background:'#120f0a',borderBottom:'1px solid #3a3228'}}>
+            <div key={tid} className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cec3'}}>
+              <div className="flex items-center gap-2 px-4 py-2" style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
                 {t?.logo_url&&<img src={t.logo_url} alt="" className="w-5 h-5 object-contain"/>}
-                <span className="font-bold" style={{color:'#f0ebe0'}}>{t?.name||tid}</span>
-                <span className="ml-auto text-xs" style={{color:'#6a5a4a'}}>{staff.length} staff</span>
+                <span className="font-bold" style={{color:'#1a1612'}}>{t?.name||tid}</span>
+                <span className="ml-auto text-xs" style={{color:'#6b5f4e'}}>{staff.length} staff</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr style={{background:'#1a1610',borderBottom:'1px solid #3a3228'}}>
+                    <tr style={{background:'#ede8de',borderBottom:'1px solid #d4cec3'}}>
                       {['Role','Name','OA','DA','Sub','TO','OD','DD','Tac','Phy','Men','Atk','Def','Pers','Cond','Rec','Inj','Rehab'].map(h=>(
-                        <th key={h} className="px-2 py-1.5 text-left font-semibold" style={{color:'#6a5a4a',whiteSpace:'nowrap'}}>{h}</th>
+                        <th key={h} className="px-2 py-1.5 text-left font-semibold" style={{color:'#6b5f4e',whiteSpace:'nowrap'}}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -60,9 +60,9 @@ export default async function CoachesAdminPage() {
                       const rc = ROLE_COLORS[c.role]||'#8a7a6a'
                       const pers = personality(c.personality||5)
                       return (
-                        <tr key={c.id} style={{background:i%2===0?'#241f18':'#1e1a14',borderBottom:'1px solid #2a2218'}}>
+                        <tr key={c.id} style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #ddd8ce'}}>
                           <td className="px-2 py-1.5 font-semibold" style={{color:rc,whiteSpace:'nowrap'}}>{c.role.replace('_',' ')}</td>
-                          <td className="px-2 py-1.5 font-semibold" style={{color:'#f0ebe0',whiteSpace:'nowrap'}}>{c.name}</td>
+                          <td className="px-2 py-1.5 font-semibold" style={{color:'#1a1612',whiteSpace:'nowrap'}}>{c.name}</td>
                           <td className="px-2 py-1.5 text-center" style={{color:c.off_adjustment>=80?'#ffd040':'#8a7a6a'}}>{c.off_adjustment||'—'}</td>
                           <td className="px-2 py-1.5 text-center" style={{color:c.def_adjustment>=80?'#40e080':'#8a7a6a'}}>{c.def_adjustment||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.substitutions||'—'}</td>
@@ -72,8 +72,8 @@ export default async function CoachesAdminPage() {
                           <td className="px-2 py-1.5 text-center">{c.tactical_dev||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.physical_dev||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.mental_dev||'—'}</td>
-                          <td className="px-2 py-1.5 text-center" style={{color:'#ffa040',whiteSpace:'nowrap'}}>{c.pref_atk_style?ATK[c.pref_atk_style]:'—'}</td>
-                          <td className="px-2 py-1.5 text-center" style={{color:'#40e080',whiteSpace:'nowrap'}}>{c.pref_def_style?DEF[c.pref_def_style]:'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:'#c2410c',whiteSpace:'nowrap'}}>{c.pref_atk_style?ATK[c.pref_atk_style]:'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:'#166534',whiteSpace:'nowrap'}}>{c.pref_def_style?DEF[c.pref_def_style]:'—'}</td>
                           <td className="px-2 py-1.5 text-center font-semibold" style={{color:pers.color}}>{c.personality||'—'}</td>
                           <td className="px-2 py-1.5 text-center" style={{color:c.conditioning>=80?'#40e080':'#8a7a6a'}}>{c.conditioning||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.recovery_boost||'—'}</td>
@@ -91,15 +91,15 @@ export default async function CoachesAdminPage() {
       </div>
 
       {/* Free Agents */}
-      <h2 className="text-sm font-bold mb-4" style={{color:'#f0ebe0'}}>🆓 Free Agent Staff ({freeAgents.length})</h2>
+      <h2 className="text-sm font-bold mb-4" style={{color:'#1a1612'}}>🆓 Free Agent Staff ({freeAgents.length})</h2>
       <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
         {freeAgents.map((c:any)=>{
           const rc=ROLE_COLORS[c.role]||'#8a7a6a'
           return (
-            <div key={c.id} className="rounded-xl p-3" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+            <div key={c.id} className="rounded-xl p-3" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
               <div className="text-xs font-semibold mb-0.5" style={{color:rc}}>{c.role.replace('_',' ')}</div>
-              <div className="font-bold text-sm" style={{color:'#f0ebe0'}}>{c.name}</div>
-              <div className="text-xs mt-1" style={{color:'#6a5a4a'}}>
+              <div className="font-bold text-sm" style={{color:'#1a1612'}}>{c.name}</div>
+              <div className="text-xs mt-1" style={{color:'#6b5f4e'}}>
                 {c.role==='physio'?`Rehab: ${c.rehab_speed}`:
                  c.role==='trainer'?`Cond: ${c.conditioning} · Rec: ${c.recovery_boost}`:
                  `OFF: ${c.off_adjustment} · DEF: ${c.def_adjustment}`}

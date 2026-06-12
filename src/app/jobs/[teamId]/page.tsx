@@ -29,13 +29,13 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <Link href="/jobs" className="text-xs no-underline mb-6 block" style={{color:'#8a7a6a'}}>
+      <Link href="/jobs" className="text-xs no-underline mb-6 block" style={{color:'#6b5f4e'}}>
         ← Back to All Vacancies
       </Link>
 
       {/* Team header */}
       <div className="rounded-2xl p-6 mb-6"
-           style={{background:'#241f18',borderTop:'4px solid '+tc,border:'1px solid #3a3228'}}>
+           style={{background:'#e8e2d6',borderTop:'4px solid '+tc,border:'1px solid #d4cec3'}}>
         <div className="flex items-center gap-5 flex-wrap">
           <div className="w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0"
                style={{background:tc+'22',border:'2px solid '+tc+'44'}}>
@@ -47,8 +47,8 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
             <div className="text-xs font-semibold mb-1" style={{color:tc}}>
               {(team as any).conference} · {(team as any).division}
             </div>
-            <h1 className="text-2xl font-black mb-1" style={{color:'#f0ebe0'}}>{(team as any).name}</h1>
-            <div className="text-sm" style={{color:'#8a7a6a'}}>{(team as any).arena} · {(team as any).city}</div>
+            <h1 className="text-2xl font-black mb-1" style={{color:'#1a1612'}}>{(team as any).name}</h1>
+            <div className="text-sm" style={{color:'#6b5f4e'}}>{(team as any).arena} · {(team as any).city}</div>
           </div>
           <div className="text-center">
             <span className="text-sm font-bold px-4 py-2 rounded-full"
@@ -61,8 +61,8 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
 
       <div className="grid md:grid-cols-2 gap-6 mb-6">
         {/* Franchise info */}
-        <div className="rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
-          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6a5a4a'}}>
+        <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>
             📊 Franchise Overview
           </h3>
           {[
@@ -73,30 +73,30 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
             ['Capacity', (team as any).arena_capacity ? (team as any).arena_capacity.toLocaleString() + ' seats' : 'N/A'],
             ['City', (team as any).city],
           ].map(([l, v]) => (
-            <div key={l} className="flex justify-between py-1.5" style={{borderBottom:'1px solid #2a2218'}}>
-              <span className="text-xs" style={{color:'#6a5a4a'}}>{l}</span>
-              <span className="text-xs font-semibold" style={{color:'#f0ebe0'}}>{v}</span>
+            <div key={l} className="flex justify-between py-1.5" style={{borderBottom:'1px solid #ddd8ce'}}>
+              <span className="text-xs" style={{color:'#6b5f4e'}}>{l}</span>
+              <span className="text-xs font-semibold" style={{color:'#1a1612'}}>{v}</span>
             </div>
           ))}
         </div>
 
         {/* Roster preview */}
-        <div className="rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
-          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6a5a4a'}}>
+        <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>
             🏀 Full Roster ({(players||[]).length} players)
           </h3>
           {(players||[]).map((p:any) => (
             <Link key={p.id} href={`/player/${p.id}`} className="no-underline group">
               <div className="flex items-center gap-2 py-1.5 group-hover:brightness-125 transition-all"
-                   style={{borderBottom:'1px solid #2a2218'}}>
-                <span className="text-xs w-7 flex-shrink-0" style={{color:'#6a5a4a'}}>{p.pos}</span>
-                <span className="text-xs flex-1 font-semibold" style={{color:'#f0ebe0'}}>{p.name}</span>
+                   style={{borderBottom:'1px solid #ddd8ce'}}>
+                <span className="text-xs w-7 flex-shrink-0" style={{color:'#6b5f4e'}}>{p.pos}</span>
+                <span className="text-xs flex-1 font-semibold" style={{color:'#1a1612'}}>{p.name}</span>
                 {(() => {
                   const ovr = calcOvr(p)
-                  const c = ovr>=85?'#ffd040':ovr>=75?'#40e080':ovr>=65?'#60a0ff':'#6a5a4a'
+                  const c = ovr>=85?'#ffd040':ovr>=75?'#40e080':ovr>=65?'#60a0ff':'#6b6258'
                   return <span className="text-xs font-black w-6 text-right" style={{color:c}}>{ovr}</span>
                 })()}
-                <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(p.contracts?.[0]?.salary || 0)}</span>
+                <span className="text-xs" style={{color:'#6b5f4e'}}>{capFmt(p.contracts?.[0]?.salary || 0)}</span>
               </div>
             </Link>
           ))}
@@ -107,14 +107,14 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
       {isOpen ? (
         <ApplyForm teamId={teamId} teamName={(team as any).name} />
       ) : (
-        <div className="rounded-xl p-6 text-center" style={{background:'#2a0a0a',border:'1px solid #5a1a1a'}}>
+        <div className="rounded-xl p-6 text-center" style={{background:'#fee2e2',border:'1px solid #5a1a1a'}}>
           <div className="text-3xl mb-3">❌</div>
-          <h3 className="font-bold mb-1" style={{color:'#e04040'}}>Position Filled</h3>
-          <p className="text-sm mb-4" style={{color:'#8a7a6a'}}>
+          <h3 className="font-bold mb-1" style={{color:'#dc2626'}}>Position Filled</h3>
+          <p className="text-sm mb-4" style={{color:'#6b5f4e'}}>
             This franchise already has a GM. Check other available positions.
           </p>
           <Link href="/jobs" className="text-sm font-bold px-4 py-2 rounded-lg no-underline"
-                style={{background:'#3a8adf',color:'#fff'}}>
+                style={{background:'#3a8adf',color:'#e8e2d6'}}>
             View All Vacancies
           </Link>
         </div>

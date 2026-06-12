@@ -55,8 +55,8 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
 
   const Th = ({ k, label }: { k:string, label:string }) => (
     <th className="px-3 py-2.5 text-left cursor-pointer select-none whitespace-nowrap"
-        style={{color:sortKey===k?'#F5A623':'#6a5a4a',fontSize:11,fontWeight:600,letterSpacing:'0.5px',
-                background:'#120f0a',borderBottom:'1px solid #2a2218'}}
+        style={{color:sortKey===k?'#F5A623':'#6b6258',fontSize:11,fontWeight:600,letterSpacing:'0.5px',
+                background:'#ddd7ca',borderBottom:'1px solid #ddd8ce'}}
         onClick={()=>toggleSort(k)}>
       {label}{sortKey===k&&<span className="ml-1">{sortDir==='asc'?'↑':'↓'}</span>}
     </th>
@@ -71,17 +71,17 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
         {['all','head_coach','assistant_coach','trainer','physio'].map(f=>(
           <button key={f} onClick={()=>setFilter(f)}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-            style={{background:filter===f?'#1f2937':'#241f18',
-                    color:filter===f?'#f0ebe0':'#8a7a6a',
-                    border:'1px solid '+(filter===f?'#374151':'#3a3228')}}>
+            style={{background:filter===f?'#1f2937':'#ede8df',
+                    color:filter===f?'#1c1917':'#6b6258',
+                    border:'1px solid '+(filter===f?'#3d3731':'#cec8be')}}>
             {f==='all'?'All Roles':f.replace(/_/g,' ').replace(/\w/g,(c:string)=>c.toUpperCase())}
           </button>
         ))}
-        <span className="ml-auto text-xs" style={{color:'#5a4a3a'}}>{sorted.length} available</span>
+        <span className="ml-auto text-xs" style={{color:'#9c8e7a'}}>{sorted.length} available</span>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden" style={{border:'1px solid #2a2218'}}>
+      <div className="rounded-xl overflow-hidden" style={{border:'1px solid #ddd8ce'}}>
         <div className="overflow-x-auto">
           <table className="w-full text-xs" style={{borderCollapse:'collapse'}}>
             <thead>
@@ -101,35 +101,35 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
                 </>}
                 {(filter==='all'||filter==='physio') && <Th k="rehab" label="REHAB" />}
                 <Th k="attr"   label="RATING" />
-                <th style={{background:'#120f0a',borderBottom:'1px solid #2a2218'}}></th>
+                <th style={{background:'#ddd7ca',borderBottom:'1px solid #ddd8ce'}}></th>
               </tr>
             </thead>
             <tbody>
               {sorted.length===0 ? (
-                <tr><td colSpan={12} className="px-4 py-8 text-center" style={{color:'#5a4a3a'}}>No staff available.</td></tr>
+                <tr><td colSpan={12} className="px-4 py-8 text-center" style={{color:'#9c8e7a'}}>No staff available.</td></tr>
               ) : sorted.map((c:any, i:number) => {
-                const rc = ROLE_COLORS[c.role]||'#8a7a6a'
+                const rc = ROLE_COLORS[c.role]||'#6b6258'
                 const attr = mainAttr(c)
-                const attrColor = attr>=80?'#ffd040':attr>=70?'#40e080':attr>=60?'#60a0ff':'#6a5a4a'
+                const attrColor = attr>=80?'#ffd040':attr>=70?'#40e080':attr>=60?'#60a0ff':'#6b6258'
                 return (
-                  <tr key={c.id} style={{background:i%2===0?'#1a1610':'#181410',borderBottom:'1px solid #242018'}}>
+                  <tr key={c.id} style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #ddd8ce'}}>
                     <td className="px-3 py-2.5">
-                      <div className="font-semibold" style={{color:'#f0ebe0'}}>{c.name}</div>
+                      <div className="font-semibold" style={{color:'#1a1612'}}>{c.name}</div>
                       <div className="text-xs mt-0.5" style={{color:rc}}>{c.role.replace(/_/g,' ')}</div>
                     </td>
-                    <td className="px-3 py-2.5" style={{color:'#8a7a6a'}}>{c.age||'—'}<span className="ml-0.5" style={{color:'#4a3a2a',fontSize:10}}>{c.nationality?` ${c.nationality}`:''}</span></td>
+                    <td className="px-3 py-2.5" style={{color:'#6b5f4e'}}>{c.age||'—'}<span className="ml-0.5" style={{color:'#b8ae9e',fontSize:10}}>{c.nationality?` ${c.nationality}`:''}</span></td>
                     {(filter==='all'||isCoach(filter)) && <>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_adjustment>=75?'#ffa040':'#6a5a4a'}}>{c.off_adjustment||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_adjustment>=75?'#40e080':'#6a5a4a'}}>{c.def_adjustment||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_development>=75?'#ffa040':'#6a5a4a'}}>{c.off_development||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_development>=75?'#40e080':'#6a5a4a'}}>{c.def_development||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_adjustment>=75?'#ffa040':'#6b6258'}}>{c.off_adjustment||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_adjustment>=75?'#40e080':'#6b6258'}}>{c.def_adjustment||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_development>=75?'#ffa040':'#6b6258'}}>{c.off_development||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_development>=75?'#40e080':'#6b6258'}}>{c.def_development||'—'}</td>
                     </>}
                     {(filter==='all'||filter==='trainer') && <>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.conditioning>=75?'#40e080':'#6a5a4a'}}>{c.conditioning||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.recovery_boost>=75?'#60a0ff':'#6a5a4a'}}>{c.recovery_boost||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.injury_prevent>=75?'#ffd040':'#6a5a4a'}}>{c.injury_prevent||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.conditioning>=75?'#40e080':'#6b6258'}}>{c.conditioning||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.recovery_boost>=75?'#60a0ff':'#6b6258'}}>{c.recovery_boost||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.injury_prevent>=75?'#ffd040':'#6b6258'}}>{c.injury_prevent||'—'}</td>
                     </>}
-                    {(filter==='all'||filter==='physio') && <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.rehab_speed>=75?'#c040ff':'#6a5a4a'}}>{c.rehab_speed||'—'}</td>}
+                    {(filter==='all'||filter==='physio') && <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.rehab_speed>=75?'#c040ff':'#6b6258'}}>{c.rehab_speed||'—'}</td>}
                     <td className="px-3 py-2.5 text-center">
                       <span className="font-black" style={{color:attrColor}}>{attr}</span>
                     </td>
@@ -194,14 +194,14 @@ export default function TradeCenterPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{color:'#f0ebe0'}}>🔄 Trade Center</h1>
-          <p className="text-sm" style={{color:'#8a7a6a'}}>
+          <h1 className="text-2xl font-bold" style={{color:'#1a1612'}}>🔄 Trade Center</h1>
+          <p className="text-sm" style={{color:'#6b5f4e'}}>
             {myTeamId ? `Managing: ${profile?.teams?.name}` : 'Browse trades and staff signings'}
           </p>
         </div>
         {!user && (
           <Link href="/login" className="no-underline px-4 py-2 rounded-lg text-sm font-bold"
-                style={{background:'#3a8adf',color:'#fff'}}>Sign In to Trade</Link>
+                style={{background:'#3a8adf',color:'#e8e2d6'}}>Sign In to Trade</Link>
         )}
       </div>
 
@@ -214,22 +214,22 @@ export default function TradeCenterPage() {
         ].map((t:any)=>(
           <button key={t.key} onClick={()=>setTab(t.key)}
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-            style={{background:tab===t.key?'#3a3228':'#241f18',
-                    color:tab===t.key?'#f0ebe0':'#8a7a6a',
-                    border:'1px solid '+(tab===t.key?'#5a4a3a':'#3a3228')}}>
+            style={{background:tab===t.key?'#cec8be':'#ede8df',
+                    color:tab===t.key?'#1c1917':'#6b6258',
+                    border:'1px solid '+(tab===t.key?'#9c9088':'#cec8be')}}>
             {t.label}
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="text-center py-12" style={{color:'#8a7a6a'}}>Loading...</div>
+        <div className="text-center py-12" style={{color:'#6b5f4e'}}>Loading...</div>
       ) : (
         <>
           {/* ── PLAYER TRADES ─────────────────────────── */}
           {tab==='players' && (
             <div>
-              <p className="text-xs mb-4" style={{color:'#6a5a4a'}}>
+              <p className="text-xs mb-4" style={{color:'#6b5f4e'}}>
                 Click a team to propose a trade. Players on the trade block are highlighted.
               </p>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -239,26 +239,26 @@ export default function TradeCenterPage() {
                   const tbPlayerIds = new Set(tradeBlock.filter(tb=>tb.teams?.id===t.id).map(tb=>tb.players?.id))
                   return (
                     <div key={t.id} className="rounded-xl overflow-hidden"
-                         style={{border:'1px solid '+(isMyTeam?tc+'55':'#3a3228')}}>
+                         style={{border:'1px solid '+(isMyTeam?tc+'55':'#cec8be')}}>
                       {/* Team header — clickable */}
                       <Link href={`/team/${t.id}`} className="no-underline">
                         <div className="flex items-center gap-2 px-4 py-3 transition-all hover:brightness-125"
-                             style={{background:'#1a1610',borderBottom:tbPlayerIds.size>0?'1px solid #3a3228':'none'}}>
+                             style={{background:'#ede8de',borderBottom:tbPlayerIds.size>0?'1px solid #3a3228':'none'}}>
                           {t.logo_url && <img src={t.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
-                          <span className="font-bold text-sm flex-1" style={{color:isMyTeam?tc:'#f0ebe0'}}>{t.name}</span>
+                          <span className="font-bold text-sm flex-1" style={{color:isMyTeam?tc:'#1c1917'}}>{t.name}</span>
                           {isMyTeam && <span className="text-xs" style={{color:tc}}>Your Team</span>}
                         </div>
                       </Link>
                       {/* Trade block players — only if any */}
                       {tbPlayerIds.size > 0 && (
-                        <div className="px-4 py-2" style={{background:'#120f0a'}}>
-                          <div className="text-xs mb-1.5 font-semibold" style={{color:'#ffd040'}}>📋 Trade Block</div>
+                        <div className="px-4 py-2" style={{background:'#ddd7ca'}}>
+                          <div className="text-xs mb-1.5 font-semibold" style={{color:'#b45309'}}>📋 Trade Block</div>
                           {tradeBlock.filter(tb=>tb.teams?.id===t.id).map((tb:any)=>(
                             <div key={tb.id} className="flex items-center gap-2 py-1"
-                                 style={{borderBottom:'1px solid #2a2218'}}>
-                              <span className="text-xs w-7 flex-shrink-0" style={{color:'#6a5a4a'}}>{tb.players?.pos}</span>
-                              <span className="text-xs flex-1 font-semibold" style={{color:'#ffd040'}}>{tb.players?.name}</span>
-                              <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(tb.players?.salary)}</span>
+                                 style={{borderBottom:'1px solid #ddd8ce'}}>
+                              <span className="text-xs w-7 flex-shrink-0" style={{color:'#6b5f4e'}}>{tb.players?.pos}</span>
+                              <span className="text-xs flex-1 font-semibold" style={{color:'#b45309'}}>{tb.players?.name}</span>
+                              <span className="text-xs" style={{color:'#6b5f4e'}}>{capFmt(tb.players?.salary)}</span>
                             </div>
                           ))}
                         </div>
@@ -268,7 +268,7 @@ export default function TradeCenterPage() {
                         <div className="px-4 py-2" style={{borderTop:'1px solid #2a2218'}}>
                           <Link href={`/trade-center/propose?to=${t.id}`}
                                 className="block text-center text-xs font-semibold py-1.5 rounded-lg no-underline"
-                                style={{background:'#1e3a5f',color:'#60a0ff'}}>
+                                style={{background:'#dbeafe',color:'#1e40af'}}>
                             Propose Trade →
                           </Link>
                         </div>
@@ -296,20 +296,20 @@ export default function TradeCenterPage() {
           {tab==='tradeblock' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs" style={{color:'#6a5a4a'}}>
+                <p className="text-xs" style={{color:'#6b5f4e'}}>
                   Players placed on the trade block by their GMs, in chronological order.
                 </p>
                 {user && myTeamId && (
                   <Link href="/trade-center/manage-block"
                         className="text-xs px-3 py-1.5 rounded-lg no-underline font-semibold"
-                        style={{background:'#1e3a5f',color:'#60a0ff'}}>
+                        style={{background:'#dbeafe',color:'#1e40af'}}>
                     Manage My Block →
                   </Link>
                 )}
               </div>
               {tradeBlock.length===0?(
-                <div className="rounded-xl p-8 text-center" style={{background:'#241f18',border:'1px solid #3a3228'}}>
-                  <p style={{color:'#6a5a4a'}}>No players on the trade block yet.</p>
+                <div className="rounded-xl p-8 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+                  <p style={{color:'#6b5f4e'}}>No players on the trade block yet.</p>
                 </div>
               ):(
                 <div className="flex flex-col gap-2">
@@ -317,7 +317,7 @@ export default function TradeCenterPage() {
                     const tc = readableTeamColor(tb.teams?.color||'555')
                     return (
                       <div key={tb.id} className="flex items-center gap-4 px-4 py-3 rounded-xl"
-                           style={{background:'#241f18',border:'1px solid #3a3228'}}>
+                           style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                         <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0"
                              style={{background:tc+'22'}}>
                           {tb.teams?.logo_url
@@ -326,19 +326,19 @@ export default function TradeCenterPage() {
                                   style={{color:tc}}>{tb.teams?.id?.slice(0,2)}</div>}
                         </div>
                         <div className="flex-1">
-                          <div className="font-semibold" style={{color:'#f0ebe0'}}>{tb.players?.name}</div>
-                          <div className="text-xs" style={{color:'#8a7a6a'}}>
+                          <div className="font-semibold" style={{color:'#1a1612'}}>{tb.players?.name}</div>
+                          <div className="text-xs" style={{color:'#6b5f4e'}}>
                             {tb.players?.pos} · {tb.teams?.name} · {capFmt(tb.players?.salary)}
                           </div>
-                          {tb.notes && <div className="text-xs mt-0.5" style={{color:'#6a5a4a'}}>"{tb.notes}"</div>}
+                          {tb.notes && <div className="text-xs mt-0.5" style={{color:'#6b5f4e'}}>"{tb.notes}"</div>}
                         </div>
-                        <div className="text-xs" style={{color:'#4a3a2a'}}>
+                        <div className="text-xs" style={{color:'#b8ae9e'}}>
                           {new Date(tb.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
                         </div>
                         {user && myTeamId !== tb.teams?.id && (
                           <Link href={`/trade-center/propose?to=${tb.teams?.id}&player=${tb.players?.id}`}
                                 className="text-xs px-3 py-1.5 rounded-lg no-underline font-semibold flex-shrink-0"
-                                style={{background:'#2a2000',color:'#ffd040'}}>
+                                style={{background:'#fef3c7',color:'#b45309'}}>
                             Propose Trade
                           </Link>
                         )}

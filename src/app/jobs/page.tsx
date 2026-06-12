@@ -19,23 +19,23 @@ export default async function JobVacanciesPage() {
       {/* Header */}
       <div className="text-center mb-10">
         <div className="text-5xl mb-4">🏀</div>
-        <h1 className="text-3xl font-black mb-2" style={{color:'#f0ebe0'}}>NBA GM League</h1>
-        <h2 className="text-xl font-bold mb-3" style={{color:'#ffd040'}}>General Manager Vacancies</h2>
-        <p className="text-sm max-w-lg mx-auto" style={{color:'#8a7a6a'}}>
+        <h1 className="text-3xl font-black mb-2" style={{color:'#1a1612'}}>NBA GM League</h1>
+        <h2 className="text-xl font-bold mb-3" style={{color:'#b45309'}}>General Manager Vacancies</h2>
+        <p className="text-sm max-w-lg mx-auto" style={{color:'#6b5f4e'}}>
           Take control of an NBA franchise. Manage trades, draft picks, staff, and lead your team to a championship.
         </p>
         <div className="flex items-center justify-center gap-6 mt-4">
           <div className="text-center">
-            <div className="text-2xl font-black" style={{color:'#40e080'}}>{openCount}</div>
-            <div className="text-xs" style={{color:'#6a5a4a'}}>Open Positions</div>
+            <div className="text-2xl font-black" style={{color:'#166534'}}>{openCount}</div>
+            <div className="text-xs" style={{color:'#6b5f4e'}}>Open Positions</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-black" style={{color:'#e04040'}}>{30 - openCount}</div>
-            <div className="text-xs" style={{color:'#6a5a4a'}}>Filled</div>
+            <div className="text-2xl font-black" style={{color:'#dc2626'}}>{30 - openCount}</div>
+            <div className="text-xs" style={{color:'#6b5f4e'}}>Filled</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-black" style={{color:'#60a0ff'}}>30</div>
-            <div className="text-xs" style={{color:'#6a5a4a'}}>Total Franchises</div>
+            <div className="text-2xl font-black" style={{color:'#1e40af'}}>30</div>
+            <div className="text-xs" style={{color:'#6b5f4e'}}>Total Franchises</div>
           </div>
         </div>
       </div>
@@ -53,7 +53,7 @@ export default async function JobVacanciesPage() {
               return (
                 <Link key={t.id} href={`/jobs/${t.id}`} className="no-underline group">
                   <div className="rounded-xl p-4 h-full transition-all group-hover:brightness-125"
-                       style={{background:'#241f18',
+                       style={{background:'#e8e2d6',
                                border:'1px solid '+(isOpen?'#1a5a20':'#5a1a1a'),
                                borderTop:'3px solid '+(isOpen?'#40e080':'#e04040')}}>
                     {/* Logo */}
@@ -64,10 +64,10 @@ export default async function JobVacanciesPage() {
                         :<span className="text-lg font-black" style={{color:tc}}>{t.id}</span>}
                     </div>
                     {/* Name */}
-                    <div className="text-sm font-bold text-center mb-1 leading-tight" style={{color:'#f0ebe0'}}>
+                    <div className="text-sm font-bold text-center mb-1 leading-tight" style={{color:'#1a1612'}}>
                       {t.name}
                     </div>
-                    <div className="text-xs text-center mb-2" style={{color:'#6a5a4a'}}>{t.city}</div>
+                    <div className="text-xs text-center mb-2" style={{color:'#6b5f4e'}}>{t.city}</div>
                     {/* Status */}
                     <div className="text-center">
                       <span className="text-xs font-bold px-2 py-1 rounded-full"
@@ -77,7 +77,7 @@ export default async function JobVacanciesPage() {
                       </span>
                     </div>
                     {/* Record */}
-                    <div className="flex justify-center gap-2 mt-2 text-xs" style={{color:'#5a4a3a'}}>
+                    <div className="flex justify-center gap-2 mt-2 text-xs" style={{color:'#9c8e7a'}}>
                       <span>{t.wins}W</span><span>·</span><span>{t.losses}L</span>
                     </div>
                   </div>

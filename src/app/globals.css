@@ -6,81 +6,81 @@
 @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
 
 :root {
-  /* Core palette */
-  --bg-primary:    #f8f7f4;
-  --bg-secondary:  #ffffff;
-  --bg-panel:      #ffffff;
-  --bg-card:       #ffffff;
-  --bg-hover:      #f1efe8;
-  --bg-dark:       #0f1623;
-  --bg-nav:        #111827;
+  --bg-page:   #f0ebe2;
+  --bg-panel:  #e8e2d9;
+  --bg-card:   #ede8df;
+  --bg-hover:  #e2dbd0;
+  --bg-stripe: #e9e3da;
 
-  --text-primary:  #111827;
-  --text-secondary:#4b5563;
-  --text-muted:    #9ca3af;
-  --text-light:    #d1d5db;
+  --text-1:    #1c1917;
+  --text-2:    #3d3731;
+  --text-3:    #6b6258;
+  --text-4:    #9c9088;
 
-  --border:        #e5e1d8;
-  --border-hover:  #d1ccc0;
+  --border:    #cec8be;
+  --border-2:  #bfb9ae;
 
-  --accent:        #c8102e;   /* NBA red */
-  --accent-gold:   #F5A623;
-  --accent-blue:   #1d4ed8;
-  --accent-green:  #16a34a;
-
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --accent:    #c8102e;
+  --gold:      #b45309;
+  --blue:      #1d4ed8;
+  --green:     #15803d;
+  --purple:    #6d28d9;
+  --orange:    #c2410c;
 }
 
 * { box-sizing: border-box; }
 
-body {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+html, body {
+  background: var(--bg-page);
+  color: var(--text-1);
+  font-family: 'Inter', -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
 }
 
-/* ESPN-style section headers */
+/* Reusable panel */
+.panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* Section header — red underline ESPN style */
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 16px;
   border-bottom: 2px solid var(--accent);
 }
-
-/* Card base */
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
+.section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-1);
 }
 
 /* Clean table */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.data-table th {
-  background: #f8f7f4;
-  color: var(--text-secondary);
+.clean-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.clean-table th {
+  background: var(--bg-panel);
+  color: var(--text-3);
   font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--border);
   text-align: left;
 }
-.data-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #f0ede6;
-  color: var(--text-primary);
+.clean-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); }
+.clean-table tr:last-child td { border-bottom: none; }
+.clean-table tr:hover td { background: var(--bg-hover); }
+
+/* Tab button active */
+.tab-active {
+  background: var(--bg-hover) !important;
+  color: var(--text-1) !important;
+  border-bottom: 2px solid var(--accent) !important;
 }
-.data-table tr:last-child td { border-bottom: none; }
-.data-table tr:hover td { background: var(--bg-hover); }

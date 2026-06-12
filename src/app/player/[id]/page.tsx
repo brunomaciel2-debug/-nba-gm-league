@@ -32,11 +32,11 @@ const ATTR_GROUPS = [
 ]
 
 const TYPE_LABEL: Record<string,{label:string,color:string,bg:string}> = {
-  guaranteed:       {label:'Guaranteed',   color:'#40e080', bg:'#0a2a10'},
-  player_option:    {label:'Player Option', color:'#60a0ff', bg:'#0a1a3a'},
-  team_option:      {label:'Team Option',   color:'#ffa040', bg:'#2a2010'},
-  two_way:          {label:'Two-Way',       color:'#c040ff', bg:'#1a0a2a'},
-  qualifying_offer: {label:'QO',            color:'#ffd040', bg:'#2a2000'},
+  guaranteed:       {label:'Guaranteed',   color:'#166534', bg:'#0a2a10'},
+  player_option:    {label:'Player Option', color:'#1e40af', bg:'#0a1a3a'},
+  team_option:      {label:'Team Option',   color:'#c2410c', bg:'#2a2010'},
+  two_way:          {label:'Two-Way',       color:'#7c3aed', bg:'#1a0a2a'},
+  qualifying_offer: {label:'QO',            color:'#b45309', bg:'#2a2000'},
 }
 
 function AttrBar({ value, color }: { value: number, color: string }) {
@@ -76,7 +76,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', { ascending: true }),
     ])
 
-  if (!player) return <div className="p-8 text-center" style={{ color:'#8a7a6a' }}>Player not found.</div>
+  if (!player) return <div className="p-8 text-center" style={{ color:'#6b5f4e' }}>Player not found.</div>
 
   const p = player as any
   const team = p.teams as any
@@ -100,7 +100,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
       {/* HEADER */}
       <div className="rounded-2xl p-6 mb-6"
-           style={{ background:'#241f18', borderTop:'4px solid '+teamColor, border:'1px solid #3a3228' }}>
+           style={{ background:'#e8e2d6', borderTop:'4px solid '+teamColor, border:'1px solid #d4cec3' }}>
         <div className="flex gap-5 flex-wrap items-start">
           <div className="flex-shrink-0">
             {p.photo_url
@@ -120,11 +120,11 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                 </div>
                 <h1 className="text-3xl font-black text-white mb-2">{p.name}</h1>
                 <div className="flex gap-4 text-sm flex-wrap">
-                  {p.nationality && <span style={{ color:'#8a7a6a' }}>🌍 {p.nationality}</span>}
-                  {p.age && <span style={{ color:'#8a7a6a' }}>Age {p.age}</span>}
+                  {p.nationality && <span style={{ color:'#6b5f4e' }}>🌍 {p.nationality}</span>}
+                  {p.age && <span style={{ color:'#6b5f4e' }}>Age {p.age}</span>}
                   {p.status !== 'active' && (
                     <span className="px-2 py-0.5 rounded font-semibold text-xs"
-                          style={{ background:'#2a0a0a', color:'#ff4040' }}>
+                          style={{ background:'#fee2e2', color:'#ff4040' }}>
                       🏥 {p.injury_type||'Injured'}
                     </span>
                   )}
@@ -135,7 +135,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                 <div className="rounded-lg px-2.5 py-1.5 text-center"
                      style={{background:potBg[potGrade]||'#1a1610',border:'1px solid '+(potColor[potGrade]||'#8a7a6a')+'44'}}>
                   <div className="text-lg font-black leading-none" style={{color:potColor[potGrade]||'#8a7a6a'}}>{potGrade}</div>
-                  <div style={{fontSize:9,color:'#6a5a4a'}}>POT</div>
+                  <div style={{fontSize:9,color:'#6b5f4e'}}>POT</div>
                 </div>
               </div>
             </div>
@@ -143,19 +143,19 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             {currentContract && (
               <div className="flex gap-6 mt-3 flex-wrap">
                 <div>
-                  <div className="text-xs" style={{ color:'#6a5a4a' }}>2025-26 Salary</div>
+                  <div className="text-xs" style={{ color:'#6b5f4e' }}>2025-26 Salary</div>
                   <div className="font-bold text-white">{capFmt(currentContract.salary)}</div>
                 </div>
                 <div>
-                  <div className="text-xs" style={{ color:'#6a5a4a' }}>Contract Length</div>
+                  <div className="text-xs" style={{ color:'#6b5f4e' }}>Contract Length</div>
                   <div className="font-bold text-white">{(contracts||[]).length}yr</div>
                 </div>
                 <div>
-                  <div className="text-xs" style={{ color:'#6a5a4a' }}>Total Value</div>
+                  <div className="text-xs" style={{ color:'#6b5f4e' }}>Total Value</div>
                   <div className="font-bold text-white">{capFmt(totalValue)}</div>
                 </div>
                 <div>
-                  <div className="text-xs" style={{ color:'#6a5a4a' }}>Type</div>
+                  <div className="text-xs" style={{ color:'#6b5f4e' }}>Type</div>
                   <span className="text-xs font-bold px-2 py-0.5 rounded"
                         style={{ background:TYPE_LABEL[currentContract.type]?.bg||'#2a2218',
                                  color:TYPE_LABEL[currentContract.type]?.color||'#8a7a6a' }}>
@@ -181,7 +181,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="rounded-xl p-4" style={{background:hColor+'18',border:'1px solid '+hColor+'55'}}>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6a5a4a'}}>❤️ Health</span>
+                <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>❤️ Health</span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:hColor+'33',color:hColor}}>{hLabel}</span>
               </div>
               <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#3a3228'}}>
@@ -189,12 +189,12 @@ export default async function PlayerPage({ params }: { params: { id: string } })
               </div>
               <div className="flex items-end justify-between">
                 <span className="text-3xl font-black" style={{color:hColor}}>{health}%</span>
-                <span className="text-xs text-right" style={{color:'#6a5a4a',maxWidth:140}}>{perfNote}</span>
+                <span className="text-xs text-right" style={{color:'#6b5f4e',maxWidth:140}}>{perfNote}</span>
               </div>
             </div>
             <div className="rounded-xl p-4" style={{background:mColor+'18',border:'1px solid '+mColor+'55'}}>
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6a5a4a'}}>🧠 Morale</span>
+                <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>🧠 Morale</span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:mColor+'33',color:mColor}}>{mLabel}</span>
               </div>
               <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#3a3228'}}>
@@ -202,7 +202,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
               </div>
               <div className="flex items-end justify-between">
                 <span className="text-3xl font-black" style={{color:mColor}}>{moral}%</span>
-                <span className="text-xs text-right" style={{color:'#6a5a4a'}}>Affects consistency & clutch performance</span>
+                <span className="text-xs text-right" style={{color:'#6b5f4e'}}>Affects consistency & clutch performance</span>
               </div>
             </div>
           </div>
@@ -213,16 +213,16 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         <div className="md:col-span-2">
 
           {/* ATTRIBUTES */}
-          <h2 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color:'#6a5a4a' }}>Attributes</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color:'#6b5f4e' }}>Attributes</h2>
           <div className="grid sm:grid-cols-2 gap-4 mb-6">
             {ATTR_GROUPS.map(group => (
               <div key={group.label} className="rounded-xl p-4"
-                   style={{ background:'#241f18', border:'1px solid #3a3228' }}>
+                   style={{ background:'#e8e2d6', border:'1px solid #d4cec3' }}>
                 <div className="text-xs font-bold uppercase tracking-widest mb-3"
                      style={{ color:group.color }}>{group.label}</div>
                 {group.attrs.map(attr => (
                   <div key={attr.key} className="mb-2">
-                    <div className="text-xs mb-0.5" style={{ color:'#8a7a6a' }}>{attr.label}</div>
+                    <div className="text-xs mb-0.5" style={{ color:'#6b5f4e' }}>{attr.label}</div>
                     <AttrBar value={(p as any)[attr.key]||0} color={group.color} />
                   </div>
                 ))}
@@ -233,19 +233,19 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           {/* CONTRACT TABLE */}
           {(contracts||[]).length > 0 && (
             <>
-              <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6a5a4a' }}>Contract</h2>
-              <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #3a3228' }}>
+              <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6b5f4e' }}>Contract</h2>
+              <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cec3' }}>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr style={{ background:'#120f0a', borderBottom:'1px solid #3a3228' }}>
-                      <th className="px-4 py-2.5 text-left font-semibold" style={{ color:'#8a7a6a' }}>Season</th>
-                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#8a7a6a' }}>Salary</th>
-                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#8a7a6a' }}>Type</th>
+                    <tr style={{ background:'#ddd7ca', borderBottom:'1px solid #d4cec3' }}>
+                      <th className="px-4 py-2.5 text-left font-semibold" style={{ color:'#6b5f4e' }}>Season</th>
+                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#6b5f4e' }}>Salary</th>
+                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#6b5f4e' }}>Type</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(contracts||[]).map((c:any, i:number) => {
-                      const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#8a7a6a',bg:'#2a2218'}
+                      const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#6b5f4e',bg:'#2a2218'}
                       const isCurrent = c.season==='2025-26'
                       return (
                         <tr key={c.id}
@@ -259,7 +259,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                                                style={{ background:teamColor+'33',color:teamColor }}>Current</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right font-bold"
-                              style={{ color:isCurrent?'#fff':'#e8e0d0' }}>
+                              style={{ color:isCurrent?'#e8e2d6':'#e8e0d0' }}>
                             {capFmt(c.salary)}
                           </td>
                           <td className="px-4 py-2.5 text-right">
@@ -271,9 +271,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                         </tr>
                       )
                     })}
-                    <tr style={{ background:'#120f0a', borderTop:'1px solid #3a3228' }}>
+                    <tr style={{ background:'#ddd7ca', borderTop:'1px solid #3a3228' }}>
                       <td className="px-4 py-2.5 font-bold text-white">Total</td>
-                      <td className="px-4 py-2.5 text-right font-black" style={{ color:'#ffa040' }}>
+                      <td className="px-4 py-2.5 text-right font-black" style={{ color:'#c2410c' }}>
                         {capFmt(totalValue)}
                       </td>
                       <td></td>
@@ -285,15 +285,15 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           )}
 
           {/* SEASON STATS */}
-          <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6a5a4a' }}>Season Statistics</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6b5f4e' }}>Season Statistics</h2>
           {(stats||[]).length > 0 ? (
-            <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #3a3228' }}>
+            <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cec3' }}>
               <table className="w-full text-xs">
                 <thead>
-                  <tr style={{ background:'#120f0a',borderBottom:'1px solid #3a3228' }}>
+                  <tr style={{ background:'#ddd7ca',borderBottom:'1px solid #d4cec3' }}>
                     {['Season','GP','PPG','RPG','APG','SPG','BPG','FG%','3P%','FT%','TO'].map(h=>(
                       <th key={h} className="px-3 py-2 font-semibold text-right first:text-left"
-                          style={{ color:'#8a7a6a' }}>{h}</th>
+                          style={{ color:'#6b5f4e' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -302,18 +302,18 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                     const gp=s.games||0
                     const avg=(v:number)=>gp>0?(v/gp).toFixed(1):'—'
                     return (
-                      <tr key={s.id} style={{ background:i%2===0?'#241f18':'#1e1a14',borderBottom:'1px solid #16120d' }}>
+                      <tr key={s.id} style={{ background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #16120d' }}>
                         <td className="px-3 py-2 font-semibold text-white">{s.season}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#8a7a6a' }}>{gp}</td>
-                        <td className="px-3 py-2 text-right font-bold" style={{ color:'#ffa040' }}>{avg(s.pts)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#40e080' }}>{avg(s.reb)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#60a0ff' }}>{avg(s.ast)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#c040ff' }}>{avg(s.stl)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#6b5f4e' }}>{gp}</td>
+                        <td className="px-3 py-2 text-right font-bold" style={{ color:'#c2410c' }}>{avg(s.pts)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#166534' }}>{avg(s.reb)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#1e40af' }}>{avg(s.ast)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#7c3aed' }}>{avg(s.stl)}</td>
                         <td className="px-3 py-2 text-right" style={{ color:'#ff6040' }}>{avg(s.blk)}</td>
                         <td className="px-3 py-2 text-right">{pct(s.fgm,s.fga)}</td>
                         <td className="px-3 py-2 text-right">{pct(s.tpm,s.tpa)}</td>
                         <td className="px-3 py-2 text-right">{pct(s.ftm,s.fta)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#e04040' }}>{avg(s.turnovers)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#dc2626' }}>{avg(s.turnovers)}</td>
                       </tr>
                     )
                   })}
@@ -321,8 +321,8 @@ export default async function PlayerPage({ params }: { params: { id: string } })
               </table>
             </div>
           ) : (
-            <div className="rounded-xl p-4 text-center mb-6" style={{ background:'#241f18',border:'1px solid #3a3228' }}>
-              <p className="text-sm" style={{ color:'#6a5a4a' }}>No stats yet — season hasn't started.</p>
+            <div className="rounded-xl p-4 text-center mb-6" style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
+              <p className="text-sm" style={{ color:'#6b5f4e' }}>No stats yet — season hasn't started.</p>
             </div>
           )}
         </div>
@@ -331,8 +331,8 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         <div className="flex flex-col gap-4">
 
           {/* THIS SEASON STATS */}
-          <div className="rounded-xl p-4" style={{ background:'#241f18',border:'1px solid #3a3228' }}>
-            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6a5a4a' }}>This Season</h3>
+          <div className="rounded-xl p-4" style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
+            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6b5f4e' }}>This Season</h3>
             {(stats||[])[0] ? (() => {
               const s=(stats||[])[0] as any
               const gp=s.games||0
@@ -340,36 +340,36 @@ export default async function PlayerPage({ params }: { params: { id: string } })
               return (
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    {label:'PPG',val:avg(s.pts),color:'#ffa040'},
-                    {label:'RPG',val:avg(s.reb),color:'#40e080'},
-                    {label:'APG',val:avg(s.ast),color:'#60a0ff'},
+                    {label:'PPG',val:avg(s.pts),color:'#c2410c'},
+                    {label:'RPG',val:avg(s.reb),color:'#166534'},
+                    {label:'APG',val:avg(s.ast),color:'#1e40af'},
                     {label:'FG%',val:s.fga>0?(s.fgm/s.fga*100).toFixed(1)+'%':'—',color:'#e8e0d0'},
-                    {label:'3P%',val:s.tpa>0?(s.tpm/s.tpa*100).toFixed(1)+'%':'—',color:'#ffd040'},
-                    {label:'GP', val:gp,color:'#8a7a6a'},
+                    {label:'3P%',val:s.tpa>0?(s.tpm/s.tpa*100).toFixed(1)+'%':'—',color:'#b45309'},
+                    {label:'GP', val:gp,color:'#6b5f4e'},
                   ].map(item=>(
-                    <div key={item.label} className="rounded-lg p-2.5 text-center" style={{ background:'#120f0a' }}>
+                    <div key={item.label} className="rounded-lg p-2.5 text-center" style={{ background:'#ddd7ca' }}>
                       <div className="text-lg font-black" style={{ color:item.color }}>{item.val}</div>
-                      <div className="text-xs" style={{ color:'#6a5a4a' }}>{item.label}</div>
+                      <div className="text-xs" style={{ color:'#6b5f4e' }}>{item.label}</div>
                     </div>
                   ))}
                 </div>
               )
-            })() : <p className="text-xs text-center" style={{ color:'#6a5a4a' }}>No stats yet.</p>}
+            })() : <p className="text-xs text-center" style={{ color:'#6b5f4e' }}>No stats yet.</p>}
           </div>
 
           {/* INJURY HISTORY */}
-          <div className="rounded-xl p-4" style={{ background:'#241f18',border:'1px solid #3a3228' }}>
-            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6a5a4a' }}>Injury History</h3>
+          <div className="rounded-xl p-4" style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
+            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6b5f4e' }}>Injury History</h3>
             {(injuries||[]).length > 0 ? (injuries||[]).map((inj:any) => (
-              <div key={inj.id} className="py-2" style={{ borderBottom:'1px solid #3a3228' }}>
+              <div key={inj.id} className="py-2" style={{ borderBottom:'1px solid #d4cec3' }}>
                 <div className="text-sm font-semibold" style={{ color:'#ff4040' }}>{inj.injury_type}</div>
-                <div className="text-xs mt-0.5" style={{ color:'#8a7a6a' }}>
+                <div className="text-xs mt-0.5" style={{ color:'#6b5f4e' }}>
                   {inj.games_out} games ·{' '}
                   {new Date(inj.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
                 </div>
               </div>
             )) : (
-              <p className="text-xs" style={{ color:'#6a5a4a' }}>No injury history. 💪</p>
+              <p className="text-xs" style={{ color:'#6b5f4e' }}>No injury history. 💪</p>
             )}
           </div>
 

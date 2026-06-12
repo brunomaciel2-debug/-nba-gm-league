@@ -43,7 +43,7 @@ export default function StandingsPage() {
 
   if (loading) return (
     <div className="max-w-5xl mx-auto px-4 py-12 text-center">
-      <p style={{ color:'#8a7a6a' }}>Loading standings...</p>
+      <p style={{ color:'#6b5f4e' }}>Loading standings...</p>
     </div>
   )
 
@@ -64,25 +64,25 @@ export default function StandingsPage() {
     const diff = t.pts_for - t.pts_against
     const isPlayoff = rank <= 8
     return (
-      <tr style={{ background: rank%2===0?'#1e1a14':'#241f18', borderBottom:'1px solid #16120d' }}>
+      <tr style={{ background: rank%2===0?'#eae4db':'#ede8df', borderBottom:'1px solid #16120d' }}>
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-xs w-5 text-right font-bold"
-                  style={{ color: isPlayoff?'#40e080':'#6a5a4a' }}>{rank}</span>
+                  style={{ color: isPlayoff?'#40e080':'#6b6258' }}>{rank}</span>
             <TeamLogo t={t} />
             <span className="font-semibold text-white text-sm">{t.name}</span>
-            {isPlayoff && <span className="text-xs px-1 rounded" style={{ background:'#0a2a10',color:'#40e080' }}>P</span>}
-            {showDiv && <span className="text-xs ml-1" style={{ color:'#5a4a3a' }}>{DIV_MAP[t.name]}</span>}
+            {isPlayoff && <span className="text-xs px-1 rounded" style={{ background:'#dcfce7',color:'#166534' }}>P</span>}
+            {showDiv && <span className="text-xs ml-1" style={{ color:'#9c8e7a' }}>{DIV_MAP[t.name]}</span>}
           </div>
         </td>
-        <td className="px-3 py-2.5 text-right font-bold text-sm" style={{ color:'#40e080' }}>{t.wins}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#8a7a6a' }}>{t.losses}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#e8e0d0' }}>{pct}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6a5a4a' }}>{gp||'—'}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#8a7a6a' }}>{t.pts_for||'—'}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#8a7a6a' }}>{t.pts_against||'—'}</td>
+        <td className="px-3 py-2.5 text-right font-bold text-sm" style={{ color:'#166534' }}>{t.wins}</td>
+        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.losses}</td>
+        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#2d2723' }}>{pct}</td>
+        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{gp||'—'}</td>
+        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.pts_for||'—'}</td>
+        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.pts_against||'—'}</td>
         <td className="px-3 py-2.5 text-right text-sm font-semibold"
-            style={{ color: diff>0?'#40e080':diff<0?'#e04040':'#6a5a4a' }}>
+            style={{ color: diff>0?'#40e080':diff<0?'#e04040':'#6b6258' }}>
           {diff>0?'+':''}{diff||'—'}
         </td>
       </tr>
@@ -91,10 +91,10 @@ export default function StandingsPage() {
 
   const Head = () => (
     <thead>
-      <tr style={{ background:'#120f0a', borderBottom:'1px solid #3a3228' }}>
+      <tr style={{ background:'#ddd7ca', borderBottom:'1px solid #d4cec3' }}>
         {['Team','W','L','PCT','GP','PF','PA','+/-'].map((h,i) => (
           <th key={h} className={`px-${i===0?4:3} py-2.5 font-semibold text-xs ${i===0?'text-left':'text-right'}`}
-              style={{ color:'#8a7a6a' }}>{h}</th>
+              style={{ color:'#6b5f4e' }}>{h}</th>
         ))}
       </tr>
     </thead>
@@ -104,11 +104,11 @@ export default function StandingsPage() {
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-white">🏆 Standings — 2025-26</h1>
-        <div className="flex gap-1 p-1 rounded-xl" style={{ background:'#241f18',border:'1px solid #3a3228' }}>
+        <div className="flex gap-1 p-1 rounded-xl" style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
           {(['conference','division','league'] as View[]).map(v => (
             <button key={v} onClick={() => setView(v)}
               className="px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
-              style={{ background:view===v?'#3a3228':'transparent', color:view===v?'#60a0ff':'#8a7a6a' }}>
+              style={{ background:view===v?'#cec8be':'transparent', color:view===v?'#60a0ff':'#6b6258' }}>
               {v}
             </button>
           ))}
@@ -120,7 +120,7 @@ export default function StandingsPage() {
         <div key={conf} className="mb-8">
           <h2 className="text-base font-bold mb-3"
               style={{ color:conf==='Eastern'?'#e04040':'#3a8adf' }}>{conf} Conference</h2>
-          <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #3a3228' }}>
+          <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>
             <table className="w-full"><Head />
               <tbody>{byConf(conf).map((t,i) => <Row key={t.id} t={t} rank={i+1} />)}</tbody>
             </table>
@@ -135,16 +135,16 @@ export default function StandingsPage() {
               style={{ color:conf==='Eastern'?'#e04040':'#3a8adf' }}>{conf} Conference</h2>
           <div className="grid md:grid-cols-3 gap-4">
             {CONF_DIVS[conf].map(div => (
-              <div key={div} className="rounded-xl overflow-hidden" style={{ border:'1px solid #3a3228' }}>
+              <div key={div} className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>
                 <div className="px-4 py-2 text-xs font-bold uppercase tracking-widest"
-                     style={{ background:'#120f0a',borderBottom:'1px solid #3a3228',
+                     style={{ background:'#ddd7ca',borderBottom:'1px solid #d4cec3',
                               color:conf==='Eastern'?'#e06060':'#6090d0' }}>{div}</div>
                 <table className="w-full">
                   <thead>
-                    <tr style={{ background:'#120f0a',borderBottom:'1px solid #3a3228' }}>
+                    <tr style={{ background:'#ddd7ca',borderBottom:'1px solid #d4cec3' }}>
                       {['Team','W','L','PCT'].map((h,i) => (
                         <th key={h} className={`px-3 py-2 font-semibold text-xs ${i===0?'text-left':'text-right'}`}
-                            style={{ color:'#8a7a6a' }}>{h}</th>
+                            style={{ color:'#6b5f4e' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -152,16 +152,16 @@ export default function StandingsPage() {
                     {byDiv(div).map((t,i) => {
                       const gp=t.wins+t.losses
                       return (
-                        <tr key={t.id} style={{ background:i%2===0?'#241f18':'#1e1a14',borderBottom:'1px solid #16120d' }}>
+                        <tr key={t.id} style={{ background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #16120d' }}>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-1.5">
                               <TeamLogo t={t} />
                               <span className="text-xs font-semibold text-white">{t.id}</span>
                             </div>
                           </td>
-                          <td className="px-3 py-2 text-right text-xs font-bold" style={{ color:'#40e080' }}>{t.wins}</td>
-                          <td className="px-3 py-2 text-right text-xs" style={{ color:'#8a7a6a' }}>{t.losses}</td>
-                          <td className="px-3 py-2 text-right text-xs" style={{ color:'#e8e0d0' }}>
+                          <td className="px-3 py-2 text-right text-xs font-bold" style={{ color:'#166534' }}>{t.wins}</td>
+                          <td className="px-3 py-2 text-right text-xs" style={{ color:'#6b5f4e' }}>{t.losses}</td>
+                          <td className="px-3 py-2 text-right text-xs" style={{ color:'#2d2723' }}>
                             {gp>0?(t.wins/gp).toFixed(3):'.000'}
                           </td>
                         </tr>
@@ -177,7 +177,7 @@ export default function StandingsPage() {
 
       {/* LEAGUE */}
       {view === 'league' && (
-        <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #3a3228' }}>
+        <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>
           <table className="w-full"><Head />
             <tbody>{teams.map((t,i) => <Row key={t.id} t={t} rank={i+1} showDiv />)}</tbody>
           </table>

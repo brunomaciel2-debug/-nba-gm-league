@@ -38,14 +38,14 @@ export default function AdminMediaPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       {/* BANNER UPLOAD */}
-      <div className="rounded-xl p-5 mb-6" style={{background:'#241f18',border:'1px solid #3a3228',borderTop:'3px solid #ffd040'}}>
-        <h2 className="text-sm font-bold mb-1" style={{color:'#ffd040'}}>🖼️ Site Banner</h2>
-        <p className="text-xs mb-3" style={{color:'#6a5a4a'}}>Recommended size: 1200×280px · JPG or PNG · Used at top of homepage</p>
+      <div className="rounded-xl p-5 mb-6" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #ffd040'}}>
+        <h2 className="text-sm font-bold mb-1" style={{color:'#b45309'}}>🖼️ Site Banner</h2>
+        <p className="text-xs mb-3" style={{color:'#6b5f4e'}}>Recommended size: 1200×280px · JPG or PNG · Used at top of homepage</p>
         <BannerUpload />
       </div>
 
       <h1 className="text-2xl font-bold text-white mb-2">🖼️ Media Manager</h1>
-      <p className="text-sm mb-6" style={{ color:'#8a7a6a' }}>
+      <p className="text-sm mb-6" style={{ color:'#6b5f4e' }}>
         Upload team logos and player photos. Paste any public image URL (e.g. from ESPN, NBA.com, Wikipedia).
       </p>
 
@@ -65,12 +65,12 @@ export default function AdminMediaPage() {
       {/* LOGOS TAB */}
       {tab === 'logos' && (
         <div className="flex flex-col gap-3">
-          <p className="text-xs mb-2" style={{ color:'#6a5a4a' }}>
+          <p className="text-xs mb-2" style={{ color:'#6b5f4e' }}>
             Tip: Find logos on Wikipedia (right-click image → Copy image address) or wikimedia.org
           </p>
           {teams.map(team => (
             <div key={team.id} className="flex items-center gap-4 p-4 rounded-xl"
-                 style={{ background:'#241f18',border:'1px solid #3a3228' }}>
+                 style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
               {/* Preview */}
               <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
                    style={{ background:'#'+team.color+'22',border:'1px solid #'+team.color+'44' }}>
@@ -86,7 +86,7 @@ export default function AdminMediaPage() {
                   onBlur={e=>saveLogo(team.id,e.target.value)}
                   placeholder="Paste logo URL here..."
                   className="w-full text-xs px-3 py-2 rounded-lg"
-                  style={{ background:'#120f0a',border:'1px solid #3a3228',color:'#e8e0d0',outline:'none' }}
+                  style={{ background:'#ddd7ca',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none' }}
                 />
               </div>
               <span className="text-xs flex-shrink-0 w-16 text-center"
@@ -102,31 +102,31 @@ export default function AdminMediaPage() {
       {tab === 'photos' && (
         <div>
           <div className="mb-4">
-            <label className="text-xs font-semibold uppercase tracking-widest mb-2 block" style={{ color:'#8a7a6a' }}>
+            <label className="text-xs font-semibold uppercase tracking-widest mb-2 block" style={{ color:'#6b5f4e' }}>
               Select Team
             </label>
             <select value={selTeam} onChange={e=>setSelTeam(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl text-sm"
-              style={{ background:'#241f18',border:'1px solid #3a3228',color:'#e8e0d0',outline:'none' }}>
+              style={{ background:'#e8e2d6',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none' }}>
               <option value="">— Choose a team —</option>
               {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
           {selTeam && (
             <div className="flex flex-col gap-3">
-              <p className="text-xs mb-1" style={{ color:'#6a5a4a' }}>
+              <p className="text-xs mb-1" style={{ color:'#6b5f4e' }}>
                 Tip: Find headshots on ESPN (right-click → Copy image address) or cdn.nba.com
               </p>
               {players.map(p => (
                 <div key={p.id} className="flex items-center gap-4 p-3 rounded-xl"
-                     style={{ background:'#241f18',border:'1px solid #3a3228' }}>
+                     style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
                   {/* Photo preview */}
                   <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden"
                        style={{ background:'#3a3228' }}>
                     {p.photo_url
                       ? <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center text-sm font-black"
-                              style={{ color:'#6a5a4a' }}>
+                              style={{ color:'#6b5f4e' }}>
                           {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                         </div>
                     }
@@ -135,14 +135,14 @@ export default function AdminMediaPage() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold text-white">{p.name}</span>
                       <span className="text-xs px-1.5 py-0.5 rounded"
-                            style={{ background:'#3a3228',color:'#8a7a6a' }}>{p.pos}</span>
+                            style={{ background:'#3a3228',color:'#6b5f4e' }}>{p.pos}</span>
                     </div>
                     <input
                       defaultValue={p.photo_url||''}
                       onBlur={e=>savePhoto(p.id,e.target.value)}
                       placeholder="Paste photo URL..."
                       className="w-full text-xs px-3 py-1.5 rounded-lg"
-                      style={{ background:'#120f0a',border:'1px solid #3a3228',color:'#e8e0d0',outline:'none' }}
+                      style={{ background:'#ddd7ca',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none' }}
                     />
                   </div>
                   <span className="text-xs flex-shrink-0 w-16 text-center"

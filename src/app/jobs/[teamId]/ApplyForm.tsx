@@ -46,8 +46,8 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
   }
 
   if (step === 'intro') return (
-    <div className="rounded-xl p-6" style={{background:'#0a2a10',border:'1px solid #1a5a20'}}>
-      <h3 className="text-lg font-bold mb-2" style={{color:'#40e080'}}>
+    <div className="rounded-xl p-6" style={{background:'#dcfce7',border:'1px solid #1a5a20'}}>
+      <h3 className="text-lg font-bold mb-2" style={{color:'#166534'}}>
         🏀 Apply for GM — {teamName}
       </h3>
       <p className="text-sm mb-4" style={{color:'#5a8a5a'}}>
@@ -62,7 +62,7 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
         </button>
         <Link href="/jobs"
           className="px-6 py-2.5 rounded-xl font-bold text-sm no-underline"
-          style={{background:'#3a3228',color:'#8a7a6a'}}>
+          style={{background:'#3a3228',color:'#6b5f4e'}}>
           Not Interested
         </Link>
       </div>
@@ -70,30 +70,30 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
   )
 
   if (step === 'submitted') return (
-    <div className="rounded-xl p-8 text-center" style={{background:'#0a2a10',border:'1px solid #1a5a20'}}>
+    <div className="rounded-xl p-8 text-center" style={{background:'#dcfce7',border:'1px solid #1a5a20'}}>
       <div className="text-5xl mb-4">📋</div>
-      <h3 className="text-xl font-bold mb-2" style={{color:'#40e080'}}>Application Submitted!</h3>
+      <h3 className="text-xl font-bold mb-2" style={{color:'#166534'}}>Application Submitted!</h3>
       <p className="text-sm mb-2" style={{color:'#5a8a5a'}}>
-        Your application to manage the <strong style={{color:'#f0ebe0'}}>{teamName}</strong> has been sent to the Commissioner.
+        Your application to manage the <strong style={{color:'#1a1612'}}>{teamName}</strong> has been sent to the Commissioner.
       </p>
       <p className="text-sm mb-6" style={{color:'#5a8a5a'}}>
         You'll receive an email once your application is reviewed. If approved, you'll get your login credentials.
       </p>
       <Link href="/jobs" className="text-sm font-bold px-4 py-2 rounded-lg no-underline"
-            style={{background:'#3a8adf',color:'#fff'}}>
+            style={{background:'#3a8adf',color:'#e8e2d6'}}>
         Browse Other Vacancies
       </Link>
     </div>
   )
 
   return (
-    <div className="rounded-xl p-6" style={{background:'#241f18',border:'1px solid #3a3228'}}>
-      <h3 className="text-lg font-bold mb-4" style={{color:'#f0ebe0'}}>
+    <div className="rounded-xl p-6" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+      <h3 className="text-lg font-bold mb-4" style={{color:'#1a1612'}}>
         📋 Application — {teamName}
       </h3>
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg text-sm" style={{background:'#2a0a0a',color:'#e04040'}}>{error}</div>
+        <div className="mb-4 p-3 rounded-lg text-sm" style={{background:'#fee2e2',color:'#dc2626'}}>{error}</div>
       )}
 
       <div className="grid sm:grid-cols-2 gap-4 mb-4">
@@ -107,27 +107,27 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
           {key:'country',   label:'Country',         type:'text',     placeholder:'Portugal'},
         ].map(f => (
           <div key={f.key}>
-            <label className="block text-xs font-semibold mb-1" style={{color:'#8a7a6a'}}>{f.label}</label>
+            <label className="block text-xs font-semibold mb-1" style={{color:'#6b5f4e'}}>{f.label}</label>
             <input type={f.type} value={(form as any)[f.key]}
               onChange={e => set(f.key, e.target.value)}
               placeholder={f.placeholder}
               className="w-full px-3 py-2.5 rounded-lg text-sm outline-none"
-              style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0'}} />
+              style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}} />
           </div>
         ))}
       </div>
 
       <div className="mb-4">
-        <label className="block text-xs font-semibold mb-1" style={{color:'#8a7a6a'}}>
+        <label className="block text-xs font-semibold mb-1" style={{color:'#6b5f4e'}}>
           Why do you want to manage this franchise? (optional)
         </label>
         <textarea value={form.motivation} onChange={e => set('motivation', e.target.value)}
           rows={3} placeholder="Tell the Commissioner why you'd be a great GM for this team..."
           className="w-full px-3 py-2.5 rounded-lg text-sm outline-none resize-none"
-          style={{background:'#1a1610',border:'1px solid #3a3228',color:'#f0ebe0'}} />
+          style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}} />
       </div>
 
-      <p className="text-xs mb-4" style={{color:'#5a4a3a'}}>
+      <p className="text-xs mb-4" style={{color:'#9c8e7a'}}>
         * Your account will be created by the Commissioner upon approval. Your password will be set as submitted.
       </p>
 
@@ -139,7 +139,7 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
         </button>
         <button onClick={() => setStep('intro')}
           className="px-6 py-2.5 rounded-xl font-bold text-sm"
-          style={{background:'#3a3228',color:'#8a7a6a'}}>
+          style={{background:'#3a3228',color:'#6b5f4e'}}>
           Back
         </button>
       </div>
