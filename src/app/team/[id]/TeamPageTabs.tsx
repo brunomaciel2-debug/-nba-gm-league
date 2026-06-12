@@ -24,7 +24,7 @@ export default function TeamPageTabs({
   return (
     <div>
       {/* Tab bar */}
-      <div className="flex gap-2 mb-5 flex-wrap" style={{overflowVisible:'visible'}}>
+      <div className="flex gap-2 mb-5 flex-wrap">
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key as Tab)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
