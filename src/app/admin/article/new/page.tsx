@@ -60,7 +60,7 @@ export default function NewArticlePage() {
       tags: tags.split(',').map(t=>t.trim()).filter(Boolean),
       published,
       position,
-      author_id: user?.id,
+      // author_id handled by RLS
       slug: title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + '-' + Date.now(),
     })
     if (err) { setError(err.message); setSaving(false); return }
