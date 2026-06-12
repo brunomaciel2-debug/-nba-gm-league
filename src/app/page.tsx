@@ -65,7 +65,7 @@ export default async function HomePage() {
       {(featured1 || featured2) && (
         <>
         <div className="section-header mb-5">
-          <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#f0ebe0',letterSpacing:'1.5px'}}>
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#111827',letterSpacing:'1.5px'}}>
             <i className="ti ti-pin" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Featured
           </span>
         </div>
@@ -73,7 +73,7 @@ export default async function HomePage() {
           {[featured1, featured2].map((art, i) => art && (
             <Link key={art.id} href={`/news/${art.slug}`} className="no-underline group">
               <div className="rounded-2xl overflow-hidden h-full transition-all group-hover:brightness-110"
-                   style={{background:'#241f18',border:'1px solid #3a3228'}}>
+                   style={{background:'#fff',border:'1px solid #e5e1d8',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
                 {art.cover_image && (
                   <div className="h-56 overflow-hidden">
                     <img src={art.cover_image} alt="" className="w-full h-full object-cover"/>
@@ -86,7 +86,7 @@ export default async function HomePage() {
                     {art.title}
                   </h2>
                   {art.excerpt && (
-                    <p className="text-base" style={{color:'#8a7a6a',lineHeight:1.6}}>{art.excerpt}</p>
+                    <p className="text-base" style={{color:'#4b5563',lineHeight:1.6}}>{art.excerpt}</p>
                   )}
                   <p className="text-sm mt-3" style={{color:'#5a4a3a'}}>
                     {new Date(art.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
@@ -101,14 +101,14 @@ export default async function HomePage() {
 
       {/* ── WEEKLY HIGHLIGHTS ──────────────────────── */}
       <div className="section-header mb-5">
-        <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#f0ebe0',letterSpacing:'1.5px'}}>
+        <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#111827',letterSpacing:'1.5px'}}>
           <i className="ti ti-flame" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Weekly Highlights
         </span>
       </div>
       <div className="grid md:grid-cols-3 gap-5 mb-8">
 
         {/* Performance of the Week */}
-        <div className="rounded-2xl p-5" style={{background:'#241f18',border:'1px solid #3a3228',borderTop:'3px solid #ffd040'}}>
+        <div className="rounded-2xl p-5" style={{background:'#fff',border:'1px solid #e5e1d8',borderTop:'3px solid #f59e0b',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
           <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#ffd040'}}>
             ⭐ Performance of the Week
           </div>
@@ -157,7 +157,7 @@ export default async function HomePage() {
         </div>
 
         {/* Upset of the Week */}
-        <div className="rounded-2xl p-5" style={{background:'#241f18',border:'1px solid #3a3228',borderTop:'3px solid #e04040'}}>
+        <div className="rounded-2xl p-5" style={{background:'#fff',border:'1px solid #e5e1d8',borderTop:'3px solid #dc2626',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
           <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#e04040'}}>
             💥 Upset of the Week
           </div>
@@ -212,7 +212,7 @@ export default async function HomePage() {
         </div>
 
         {/* Hot Streak */}
-        <div className="rounded-2xl p-5" style={{background:'#241f18',border:'1px solid #3a3228',borderTop:'3px solid #ffa040'}}>
+        <div className="rounded-2xl p-5" style={{background:'#fff',border:'1px solid #e5e1d8',borderTop:'3px solid #f97316',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
           <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#ffa040'}}>
             🔥 Hot Streak
           </div>
@@ -270,7 +270,7 @@ export default async function HomePage() {
       {(recentGames||[]).length > 0 && (
         <>
           <div className="section-header mb-4">
-            <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#f0ebe0',letterSpacing:'1.5px'}}>
+            <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#111827',letterSpacing:'1.5px'}}>
               <i className="ti ti-ball-basketball" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Recent Results
             </span>
             <Link href="/schedule" className="text-xs no-underline font-semibold" style={{color:'#F5A623'}}>Full Schedule →</Link>
