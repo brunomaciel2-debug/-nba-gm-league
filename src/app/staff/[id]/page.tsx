@@ -4,6 +4,38 @@ import Link from 'next/link'
 import { readableTeamColor } from '@/lib/color'
 export const revalidate = 60
 
+
+const TIPS: Record<string,string> = {
+  off_adjustment:  'Ability to counter the opponent's defence in real time. Impacts shot quality and offensive efficiency.',
+  def_adjustment:  'Ability to adapt the team's defence to neutralise the opponent's offence.',
+  substitutions:   'Making the right substitutions at the right moment. Affects fatigue management and matchup exploitation.',
+  timeout_mgmt:    'Knowing when to call a timeout. Boosts morale during runs and in late-game pressure situations.',
+  off_development: 'Improves players' offensive attributes over time: Three Point, Layup, Dunk, Mid-Range, Free Throws, Shot IQ, Draw Foul.',
+  def_development: 'Improves players' defensive attributes: Block, Steal, Interior Defense, Perimeter Defense.',
+  tactical_dev:    'Improves basketball IQ: Pass Vision, Pass IQ, Assist Role, Offensive and Defensive Rebound positioning.',
+  physical_dev:    'Improves athletic attributes: Stamina and Durability.',
+  mental_dev:      'Improves psychological resilience: Clutch, Consistency, Crowd Effect resistance, Morale stability.',
+  conditioning:    'Reduces health loss per game and per training session. Higher = players stay fresher across the season.',
+  recovery_boost:  'Increases health recovery between games. Stacks with training intensity.',
+  injury_prevent:  'Reduces the probability of injuries occurring in games and training.',
+  rehab_speed:     'Reduces the recovery time of injured players. 80+ can cut injury time by 20-30%.',
+}
+
+function Tooltip({ text }: { text: string }) {
+  return (
+    <span className="relative group inline-flex ml-1 cursor-help align-middle">
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full flex-shrink-0 text-xs font-bold"
+            style={{background:'#cec7bc',color:'#5c554e',lineHeight:1,fontSize:9}}>i</span>
+      <span className="absolute left-0 top-full mt-1 z-50 px-2.5 py-2 rounded-lg text-xs
+                       opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+            style={{background:'#1a1512',color:'#f5f1eb',width:220,whiteSpace:'normal',
+                    lineHeight:1.5,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
+        {text}
+      </span>
+    </span>
+  )
+}
+
 const ROLE_INFO: Record<string,{label:string,color:string,icon:string}> = {
   head_coach:      {label:'Head Coach',      color:'#b45309',icon:'ti-whistle'},
   assistant_coach: {label:'Assistant Coach', color:'#1d4ed8',icon:'ti-clipboard-list'},
@@ -15,12 +47,12 @@ const ATK: Record<string,string> = {motion:'Motion',pickroll:'Pick & Roll',trans
 const DEF: Record<string,string> = {man:'Man-to-Man',zone23:'Zone 2-3',press:'Full Press',pack:'Pack Paint'}
 const SEASONS = ['2025-26','2026-27','2027-28']
 
-function StatRow({ label, value, color, tip }: { label:string, value:number, color:string, tip?:string }) {
+function StatRow({ label, value, color, tipKey }: { label:string, value:number, color:string, tipKey?:string }) {
   if (!value) return null
   const pct = Math.min(value, 100)
   return (
     <div className="flex items-center gap-3 mb-2.5">
-      <span className="text-sm w-32 flex-shrink-0" style={{color:'#5c554e'}}>{label}</span>
+      <span className="text-sm w-32 flex-shrink-0" style={{color:'#5c554e'}}>{label}{tipKey && TIPS[tipKey] && <Tooltip text={TIPS[tipKey]} />}</span>
       <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{background:'#cec7bc'}}>
         <div className="h-full rounded-full" style={{width:pct+'%',background:color}}/>
       </div>
@@ -113,8 +145,8 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
                 </span>
               </div>
               <div className="rounded-xl p-5 mb-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-                <StatRow label="Off. Adjustment" value={coach.off_adjustment} color="#b45309" />
-                <StatRow label="Def. Adjustment" value={coach.def_adjustment} color="#15803d" />
+                <StatRow label="Off. Adjustment" value={coach.off_adjustment} tipKey="off_adjustment" color="#b45309" />
+                <StatRow label="Def. Adjustment" value={coach.def_adjustment} tipKey="def_adjustment" color="#15803d" />
                 <StatRow label="Substitutions"   value={coach.substitutions}  color="#1d4ed8" />
                 <StatRow label="Timeout Mgmt"    value={coach.timeout_mgmt}   color="#b45309" />
               </div>
@@ -126,8 +158,8 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
                 </span>
               </div>
               <div className="rounded-xl p-5 mb-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-                <StatRow label="Off. Development" value={coach.off_development} color="#b45309" />
-                <StatRow label="Def. Development" value={coach.def_development} color="#15803d" />
+                <StatRow label="Off. Development" value={coach.off_development} tipKey="off_development" color="#b45309" />
+                <StatRow label="Def. Development" value={coach.def_development} tipKey="def_development" color="#15803d" />
                 <StatRow label="Tactical"          value={coach.tactical_dev}   color="#1d4ed8" />
                 <StatRow label="Physical"          value={coach.physical_dev}   color="#6d28d9" />
                 <StatRow label="Mental"            value={coach.mental_dev}     color="#b45309" />
@@ -183,7 +215,7 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
           {coach.role === 'physio' && (
             <div className="rounded-xl p-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
               <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e'}}>Attributes</div>
-              <StatRow label="Rehab Speed" value={coach.rehab_speed} color="#6d28d9" />
+              <StatRow label="Rehab Speed" value={coach.rehab_speed} tipKey="rehab_speed" color="#6d28d9" />
               <div className="mt-4 p-3 rounded-lg text-sm" style={{background:'#eee8df',color:'#5c554e',lineHeight:1.5}}>
                 A rehab speed of <strong style={{color:'#1a1512'}}>{coach.rehab_speed}</strong> reduces injury recovery time by approximately{' '}
                 <strong style={{color:'#6d28d9'}}>{Math.round((coach.rehab_speed-50)/50*30)}%</strong>.
