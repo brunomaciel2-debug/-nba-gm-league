@@ -2,51 +2,60 @@
 import { useState } from 'react'
 import RosterTable from './RosterTable'
 import TeamSchedule from './TeamSchedule'
+import ContractsTable from './ContractsTable'
 
-type Tab = 'roster' | 'schedule'
+type Tab = 'roster' | 'schedule' | 'contracts'
 
 export default function TeamPageTabs({
-  players, games, teamId, teamColor, teamsMap
+  players, games, teamId, teamsMap, teamColor
 }: {
-  players: any[], games: any[], teamId: string, teamColor: string, teamsMap: Record<string,any>
+  players: any[], games: any[], teamId: string, teamsMap: any, teamColor: string
 }) {
   const [tab, setTab] = useState<Tab>('roster')
+  const played   = games.filter((g:any) => g.status === 'final').length
+  const upcoming = games.filter((g:any) => g.status !== 'final').length
 
-  const played   = games.filter(g=>g.status==='final').length
-  const upcoming = games.filter(g=>g.status==='scheduled').length
+  const TABS = [
+    { key: 'roster',    label: 'Roster',    icon: 'ti-users',          badge: players.length + ' players' },
+    { key: 'schedule',  label: 'Schedule',  icon: 'ti-calendar',       badge: `${played} played · ${upcoming} remaining` },
+    { key: 'contracts', label: 'Contracts', icon: 'ti-receipt',        badge: 'Multi-year view' },
+  ]
 
   return (
     <div>
-      {/* Tab headers */}
-      <div className="flex gap-2 mb-4">
-        {([
-          {key:'roster',   label:'📋 Roster',   badge: players.length+' players'},
-          {key:'schedule', label:'📅 Schedule',  badge: `${played} played · ${upcoming} remaining`},
-        ] as {key:Tab,label:string,badge:string}[]).map(t=>(
-          <button key={t.key} onClick={()=>setTab(t.key)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
-            style={{background:tab===t.key?'#3a3228':'#241f18',
-                    color:tab===t.key?'#f0ebe0':'#8a7a6a',
-                    border:'1px solid '+(tab===t.key?'#5a4a3a':'#3a3228')}}>
+      {/* Tab bar */}
+      <div className="flex gap-2 mb-5 flex-wrap">
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key as Tab)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+            style={{
+              background: tab === t.key ? '#1f2937' : '#241f18',
+              color: tab === t.key ? '#f0ebe0' : '#8a7a6a',
+              border: '1px solid ' + (tab === t.key ? '#374151' : '#3a3228'),
+              borderBottom: tab === t.key ? '2px solid #F5A623' : '2px solid transparent'
+            }}>
+            <i className={`ti ${t.icon}`} style={{ fontSize: 15 }} aria-hidden="true"></i>
             {t.label}
-            <span className="text-xs px-1.5 py-0.5 rounded-full"
-                  style={{background:'#241f18',color:'#6a5a4a',fontSize:10}}>
+            <span className="text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: tab === t.key ? '#374151' : '#3a3228', color: tab === t.key ? '#9ca3af' : '#5a4a3a' }}>
               {t.badge}
             </span>
           </button>
         ))}
       </div>
 
-      {/* Tab content */}
-      {tab==='roster' && (
-        <div className="rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+      {tab === 'roster' && (
+        <div>
           <RosterTable players={players} teamColor={teamColor} />
         </div>
       )}
-      {tab==='schedule' && (
-        <div className="rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
+      {tab === 'schedule' && (
+        <div>
           <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />
         </div>
+      )}
+      {tab === 'contracts' && (
+        <ContractsTable teamId={teamId} teamColor={teamColor} />
       )}
     </div>
   )
