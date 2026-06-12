@@ -37,10 +37,10 @@ function Tip({ text }: { text: string }) {
   return (
     <span className="relative group inline-flex ml-1 cursor-help align-middle">
       <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full flex-shrink-0"
-            style={{background:'#cec8be',color:'#6b5f4e',fontSize:8,lineHeight:1}}>i</span>
+            style={{background:'#d4cdc5',color:'#6b5f4e',fontSize:8,lineHeight:1}}>i</span>
       <span className="absolute bottom-full left-0 mb-2 z-50 px-2.5 py-2 rounded-lg text-xs
                        opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
-            style={{background:'#0a0a0a',border:'1px solid #d4cec3',color:'#3d3529',
+            style={{background:'#eee8df',border:'1px solid #d4cec3',color:'#3d3529',
                     width:220,whiteSpace:'normal',lineHeight:1.5,fontWeight:400}}>
         {text}
       </span>
@@ -55,7 +55,7 @@ function StatBar({ label, value, color, tipKey }: { label: string, value: number
       <span className="text-xs flex-shrink-0" style={{color:'#6b5f4e',width:96}}>
         {label}{tipKey && TIPS[tipKey] && <Tip text={TIPS[tipKey]} />}
       </span>
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:'#cec8be'}}>
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:'#d4cdc5'}}>
         <div className="h-full rounded-full" style={{width:value+'%',background:color}}></div>
       </div>
       <span className="text-xs font-bold w-6 text-right flex-shrink-0"

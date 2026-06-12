@@ -59,7 +59,7 @@ export default async function LeagueLeadersMini() {
         {CATS.map((cat, ci) => {
           const leaders = lists[ci]
           const leader = leaders[0]
-          const tc = leader?.teams ? readableTeamColor((leader.teams as any).color) : '#6b6258'
+          const tc = leader?.teams ? readableTeamColor((leader.teams as any).color) : '#5c554e'
 
           return (
             <div key={cat.key} className="rounded-2xl overflow-hidden"
@@ -114,7 +114,7 @@ export default async function LeagueLeadersMini() {
 
                   {/* #2-5 */}
                   {leaders.slice(1).map((p, i) => {
-                    const ptc = p?.teams ? readableTeamColor((p.teams as any).color) : '#6b6258'
+                    const ptc = p?.teams ? readableTeamColor((p.teams as any).color) : '#5c554e'
                     return (
                       <Link key={p.id} href={`/player/${p.id}`} className="no-underline group">
                         <div className="flex items-center gap-3 px-5 py-2.5 transition-all group-hover:brightness-125"

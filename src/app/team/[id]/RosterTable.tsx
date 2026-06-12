@@ -57,17 +57,17 @@ function TH({ col, sortKey, sortDir, onSort }: {
         className={`px-3 py-2.5 font-semibold select-none whitespace-nowrap
           ${col.numeric ? 'text-right cursor-pointer' : 'text-left'}
           ${col.key === 'name' ? 'sticky left-0 z-10' : ''}`}
-        style={{ color: isActive ? (col.color||'#60a0ff') : '#8a7a6a',
-                 background: col.key==='name' ? '#120f0a' : undefined }}>
+        style={{ color: isActive ? (col.color||'#60a0ff') : '#5c554e',
+                 background: col.key==='name' ? '#eee8df' : undefined }}>
       <span className="inline-flex items-center gap-0.5 group relative">
         {col.label}
         {tip && (
           <>
             <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full ml-0.5 flex-shrink-0"
-                  style={{ background:'#3a3228', color:'#1e40af', fontSize:8, lineHeight:1 }}>i</span>
+                  style={{ background:'#d4cdc5', color:'#1e40af', fontSize:8, lineHeight:1 }}>i</span>
             <span className="absolute top-full left-0 mt-1 px-2.5 py-1.5 rounded-lg text-xs
                              opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50"
-                  style={{ background:'#16120d', border:'1px solid #2a5a8f', color:'#e8e0d0',
+                  style={{ background:'#16120d', border:'1px solid #2a5a8f', color:'#1a1512',
                            width:180, whiteSpace:'normal', lineHeight:1.5, fontWeight:400 }}>
               {tip}
             </span>
@@ -89,7 +89,7 @@ const STAT_COLS = [
   { key:'apg',    label:'APG',    color:'#0e7490', numeric:true  },
   { key:'spg',    label:'SPG',    color:'#7c3aed', numeric:true  },
   { key:'bpg',    label:'BPG',    color:'#ff6040', numeric:true  },
-  { key:'fgpct',  label:'FG%',    color:'#e8e0d0', numeric:true  },
+  { key:'fgpct',  label:'FG%',    color:'#1a1512', numeric:true  },
   { key:'tppct',  label:'3P%',    color:'#b45309', numeric:true  },
   { key:'ftpct',  label:'FT%',    color:'#0e7490', numeric:true  },
   { key:'topg',   label:'TO',     color:'#dc2626', numeric:true  },
@@ -132,9 +132,9 @@ function attrColor(v: number) {
   if (v >= 90) return '#ffd040'
   if (v >= 80) return '#40e080'
   if (v >= 70) return '#60a0ff'
-  if (v >= 60) return '#e8e0d0'
-  if (v >= 50) return '#8a7a6a'
-  return '#6a5a4a'
+  if (v >= 60) return '#1a1512'
+  if (v >= 50) return '#5c554e'
+  return '#5c554e'
 }
 
 export default function RosterTable({ players, teamColor }: { players: any[], teamColor: string }) {
@@ -200,13 +200,13 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
           {(['stats','attributes'] as Mode[]).map(m=>(
             <button key={m} onClick={()=>{setMode(m);setSortKey(m==='stats'?'ppg':'three');setSortDir('desc')}}
               className="px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
-              style={{background:mode===m?'#3a3228':'transparent',color:mode===m?'#60a0ff':'#8a7a6a'}}>
+              style={{background:mode===m?'#d4cdc5':'transparent',color:mode===m?'#60a0ff':'#5c554e'}}>
               {m==='stats'?'📊 Stats':'⚡ Attributes'}
             </button>
           ))}
         </div>
         <span className="text-xs" style={{color:'#9c8e7a'}}>
-          Click column to sort · hover <span style={{background:'#3a3228',color:'#1e40af',borderRadius:3,padding:'0 3px',fontSize:8}}>i</span> for definitions
+          Click column to sort · hover <span style={{background:'#d4cdc5',color:'#1e40af',borderRadius:3,padding:'0 3px',fontSize:8}}>i</span> for definitions
         </span>
       </div>
 
@@ -255,7 +255,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
                     <td key={col.key} className="px-3 py-2 text-right font-semibold"
                         style={{
                           color:mode==='attributes'&&col.numeric&&typeof val==='number'
-                            ?attrColor(val):isActive?'#e8e2d6':col.color||'#e8e0d0',
+                            ?attrColor(val):isActive?'#e8e2d6':col.color||'#1a1512',
                           background:isActive?teamColor+'11':undefined,
                         }}>
                       {fmtVal(col.key,val)}

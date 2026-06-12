@@ -72,7 +72,7 @@ export default function InjuryReport({ injuries, players }: {
                    style={{background:sev.bg,borderBottom:'1px solid '+sev.color+'33'}}>
                 {/* Photo or initials */}
                 <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0"
-                     style={{background:'#3a3228'}}>
+                     style={{background:'#d4cdc5'}}>
                   {p?.photo_url
                     ?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
                     :<div className="w-full h-full flex items-center justify-center text-xs font-black"
@@ -103,7 +103,7 @@ export default function InjuryReport({ injuries, players }: {
                   <div>
                     <div className="text-xs mb-1" style={{color:'#6b5f4e'}}>Health</div>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background:'#3a3228'}}>
+                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background:'#d4cdc5'}}>
                         <div className="h-full rounded-full" style={{width:health+'%',background:hs.bar}}></div>
                       </div>
                       <span className="text-xs font-bold" style={{color:hs.color}}>{health}%</span>

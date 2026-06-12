@@ -68,7 +68,7 @@ export default function StandingsPage() {
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-xs w-5 text-right font-bold"
-                  style={{ color: isPlayoff?'#40e080':'#6b6258' }}>{rank}</span>
+                  style={{ color: isPlayoff?'#40e080':'#5c554e' }}>{rank}</span>
             <TeamLogo t={t} />
             <span className="font-semibold text-white text-sm">{t.name}</span>
             {isPlayoff && <span className="text-xs px-1 rounded" style={{ background:'#dcfce7',color:'#166534' }}>P</span>}
@@ -82,7 +82,7 @@ export default function StandingsPage() {
         <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.pts_for||'—'}</td>
         <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.pts_against||'—'}</td>
         <td className="px-3 py-2.5 text-right text-sm font-semibold"
-            style={{ color: diff>0?'#40e080':diff<0?'#e04040':'#6b6258' }}>
+            style={{ color: diff>0?'#40e080':diff<0?'#e04040':'#5c554e' }}>
           {diff>0?'+':''}{diff||'—'}
         </td>
       </tr>
@@ -108,7 +108,7 @@ export default function StandingsPage() {
           {(['conference','division','league'] as View[]).map(v => (
             <button key={v} onClick={() => setView(v)}
               className="px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
-              style={{ background:view===v?'#cec8be':'transparent', color:view===v?'#60a0ff':'#6b6258' }}>
+              style={{ background:view===v?'#d4cdc5':'transparent', color:view===v?'#60a0ff':'#5c554e' }}>
               {v}
             </button>
           ))}

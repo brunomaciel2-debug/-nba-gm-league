@@ -1,5 +1,5 @@
 /**
- * Given a hex color, returns '#ffffff' or '#111111'
+ * Given a hex color, returns '#faf8f5' or '#111111'
  * depending on which has better contrast (WCAG luminance formula).
  */
 export function textOnColor(hex: string): string {
@@ -12,7 +12,7 @@ export function textOnColor(hex: string): string {
   const lg = g<=0.03928?g/12.92:Math.pow((g+0.055)/1.055,2.4)
   const lb = b<=0.03928?b/12.92:Math.pow((b+0.055)/1.055,2.4)
   const lum = 0.2126*lr + 0.7152*lg + 0.0722*lb
-  return lum > 0.35 ? '#111111' : '#ffffff'
+  return lum > 0.35 ? '#111111' : '#faf8f5'
 }
 
 /**

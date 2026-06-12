@@ -24,7 +24,7 @@ export default async function ApplicationsAdminPage() {
           <h1 className="text-2xl font-bold" style={{color:'#1a1612'}}>📋 GM Applications</h1>
           <p className="text-sm" style={{color:'#6b5f4e'}}>{pending.length} pending · {reviewed.length} reviewed</p>
         </div>
-        <Link href="/admin" className="text-xs px-3 py-1.5 rounded-lg no-underline" style={{background:'#3a3228',color:'#6b5f4e'}}>← Admin</Link>
+        <Link href="/admin" className="text-xs px-3 py-1.5 rounded-lg no-underline" style={{background:'#d4cdc5',color:'#6b5f4e'}}>← Admin</Link>
       </div>
 
       {pending.length > 0 && (

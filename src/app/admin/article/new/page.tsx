@@ -25,7 +25,7 @@ const POSITIONS = [
     label: '📰 Latest News',
     desc: 'Regular news feed below the featured sections. Multiple articles can be here.',
     preview: 'News feed · Multiple articles · Chronological',
-    color: '#6b6258',
+    color: '#5c554e',
     bg: '#e8e2d9',
   },
 ]
@@ -107,8 +107,8 @@ export default function NewArticlePage() {
           {/* Hero */}
           <div className="rounded-lg mb-2 p-2 text-center text-xs font-semibold"
                style={{background:position==='hero'?'#2a2000':'#ede8df',
-                       border:'1px solid '+(position==='hero'?'#ffd040':'#cec8be'),
-                       color:position==='hero'?'#ffd040':'#b0a89e',height:48,
+                       border:'1px solid '+(position==='hero'?'#ffd040':'#d4cdc5'),
+                       color:position==='hero'?'#ffd040':'#a89f97',height:48,
                        display:'flex',alignItems:'center',justifyContent:'center'}}>
             🏆 Hero Banner {position==='hero'&&'← This article'}
           </div>
@@ -127,8 +127,8 @@ export default function NewArticlePage() {
           {/* News feed */}
           <div className="rounded-lg p-2 text-center text-xs font-semibold"
                style={{background:position==='news'?'#e8e2d9':'#e8e2d9',
-                       border:'1px solid '+(position==='news'?'#6b6258':'#cec8be'),
-                       color:position==='news'?'#6b6258':'#b0a89e',height:28,
+                       border:'1px solid '+(position==='news'?'#5c554e':'#d4cdc5'),
+                       color:position==='news'?'#5c554e':'#a89f97',height:28,
                        display:'flex',alignItems:'center',justifyContent:'center'}}>
             📰 News Feed {position==='news'&&'← This article'}
           </div>

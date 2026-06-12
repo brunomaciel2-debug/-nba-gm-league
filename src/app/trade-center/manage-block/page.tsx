@@ -56,15 +56,15 @@ export default function ManageTradeBlockPage() {
           const isOn = onBlock.has(p.id)
           return (
             <div key={p.id} className="rounded-xl p-3"
-                 style={{background:isOn?'#2a2000':'#241f18',
-                         border:'1px solid '+(isOn?'#ffd04044':'#3a3228')}}>
+                 style={{background:isOn?'#2a2000':'#faf8f5',
+                         border:'1px solid '+(isOn?'#ffd04044':'#d4cdc5')}}>
               <div className="flex items-center gap-3">
                 <span className="text-xs w-7" style={{color:'#6b5f4e'}}>{p.pos}</span>
                 <span className="font-semibold flex-1" style={{color:'#1a1612'}}>{p.name}</span>
                 <span className="text-xs" style={{color:'#6b5f4e'}}>{capFmt(p.salary)}</span>
                 <button onClick={()=>toggle(p.id)} disabled={saving[p.id]}
                   className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
-                  style={{background:isOn?'#5a4a00':'#3a3228',color:isOn?'#ffd040':'#8a7a6a'}}>
+                  style={{background:isOn?'#5a4a00':'#d4cdc5',color:isOn?'#ffd040':'#5c554e'}}>
                   {saving[p.id]?'...':isOn?'📋 On Block':'Add to Block'}
                 </button>
               </div>

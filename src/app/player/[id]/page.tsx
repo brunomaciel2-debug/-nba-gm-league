@@ -44,11 +44,11 @@ function AttrBar({ value, color }: { value: number, color: string }) {
   const barColor = value>=85?'#ffd040':value>=70?color:value>=50?color+'99':'#e04040'
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background:'#3a3228' }}>
+      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background:'#d4cdc5' }}>
         <div className="h-full rounded-full" style={{ width:pct+'%', background:barColor }}></div>
       </div>
       <span className="text-xs font-bold w-7 text-right"
-            style={{ color:value>=85?'#ffd040':value>=70?'#f0ebe0':value>=50?'#8a7a6a':'#e04040' }}>
+            style={{ color:value>=85?'#ffd040':value>=70?'#1a1512':value>=50?'#5c554e':'#e04040' }}>
         {value}
       </span>
     </div>
@@ -56,8 +56,8 @@ function AttrBar({ value, color }: { value: number, color: string }) {
 }
 
 function OVR({ value }: { value: number }) {
-  const color = value>=85?'#ffd040':value>=75?'#40e080':value>=65?'#60a0ff':'#8a7a6a'
-  const bg    = value>=85?'#2a2000':value>=75?'#0a2a10':value>=65?'#0a1a3a':'#2a2218'
+  const color = value>=85?'#ffd040':value>=75?'#40e080':value>=65?'#60a0ff':'#5c554e'
+  const bg    = value>=85?'#2a2000':value>=75?'#0a2a10':value>=65?'#0a1a3a':'#f0ece5'
   return (
     <div className="flex flex-col items-center justify-center rounded-xl p-3 min-w-[60px]"
          style={{ background:bg, border:'1px solid '+color+'44' }}>
@@ -133,8 +133,8 @@ export default async function PlayerPage({ params }: { params: { id: string } })
               <div className="flex flex-col gap-2 items-end">
                 <OVR value={ovr} />
                 <div className="rounded-lg px-2.5 py-1.5 text-center"
-                     style={{background:potBg[potGrade]||'#1a1610',border:'1px solid '+(potColor[potGrade]||'#8a7a6a')+'44'}}>
-                  <div className="text-lg font-black leading-none" style={{color:potColor[potGrade]||'#8a7a6a'}}>{potGrade}</div>
+                     style={{background:potBg[potGrade]||'#eee8df',border:'1px solid '+(potColor[potGrade]||'#5c554e')+'44'}}>
+                  <div className="text-lg font-black leading-none" style={{color:potColor[potGrade]||'#5c554e'}}>{potGrade}</div>
                   <div style={{fontSize:9,color:'#6b5f4e'}}>POT</div>
                 </div>
               </div>
@@ -157,8 +157,8 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                 <div>
                   <div className="text-xs" style={{ color:'#6b5f4e' }}>Type</div>
                   <span className="text-xs font-bold px-2 py-0.5 rounded"
-                        style={{ background:TYPE_LABEL[currentContract.type]?.bg||'#2a2218',
-                                 color:TYPE_LABEL[currentContract.type]?.color||'#8a7a6a' }}>
+                        style={{ background:TYPE_LABEL[currentContract.type]?.bg||'#f0ece5',
+                                 color:TYPE_LABEL[currentContract.type]?.color||'#5c554e' }}>
                     {TYPE_LABEL[currentContract.type]?.label||currentContract.type}
                   </span>
                 </div>
@@ -184,7 +184,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                 <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>❤️ Health</span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:hColor+'33',color:hColor}}>{hLabel}</span>
               </div>
-              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#3a3228'}}>
+              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#d4cdc5'}}>
                 <div className="h-full rounded-full" style={{width:health+'%',background:hColor}}></div>
               </div>
               <div className="flex items-end justify-between">
@@ -197,7 +197,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                 <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>🧠 Morale</span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:mColor+'33',color:mColor}}>{mLabel}</span>
               </div>
-              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#3a3228'}}>
+              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#d4cdc5'}}>
                 <div className="h-full rounded-full" style={{width:moral+'%',background:mColor}}></div>
               </div>
               <div className="flex items-end justify-between">
@@ -245,21 +245,21 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                   </thead>
                   <tbody>
                     {(contracts||[]).map((c:any, i:number) => {
-                      const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#6b5f4e',bg:'#2a2218'}
+                      const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#6b5f4e',bg:'#f0ece5'}
                       const isCurrent = c.season==='2025-26'
                       return (
                         <tr key={c.id}
-                            style={{ background:isCurrent?teamColor+'11':i%2===0?'#241f18':'#1e1a14',
+                            style={{ background:isCurrent?teamColor+'11':i%2===0?'#faf8f5':'#faf8f5',
                                      borderBottom:'1px solid #16120d' }}>
                           <td className="px-4 py-2.5">
-                            <span className="font-semibold" style={{ color:isCurrent?teamColor:'#e8e0d0' }}>
+                            <span className="font-semibold" style={{ color:isCurrent?teamColor:'#1a1512' }}>
                               {c.season}
                             </span>
                             {isCurrent && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
                                                style={{ background:teamColor+'33',color:teamColor }}>Current</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right font-bold"
-                              style={{ color:isCurrent?'#e8e2d6':'#e8e0d0' }}>
+                              style={{ color:isCurrent?'#e8e2d6':'#1a1512' }}>
                             {capFmt(c.salary)}
                           </td>
                           <td className="px-4 py-2.5 text-right">
@@ -343,7 +343,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                     {label:'PPG',val:avg(s.pts),color:'#c2410c'},
                     {label:'RPG',val:avg(s.reb),color:'#166534'},
                     {label:'APG',val:avg(s.ast),color:'#1e40af'},
-                    {label:'FG%',val:s.fga>0?(s.fgm/s.fga*100).toFixed(1)+'%':'—',color:'#e8e0d0'},
+                    {label:'FG%',val:s.fga>0?(s.fgm/s.fga*100).toFixed(1)+'%':'—',color:'#1a1512'},
                     {label:'3P%',val:s.tpa>0?(s.tpm/s.tpa*100).toFixed(1)+'%':'—',color:'#b45309'},
                     {label:'GP', val:gp,color:'#6b5f4e'},
                   ].map(item=>(

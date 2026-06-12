@@ -62,7 +62,7 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
         </button>
         <Link href="/jobs"
           className="px-6 py-2.5 rounded-xl font-bold text-sm no-underline"
-          style={{background:'#3a3228',color:'#6b5f4e'}}>
+          style={{background:'#d4cdc5',color:'#6b5f4e'}}>
           Not Interested
         </Link>
       </div>
@@ -134,12 +134,12 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
       <div className="flex gap-3">
         <button onClick={submit} disabled={submitting}
           className="px-6 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40"
-          style={{background:'#ffd040',color:'#1a1610'}}>
+          style={{background:'#ffd040',color:'#eee8df'}}>
           {submitting ? 'Submitting...' : 'Submit Application'}
         </button>
         <button onClick={() => setStep('intro')}
           className="px-6 py-2.5 rounded-xl font-bold text-sm"
-          style={{background:'#3a3228',color:'#6b5f4e'}}>
+          style={{background:'#d4cdc5',color:'#6b5f4e'}}>
           Back
         </button>
       </div>

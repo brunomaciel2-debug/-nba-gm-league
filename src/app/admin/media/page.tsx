@@ -54,9 +54,9 @@ export default function AdminMediaPage() {
         {(['logos','photos'] as const).map(t=>(
           <button key={t} onClick={()=>setTab(t)}
             className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all"
-            style={{ background:tab===t?'#3a3228':'#241f18',
-                     color:tab===t?'#60a0ff':'#8a7a6a',
-                     border:'1px solid '+(tab===t?'#3a6a9f':'#3a3228') }}>
+            style={{ background:tab===t?'#d4cdc5':'#faf8f5',
+                     color:tab===t?'#60a0ff':'#5c554e',
+                     border:'1px solid '+(tab===t?'#3a6a9f':'#d4cdc5') }}>
             {t==='logos'?'🏀 Team Logos':'👤 Player Photos'}
           </button>
         ))}
@@ -86,11 +86,11 @@ export default function AdminMediaPage() {
                   onBlur={e=>saveLogo(team.id,e.target.value)}
                   placeholder="Paste logo URL here..."
                   className="w-full text-xs px-3 py-2 rounded-lg"
-                  style={{ background:'#ddd7ca',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none' }}
+                  style={{ background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1512',outline:'none' }}
                 />
               </div>
               <span className="text-xs flex-shrink-0 w-16 text-center"
-                    style={{ color:saved===team.id?'#40e080':saving===team.id?'#8a7a6a':'transparent' }}>
+                    style={{ color:saved===team.id?'#40e080':saving===team.id?'#5c554e':'transparent' }}>
                 {saved===team.id?'✓ Saved':saving===team.id?'Saving...':''}
               </span>
             </div>
@@ -107,7 +107,7 @@ export default function AdminMediaPage() {
             </label>
             <select value={selTeam} onChange={e=>setSelTeam(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl text-sm"
-              style={{ background:'#e8e2d6',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none' }}>
+              style={{ background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none' }}>
               <option value="">— Choose a team —</option>
               {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
@@ -122,7 +122,7 @@ export default function AdminMediaPage() {
                      style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
                   {/* Photo preview */}
                   <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden"
-                       style={{ background:'#3a3228' }}>
+                       style={{ background:'#d4cdc5' }}>
                     {p.photo_url
                       ? <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center text-sm font-black"
@@ -135,18 +135,18 @@ export default function AdminMediaPage() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-semibold text-white">{p.name}</span>
                       <span className="text-xs px-1.5 py-0.5 rounded"
-                            style={{ background:'#3a3228',color:'#6b5f4e' }}>{p.pos}</span>
+                            style={{ background:'#d4cdc5',color:'#6b5f4e' }}>{p.pos}</span>
                     </div>
                     <input
                       defaultValue={p.photo_url||''}
                       onBlur={e=>savePhoto(p.id,e.target.value)}
                       placeholder="Paste photo URL..."
                       className="w-full text-xs px-3 py-1.5 rounded-lg"
-                      style={{ background:'#ddd7ca',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none' }}
+                      style={{ background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1512',outline:'none' }}
                     />
                   </div>
                   <span className="text-xs flex-shrink-0 w-16 text-center"
-                        style={{ color:saved===p.id?'#40e080':saving===p.id?'#8a7a6a':'transparent' }}>
+                        style={{ color:saved===p.id?'#40e080':saving===p.id?'#5c554e':'transparent' }}>
                     {saved===p.id?'✓ Saved':saving===p.id?'Saving...':''}
                   </span>
                 </div>

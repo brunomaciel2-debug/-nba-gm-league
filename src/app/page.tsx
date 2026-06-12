@@ -290,14 +290,14 @@ export default async function HomePage() {
                        style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                     <span className="text-xs w-6 font-semibold" style={{color:'#6b5f4e'}}>W{g.week_number}</span>
                     <div className="flex-1 flex items-center gap-3">
-                      <span className="text-sm font-semibold" style={{color:winner==='home'?'#e8e2d6':'#6b6258'}}>
+                      <span className="text-sm font-semibold" style={{color:winner==='home'?'#e8e2d6':'#5c554e'}}>
                         <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{background:teamColor(home)}}></span>
                         {home?.name||g.home_team}
                       </span>
-                      <span className="text-base font-black" style={{color:winner==='home'?'#e8e2d6':'#6b6258'}}>{g.home_score}</span>
+                      <span className="text-base font-black" style={{color:winner==='home'?'#e8e2d6':'#5c554e'}}>{g.home_score}</span>
                       <span className="text-sm" style={{color:'#b8ae9e'}}>–</span>
-                      <span className="text-base font-black" style={{color:winner==='away'?'#e8e2d6':'#6b6258'}}>{g.away_score}</span>
-                      <span className="text-sm font-semibold" style={{color:winner==='away'?'#e8e2d6':'#6b6258'}}>
+                      <span className="text-base font-black" style={{color:winner==='away'?'#e8e2d6':'#5c554e'}}>{g.away_score}</span>
+                      <span className="text-sm font-semibold" style={{color:winner==='away'?'#e8e2d6':'#5c554e'}}>
                         {away?.name||g.away_team}
                         <span className="inline-block w-2 h-2 rounded-full ml-1.5" style={{background:teamColor(away)}}></span>
                       </span>

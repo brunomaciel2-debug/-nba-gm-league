@@ -60,7 +60,7 @@ export default function ManageArticlesPage() {
           </Link>
           <Link href="/admin"
             className="text-xs px-3 py-2 rounded-lg no-underline"
-            style={{background:'#cec8be',color:'#6b5f4e'}}>
+            style={{background:'#d4cdc5',color:'#6b5f4e'}}>
             ← Admin
           </Link>
         </div>
@@ -110,7 +110,7 @@ export default function ManageArticlesPage() {
                         <span className="ml-2">
                           {a.tags.map((t:string) => (
                             <span key={t} className="mr-1 px-1.5 py-0.5 rounded text-xs"
-                                  style={{background:'#cec8be',color:'#6b5f4e'}}>{t}</span>
+                                  style={{background:'#d4cdc5',color:'#6b5f4e'}}>{t}</span>
                           ))}
                         </span>
                       )}

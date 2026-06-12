@@ -36,26 +36,26 @@ export default async function SchedulePage() {
                 <div key={g.id} className="flex items-center gap-4 px-4 py-3 rounded-xl"
                      style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
                   <span className="text-xs font-bold px-2 py-0.5 rounded"
-                        style={{ background:final?'#0a2a10':'#2a2218',
-                                 color:final?'#40e080':'#6a5a4a' }}>
+                        style={{ background:final?'#0a2a10':'#f0ece5',
+                                 color:final?'#40e080':'#5c554e' }}>
                     {final?'FINAL':'SCHEDULED'}
                   </span>
                   <div className="flex-1 flex items-center gap-3">
                     <span className="text-sm font-semibold"
-                          style={{ color: winner==='home'?'#e8e2d6':'#8a7a6a' }}>
+                          style={{ color: winner==='home'?'#e8e2d6':'#5c554e' }}>
                       <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5"
                             style={{ background: home?'#'+home.color:'#333' }}></span>
                       {home?.name||g.home_team}
                     </span>
                     {final && <>
                       <span className="text-base font-bold"
-                            style={{ color:winner==='home'?'#e8e2d6':'#6a5a4a' }}>{g.home_score}</span>
+                            style={{ color:winner==='home'?'#e8e2d6':'#5c554e' }}>{g.home_score}</span>
                       <span style={{ color:'#b8ae9e' }}>–</span>
                       <span className="text-base font-bold"
-                            style={{ color:winner==='away'?'#e8e2d6':'#6a5a4a' }}>{g.away_score}</span>
+                            style={{ color:winner==='away'?'#e8e2d6':'#5c554e' }}>{g.away_score}</span>
                     </>}
                     <span className="text-sm font-semibold"
-                          style={{ color:winner==='away'?'#e8e2d6':'#8a7a6a' }}>
+                          style={{ color:winner==='away'?'#e8e2d6':'#5c554e' }}>
                       {away?.name||g.away_team}
                       <span className="inline-block w-2.5 h-2.5 rounded-full ml-1.5"
                             style={{ background: away?'#'+away.color:'#333' }}></span>
@@ -63,7 +63,7 @@ export default async function SchedulePage() {
                   </div>
                   {final && (
                     <Link href={`/game/${g.id}`} className="text-xs no-underline px-3 py-1 rounded"
-                          style={{ background:'#3a3228',color:'#1e40af' }}>
+                          style={{ background:'#d4cdc5',color:'#1e40af' }}>
                       Box Score →
                     </Link>
                   )}

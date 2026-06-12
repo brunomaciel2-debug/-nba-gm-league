@@ -6,81 +6,114 @@
 @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
 
 :root {
-  --bg-page:   #f0ebe2;
-  --bg-panel:  #e8e2d9;
-  --bg-card:   #ede8df;
-  --bg-hover:  #e2dbd0;
-  --bg-stripe: #e9e3da;
+  /* Backgrounds — 4 tones, clearly distinct */
+  --bg-page:   #eee8df;   /* page background */
+  --bg-panel:  #f5f1eb;   /* panels, cards */
+  --bg-card:   #faf8f5;   /* inner card / elevated */
+  --bg-stripe: #f0ece5;   /* table alternating row */
+  --bg-hover:  #e8e2d8;   /* hover state */
+  --bg-input:  #f5f1eb;   /* form inputs */
 
-  --text-1:    #1c1917;
-  --text-2:    #3d3731;
-  --text-3:    #6b6258;
-  --text-4:    #9c9088;
+  /* Text — very high contrast on all beige tones */
+  --t1: #1a1512;          /* primary: near-black */
+  --t2: #2d2722;          /* secondary: dark brown */
+  --t3: #5c554e;          /* tertiary: mid brown */
+  --t4: #8a8279;          /* muted: warm grey */
 
-  --border:    #cec8be;
-  --border-2:  #bfb9ae;
+  /* Borders */
+  --bd1: #d4cdc5;         /* strong border */
+  --bd2: #e2dcd5;         /* subtle border */
 
-  --accent:    #c8102e;
-  --gold:      #b45309;
-  --blue:      #1d4ed8;
-  --green:     #15803d;
-  --purple:    #6d28d9;
-  --orange:    #c2410c;
+  /* Accents */
+  --red:    #c8102e;
+  --gold:   #a16207;
+  --blue:   #1d4ed8;
+  --green:  #15803d;
+  --purple: #6d28d9;
+  --orange: #c2410c;
 }
 
 * { box-sizing: border-box; }
 
 html, body {
   background: var(--bg-page);
-  color: var(--text-1);
+  color: var(--t1);
   font-family: 'Inter', -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
-/* Reusable panel */
-.panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-/* Section header — red underline ESPN style */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 8px;
-  margin-bottom: 16px;
-  border-bottom: 2px solid var(--accent);
-}
-.section-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--text-1);
-}
-
-/* Clean table */
-.clean-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.clean-table th {
-  background: var(--bg-panel);
-  color: var(--text-3);
+/* ── TABLES ─────────────────────────────── */
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl thead th {
+  background: var(--bg-stripe);
+  color: var(--t3);
   font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   padding: 9px 12px;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
+  border-bottom: 2px solid var(--bd1);
+  white-space: nowrap;
 }
-.clean-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); }
-.clean-table tr:last-child td { border-bottom: none; }
-.clean-table tr:hover td { background: var(--bg-hover); }
+.tbl tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--bd2);
+  color: var(--t1);
+  background: var(--bg-card);
+}
+.tbl tbody tr:nth-child(even) td { background: var(--bg-stripe); }
+.tbl tbody tr:hover td { background: var(--bg-hover); }
+.tbl tbody tr:last-child td { border-bottom: none; }
 
-/* Tab button active */
-.tab-active {
-  background: var(--bg-hover) !important;
-  color: var(--text-1) !important;
-  border-bottom: 2px solid var(--accent) !important;
+/* Player name strong */
+.tbl .player-name { font-weight: 600; color: var(--t1); }
+.tbl .pos-badge {
+  display: inline-block; padding: 1px 5px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; background: var(--bg-stripe);
+  color: var(--t3); border: 1px solid var(--bd1);
+}
+
+/* ── CARDS / PANELS ─────────────────────── */
+.panel {
+  background: var(--bg-card);
+  border: 1px solid var(--bd1);
+  border-radius: 12px;
+}
+.panel-header {
+  background: var(--bg-stripe);
+  border-bottom: 1px solid var(--bd1);
+  padding: 10px 16px;
+  border-radius: 12px 12px 0 0;
+}
+
+/* ── SECTION HEADERS ────────────────────── */
+.sec-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 8px; margin-bottom: 16px;
+  border-bottom: 2px solid var(--red);
+}
+.sec-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--t1);
+}
+
+/* ── TABS ───────────────────────────────── */
+.tab-btn {
+  padding: 10px 16px; font-size: 13px; font-weight: 500;
+  color: var(--t3); border-bottom: 2px solid transparent;
+  cursor: pointer; transition: all 0.15s; background: transparent;
+  border-top: none; border-left: none; border-right: none;
+}
+.tab-btn:hover { color: var(--t1); border-bottom-color: var(--bd1); }
+.tab-btn.active { color: var(--t1); border-bottom-color: var(--red); font-weight: 600; }
+
+/* ── STAT BARS ──────────────────────────── */
+.stat-bar-track { height: 6px; border-radius: 3px; background: var(--bg-hover); overflow: hidden; }
+.stat-bar-fill  { height: 100%; border-radius: 3px; }
+
+/* ── BADGES ─────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; padding: 2px 8px;
+  border-radius: 4px; font-size: 11px; font-weight: 600;
 }

@@ -36,10 +36,10 @@ function InfoTip({ text }: { text: string }) {
     <span className="relative inline-flex ml-1 cursor-help"
           onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
       <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full"
-            style={{ background:'#3a3228', color:'#1e40af', fontSize:9 }}>i</span>
+            style={{ background:'#d4cdc5', color:'#1e40af', fontSize:9 }}>i</span>
       {show && (
         <span className="absolute bottom-full left-0 mb-1.5 z-50 px-2.5 py-1.5 rounded-lg text-xs pointer-events-none"
-              style={{ background:'#16120d', border:'1px solid #d4cec3', color:'#e8e0d0',
+              style={{ background:'#16120d', border:'1px solid #d4cec3', color:'#1a1512',
                        width:200, lineHeight:1.4, whiteSpace:'normal' }}>
           {text}
         </span>
@@ -141,7 +141,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
             <div key={pos} className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cec3'}}>
               <div className="flex items-center gap-3 px-4 py-2" style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
                 <span className="font-bold text-sm w-8" style={{color:teamColor}}>{pos}</span>
-                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:'#3a3228'}}>
+                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:'#d4cdc5'}}>
                   <div className="h-full rounded-full transition-all"
                        style={{width:Math.min(100,tot/48*100)+'%',
                                background:ok?'#40e080':tot>48?'#e04040':'#ffa040'}}></div>
@@ -157,7 +157,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
                       <select value={entry.name}
                               onChange={e=>setDc(d=>({...d,[pos]:{...d[pos],[key]:{...d[pos]?.[key],name:e.target.value}}}))}
                               className="w-full text-xs px-2 py-1.5 rounded mb-2"
-                              style={{background:'#ddd7ca',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none'}}>
+                              style={{background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
                         <option value="">— None —</option>
                         {players.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
                       </select>
@@ -230,12 +230,12 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         {[0,1,2].map(i=>(
           <div key={i}>
             <label className="text-xs mb-1 block font-semibold"
-                   style={{color:i===0?'#ffa040':i===1?'#60a0ff':'#8a7a6a'}}>
+                   style={{color:i===0?'#ffa040':i===1?'#60a0ff':'#5c554e'}}>
               {i===0?'1st Option':i===1?'2nd Option':'3rd Option'}
             </label>
             <select value={pris[i]} onChange={e=>{const n=[...pris];n[i]=e.target.value;setPris(n)}}
               className="w-full text-xs px-3 py-2 rounded-lg"
-              style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none'}}>
+              style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
               <option value="">—</option>
               {players.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
             </select>
@@ -253,7 +253,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
           </label>
           <select value={clutch} onChange={e=>setClutch(e.target.value)}
             className="w-full text-xs px-3 py-2 rounded-lg"
-            style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none'}}>
+            style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
             <option value="">—</option>
             {players.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
           </select>
@@ -285,7 +285,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
           </label>
           <select value={atkStyle} onChange={e=>setAtkStyle(e.target.value)}
             className="w-full text-xs px-3 py-2 rounded-lg"
-            style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none'}}>
+            style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
             {ATK_STYLES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
           <p className="text-xs mt-1" style={{color:'#9c8e7a'}}>
@@ -299,7 +299,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
           </label>
           <select value={defStyle} onChange={e=>setDefStyle(e.target.value)}
             className="w-full text-xs px-3 py-2 rounded-lg"
-            style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#e8e0d0',outline:'none'}}>
+            style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
             {DEF_STYLES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
           <p className="text-xs mt-1" style={{color:'#9c8e7a'}}>
@@ -337,8 +337,8 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
 
       <button onClick={save} disabled={saving||locked}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-colors"
-        style={{background:saved?'#0a5a20':locked?'#1a0a0a':'#3a3228',
-                color:saved?'#40e080':locked?'#6a5a4a':'#60a0ff'}}>
+        style={{background:saved?'#0a5a20':locked?'#1a0a0a':'#d4cdc5',
+                color:saved?'#40e080':locked?'#5c554e':'#60a0ff'}}>
         {saving?'Saving...':saved?'✓ Orders Saved!':locked?'⚠️ Locked for this week':'Save Weekly Orders'}
       </button>
     </div>

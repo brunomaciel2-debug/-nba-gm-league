@@ -150,7 +150,7 @@ function StaffOfferPage() {
 
       <button onClick={submitOffer} disabled={!user||submitting||!profile?.team_id}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40"
-        style={{background:'#40e080',color:'#1a1610'}}>
+        style={{background:'#40e080',color:'#eee8df'}}>
         {submitting?'Submitting...':'Submit Offer 👔'}
       </button>
     </div>

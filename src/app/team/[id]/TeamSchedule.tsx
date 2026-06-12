@@ -10,7 +10,7 @@ function AttendanceBar({ value, max=20000 }: { value:number, max?:number }) {
   const color = pct>=90?'#ffd040':pct>=70?'#40e080':'#3a8adf'
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{background:'#3a3228'}}>
+      <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{background:'#d4cdc5'}}>
         <div className="h-full rounded-full" style={{width:pct+'%',background:color}}></div>
       </div>
       <span className="text-xs" style={{color:'#6b5f4e'}}>{value.toLocaleString()}</span>
@@ -66,9 +66,9 @@ export default function TeamSchedule({
         {FILTERS.map(f=>(
           <button key={f.key} onClick={()=>setFilter(f.key)}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-            style={{background:filter===f.key?'#3a3228':'transparent',
-                    color:filter===f.key?'#f0ebe0':'#8a7a6a',
-                    border:'1px solid '+(filter===f.key?'#5a4a3a':'#3a3228')}}>
+            style={{background:filter===f.key?'#d4cdc5':'transparent',
+                    color:filter===f.key?'#1a1512':'#5c554e',
+                    border:'1px solid '+(filter===f.key?'#d4cdc5':'#d4cdc5')}}>
             {f.label}
           </button>
         ))}
@@ -84,7 +84,7 @@ export default function TeamSchedule({
           <div key={week} className="mb-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-bold uppercase tracking-widest"
-                    style={{color:isAllStar?'#ffd040':'#6a5a4a'}}>
+                    style={{color:isAllStar?'#ffd040':'#5c554e'}}>
                 {isAllStar ? '⭐ ALL-STAR WEEKEND' : `Week ${week}`}
               </span>
               {isAllStar && (
@@ -127,7 +127,7 @@ export default function TeamSchedule({
                       )}
                       {final && (
                         <Link href={`/game/${g.id}`} className="no-underline text-xs px-2 py-1 rounded"
-                              style={{background:'#3a3228',color:'#1a1612'}}>Box →</Link>
+                              style={{background:'#d4cdc5',color:'#1a1612'}}>Box →</Link>
                       )}
                     </div>
                   )
@@ -138,7 +138,7 @@ export default function TeamSchedule({
                        style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                     {/* Home/Away badge */}
                     <span className="text-xs font-bold w-8 text-center flex-shrink-0"
-                          style={{color:isHome?'#60a0ff':'#8a7a6a'}}>
+                          style={{color:isHome?'#60a0ff':'#5c554e'}}>
                       {isHome?'HOME':'AWAY'}
                     </span>
 
@@ -182,7 +182,7 @@ export default function TeamSchedule({
                           <AttendanceBar value={g.attendance} />
                         )}
                         <Link href={`/game/${g.id}`} className="no-underline text-xs px-2 py-1 rounded flex-shrink-0"
-                              style={{background:'#3a3228',color:'#1e40af'}}>
+                              style={{background:'#d4cdc5',color:'#1e40af'}}>
                           Box →
                         </Link>
                       </div>

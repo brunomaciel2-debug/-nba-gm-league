@@ -80,7 +80,7 @@ export default async function LeagueLeadersPage() {
                           <div className="text-xs" style={{ color:'#6b5f4e' }}>{p.team} · {p.pos}</div>
                         </div>
                         <span className="text-sm font-black flex-shrink-0"
-                              style={{ color:i===0?cat.color:'#e8e0d0' }}>{p[cat.key]}</span>
+                              style={{ color:i===0?cat.color:'#1a1512' }}>{p[cat.key]}</span>
                       </div>
                     </Link>
                   ))}

@@ -63,7 +63,7 @@ export default function EditArticlePage({ params }: { params: { id: string } }) 
         {POSITIONS.map(pos => (
           <button key={pos.value} onClick={()=>setPosition(pos.value)}
             className="rounded-xl p-2.5 text-center text-xs font-semibold transition-all"
-            style={{background:position===pos.value?pos.color+'22':'#241f18',
+            style={{background:position===pos.value?pos.color+'22':'#faf8f5',
                     border:'2px solid '+(position===pos.value?pos.color:'#b8ae9e'),
                     color:position===pos.value?pos.color:'#6b5f4e'}}>
             {pos.label}

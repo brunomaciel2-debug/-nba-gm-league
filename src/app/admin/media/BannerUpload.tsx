@@ -35,7 +35,7 @@ export default function BannerUpload() {
           style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}}/>
         <button onClick={save} disabled={saving||!url}
           className="px-5 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40"
-          style={{background:saved?'#0a5a20':'#ffd040',color:saved?'#40e080':'#1a1610'}}>
+          style={{background:saved?'#0a5a20':'#ffd040',color:saved?'#40e080':'#eee8df'}}>
           {saving?'...':saved?'✓ Saved':'Set Banner'}
         </button>
         {current && (

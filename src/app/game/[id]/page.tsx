@@ -87,9 +87,9 @@ export default async function GamePage({ params }: { params: { id: string } }) {
         {[{t:home,sc:game.home_score,side:'home'},{t:away,sc:game.away_score,side:'away'}].map(({t,sc,side},i)=>(
           <div key={side} className="flex-1 p-6 text-center" style={i===0?{borderRight:'1px solid #3a3228'}:{}}>
             <div className="text-xs font-bold mb-1" style={{ color:'#'+t.color }}>{t.id}</div>
-            <div className="text-sm font-medium mb-2" style={{ color:'#e8e0d0' }}>{t.name}</div>
+            <div className="text-sm font-medium mb-2" style={{ color:'#1a1512' }}>{t.name}</div>
             <div className="text-5xl font-black"
-                 style={{ color: winner===side?'#e8e2d6':'#8a7a6a' }}>{sc??'—'}</div>
+                 style={{ color: winner===side?'#e8e2d6':'#5c554e' }}>{sc??'—'}</div>
           </div>
         ))}
       </div>

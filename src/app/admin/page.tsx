@@ -30,7 +30,7 @@ export default function AdminPage() {
           style={{ background:'#ddd7ca',border:'1px solid #d4cec3',outline:'none' }} />
         {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
         <button onClick={login} className="w-full py-3 rounded-xl font-bold text-sm"
-          style={{ background:'#3a3228',color:'#1e40af' }}>
+          style={{ background:'#d4cdc5',color:'#1e40af' }}>
           Enter Admin Panel →
         </button>
       </div>

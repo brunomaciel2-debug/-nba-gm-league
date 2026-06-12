@@ -103,13 +103,13 @@ export default function InboxPage() {
           </div>
           <div className="flex-1 overflow-y-auto">
             {profiles.map(p => {
-              const tc = p.teams?.color ? '#'+p.teams.color : '#6b6258'
+              const tc = p.teams?.color ? '#'+p.teams.color : '#5c554e'
               const isOnline = onlineUsers.has(p.id)
               const isSelected = thread?.id === p.id
               return (
                 <button key={p.id} onClick={() => setThread(p)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all"
-                  style={{background:isSelected?'#cec8be':'transparent',
+                  style={{background:isSelected?'#d4cdc5':'transparent',
                           borderBottom:'1px solid #ddd8ce'}}>
                   <div className="relative flex-shrink-0">
                     <div className="w-9 h-9 rounded-full overflow-hidden"
@@ -121,7 +121,7 @@ export default function InboxPage() {
                          </div>}
                     </div>
                     <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2"
-                         style={{background:isOnline?'#40e080':'#9c9088',borderColor:'#ede8df'}}></div>
+                         style={{background:isOnline?'#40e080':'#8a8279',borderColor:'#ede8df'}}></div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-semibold truncate" style={{color:'#1a1612'}}>
@@ -144,7 +144,7 @@ export default function InboxPage() {
               <div className="flex items-center gap-3 px-4 py-3"
                    style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
                 <div className="w-8 h-8 rounded-full overflow-hidden"
-                     style={{background:'#cec8be'}}>
+                     style={{background:'#d4cdc5'}}>
                   {thread.teams?.logo_url
                     ?<img src={thread.teams.logo_url} alt="" className="w-full h-full object-contain p-1"/>
                     :<div className="w-full h-full flex items-center justify-center text-xs font-black"
@@ -154,7 +154,7 @@ export default function InboxPage() {
                   <div className="font-semibold text-sm" style={{color:'#1a1612'}}>
                     {thread.display_name||thread.teams?.name}
                   </div>
-                  <div className="text-xs" style={{color:onlineUsers.has(thread.id)?'#40e080':'#9c9088'}}>
+                  <div className="text-xs" style={{color:onlineUsers.has(thread.id)?'#40e080':'#8a8279'}}>
                     {onlineUsers.has(thread.id)?'🟢 Online':'⚫ Offline'}
                   </div>
                 </div>
@@ -179,7 +179,7 @@ export default function InboxPage() {
                           </div>
                         )}
                         <div className="px-4 py-2.5 rounded-2xl text-sm"
-                             style={{background:isMe?'#1e3a5f':'#cec8be',
+                             style={{background:isMe?'#1e3a5f':'#d4cdc5',
                                      color:'#1a1612',
                                      borderBottomRightRadius:isMe?4:undefined,
                                      borderBottomLeftRadius:!isMe?4:undefined}}>

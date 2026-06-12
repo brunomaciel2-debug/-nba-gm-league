@@ -55,7 +55,7 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
 
   const Th = ({ k, label }: { k:string, label:string }) => (
     <th className="px-3 py-2.5 text-left cursor-pointer select-none whitespace-nowrap"
-        style={{color:sortKey===k?'#F5A623':'#6b6258',fontSize:11,fontWeight:600,letterSpacing:'0.5px',
+        style={{color:sortKey===k?'#F5A623':'#5c554e',fontSize:11,fontWeight:600,letterSpacing:'0.5px',
                 background:'#ddd7ca',borderBottom:'1px solid #ddd8ce'}}
         onClick={()=>toggleSort(k)}>
       {label}{sortKey===k&&<span className="ml-1">{sortDir==='asc'?'↑':'↓'}</span>}
@@ -71,9 +71,9 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
         {['all','head_coach','assistant_coach','trainer','physio'].map(f=>(
           <button key={f} onClick={()=>setFilter(f)}
             className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-            style={{background:filter===f?'#1f2937':'#ede8df',
-                    color:filter===f?'#1c1917':'#6b6258',
-                    border:'1px solid '+(filter===f?'#3d3731':'#cec8be')}}>
+            style={{background:filter===f?'#2d2722':'#ede8df',
+                    color:filter===f?'#1a1512':'#5c554e',
+                    border:'1px solid '+(filter===f?'#2d2722':'#d4cdc5')}}>
             {f==='all'?'All Roles':f.replace(/_/g,' ').replace(/\w/g,(c:string)=>c.toUpperCase())}
           </button>
         ))}
@@ -108,9 +108,9 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
               {sorted.length===0 ? (
                 <tr><td colSpan={12} className="px-4 py-8 text-center" style={{color:'#9c8e7a'}}>No staff available.</td></tr>
               ) : sorted.map((c:any, i:number) => {
-                const rc = ROLE_COLORS[c.role]||'#6b6258'
+                const rc = ROLE_COLORS[c.role]||'#5c554e'
                 const attr = mainAttr(c)
-                const attrColor = attr>=80?'#ffd040':attr>=70?'#40e080':attr>=60?'#60a0ff':'#6b6258'
+                const attrColor = attr>=80?'#ffd040':attr>=70?'#40e080':attr>=60?'#60a0ff':'#5c554e'
                 return (
                   <tr key={c.id} style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #ddd8ce'}}>
                     <td className="px-3 py-2.5">
@@ -119,17 +119,17 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
                     </td>
                     <td className="px-3 py-2.5" style={{color:'#6b5f4e'}}>{c.age||'—'}<span className="ml-0.5" style={{color:'#b8ae9e',fontSize:10}}>{c.nationality?` ${c.nationality}`:''}</span></td>
                     {(filter==='all'||isCoach(filter)) && <>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_adjustment>=75?'#ffa040':'#6b6258'}}>{c.off_adjustment||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_adjustment>=75?'#40e080':'#6b6258'}}>{c.def_adjustment||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_development>=75?'#ffa040':'#6b6258'}}>{c.off_development||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_development>=75?'#40e080':'#6b6258'}}>{c.def_development||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_adjustment>=75?'#ffa040':'#5c554e'}}>{c.off_adjustment||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_adjustment>=75?'#40e080':'#5c554e'}}>{c.def_adjustment||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_development>=75?'#ffa040':'#5c554e'}}>{c.off_development||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_development>=75?'#40e080':'#5c554e'}}>{c.def_development||'—'}</td>
                     </>}
                     {(filter==='all'||filter==='trainer') && <>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.conditioning>=75?'#40e080':'#6b6258'}}>{c.conditioning||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.recovery_boost>=75?'#60a0ff':'#6b6258'}}>{c.recovery_boost||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.injury_prevent>=75?'#ffd040':'#6b6258'}}>{c.injury_prevent||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.conditioning>=75?'#40e080':'#5c554e'}}>{c.conditioning||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.recovery_boost>=75?'#60a0ff':'#5c554e'}}>{c.recovery_boost||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.injury_prevent>=75?'#ffd040':'#5c554e'}}>{c.injury_prevent||'—'}</td>
                     </>}
-                    {(filter==='all'||filter==='physio') && <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.rehab_speed>=75?'#c040ff':'#6b6258'}}>{c.rehab_speed||'—'}</td>}
+                    {(filter==='all'||filter==='physio') && <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.rehab_speed>=75?'#c040ff':'#5c554e'}}>{c.rehab_speed||'—'}</td>}
                     <td className="px-3 py-2.5 text-center">
                       <span className="font-black" style={{color:attrColor}}>{attr}</span>
                     </td>
@@ -214,9 +214,9 @@ export default function TradeCenterPage() {
         ].map((t:any)=>(
           <button key={t.key} onClick={()=>setTab(t.key)}
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-            style={{background:tab===t.key?'#cec8be':'#ede8df',
-                    color:tab===t.key?'#1c1917':'#6b6258',
-                    border:'1px solid '+(tab===t.key?'#9c9088':'#cec8be')}}>
+            style={{background:tab===t.key?'#d4cdc5':'#ede8df',
+                    color:tab===t.key?'#1a1512':'#5c554e',
+                    border:'1px solid '+(tab===t.key?'#8a8279':'#d4cdc5')}}>
             {t.label}
           </button>
         ))}
@@ -239,13 +239,13 @@ export default function TradeCenterPage() {
                   const tbPlayerIds = new Set(tradeBlock.filter(tb=>tb.teams?.id===t.id).map(tb=>tb.players?.id))
                   return (
                     <div key={t.id} className="rounded-xl overflow-hidden"
-                         style={{border:'1px solid '+(isMyTeam?tc+'55':'#cec8be')}}>
+                         style={{border:'1px solid '+(isMyTeam?tc+'55':'#d4cdc5')}}>
                       {/* Team header — clickable */}
                       <Link href={`/team/${t.id}`} className="no-underline">
                         <div className="flex items-center gap-2 px-4 py-3 transition-all hover:brightness-125"
                              style={{background:'#ede8de',borderBottom:tbPlayerIds.size>0?'1px solid #3a3228':'none'}}>
                           {t.logo_url && <img src={t.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
-                          <span className="font-bold text-sm flex-1" style={{color:isMyTeam?tc:'#1c1917'}}>{t.name}</span>
+                          <span className="font-bold text-sm flex-1" style={{color:isMyTeam?tc:'#1a1512'}}>{t.name}</span>
                           {isMyTeam && <span className="text-xs" style={{color:tc}}>Your Team</span>}
                         </div>
                       </Link>

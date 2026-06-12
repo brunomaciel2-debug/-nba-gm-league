@@ -32,7 +32,7 @@ export default async function CoachesAdminPage() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold" style={{color:'#1a1612'}}>🎯 Coaching Staff — All Teams</h1>
-        <Link href="/admin" className="text-xs px-3 py-1.5 rounded-lg no-underline" style={{background:'#3a3228',color:'#6b5f4e'}}>← Admin</Link>
+        <Link href="/admin" className="text-xs px-3 py-1.5 rounded-lg no-underline" style={{background:'#d4cdc5',color:'#6b5f4e'}}>← Admin</Link>
       </div>
 
       {/* Teams */}
@@ -57,28 +57,28 @@ export default async function CoachesAdminPage() {
                   </thead>
                   <tbody>
                     {staff.map((c:any,i:number)=>{
-                      const rc = ROLE_COLORS[c.role]||'#8a7a6a'
+                      const rc = ROLE_COLORS[c.role]||'#5c554e'
                       const pers = personality(c.personality||5)
                       return (
                         <tr key={c.id} style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #ddd8ce'}}>
                           <td className="px-2 py-1.5 font-semibold" style={{color:rc,whiteSpace:'nowrap'}}>{c.role.replace('_',' ')}</td>
                           <td className="px-2 py-1.5 font-semibold" style={{color:'#1a1612',whiteSpace:'nowrap'}}>{c.name}</td>
-                          <td className="px-2 py-1.5 text-center" style={{color:c.off_adjustment>=80?'#ffd040':'#8a7a6a'}}>{c.off_adjustment||'—'}</td>
-                          <td className="px-2 py-1.5 text-center" style={{color:c.def_adjustment>=80?'#40e080':'#8a7a6a'}}>{c.def_adjustment||'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:c.off_adjustment>=80?'#ffd040':'#5c554e'}}>{c.off_adjustment||'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:c.def_adjustment>=80?'#40e080':'#5c554e'}}>{c.def_adjustment||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.substitutions||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.timeout_mgmt||'—'}</td>
-                          <td className="px-2 py-1.5 text-center" style={{color:c.off_development>=80?'#ffa040':'#8a7a6a'}}>{c.off_development||'—'}</td>
-                          <td className="px-2 py-1.5 text-center" style={{color:c.def_development>=80?'#40e080':'#8a7a6a'}}>{c.def_development||'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:c.off_development>=80?'#ffa040':'#5c554e'}}>{c.off_development||'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:c.def_development>=80?'#40e080':'#5c554e'}}>{c.def_development||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.tactical_dev||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.physical_dev||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.mental_dev||'—'}</td>
                           <td className="px-2 py-1.5 text-center" style={{color:'#c2410c',whiteSpace:'nowrap'}}>{c.pref_atk_style?ATK[c.pref_atk_style]:'—'}</td>
                           <td className="px-2 py-1.5 text-center" style={{color:'#166534',whiteSpace:'nowrap'}}>{c.pref_def_style?DEF[c.pref_def_style]:'—'}</td>
                           <td className="px-2 py-1.5 text-center font-semibold" style={{color:pers.color}}>{c.personality||'—'}</td>
-                          <td className="px-2 py-1.5 text-center" style={{color:c.conditioning>=80?'#40e080':'#8a7a6a'}}>{c.conditioning||'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:c.conditioning>=80?'#40e080':'#5c554e'}}>{c.conditioning||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.recovery_boost||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.injury_prevent||'—'}</td>
-                          <td className="px-2 py-1.5 text-center" style={{color:c.rehab_speed>=80?'#c040ff':'#8a7a6a'}}>{c.rehab_speed||'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:c.rehab_speed>=80?'#c040ff':'#5c554e'}}>{c.rehab_speed||'—'}</td>
                         </tr>
                       )
                     })}
@@ -94,7 +94,7 @@ export default async function CoachesAdminPage() {
       <h2 className="text-sm font-bold mb-4" style={{color:'#1a1612'}}>🆓 Free Agent Staff ({freeAgents.length})</h2>
       <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3">
         {freeAgents.map((c:any)=>{
-          const rc=ROLE_COLORS[c.role]||'#8a7a6a'
+          const rc=ROLE_COLORS[c.role]||'#5c554e'
           return (
             <div key={c.id} className="rounded-xl p-3" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
               <div className="text-xs font-semibold mb-0.5" style={{color:rc}}>{c.role.replace('_',' ')}</div>

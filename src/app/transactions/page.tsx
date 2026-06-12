@@ -26,7 +26,7 @@ export default async function TransactionsPage() {
       ) : (
         <div className="flex flex-col gap-3">
           {(txs||[]).map((tx:Transaction) => {
-            const style = TYPE_STYLE[tx.type] || { bg:'#2a2218', color:'#6b5f4e' }
+            const style = TYPE_STYLE[tx.type] || { bg:'#f0ece5', color:'#6b5f4e' }
             return (
               <div key={tx.id} className="rounded-xl px-5 py-4"
                    style={{ background:'#e8e2d6', border:'1px solid #d4cec3' }}>

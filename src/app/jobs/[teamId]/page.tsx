@@ -93,7 +93,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
                 <span className="text-xs flex-1 font-semibold" style={{color:'#1a1612'}}>{p.name}</span>
                 {(() => {
                   const ovr = calcOvr(p)
-                  const c = ovr>=85?'#ffd040':ovr>=75?'#40e080':ovr>=65?'#60a0ff':'#6b6258'
+                  const c = ovr>=85?'#ffd040':ovr>=75?'#40e080':ovr>=65?'#60a0ff':'#5c554e'
                   return <span className="text-xs font-black w-6 text-right" style={{color:c}}>{ovr}</span>
                 })()}
                 <span className="text-xs" style={{color:'#6b5f4e'}}>{capFmt(p.contracts?.[0]?.salary || 0)}</span>

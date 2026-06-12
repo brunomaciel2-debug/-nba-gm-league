@@ -98,8 +98,8 @@ export default function AllStarPage() {
               <span className="text-xs px-3 py-1.5 rounded-full" style={{background:'#e8e2d6',color:'#6b5f4e'}}>Loading...</span>
             ) : (
               <span className="text-xs px-3 py-1.5 rounded-full font-semibold inline-block"
-                    style={{background:votingOpen?'#0a2a10':votingClosed?'#2a0a0a':'#241f18',
-                            color:votingOpen?'#40e080':votingClosed?'#e04040':'#8a7a6a'}}>
+                    style={{background:votingOpen?'#0a2a10':votingClosed?'#2a0a0a':'#faf8f5',
+                            color:votingOpen?'#40e080':votingClosed?'#e04040':'#5c554e'}}>
                 {votingOpen?'🗳️ Voting Open':votingClosed?'🔒 Voting Closed':`Opens Week ${VOTING_OPENS}`}
               </span>
             )}
@@ -126,8 +126,8 @@ export default function AllStarPage() {
             {[{k:'vote',l:'🗳️ Cast Votes'},{k:'results',l:'📊 Roster'}].map((t:any)=>(
               <button key={t.k} onClick={()=>setTab(t.k)}
                 className="px-4 py-2 rounded-lg text-sm font-semibold"
-                style={{background:tab===t.k?'#3a3228':'#241f18',color:tab===t.k?'#f0ebe0':'#8a7a6a',
-                        border:'1px solid '+(tab===t.k?'#5a4a3a':'#3a3228')}}>
+                style={{background:tab===t.k?'#d4cdc5':'#faf8f5',color:tab===t.k?'#1a1512':'#5c554e',
+                        border:'1px solid '+(tab===t.k?'#d4cdc5':'#d4cdc5')}}>
                 {t.l}
               </button>
             ))}
@@ -161,7 +161,7 @@ export default function AllStarPage() {
                     <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
-                <span className="text-xs font-bold" style={{color:totalVotes===20?'#40e080':'#8a7a6a'}}>{totalVotes}/20</span>
+                <span className="text-xs font-bold" style={{color:totalVotes===20?'#40e080':'#5c554e'}}>{totalVotes}/20</span>
               </div>
               {CONFS.map(conf=>(
                 <div key={conf} className="mb-8">
@@ -173,7 +173,7 @@ export default function AllStarPage() {
                       <div key={pos} className="mb-3 rounded-xl overflow-hidden" style={{border:'1px solid #d4cec3'}}>
                         <div className="px-4 py-2 flex justify-between" style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
                           <span className="font-bold" style={{color:'#1a1612'}}>{pos}</span>
-                          <span className="text-xs" style={{color:sel.length===2?'#40e080':'#8a7a6a'}}>{sel.length}/2</span>
+                          <span className="text-xs" style={{color:sel.length===2?'#40e080':'#5c554e'}}>{sel.length}/2</span>
                         </div>
                         {pool.length===0?(
                           <div className="p-4 text-xs text-center" style={{color:'#6b5f4e'}}>
@@ -187,14 +187,14 @@ export default function AllStarPage() {
                                 <button key={p.id} onClick={()=>toggleVote(conf,pos,p.id)}
                                   disabled={!isSel&&sel.length>=2}
                                   className="flex flex-col items-center p-2 rounded-lg transition-all disabled:opacity-40"
-                                  style={{background:isSel?'#2a2000':'#241f18',border:'1px solid '+(isSel?'#ffd040':'#3a3228')}}>
+                                  style={{background:isSel?'#2a2000':'#faf8f5',border:'1px solid '+(isSel?'#ffd040':'#d4cdc5')}}>
                                   <div className="w-10 h-10 rounded-full overflow-hidden mb-1" style={{background:tc+'22'}}>
                                     {p.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
                                       :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>
                                          {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                                        </div>}
                                   </div>
-                                  <div className="text-xs font-semibold" style={{color:isSel?'#ffd040':'#f0ebe0'}}>
+                                  <div className="text-xs font-semibold" style={{color:isSel?'#ffd040':'#1a1512'}}>
                                     {p.name.split(' ').slice(-1)[0]}
                                   </div>
                                   <div className="text-xs" style={{color:'#6b5f4e'}}>{p.ppg}pts</div>
@@ -237,7 +237,7 @@ export default function AllStarPage() {
                         const p=r.players; const t=teams[p?.team_id]; const tc=readableTeamColor(t?.color||'555')
                         return (
                           <div key={r.id} className="rounded-xl p-3 text-center"
-                               style={{background:r.is_starter?'#2a2000':'#241f18',border:'1px solid '+(r.is_starter?'#ffd040':'#3a3228')}}>
+                               style={{background:r.is_starter?'#2a2000':'#faf8f5',border:'1px solid '+(r.is_starter?'#ffd040':'#d4cdc5')}}>
                             {r.is_starter&&<div className="text-xs font-bold mb-1" style={{color:'#b45309'}}>⭐ STARTER</div>}
                             <div className="w-12 h-12 rounded-full overflow-hidden mx-auto mb-2" style={{background:tc+'22'}}>
                               {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
