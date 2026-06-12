@@ -152,10 +152,10 @@ export default async function AwardsPage({ searchParams }: { searchParams: { tab
   const awards = await getAwards(tab)
 
   // Group weekly by period
-  const weeklyPeriods = [...new Set(awards.filter(a=>a.award_type.startsWith('potw')).map((a:any)=>a.period))]
+  const weeklyPeriods = Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potw')).map((a:any)=>a.period)))
     .sort((a,b) => parseInt(b.split('_')[1]||'0') - parseInt(a.split('_')[1]||'0'))
 
-  const monthlyPeriods = [...new Set(awards.filter(a=>a.award_type.startsWith('potm')).map((a:any)=>a.period))]
+  const monthlyPeriods = Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potm')).map((a:any)=>a.period)))
     .sort((a,b) => parseInt(b.split('_')[1]||'0') - parseInt(a.split('_')[1]||'0'))
 
   return (
