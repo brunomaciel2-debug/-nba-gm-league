@@ -80,11 +80,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   const team = p.teams as any
   const teamColor = '#'+(team?.color||'3a8adf')
 
-  const ovr = Math.round(
-    (p.usage*.15 + p.siq*.12 + p.consistency*.10 + p.pressure*.08 +
-    (p.layup+p.dunk)/2*.10 + p.three*.08 + p.idef*.08 + p.pdef*.07 +
-    p.stamina*.05 + p.ball_hdl*.07 + p.pass_iq*.05 + p.def_reb*.05)
-  )
+  const ovr = calcOvr(p)
 
   const capFmt = (n:number) => n ? '$'+(n/1000000).toFixed(2)+'M' : '—'
   const pct    = (m:number,a:number) => a>0?(m/a*100).toFixed(1)+'%':'—'
