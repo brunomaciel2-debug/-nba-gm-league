@@ -68,10 +68,10 @@ export default function StandingsPage() {
         <td className="px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-xs w-5 text-right font-bold"
-                  style={{ color: isPlayoff?'#40e080':'#5c554e' }}>{rank}</span>
+                  style={{ color: isPlayoff?'#15803d':'#5c554e' }}>{rank}</span>
             <TeamLogo t={t} />
             <span className="font-semibold text-white text-sm">{t.name}</span>
-            {isPlayoff && <span className="text-xs px-1 rounded" style={{ background:'#dcfce7',color:'#166534' }}>P</span>}
+            {isPlayoff && <span className="text-xs px-1 rounded" style={{ background:'#15803d',color:'#fff' }}>P</span>}
             {showDiv && <span className="text-xs ml-1" style={{ color:'#9c8e7a' }}>{DIV_MAP[t.name]}</span>}
           </div>
         </td>
@@ -82,7 +82,7 @@ export default function StandingsPage() {
         <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.pts_for||'—'}</td>
         <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.pts_against||'—'}</td>
         <td className="px-3 py-2.5 text-right text-sm font-semibold"
-            style={{ color: diff>0?'#40e080':diff<0?'#e04040':'#5c554e' }}>
+            style={{ color: diff>0?'#15803d':diff<0?'#dc2626':'#5c554e' }}>
           {diff>0?'+':''}{diff||'—'}
         </td>
       </tr>
@@ -108,7 +108,7 @@ export default function StandingsPage() {
           {(['conference','division','league'] as View[]).map(v => (
             <button key={v} onClick={() => setView(v)}
               className="px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
-              style={{ background:view===v?'#d4cdc5':'transparent', color:view===v?'#60a0ff':'#5c554e' }}>
+              style={{ background:view===v?'#d4cdc5':'transparent', color:view===v?'#1d4ed8':'#5c554e' }}>
               {v}
             </button>
           ))}
@@ -119,7 +119,7 @@ export default function StandingsPage() {
       {view === 'conference' && ['Eastern','Western'].map(conf => (
         <div key={conf} className="mb-8">
           <h2 className="text-base font-bold mb-3"
-              style={{ color:conf==='Eastern'?'#e04040':'#3a8adf' }}>{conf} Conference</h2>
+              style={{ color:conf==='Eastern'?'#dc2626':'#1d4ed8' }}>{conf} Conference</h2>
           <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>
             <table className="w-full"><Head />
               <tbody>{byConf(conf).map((t,i) => <Row key={t.id} t={t} rank={i+1} />)}</tbody>
@@ -132,7 +132,7 @@ export default function StandingsPage() {
       {view === 'division' && ['Eastern','Western'].map(conf => (
         <div key={conf} className="mb-8">
           <h2 className="text-base font-bold mb-4"
-              style={{ color:conf==='Eastern'?'#e04040':'#3a8adf' }}>{conf} Conference</h2>
+              style={{ color:conf==='Eastern'?'#dc2626':'#1d4ed8' }}>{conf} Conference</h2>
           <div className="grid md:grid-cols-3 gap-4">
             {CONF_DIVS[conf].map(div => (
               <div key={div} className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>

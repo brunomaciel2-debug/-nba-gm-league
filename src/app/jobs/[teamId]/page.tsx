@@ -52,7 +52,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
           </div>
           <div className="text-center">
             <span className="text-sm font-bold px-4 py-2 rounded-full"
-                  style={{background:isOpen?'#0a2a10':'#2a0a0a',color:isOpen?'#40e080':'#e04040'}}>
+                  style={{background:isOpen?'#0a2a10':'#2a0a0a',color:isOpen?'#15803d':'#dc2626'}}>
               {isOpen ? '✅ Position Open' : '❌ Position Filled'}
             </span>
           </div>
@@ -93,7 +93,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
                 <span className="text-xs flex-1 font-semibold" style={{color:'#1a1612'}}>{p.name}</span>
                 {(() => {
                   const ovr = calcOvr(p)
-                  const c = ovr>=85?'#ffd040':ovr>=75?'#40e080':ovr>=65?'#60a0ff':'#5c554e'
+                  const c = ovr>=85?'#b45309':ovr>=75?'#15803d':ovr>=65?'#1d4ed8':'#5c554e'
                   return <span className="text-xs font-black w-6 text-right" style={{color:c}}>{ovr}</span>
                 })()}
                 <span className="text-xs" style={{color:'#6b5f4e'}}>{capFmt(p.contracts?.[0]?.salary || 0)}</span>
@@ -114,7 +114,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
             This franchise already has a GM. Check other available positions.
           </p>
           <Link href="/jobs" className="text-sm font-bold px-4 py-2 rounded-lg no-underline"
-                style={{background:'#3a8adf',color:'#e8e2d6'}}>
+                style={{background:'#1d4ed8',color:'#e8e2d6'}}>
             View All Vacancies
           </Link>
         </div>

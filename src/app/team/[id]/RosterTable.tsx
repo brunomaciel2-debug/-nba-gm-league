@@ -129,9 +129,9 @@ const ATTR_COLS = [
 ]
 
 function attrColor(v: number) {
-  if (v >= 90) return '#ffd040'
-  if (v >= 80) return '#40e080'
-  if (v >= 70) return '#60a0ff'
+  if (v >= 90) return '#b45309'
+  if (v >= 80) return '#15803d'
+  if (v >= 70) return '#1d4ed8'
   if (v >= 60) return '#1a1512'
   if (v >= 50) return '#5c554e'
   return '#5c554e'
@@ -200,7 +200,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
           {(['stats','attributes'] as Mode[]).map(m=>(
             <button key={m} onClick={()=>{setMode(m);setSortKey(m==='stats'?'ppg':'three');setSortDir('desc')}}
               className="px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
-              style={{background:mode===m?'#d4cdc5':'transparent',color:mode===m?'#60a0ff':'#5c554e'}}>
+              style={{background:mode===m?'#d4cdc5':'transparent',color:mode===m?'#1d4ed8':'#5c554e'}}>
               {m==='stats'?'📊 Stats':'⚡ Attributes'}
             </button>
           ))}

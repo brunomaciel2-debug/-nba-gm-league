@@ -32,7 +32,7 @@ export default function TeamPageTabs({
               background: tab === t.key ? '#2d2722' : '#ede8df',
               color: tab === t.key ? '#1a1512' : '#5c554e',
               border: '1px solid ' + (tab === t.key ? '#2d2722' : '#d4cdc5'),
-              borderBottom: tab === t.key ? '2px solid #F5A623' : '2px solid transparent'
+              borderBottom: tab === t.key ? '2px solid #b45309' : '2px solid transparent'
             }}>
             <i className={`ti ${t.icon}`} style={{ fontSize: 15 }} aria-hidden="true"></i>
             {t.label}

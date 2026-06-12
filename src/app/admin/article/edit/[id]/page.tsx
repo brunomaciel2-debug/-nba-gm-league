@@ -110,7 +110,7 @@ export default function EditArticlePage({ params }: { params: { id: string } }) 
           </label>
           <button onClick={save} disabled={saving}
             className="px-8 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40"
-            style={{background:saved?'#0a5a20':'#3a8adf',color:saved?'#40e080':'#e8e2d6'}}>
+            style={{background:saved?'#0a5a20':'#1d4ed8',color:saved?'#15803d':'#e8e2d6'}}>
             {saving?'Saving...':saved?'✓ Saved!':'Save Changes'}
           </button>
         </div>

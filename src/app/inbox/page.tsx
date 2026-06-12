@@ -89,7 +89,7 @@ export default function InboxPage() {
   )
   if (!user) return null
 
-  const teamColor = profile?.teams?.color ? '#'+profile.teams.color : '#3a8adf'
+  const teamColor = profile?.teams?.color ? '#'+profile.teams.color : '#1d4ed8'
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -121,7 +121,7 @@ export default function InboxPage() {
                          </div>}
                     </div>
                     <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2"
-                         style={{background:isOnline?'#40e080':'#8a8279',borderColor:'#ede8df'}}></div>
+                         style={{background:isOnline?'#15803d':'#8a8279',borderColor:'#ede8df'}}></div>
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-semibold truncate" style={{color:'#1a1612'}}>
@@ -144,7 +144,7 @@ export default function InboxPage() {
               <div className="flex items-center gap-3 px-4 py-3"
                    style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
                 <div className="w-8 h-8 rounded-full overflow-hidden"
-                     style={{background:'#d4cdc5'}}>
+                     style={{background:'#cec7bc'}}>
                   {thread.teams?.logo_url
                     ?<img src={thread.teams.logo_url} alt="" className="w-full h-full object-contain p-1"/>
                     :<div className="w-full h-full flex items-center justify-center text-xs font-black"
@@ -154,7 +154,7 @@ export default function InboxPage() {
                   <div className="font-semibold text-sm" style={{color:'#1a1612'}}>
                     {thread.display_name||thread.teams?.name}
                   </div>
-                  <div className="text-xs" style={{color:onlineUsers.has(thread.id)?'#40e080':'#8a8279'}}>
+                  <div className="text-xs" style={{color:onlineUsers.has(thread.id)?'#15803d':'#8a8279'}}>
                     {onlineUsers.has(thread.id)?'🟢 Online':'⚫ Offline'}
                   </div>
                 </div>
@@ -214,7 +214,7 @@ export default function InboxPage() {
                     style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}} />
                   <button onClick={sendMessage} disabled={sending||!newMsg.trim()}
                     className="px-4 py-2 rounded-xl font-bold text-sm disabled:opacity-40"
-                    style={{background:'#3a8adf',color:'#e8e2d6'}}>
+                    style={{background:'#1d4ed8',color:'#e8e2d6'}}>
                     {sending?'...':'Send'}
                   </button>
                 </div>

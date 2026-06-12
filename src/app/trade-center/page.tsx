@@ -14,7 +14,7 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc')
 
   const ROLE_COLORS: Record<string,string> = {
-    head_coach:'#ffd040', assistant_coach:'#60a0ff', trainer:'#40e080', physio:'#c040ff'
+    head_coach:'#b45309', assistant_coach:'#1d4ed8', trainer:'#15803d', physio:'#6d28d9'
   }
 
   const filtered = staff.filter((c:any) => filter==='all' || c.role===filter)
@@ -55,7 +55,7 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
 
   const Th = ({ k, label }: { k:string, label:string }) => (
     <th className="px-3 py-2.5 text-left cursor-pointer select-none whitespace-nowrap"
-        style={{color:sortKey===k?'#F5A623':'#5c554e',fontSize:11,fontWeight:600,letterSpacing:'0.5px',
+        style={{color:sortKey===k?'#b45309':'#5c554e',fontSize:11,fontWeight:600,letterSpacing:'0.5px',
                 background:'#ddd7ca',borderBottom:'1px solid #ddd8ce'}}
         onClick={()=>toggleSort(k)}>
       {label}{sortKey===k&&<span className="ml-1">{sortDir==='asc'?'↑':'↓'}</span>}
@@ -110,7 +110,7 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
               ) : sorted.map((c:any, i:number) => {
                 const rc = ROLE_COLORS[c.role]||'#5c554e'
                 const attr = mainAttr(c)
-                const attrColor = attr>=80?'#ffd040':attr>=70?'#40e080':attr>=60?'#60a0ff':'#5c554e'
+                const attrColor = attr>=80?'#b45309':attr>=70?'#15803d':attr>=60?'#1d4ed8':'#5c554e'
                 return (
                   <tr key={c.id} style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #ddd8ce'}}>
                     <td className="px-3 py-2.5">
@@ -119,17 +119,17 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
                     </td>
                     <td className="px-3 py-2.5" style={{color:'#6b5f4e'}}>{c.age||'—'}<span className="ml-0.5" style={{color:'#b8ae9e',fontSize:10}}>{c.nationality?` ${c.nationality}`:''}</span></td>
                     {(filter==='all'||isCoach(filter)) && <>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_adjustment>=75?'#ffa040':'#5c554e'}}>{c.off_adjustment||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_adjustment>=75?'#40e080':'#5c554e'}}>{c.def_adjustment||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_development>=75?'#ffa040':'#5c554e'}}>{c.off_development||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_development>=75?'#40e080':'#5c554e'}}>{c.def_development||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_adjustment>=75?'#b45309':'#5c554e'}}>{c.off_adjustment||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_adjustment>=75?'#15803d':'#5c554e'}}>{c.def_adjustment||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.off_development>=75?'#b45309':'#5c554e'}}>{c.off_development||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.def_development>=75?'#15803d':'#5c554e'}}>{c.def_development||'—'}</td>
                     </>}
                     {(filter==='all'||filter==='trainer') && <>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.conditioning>=75?'#40e080':'#5c554e'}}>{c.conditioning||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.recovery_boost>=75?'#60a0ff':'#5c554e'}}>{c.recovery_boost||'—'}</td>
-                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.injury_prevent>=75?'#ffd040':'#5c554e'}}>{c.injury_prevent||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.conditioning>=75?'#15803d':'#5c554e'}}>{c.conditioning||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.recovery_boost>=75?'#1d4ed8':'#5c554e'}}>{c.recovery_boost||'—'}</td>
+                      <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.injury_prevent>=75?'#b45309':'#5c554e'}}>{c.injury_prevent||'—'}</td>
                     </>}
-                    {(filter==='all'||filter==='physio') && <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.rehab_speed>=75?'#c040ff':'#5c554e'}}>{c.rehab_speed||'—'}</td>}
+                    {(filter==='all'||filter==='physio') && <td className="px-3 py-2.5 text-center font-semibold" style={{color:c.rehab_speed>=75?'#6d28d9':'#5c554e'}}>{c.rehab_speed||'—'}</td>}
                     <td className="px-3 py-2.5 text-center">
                       <span className="font-black" style={{color:attrColor}}>{attr}</span>
                     </td>
@@ -182,7 +182,7 @@ export default function TradeCenterPage() {
   const capFmt = (n:number) => n>=1000000?'$'+(n/1000000).toFixed(1)+'M':'$'+n?.toLocaleString()
 
   const ROLE_COLORS: Record<string,string> = {
-    head_coach:'#ffd040',assistant_coach:'#60a0ff',trainer:'#40e080',physio:'#c040ff'
+    head_coach:'#b45309',assistant_coach:'#1d4ed8',trainer:'#15803d',physio:'#6d28d9'
   }
 
   const filteredStaff = freeStaff.filter(c =>
@@ -201,7 +201,7 @@ export default function TradeCenterPage() {
         </div>
         {!user && (
           <Link href="/login" className="no-underline px-4 py-2 rounded-lg text-sm font-bold"
-                style={{background:'#3a8adf',color:'#e8e2d6'}}>Sign In to Trade</Link>
+                style={{background:'#1d4ed8',color:'#e8e2d6'}}>Sign In to Trade</Link>
         )}
       </div>
 
@@ -268,7 +268,7 @@ export default function TradeCenterPage() {
                         <div className="px-4 py-2" style={{borderTop:'1px solid #2a2218'}}>
                           <Link href={`/trade-center/propose?to=${t.id}`}
                                 className="block text-center text-xs font-semibold py-1.5 rounded-lg no-underline"
-                                style={{background:'#dbeafe',color:'#1e40af'}}>
+                                style={{background:'#1d4ed8',color:'#fff'}}>
                             Propose Trade →
                           </Link>
                         </div>
@@ -302,7 +302,7 @@ export default function TradeCenterPage() {
                 {user && myTeamId && (
                   <Link href="/trade-center/manage-block"
                         className="text-xs px-3 py-1.5 rounded-lg no-underline font-semibold"
-                        style={{background:'#dbeafe',color:'#1e40af'}}>
+                        style={{background:'#1d4ed8',color:'#fff'}}>
                     Manage My Block →
                   </Link>
                 )}

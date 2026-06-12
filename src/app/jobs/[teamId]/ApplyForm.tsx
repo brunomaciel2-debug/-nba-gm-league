@@ -57,7 +57,7 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
       <div className="flex gap-3">
         <button onClick={() => setStep('form')}
           className="px-6 py-2.5 rounded-xl font-bold text-sm"
-          style={{background:'#40e080',color:'#0a2a10'}}>
+          style={{background:'#15803d',color:'#0a2a10'}}>
           Apply for the Job →
         </button>
         <Link href="/jobs"
@@ -80,7 +80,7 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
         You'll receive an email once your application is reviewed. If approved, you'll get your login credentials.
       </p>
       <Link href="/jobs" className="text-sm font-bold px-4 py-2 rounded-lg no-underline"
-            style={{background:'#3a8adf',color:'#e8e2d6'}}>
+            style={{background:'#1d4ed8',color:'#e8e2d6'}}>
         Browse Other Vacancies
       </Link>
     </div>
@@ -134,7 +134,7 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
       <div className="flex gap-3">
         <button onClick={submit} disabled={submitting}
           className="px-6 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40"
-          style={{background:'#ffd040',color:'#eee8df'}}>
+          style={{background:'#b45309',color:'#eee8df'}}>
           {submitting ? 'Submitting...' : 'Submit Application'}
         </button>
         <button onClick={() => setStep('intro')}

@@ -38,7 +38,7 @@ export default function AdminMediaPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       {/* BANNER UPLOAD */}
-      <div className="rounded-xl p-5 mb-6" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #ffd040'}}>
+      <div className="rounded-xl p-5 mb-6" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #b45309'}}>
         <h2 className="text-sm font-bold mb-1" style={{color:'#b45309'}}>🖼️ Site Banner</h2>
         <p className="text-xs mb-3" style={{color:'#6b5f4e'}}>Recommended size: 1200×280px · JPG or PNG · Used at top of homepage</p>
         <BannerUpload />
@@ -55,7 +55,7 @@ export default function AdminMediaPage() {
           <button key={t} onClick={()=>setTab(t)}
             className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all"
             style={{ background:tab===t?'#d4cdc5':'#faf8f5',
-                     color:tab===t?'#60a0ff':'#5c554e',
+                     color:tab===t?'#1d4ed8':'#5c554e',
                      border:'1px solid '+(tab===t?'#3a6a9f':'#d4cdc5') }}>
             {t==='logos'?'🏀 Team Logos':'👤 Player Photos'}
           </button>
@@ -90,7 +90,7 @@ export default function AdminMediaPage() {
                 />
               </div>
               <span className="text-xs flex-shrink-0 w-16 text-center"
-                    style={{ color:saved===team.id?'#40e080':saving===team.id?'#5c554e':'transparent' }}>
+                    style={{ color:saved===team.id?'#15803d':saving===team.id?'#5c554e':'transparent' }}>
                 {saved===team.id?'✓ Saved':saving===team.id?'Saving...':''}
               </span>
             </div>
@@ -146,7 +146,7 @@ export default function AdminMediaPage() {
                     />
                   </div>
                   <span className="text-xs flex-shrink-0 w-16 text-center"
-                        style={{ color:saved===p.id?'#40e080':saving===p.id?'#5c554e':'transparent' }}>
+                        style={{ color:saved===p.id?'#15803d':saving===p.id?'#5c554e':'transparent' }}>
                     {saved===p.id?'✓ Saved':saving===p.id?'Saving...':''}
                   </span>
                 </div>

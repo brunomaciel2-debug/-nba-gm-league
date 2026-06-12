@@ -60,7 +60,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
             <div className="text-sm" style={{color:'#6b5f4e'}}>{t.arena} · {t.city}</div>
           </div>
           <div className="flex gap-6">
-            {[{v:wins,l:'W',c:'#40e080'},{v:losses,l:'L',c:'#e04040'},{v:pct,l:'PCT',c:'#1a1512'}].map(x=>(
+            {[{v:wins,l:'W',c:'#15803d'},{v:losses,l:'L',c:'#dc2626'},{v:pct,l:'PCT',c:'#1a1512'}].map(x=>(
               <div key={x.l} className="text-center">
                 <div className="text-3xl font-black" style={{color:x.c}}>{x.v}</div>
                 <div className="text-xs" style={{color:'#6b5f4e'}}>{x.l}</div>
@@ -78,13 +78,13 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
             <span style={{color:'#6b5f4e'}}>Used</span>
             <span className="font-bold" style={{color:'#1a1612'}}>{capFmt(used)}</span>
           </div>
-          <div className="h-2 rounded-full overflow-hidden mb-1" style={{background:'#d4cdc5'}}>
+          <div className="h-2 rounded-full overflow-hidden mb-1" style={{background:'#cec7bc'}}>
             <div className="h-full rounded-full" style={{width:Math.min(100,used/cap*100)+'%',
-              background:space>0?'#3a8adf':'#e04040'}}></div>
+              background:space>0?'#1d4ed8':'#dc2626'}}></div>
           </div>
           <div className="flex justify-between text-xs">
             <span style={{color:'#6b5f4e'}}>Cap: {capFmt(cap)}</span>
-            <span className="font-bold" style={{color:space>0?'#40e080':'#e04040'}}>
+            <span className="font-bold" style={{color:space>0?'#15803d':'#dc2626'}}>
               {space>0?'Space: +'+capFmt(space):'Over: '+capFmt(Math.abs(space))}
             </span>
           </div>

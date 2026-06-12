@@ -9,7 +9,7 @@ const POSITIONS = [
     label: '📌 Featured Left',
     desc: 'Left column highlight below the hero. Good for important news, injury reports, trade summaries.',
     preview: 'Left column · Below hero · 1 article max',
-    color: '#60a0ff',
+    color: '#1d4ed8',
     bg: '#0a1a3a',
   },
   {
@@ -17,7 +17,7 @@ const POSITIONS = [
     label: '📌 Featured Right',
     desc: 'Right column highlight below the hero. Good for standings updates, weekly recaps, GM moves.',
     preview: 'Right column · Below hero · 1 article max',
-    color: '#40e080',
+    color: '#15803d',
     bg: '#0a2a10',
   },
   {
@@ -107,8 +107,8 @@ export default function NewArticlePage() {
           {/* Hero */}
           <div className="rounded-lg mb-2 p-2 text-center text-xs font-semibold"
                style={{background:position==='hero'?'#2a2000':'#ede8df',
-                       border:'1px solid '+(position==='hero'?'#ffd040':'#d4cdc5'),
-                       color:position==='hero'?'#ffd040':'#a89f97',height:48,
+                       border:'1px solid '+(position==='hero'?'#b45309':'#d4cdc5'),
+                       color:position==='hero'?'#b45309':'#a89f97',height:48,
                        display:'flex',alignItems:'center',justifyContent:'center'}}>
             🏆 Hero Banner {position==='hero'&&'← This article'}
           </div>
@@ -191,7 +191,7 @@ export default function NewArticlePage() {
           </label>
           <button onClick={save} disabled={saving}
             className="px-8 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 transition-all"
-            style={{background:saved?'#0a5a20':'#3a8adf',color:saved?'#40e080':'#e8e2d6'}}>
+            style={{background:saved?'#0a5a20':'#1d4ed8',color:saved?'#15803d':'#e8e2d6'}}>
             {saving?'Saving...':saved?'✓ Saved!':'Save Article'}
           </button>
         </div>

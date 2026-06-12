@@ -9,11 +9,11 @@ const SEVERITY_STYLE: Record<string,{color:string,bg:string,label:string}> = {
 }
 
 const HEALTH_STYLE = (h: number) => {
-  if (h >= 90) return { color:'#166534', label:'Healthy',      bar:'#40e080' }
+  if (h >= 90) return { color:'#166534', label:'Healthy',      bar:'#15803d' }
   if (h >= 80) return { color:'#a0e040', label:'Good',         bar:'#a0e040' }
-  if (h >= 65) return { color:'#b45309', label:'Limited',      bar:'#ffd040' }
-  if (h >= 50) return { color:'#c2410c', label:'Questionable', bar:'#ffa040' }
-  return              { color:'#dc2626', label:'Out',           bar:'#e04040' }
+  if (h >= 65) return { color:'#b45309', label:'Limited',      bar:'#b45309' }
+  if (h >= 50) return { color:'#c2410c', label:'Questionable', bar:'#b45309' }
+  return              { color:'#dc2626', label:'Out',           bar:'#dc2626' }
 }
 
 const PLAY_STATUS = (health: number, canPlay: boolean) => {
@@ -72,7 +72,7 @@ export default function InjuryReport({ injuries, players }: {
                    style={{background:sev.bg,borderBottom:'1px solid '+sev.color+'33'}}>
                 {/* Photo or initials */}
                 <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0"
-                     style={{background:'#d4cdc5'}}>
+                     style={{background:'#cec7bc'}}>
                   {p?.photo_url
                     ?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
                     :<div className="w-full h-full flex items-center justify-center text-xs font-black"
@@ -103,7 +103,7 @@ export default function InjuryReport({ injuries, players }: {
                   <div>
                     <div className="text-xs mb-1" style={{color:'#6b5f4e'}}>Health</div>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background:'#d4cdc5'}}>
+                      <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background:'#cec7bc'}}>
                         <div className="h-full rounded-full" style={{width:health+'%',background:hs.bar}}></div>
                       </div>
                       <span className="text-xs font-bold" style={{color:hs.color}}>{health}%</span>

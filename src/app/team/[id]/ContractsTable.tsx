@@ -12,10 +12,10 @@ function fmt(n: number) {
 }
 
 function barColor(pct: number) {
-  if (pct > 120) return '#e04040'
-  if (pct > 100) return '#ffa040'
-  if (pct > 85)  return '#ffd040'
-  return '#40e080'
+  if (pct > 120) return '#dc2626'
+  if (pct > 100) return '#b45309'
+  if (pct > 85)  return '#b45309'
+  return '#15803d'
 }
 
 export default function ContractsTable({ teamId, teamColor }: { teamId: string, teamColor: string }) {
@@ -64,8 +64,8 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
         {[
           { label: 'Total Committed', value: fmt(currentTotal), sub: '2025-26 season', color: barColor(capPct) },
-          { label: 'Cap Space', value: currentTotal < SALARY_CAP ? fmt(SALARY_CAP - currentTotal) : '—', sub: currentTotal > SALARY_CAP ? 'Over the cap' : 'Available', color: currentTotal > SALARY_CAP ? '#e04040' : '#40e080' },
-          { label: 'Luxury Tax', value: currentTotal > LUX_TAX ? '+' + fmt(currentTotal - LUX_TAX) : fmt(LUX_TAX - currentTotal) + ' away', sub: currentTotal > LUX_TAX ? 'Paying luxury tax' : 'Below tax line', color: currentTotal > LUX_TAX ? '#e04040' : '#5c554e' },
+          { label: 'Cap Space', value: currentTotal < SALARY_CAP ? fmt(SALARY_CAP - currentTotal) : '—', sub: currentTotal > SALARY_CAP ? 'Over the cap' : 'Available', color: currentTotal > SALARY_CAP ? '#dc2626' : '#15803d' },
+          { label: 'Luxury Tax', value: currentTotal > LUX_TAX ? '+' + fmt(currentTotal - LUX_TAX) : fmt(LUX_TAX - currentTotal) + ' away', sub: currentTotal > LUX_TAX ? 'Paying luxury tax' : 'Below tax line', color: currentTotal > LUX_TAX ? '#dc2626' : '#5c554e' },
         ].map(card => (
           <div key={card.label} className="rounded-xl p-4" style={{ background: '#e8e2d6', border: '1px solid #3a3228' }}>
             <div className="text-xs mb-1" style={{ color: '#5c554e' }}>{card.label}</div>
@@ -88,7 +88,7 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
         <div className="flex justify-between text-xs mt-1" style={{ color: '#a89f97' }}>
           <span>$0</span>
           <span>Cap ${(SALARY_CAP / 1000000).toFixed(0)}M</span>
-          <span style={{ color: '#ffa040' }}>Tax ${(LUX_TAX / 1000000).toFixed(0)}M</span>
+          <span style={{ color: '#b45309' }}>Tax ${(LUX_TAX / 1000000).toFixed(0)}M</span>
         </div>
       </div>
 
@@ -102,7 +102,7 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
                 <th className="px-3 py-3 text-center w-12" style={{ color: '#5c554e', background: '#ddd7ca', borderBottom: '1px solid #2a2218' }}>Pos</th>
                 {SEASONS.map((s, i) => (
                   <th key={s} className="px-4 py-3 text-right whitespace-nowrap"
-                      style={{ color: i === 0 ? '#F5A623' : '#5c554e', background: '#ddd7ca', borderBottom: '1px solid #2a2218', minWidth: 100 }}>
+                      style={{ color: i === 0 ? '#b45309' : '#5c554e', background: '#ddd7ca', borderBottom: '1px solid #2a2218', minWidth: 100 }}>
                     {s}{i === 0 ? ' ★' : ''}
                   </th>
                 ))}
@@ -120,10 +120,10 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
                     const isExpiring = !p.salaries[SEASONS[SEASONS.indexOf(s) + 1]]
                     return (
                       <td key={s} className="px-4 py-2.5 text-right font-semibold"
-                          style={{ color: sal ? (isExpiring && SEASONS.indexOf(s) < 4 ? '#ffd040' : '#2d2722') : '#d4cdc5' }}>
+                          style={{ color: sal ? (isExpiring && SEASONS.indexOf(s) < 4 ? '#b45309' : '#2d2722') : '#d4cdc5' }}>
                         {sal ? fmt(sal) : '—'}
                         {sal && isExpiring && SEASONS.indexOf(s) < 4 && (
-                          <span className="ml-1 text-xs" style={{ color: '#ffa040', fontSize: 9 }}>EXP</span>
+                          <span className="ml-1 text-xs" style={{ color: '#b45309', fontSize: 9 }}>EXP</span>
                         )}
                       </td>
                     )
@@ -133,13 +133,13 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
 
               {/* Totals row */}
               <tr style={{ background: '#0f1623', borderTop: '2px solid #2a3a5a' }}>
-                <td className="px-4 py-3 font-black sticky left-0" style={{ color: '#F5A623', background: '#0f1623' }}>
+                <td className="px-4 py-3 font-black sticky left-0" style={{ color: '#b45309', background: '#0f1623' }}>
                   TOTAL PAYROLL
                 </td>
                 <td className="px-3 py-3" style={{ background: '#0f1623' }}></td>
                 {SEASONS.map(s => (
                   <td key={s} className="px-4 py-3 text-right font-black"
-                      style={{ color: totals[s] > SALARY_CAP ? '#e04040' : totals[s] > SALARY_CAP * 0.9 ? '#ffa040' : '#F5A623' }}>
+                      style={{ color: totals[s] > SALARY_CAP ? '#dc2626' : totals[s] > SALARY_CAP * 0.9 ? '#b45309' : '#b45309' }}>
                     {fmt(totals[s])}
                   </td>
                 ))}
@@ -161,7 +161,7 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
                 {SEASONS.map(s => {
                   const diff = SALARY_CAP - (totals[s] || 0)
                   return (
-                    <td key={s} className="px-4 py-2 text-right font-semibold" style={{ fontSize: 11, color: diff >= 0 ? '#40e080' : '#e04040' }}>
+                    <td key={s} className="px-4 py-2 text-right font-semibold" style={{ fontSize: 11, color: diff >= 0 ? '#15803d' : '#dc2626' }}>
                       {diff >= 0 ? '+' : ''}{fmt(Math.abs(diff))}
                     </td>
                   )

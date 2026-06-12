@@ -31,11 +31,11 @@ export default function InboxButton() {
   return (
     <Link href="/inbox" className="relative no-underline">
       <div className="w-8 h-8 flex items-center justify-center rounded-full"
-           style={{background:'#d4cdc5'}}>
+           style={{background:'#cec7bc'}}>
         <span className="text-sm">✉️</span>
         {unread > 0 && (
           <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-xs font-black"
-                style={{background:'#e04040',color:'#fff',fontSize:9}}>
+                style={{background:'#dc2626',color:'#fff',fontSize:9}}>
             {unread > 9 ? '9+' : unread}
           </span>
         )}

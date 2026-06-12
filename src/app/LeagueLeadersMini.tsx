@@ -31,7 +31,7 @@ async function getLeaders(stat: 'pts' | 'ast' | 'reb', minGamesRatio = 0.70) {
 
 const CATS = [
   { key: 'pts' as const, label: 'Points',   unit: 'PPG', color: '#d97706', icon: 'ti-ball-basketball' },
-  { key: 'ast' as const, label: 'Assists',  unit: 'APG', color: '#0891b2', icon: 'ti-arrows-exchange' },
+  { key: 'ast' as const, label: 'Assists',  unit: 'APG', color: '#0e7490', icon: 'ti-arrows-exchange' },
   { key: 'reb' as const, label: 'Rebounds', unit: 'RPG', color: '#1d4ed8', icon: 'ti-arrow-bounce' },
 ]
 
@@ -48,9 +48,9 @@ export default async function LeagueLeadersMini() {
     <div className="mb-8">
       <div className="section-header mb-5">
         <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
-          <i className="ti ti-chart-bar" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>League Leaders
+          <i className="ti ti-chart-bar" style={{fontSize:14,marginRight:6,color:'#b45309'}}></i>League Leaders
         </span>
-        <Link href="/league-leaders" className="text-xs no-underline font-semibold" style={{color:'#F5A623'}}>
+        <Link href="/league-leaders" className="text-xs no-underline font-semibold" style={{color:'#b45309'}}>
           Full Leaders →
         </Link>
       </div>

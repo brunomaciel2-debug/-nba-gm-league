@@ -7,10 +7,10 @@ type Filter = 'all' | 'home' | 'away' | 'played' | 'upcoming'
 
 function AttendanceBar({ value, max=20000 }: { value:number, max?:number }) {
   const pct = Math.min(100, Math.round(value/max*100))
-  const color = pct>=90?'#ffd040':pct>=70?'#40e080':'#3a8adf'
+  const color = pct>=90?'#b45309':pct>=70?'#15803d':'#1d4ed8'
   return (
     <div className="flex items-center gap-2">
-      <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{background:'#d4cdc5'}}>
+      <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{background:'#cec7bc'}}>
         <div className="h-full rounded-full" style={{width:pct+'%',background:color}}></div>
       </div>
       <span className="text-xs" style={{color:'#6b5f4e'}}>{value.toLocaleString()}</span>
@@ -50,7 +50,7 @@ export default function TeamSchedule({
 
   const W = (label: string) => (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#dcfce7',color:'#166534'}}>{label}</span>
+      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#15803d',color:'#fff'}}>{label}</span>
     </div>
   )
   const L = (label: string) => (
@@ -84,7 +84,7 @@ export default function TeamSchedule({
           <div key={week} className="mb-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-bold uppercase tracking-widest"
-                    style={{color:isAllStar?'#ffd040':'#5c554e'}}>
+                    style={{color:isAllStar?'#b45309':'#5c554e'}}>
                 {isAllStar ? '⭐ ALL-STAR WEEKEND' : `Week ${week}`}
               </span>
               {isAllStar && (
@@ -138,7 +138,7 @@ export default function TeamSchedule({
                        style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                     {/* Home/Away badge */}
                     <span className="text-xs font-bold w-8 text-center flex-shrink-0"
-                          style={{color:isHome?'#60a0ff':'#5c554e'}}>
+                          style={{color:isHome?'#1d4ed8':'#5c554e'}}>
                       {isHome?'HOME':'AWAY'}
                     </span>
 
@@ -171,11 +171,11 @@ export default function TeamSchedule({
                       <div className="flex items-center gap-3 flex-shrink-0">
                         <span className="text-xs font-bold px-1.5 py-0.5 rounded"
                               style={{background:win?'#0a2a10':'#2a0a0a',
-                                      color:win?'#40e080':'#e04040'}}>
+                                      color:win?'#15803d':'#dc2626'}}>
                           {win?'W':'L'}
                         </span>
                         <span className="text-sm font-bold w-12 text-center"
-                              style={{color:win?'#40e080':'#e04040'}}>
+                              style={{color:win?'#15803d':'#dc2626'}}>
                           {us}–{them}
                         </span>
                         {g.attendance>0 && (

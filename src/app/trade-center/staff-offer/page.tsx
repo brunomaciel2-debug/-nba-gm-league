@@ -61,7 +61,7 @@ function StaffOfferPage() {
         If multiple teams make offers, the coach will choose based on prestige, salary, and project.
       </p>
       <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline"
-         style={{background:'#3a8adf',color:'#e8e2d6'}}>Back to Trade Center</a>
+         style={{background:'#1d4ed8',color:'#e8e2d6'}}>Back to Trade Center</a>
     </div>
   )
 
@@ -91,8 +91,8 @@ function StaffOfferPage() {
       </div>
 
       {/* Estimated Contract */}
-      <div className="rounded-xl p-4 mb-4" style={{background:'#ede8de',border:'1px solid #d4cec3',borderLeft:'3px solid #F5A623'}}>
-        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#F5A623'}}>
+      <div className="rounded-xl p-4 mb-4" style={{background:'#ede8de',border:'1px solid #d4cec3',borderLeft:'3px solid #b45309'}}>
+        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#b45309'}}>
           Estimated Contract
         </div>
         <div className="flex items-end gap-3">
@@ -150,7 +150,7 @@ function StaffOfferPage() {
 
       <button onClick={submitOffer} disabled={!user||submitting||!profile?.team_id}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40"
-        style={{background:'#40e080',color:'#eee8df'}}>
+        style={{background:'#15803d',color:'#eee8df'}}>
         {submitting?'Submitting...':'Submit Offer 👔'}
       </button>
     </div>

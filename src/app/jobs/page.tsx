@@ -55,7 +55,7 @@ export default async function JobVacanciesPage() {
                   <div className="rounded-xl p-4 h-full transition-all group-hover:brightness-125"
                        style={{background:'#e8e2d6',
                                border:'1px solid '+(isOpen?'#1a5a20':'#5a1a1a'),
-                               borderTop:'3px solid '+(isOpen?'#40e080':'#e04040')}}>
+                               borderTop:'3px solid '+(isOpen?'#15803d':'#dc2626')}}>
                     {/* Logo */}
                     <div className="w-12 h-12 rounded-xl overflow-hidden mx-auto mb-3 flex items-center justify-center"
                          style={{background:tc+'22'}}>
@@ -72,7 +72,7 @@ export default async function JobVacanciesPage() {
                     <div className="text-center">
                       <span className="text-xs font-bold px-2 py-1 rounded-full"
                             style={{background:isOpen?'#0a2a10':'#2a0a0a',
-                                    color:isOpen?'#40e080':'#e04040'}}>
+                                    color:isOpen?'#15803d':'#dc2626'}}>
                         {isOpen ? '✅ Open' : '❌ Filled'}
                       </span>
                     </div>

@@ -5,7 +5,7 @@ import { readableTeamColor } from '@/lib/color'
 import LeagueLeadersMini from './LeagueLeadersMini'
 export const revalidate = 60
 
-function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#3a8adf' }
+function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#1d4ed8' }
 
 export default async function HomePage() {
   const [
@@ -66,7 +66,7 @@ export default async function HomePage() {
         <>
         <div className="section-header mb-5">
           <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
-            <i className="ti ti-pin" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Featured
+            <i className="ti ti-pin" style={{fontSize:14,marginRight:6,color:'#b45309'}}></i>Featured
           </span>
         </div>
         <div className="grid md:grid-cols-2 gap-5 mb-8">
@@ -81,7 +81,7 @@ export default async function HomePage() {
                 )}
                 <div className="p-5">
                   <div className="text-xs font-bold mb-2 uppercase tracking-widest"
-                       style={{color:i===0?'#60a0ff':'#40e080'}}>📌 Featured</div>
+                       style={{color:i===0?'#1d4ed8':'#15803d'}}>📌 Featured</div>
                   <h2 className="text-xl font-black mb-2 leading-tight" style={{color:'#1a1612'}}>
                     {art.title}
                   </h2>
@@ -102,7 +102,7 @@ export default async function HomePage() {
       {/* ── WEEKLY HIGHLIGHTS ──────────────────────── */}
       <div className="section-header mb-5">
         <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
-          <i className="ti ti-flame" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Weekly Highlights
+          <i className="ti ti-flame" style={{fontSize:14,marginRight:6,color:'#b45309'}}></i>Weekly Highlights
         </span>
       </div>
       <div className="grid md:grid-cols-3 gap-5 mb-8">
@@ -134,7 +134,7 @@ export default async function HomePage() {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 mb-4">
-                {[['PTS',hl.potw_pts,'#ffa040'],['REB',hl.potw_reb,'#60a0ff'],['AST',hl.potw_ast,'#40e080']].map(([l,v,c])=>(
+                {[['PTS',hl.potw_pts,'#b45309'],['REB',hl.potw_reb,'#1d4ed8'],['AST',hl.potw_ast,'#15803d']].map(([l,v,c])=>(
                   <div key={l as string} className="rounded-xl p-2 text-center" style={{background:'#ede8de'}}>
                     <div className="text-xl font-black" style={{color:c as string}}>{v}</div>
                     <div className="text-xs" style={{color:'#6b5f4e'}}>{l}</div>
@@ -214,9 +214,9 @@ export default async function HomePage() {
         </div>
 
         {/* Hot Streak */}
-        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #f97316',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #c2410c',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
           <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #ddd8ce'}}>
-            <i className="ti ti-flame" style={{fontSize:18,color:'#ea580c'}}></i>
+            <i className="ti ti-flame" style={{fontSize:18,color:'#c2410c'}}></i>
             <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#9a3412',letterSpacing:'1px'}}>Hot Streak</span>
           </div>
           {hl?.hstreak_team ? (
@@ -232,8 +232,8 @@ export default async function HomePage() {
                 <div>
                   <div className="font-black text-lg" style={{color:'#1a1612'}}>{hl.hstreak_team.name}</div>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <i className="ti ti-flame" style={{fontSize:16,color:'#ea580c'}}></i>
-                    <span className="text-xl font-black" style={{color:'#ea580c'}}>{hl.hstreak_wins}-game win streak</span>
+                    <i className="ti ti-flame" style={{fontSize:16,color:'#c2410c'}}></i>
+                    <span className="text-xl font-black" style={{color:'#c2410c'}}>{hl.hstreak_wins}-game win streak</span>
                   </div>
                 </div>
               </div>
@@ -250,7 +250,7 @@ export default async function HomePage() {
                     <div className="flex items-center gap-2 py-1.5 text-xs"
                          style={{borderBottom:'1px solid #d4cec3'}}>
                       <span className="font-bold px-1.5 py-0.5 rounded"
-                            style={{background:'#dcfce7',color:'#166534'}}>W</span>
+                            style={{background:'#15803d',color:'#fff'}}>W</span>
                       <span style={{color:'#6b5f4e'}}>{isHome?'vs':'@'} {opp?.name}</span>
                       <span className="ml-auto font-bold" style={{color:'#166534'}}>{us}–{them}</span>
                     </div>
@@ -275,9 +275,9 @@ export default async function HomePage() {
         <>
           <div className="section-header mb-4">
             <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
-              <i className="ti ti-ball-basketball" style={{fontSize:14,marginRight:6,color:'#F5A623'}}></i>Recent Results
+              <i className="ti ti-ball-basketball" style={{fontSize:14,marginRight:6,color:'#b45309'}}></i>Recent Results
             </span>
-            <Link href="/schedule" className="text-xs no-underline font-semibold" style={{color:'#F5A623'}}>Full Schedule →</Link>
+            <Link href="/schedule" className="text-xs no-underline font-semibold" style={{color:'#b45309'}}>Full Schedule →</Link>
           </div>
           <div className="flex flex-col gap-2">
             {(recentGames||[]).map((g:any) => {

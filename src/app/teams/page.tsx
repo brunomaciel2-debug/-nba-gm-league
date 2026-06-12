@@ -51,7 +51,7 @@ export default async function TeamsPage() {
                           <span className="text-xs" style={{color:'#6b5f4e'}}>{t.losses}L</span>
                         </div>
                         <div className="text-xs mt-1"
-                             style={{color:space(t)>0?'#40e080':'#e04040'}}>
+                             style={{color:space(t)>0?'#15803d':'#dc2626'}}>
                           {space(t)>0?'Cap space: '+capFmt(space(t)):'Over cap'}
                         </div>
                       </div>

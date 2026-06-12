@@ -45,11 +45,11 @@ export default function AdminPage() {
           <p className="text-sm" style={{ color:'#6b5f4e' }}>Manage the league.</p>
         </div>
         <span className="px-3 py-1.5 rounded-lg text-xs font-semibold"
-              style={{ background:'#dcfce7',color:'#166534' }}>● NBA GM League 2025-26</span>
+              style={{ background:'#15803d',color:'#fff' }}>● NBA GM League 2025-26</span>
       </div>
       <div className="grid md:grid-cols-3 gap-4 mb-8">
         {[
-          {icon:'✍️',label:'Write Article',     desc:'Publish news, recaps, analysis',        href:'/admin/article/new',color:'#3a8adf'},
+          {icon:'✍️',label:'Write Article',     desc:'Publish news, recaps, analysis',        href:'/admin/article/new',color:'#1d4ed8'},
           {icon:'📋',label:'Manage Articles',   desc:'Edit, publish, delete articles',         href:'/admin/articles',  color:'#1e40af'},
           {icon:'🖼️',label:'Media Manager',     desc:'Upload team logos & player photos',      href:'/admin/media',     color:'#0e7490'},
           {icon:'🤝',label:'Trade Approvals',   desc:'Review pending trade proposals',         href:'/admin/trades',    color:'#c2410c'},

@@ -21,8 +21,8 @@ export function calcOvr(p: any): number {
 }
 
 export function ovrColor(ovr: number): string {
-  if (ovr >= 85) return '#ffd040'
-  if (ovr >= 75) return '#40e080'
-  if (ovr >= 65) return '#60a0ff'
-  return '#7090b0'
+  if (ovr >= 85) return '#b45309'   // amber — elite
+  if (ovr >= 75) return '#15803d'   // green — good
+  if (ovr >= 65) return '#1d4ed8'   // blue — average
+  return '#6b6258'                   // muted — below average
 }

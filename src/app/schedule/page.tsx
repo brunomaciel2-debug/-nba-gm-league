@@ -37,7 +37,7 @@ export default async function SchedulePage() {
                      style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
                   <span className="text-xs font-bold px-2 py-0.5 rounded"
                         style={{ background:final?'#0a2a10':'#f0ece5',
-                                 color:final?'#40e080':'#5c554e' }}>
+                                 color:final?'#15803d':'#5c554e' }}>
                     {final?'FINAL':'SCHEDULED'}
                   </span>
                   <div className="flex-1 flex items-center gap-3">

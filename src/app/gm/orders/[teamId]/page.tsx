@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 
 const POSITIONS = ['PG','SG','SF','PF','C']
 const SLOTS = [
-  { key:'s',  label:'Starter',  color:'#3a8adf' },
+  { key:'s',  label:'Starter',  color:'#1d4ed8' },
   { key:'b1', label:'1st Sub',  color:'#166534' },
   { key:'b2', label:'2nd Sub',  color:'#6b5f4e' },
 ]
@@ -114,7 +114,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
     return (parseInt(p.s?.mins)||0)+(parseInt(p.b1?.mins)||0)+(parseInt(p.b2?.mins)||0)
   }
 
-  const teamColor = team ? '#'+team.color : '#3a8adf'
+  const teamColor = team ? '#'+team.color : '#1d4ed8'
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -141,12 +141,12 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
             <div key={pos} className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cec3'}}>
               <div className="flex items-center gap-3 px-4 py-2" style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
                 <span className="font-bold text-sm w-8" style={{color:teamColor}}>{pos}</span>
-                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:'#d4cdc5'}}>
+                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:'#cec7bc'}}>
                   <div className="h-full rounded-full transition-all"
                        style={{width:Math.min(100,tot/48*100)+'%',
-                               background:ok?'#40e080':tot>48?'#e04040':'#ffa040'}}></div>
+                               background:ok?'#15803d':tot>48?'#dc2626':'#b45309'}}></div>
                 </div>
-                <span className="text-xs font-semibold" style={{color:ok?'#40e080':tot>48?'#e04040':'#ffa040'}}>{tot}/48</span>
+                <span className="text-xs font-semibold" style={{color:ok?'#15803d':tot>48?'#dc2626':'#b45309'}}>{tot}/48</span>
               </div>
               <div className="grid grid-cols-3">
                 {SLOTS.map(({key,label,color},si) => {
@@ -230,7 +230,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         {[0,1,2].map(i=>(
           <div key={i}>
             <label className="text-xs mb-1 block font-semibold"
-                   style={{color:i===0?'#ffa040':i===1?'#60a0ff':'#5c554e'}}>
+                   style={{color:i===0?'#b45309':i===1?'#1d4ed8':'#5c554e'}}>
               {i===0?'1st Option':i===1?'2nd Option':'3rd Option'}
             </label>
             <select value={pris[i]} onChange={e=>{const n=[...pris];n[i]=e.target.value;setPris(n)}}
@@ -338,7 +338,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       <button onClick={save} disabled={saving||locked}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-colors"
         style={{background:saved?'#0a5a20':locked?'#1a0a0a':'#d4cdc5',
-                color:saved?'#40e080':locked?'#5c554e':'#60a0ff'}}>
+                color:saved?'#15803d':locked?'#5c554e':'#1d4ed8'}}>
         {saving?'Saving...':saved?'✓ Orders Saved!':locked?'⚠️ Locked for this week':'Save Weekly Orders'}
       </button>
     </div>

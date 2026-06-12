@@ -55,7 +55,7 @@ export default function ManageArticlesPage() {
         <div className="flex gap-2">
           <Link href="/admin/article/new"
             className="text-sm font-bold px-4 py-2 rounded-lg no-underline"
-            style={{background:'#3a8adf',color:'#e8e2d6'}}>
+            style={{background:'#1d4ed8',color:'#e8e2d6'}}>
             ✍️ New Article
           </Link>
           <Link href="/admin"
@@ -93,7 +93,7 @@ export default function ManageArticlesPage() {
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded font-semibold"
                             style={{background:a.published?'#0a2a10':'#2a0a0a',
-                                    color:a.published?'#40e080':'#e04040'}}>
+                                    color:a.published?'#15803d':'#dc2626'}}>
                         {a.published?'Published':'Draft'}
                       </span>
                     </div>
@@ -120,14 +120,14 @@ export default function ManageArticlesPage() {
                   <div className="flex flex-col gap-2 flex-shrink-0">
                     <Link href={`/admin/article/edit/${a.id}`}
                           className="text-xs px-3 py-1.5 rounded-lg no-underline text-center font-semibold"
-                          style={{background:'#dbeafe',color:'#1e40af'}}>
+                          style={{background:'#1d4ed8',color:'#fff'}}>
                       ✏️ Edit
                     </Link>
                     <button onClick={() => togglePublished(a.id, a.published)}
                       disabled={toggling===a.id}
                       className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
                       style={{background:a.published?'#2a0a0a':'#0a2a10',
-                              color:a.published?'#e04040':'#40e080'}}>
+                              color:a.published?'#dc2626':'#15803d'}}>
                       {toggling===a.id?'...':a.published?'Unpublish':'Publish'}
                     </button>
                     <button onClick={() => deleteArticle(a.id)}

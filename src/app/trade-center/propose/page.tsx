@@ -91,8 +91,8 @@ function PlayerPickPanel({
                   className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                   style={{ background: isSel ? tc + '33' : '#faf8f5', border: '1px solid ' + (isSel ? tc : '#d4cdc5'), color: isSel ? tc : '#5c554e' }}>
                   {pk.season} R{pk.round}
-                  {!isOwn && <span className="ml-1" style={{ color: '#ffa040' }}>(via {pk.original_team_id})</span>}
-                  {pk.protection !== 'unprotected' && <span className="ml-1" style={{ color: '#e04040' }}>({pk.protection})</span>}
+                  {!isOwn && <span className="ml-1" style={{ color: '#b45309' }}>(via {pk.original_team_id})</span>}
+                  {pk.protection !== 'unprotected' && <span className="ml-1" style={{ color: '#dc2626' }}>({pk.protection})</span>}
                 </button>
               )
             })}
@@ -256,7 +256,7 @@ function ProposeTradePage() {
   if (!user) return (
     <div className="max-w-2xl mx-auto px-4 py-12 text-center">
       <p className="mb-4" style={{ color: '#5c554e' }}>Sign in to propose a trade.</p>
-      <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#3a8adf', color: '#e8e2d6' }}>Sign In</a>
+      <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#1d4ed8', color: '#e8e2d6' }}>Sign In</a>
     </div>
   )
 
@@ -279,7 +279,7 @@ function ProposeTradePage() {
       <div className="text-5xl mb-4">✅</div>
       <h2 className="text-xl font-bold mb-2" style={{ color: '#1a1612' }}>Trade Proposal Sent!</h2>
       <p className="mb-6" style={{ color: '#5c554e' }}>The GM(s) received a notification and can accept, reject or counter.</p>
-      <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#3a8adf', color: '#e8e2d6' }}>← Back</a>
+      <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#1d4ed8', color: '#e8e2d6' }}>← Back</a>
     </div>
   )
 
@@ -326,7 +326,7 @@ function ProposeTradePage() {
       <div className="flex justify-center mb-6">
         <button onClick={() => { setShow3(!show3); if (show3) { setTeam3Id(''); setTeam3(null); setT3Recv([]); setT3PicksRecv([]) } }}
           className="text-xs px-4 py-2 rounded-lg font-semibold"
-          style={{ background: show3 ? '#2a0a0a' : '#1e3a5f', color: show3 ? '#e04040' : '#60a0ff', border: '1px solid ' + (show3 ? '#5a1a1a' : '#1e3a5f') }}>
+          style={{ background: show3 ? '#2a0a0a' : '#1e3a5f', color: show3 ? '#dc2626' : '#1d4ed8', border: '1px solid ' + (show3 ? '#5a1a1a' : '#1e3a5f') }}>
           {show3 ? '✕ Remove 3rd Team' : '+ Add 3rd Team (3-way trade)'}
         </button>
       </div>
@@ -342,7 +342,7 @@ function ProposeTradePage() {
           </div>
           <div className="rounded-lg p-3 text-center" style={{ background: '#ede8de' }}>
             <div className="text-xs mb-1" style={{ color: '#5c554e' }}>Difference</div>
-            <div className="text-xl font-black" style={{ color: salaryValid ? '#40e080' : '#e04040' }}>{capFmt(diff)}</div>
+            <div className="text-xl font-black" style={{ color: salaryValid ? '#15803d' : '#dc2626' }}>{capFmt(diff)}</div>
             <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>Max allowed: {capFmt(maxDiff)}</div>
           </div>
           <div className="rounded-lg p-3 text-center" style={{ background: '#ede8de' }}>
@@ -356,7 +356,7 @@ function ProposeTradePage() {
              style={{ background: isValid ? '#0a2a10' : '#2a0a0a', border: '1px solid ' + (isValid ? '#1a5a20' : '#5a1a1a') }}>
           <span className="text-lg">{isValid ? '✅' : '❌'}</span>
           <div>
-            <span className="font-bold text-sm" style={{ color: isValid ? '#40e080' : '#e04040' }}>
+            <span className="font-bold text-sm" style={{ color: isValid ? '#15803d' : '#dc2626' }}>
               {isValid ? 'Trade is valid' : 'Trade is invalid'}
             </span>
             <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>
@@ -380,7 +380,7 @@ function ProposeTradePage() {
 
       <button onClick={submitTrade} disabled={!isValid || submitting}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-all"
-        style={{ background: isValid ? '#ffd040' : '#f0ece5', color: isValid ? '#eee8df' : '#d4cdc5' }}>
+        style={{ background: isValid ? '#b45309' : '#f0ece5', color: isValid ? '#eee8df' : '#d4cdc5' }}>
         {submitting ? 'Sending...' : 'Send Trade Proposal 🔄'}
       </button>
     </div>

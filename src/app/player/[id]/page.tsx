@@ -4,27 +4,27 @@ import { calcOvr } from '@/lib/ovr'
 export const revalidate = 60
 
 const ATTR_GROUPS = [
-  { label: 'Scoring',       color: '#ffa040', attrs: [
+  { label: 'Scoring',       color: '#b45309', attrs: [
     {key:'usage',label:'Usage Rate'},{key:'three',label:'Three Point'},
     {key:'layup',label:'Layup'},{key:'dunk',label:'Dunk'},
     {key:'mid',label:'Mid-Range'},{key:'ft',label:'Free Throws'},
     {key:'siq',label:'Shot IQ'},{key:'draw_foul',label:'Draw Foul'},
   ]},
-  { label: 'Defense',       color: '#40e080', attrs: [
+  { label: 'Defense',       color: '#15803d', attrs: [
     {key:'blk',label:'Block'},{key:'stl',label:'Steal'},
     {key:'idef',label:'Interior Defense'},{key:'pdef',label:'Perimeter Defense'},
   ]},
-  { label: 'Rebounding',    color: '#60a0ff', attrs: [
+  { label: 'Rebounding',    color: '#1d4ed8', attrs: [
     {key:'def_reb',label:'Def. Rebound'},{key:'off_reb',label:'Off. Rebound'},
   ]},
-  { label: 'Athleticism',   color: '#c040ff', attrs: [
+  { label: 'Athleticism',   color: '#6d28d9', attrs: [
     {key:'stamina',label:'Stamina'},{key:'durability',label:'Durability'},
   ]},
-  { label: 'Playmaking',    color: '#40d0d0', attrs: [
+  { label: 'Playmaking',    color: '#0e7490', attrs: [
     {key:'ball_hdl',label:'Ball Handle'},{key:'pass_vis',label:'Pass Vision'},
     {key:'pass_iq',label:'Pass IQ'},{key:'assist_role',label:'Assist Role'},
   ]},
-  { label: 'Psychological', color: '#ffd040', attrs: [
+  { label: 'Psychological', color: '#b45309', attrs: [
     {key:'pressure',label:'Clutch/Pressure'},{key:'consistency',label:'Consistency'},
     {key:'crowd_effect',label:'Crowd Effect'},{key:'streaky',label:'Streaky'},
     {key:'trash_talk',label:'Trash Talk'},
@@ -41,14 +41,14 @@ const TYPE_LABEL: Record<string,{label:string,color:string,bg:string}> = {
 
 function AttrBar({ value, color }: { value: number, color: string }) {
   const pct = Math.min(100, Math.max(0, value))
-  const barColor = value>=85?'#ffd040':value>=70?color:value>=50?color+'99':'#e04040'
+  const barColor = value>=85?'#b45309':value>=70?color:value>=50?color+'99':'#dc2626'
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background:'#d4cdc5' }}>
         <div className="h-full rounded-full" style={{ width:pct+'%', background:barColor }}></div>
       </div>
       <span className="text-xs font-bold w-7 text-right"
-            style={{ color:value>=85?'#ffd040':value>=70?'#1a1512':value>=50?'#5c554e':'#e04040' }}>
+            style={{ color:value>=85?'#b45309':value>=70?'#1a1512':value>=50?'#5c554e':'#dc2626' }}>
         {value}
       </span>
     </div>
@@ -56,7 +56,7 @@ function AttrBar({ value, color }: { value: number, color: string }) {
 }
 
 function OVR({ value }: { value: number }) {
-  const color = value>=85?'#ffd040':value>=75?'#40e080':value>=65?'#60a0ff':'#5c554e'
+  const color = value>=85?'#b45309':value>=75?'#15803d':value>=65?'#1d4ed8':'#5c554e'
   const bg    = value>=85?'#2a2000':value>=75?'#0a2a10':value>=65?'#0a1a3a':'#f0ece5'
   return (
     <div className="flex flex-col items-center justify-center rounded-xl p-3 min-w-[60px]"
@@ -92,7 +92,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   const totalValue = (contracts||[]).reduce((sum:number,c:any) => sum+c.salary, 0)
 
   const potGrade = (p as any).potential_grade || 'C'
-  const potColor: Record<string,string> = {A:'#ffd040',B:'#40e080',C:'#60a0ff',D:'#ffa040',E:'#e06040',F:'#e04040'}
+  const potColor: Record<string,string> = {A:'#b45309',B:'#15803d',C:'#1d4ed8',D:'#b45309',E:'#e06040',F:'#dc2626'}
   const potBg:    Record<string,string> = {A:'#2a2000',B:'#0a2a10',C:'#0a1a3a',D:'#2a1500',E:'#2a0800',F:'#2a0000'}
 
   return (
@@ -172,9 +172,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       {(() => {
         const health = p.health ?? 100
         const moral  = p.moral  ?? 80
-        const hColor = health>=90?'#40e080':health>=80?'#a0e040':health>=65?'#ffd040':health>=50?'#ffa040':'#e04040'
+        const hColor = health>=90?'#15803d':health>=80?'#a0e040':health>=65?'#b45309':health>=50?'#b45309':'#dc2626'
         const hLabel = health>=90?'Healthy':health>=80?'Good':health>=65?'Limited':health>=50?'Questionable':'OUT'
-        const mColor = moral>=80?'#c040ff':moral>=60?'#8030cc':'#e04040'
+        const mColor = moral>=80?'#6d28d9':moral>=60?'#8030cc':'#dc2626'
         const mLabel = moral>=80?'High':moral>=60?'Normal':'Low'
         const perfNote = health>=90?'Full potential':health>=80?'~90% output':health>=65?'~75% output':health>=50?'~60% output · risk of aggravation':'Cannot play'
         return (
@@ -184,7 +184,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                 <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>❤️ Health</span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:hColor+'33',color:hColor}}>{hLabel}</span>
               </div>
-              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#d4cdc5'}}>
+              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#cec7bc'}}>
                 <div className="h-full rounded-full" style={{width:health+'%',background:hColor}}></div>
               </div>
               <div className="flex items-end justify-between">
@@ -197,7 +197,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                 <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>🧠 Morale</span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:mColor+'33',color:mColor}}>{mLabel}</span>
               </div>
-              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#d4cdc5'}}>
+              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#cec7bc'}}>
                 <div className="h-full rounded-full" style={{width:moral+'%',background:mColor}}></div>
               </div>
               <div className="flex items-end justify-between">
