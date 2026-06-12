@@ -67,7 +67,7 @@ function TH({ col, sortKey, sortDir, onSort }: {
                   style={{ background:'#d4cdc5', color:'#1e40af', fontSize:8, lineHeight:1 }}>i</span>
             <span className="absolute top-full left-0 mt-1 px-2.5 py-1.5 rounded-lg text-xs
                              opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50"
-                  style={{ background:'#16120d', border:'1px solid #2a5a8f', color:'#1a1512',
+                  style={{ background:'#1a1512', border:'1px solid #3d3731', color:'#f5f1eb',
                            width:180, whiteSpace:'normal', lineHeight:1.5, fontWeight:400 }}>
               {tip}
             </span>

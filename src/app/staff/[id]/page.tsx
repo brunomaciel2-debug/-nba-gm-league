@@ -149,8 +149,8 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
               <div className="rounded-xl p-5 mb-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
                 <StatRow label="Off. Adjustment" value={coach.off_adjustment} tipKey="off_adjustment" color="#b45309" />
                 <StatRow label="Def. Adjustment" value={coach.def_adjustment} tipKey="def_adjustment" color="#15803d" />
-                <StatRow label="Substitutions"   value={coach.substitutions}  color="#1d4ed8" />
-                <StatRow label="Timeout Mgmt"    value={coach.timeout_mgmt}   color="#b45309" />
+                <StatRow label="Substitutions"   value={coach.substitutions}  tipKey="substitutions" color="#1d4ed8" />
+                <StatRow label="Timeout Mgmt"    value={coach.timeout_mgmt}   tipKey="timeout_mgmt" color="#b45309" />
               </div>
 
               <div className="sec-hdr mb-4">
@@ -162,9 +162,9 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
               <div className="rounded-xl p-5 mb-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
                 <StatRow label="Off. Development" value={coach.off_development} tipKey="off_development" color="#b45309" />
                 <StatRow label="Def. Development" value={coach.def_development} tipKey="def_development" color="#15803d" />
-                <StatRow label="Tactical"          value={coach.tactical_dev}   color="#1d4ed8" />
-                <StatRow label="Physical"          value={coach.physical_dev}   color="#6d28d9" />
-                <StatRow label="Mental"            value={coach.mental_dev}     color="#b45309" />
+                <StatRow label="Tactical"          value={coach.tactical_dev}   tipKey="tactical_dev" color="#1d4ed8" />
+                <StatRow label="Physical"          value={coach.physical_dev}   tipKey="physical_dev" color="#6d28d9" />
+                <StatRow label="Mental"            value={coach.mental_dev}     tipKey="mental_dev" color="#b45309" />
               </div>
 
               {/* Style & Personality */}
@@ -215,9 +215,9 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
           {coach.role === 'trainer' && (
             <div className="rounded-xl p-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
               <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e'}}>Attributes</div>
-              <StatRow label="Conditioning"     value={coach.conditioning}    color="#15803d" />
-              <StatRow label="Recovery"         value={coach.recovery_boost}  color="#1d4ed8" />
-              <StatRow label="Injury Prevention"value={coach.injury_prevent}  color="#b45309" />
+              <StatRow label="Conditioning"     value={coach.conditioning}    tipKey="conditioning" color="#15803d" />
+              <StatRow label="Recovery"         value={coach.recovery_boost}  tipKey="recovery_boost" color="#1d4ed8" />
+              <StatRow label="Injury Prevention"value={coach.injury_prevent}  tipKey="injury_prevent" color="#b45309" />
             </div>
           )}
 
