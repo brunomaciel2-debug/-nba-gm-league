@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import type { Article, Game, Team, Transaction } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
+import LeagueLeadersMini from './LeagueLeadersMini'
 export const revalidate = 60
 
 function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#3a8adf' }
@@ -250,37 +251,8 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* ── LATEST NEWS ────────────────────────────── */}
-      {newsItems.length > 0 && (
-        <>
-          <h2 className="text-sm font-semibold uppercase tracking-widest mb-4" style={{color:'#6a5a4a'}}>
-            Latest News
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
-            {newsItems.map((a:Article) => (
-              <Link key={a.id} href={`/news/${a.slug}`} className="no-underline group">
-                <div className="rounded-2xl overflow-hidden h-full transition-all group-hover:brightness-110"
-                     style={{background:'#241f18',border:'1px solid #3a3228'}}>
-                  {a.cover_image && (
-                    <img src={a.cover_image} alt="" className="w-full h-48 object-cover"/>
-                  )}
-                  <div className="p-4">
-                    <p className="font-bold text-base text-white leading-snug mb-2 group-hover:text-blue-400 transition-colors">
-                      {a.title}
-                    </p>
-                    {a.excerpt && (
-                      <p className="text-sm line-clamp-2" style={{color:'#8a7a6a'}}>{a.excerpt}</p>
-                    )}
-                    <p className="text-sm mt-3" style={{color:'#5a4a3a'}}>
-                      {new Date(a.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
-                    </p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </>
-      )}
+{/* ── LEAGUE LEADERS MINI ───────────────────── */}
+      <LeagueLeadersMini />
 
       {/* ── RECENT RESULTS ─────────────────────────── */}
       {(recentGames||[]).length > 0 && (
