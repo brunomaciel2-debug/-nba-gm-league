@@ -42,6 +42,22 @@ const TYPE_LABEL: Record<string,{label:string,color:string,bg:string}> = {
 function AttrBar({ value, color }: { value: number, color: string }) {
   const pct = Math.min(100, Math.max(0, value))
   const barColor = value>=85?'#b45309':value>=70?color:value>=50?color+'99':'#dc2626'
+
+  const AWARD_LABELS: Record<string,string> = {
+    potw_eastern:'Player of the Week (East)', potw_western:'Player of the Week (West)',
+    potm_eastern:'Player of the Month (East)', potm_western:'Player of the Month (West)',
+    mvp:'MVP', dpoy:'Defensive Player of the Year', roy:'Rookie of the Year',
+    coy:'Coach of the Year', mip:'Most Improved Player', finals_mvp:'Finals MVP',
+    all_nba_1:'1st Team All-NBA', all_nba_2:'2nd Team All-NBA', all_nba_3:'3rd Team All-NBA',
+    all_rookie_1:'1st Rookie Team', all_rookie_2:'2nd Rookie Team',
+  }
+  const AWARD_COLORS: Record<string,string> = {
+    mvp:'#c8102e', dpoy:'#15803d', roy:'#6d28d9', finals_mvp:'#c8102e',
+    all_nba_1:'#b45309', all_nba_2:'#5c554e', all_nba_3:'#8a8279',
+    potw_eastern:'#b45309', potw_western:'#1d4ed8',
+    potm_eastern:'#b45309', potm_western:'#1d4ed8',
+    all_rookie_1:'#6d28d9', all_rookie_2:'#8a8279',
+  }
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background:'#d4cdc5' }}>
@@ -51,6 +67,42 @@ function AttrBar({ value, color }: { value: number, color: string }) {
             style={{ color:value>=85?'#b45309':value>=70?'#1a1512':value>=50?'#5c554e':'#dc2626' }}>
         {value}
       </span>
+
+      {/* Awards */}
+      {playerAwards && playerAwards.length > 0 && (
+        <div className="mt-6">
+          <div className="sec-hdr mb-4">
+            <span className="sec-title">
+              <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+              Awards & Honours
+            </span>
+          </div>
+          <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+            {playerAwards.map((a:any,i:number) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3"
+                   style={{borderBottom:i<playerAwards.length-1?'1px solid #e2dcd5':'none',
+                           background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+                <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
+                    {AWARD_LABELS[a.award_type]||a.award_type}
+                  </div>
+                  <div className="text-xs" style={{color:'#8a8279'}}>
+                    {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
+                  </div>
+                </div>
+                {a.stats_context?.ppg && (
+                  <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
+                    {a.stats_context.ppg} PPG
+                    {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
+                    {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -58,11 +110,63 @@ function AttrBar({ value, color }: { value: number, color: string }) {
 function OVR({ value }: { value: number }) {
   const color = value>=85?'#b45309':value>=75?'#15803d':value>=65?'#1d4ed8':'#5c554e'
   const bg    = value>=85?'#2a2000':value>=75?'#0a2a10':value>=65?'#0a1a3a':'#f0ece5'
+
+  const AWARD_LABELS: Record<string,string> = {
+    potw_eastern:'Player of the Week (East)', potw_western:'Player of the Week (West)',
+    potm_eastern:'Player of the Month (East)', potm_western:'Player of the Month (West)',
+    mvp:'MVP', dpoy:'Defensive Player of the Year', roy:'Rookie of the Year',
+    coy:'Coach of the Year', mip:'Most Improved Player', finals_mvp:'Finals MVP',
+    all_nba_1:'1st Team All-NBA', all_nba_2:'2nd Team All-NBA', all_nba_3:'3rd Team All-NBA',
+    all_rookie_1:'1st Rookie Team', all_rookie_2:'2nd Rookie Team',
+  }
+  const AWARD_COLORS: Record<string,string> = {
+    mvp:'#c8102e', dpoy:'#15803d', roy:'#6d28d9', finals_mvp:'#c8102e',
+    all_nba_1:'#b45309', all_nba_2:'#5c554e', all_nba_3:'#8a8279',
+    potw_eastern:'#b45309', potw_western:'#1d4ed8',
+    potm_eastern:'#b45309', potm_western:'#1d4ed8',
+    all_rookie_1:'#6d28d9', all_rookie_2:'#8a8279',
+  }
   return (
     <div className="flex flex-col items-center justify-center rounded-xl p-3 min-w-[60px]"
          style={{ background:bg, border:'1px solid '+color+'44' }}>
       <span className="text-2xl font-black" style={{ color }}>{value}</span>
       <span className="text-xs" style={{ color:color+'99' }}>OVR</span>
+
+      {/* Awards */}
+      {playerAwards && playerAwards.length > 0 && (
+        <div className="mt-6">
+          <div className="sec-hdr mb-4">
+            <span className="sec-title">
+              <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+              Awards & Honours
+            </span>
+          </div>
+          <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+            {playerAwards.map((a:any,i:number) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3"
+                   style={{borderBottom:i<playerAwards.length-1?'1px solid #e2dcd5':'none',
+                           background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+                <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
+                    {AWARD_LABELS[a.award_type]||a.award_type}
+                  </div>
+                  <div className="text-xs" style={{color:'#8a8279'}}>
+                    {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
+                  </div>
+                </div>
+                {a.stats_context?.ppg && (
+                  <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
+                    {a.stats_context.ppg} PPG
+                    {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
+                    {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -70,7 +174,7 @@ function OVR({ value }: { value: number }) {
 export default async function PlayerPage({ params }: { params: { id: string } }) {
   const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }] =
     await Promise.all([
-      supabase.from('players').select('*, teams(name,color,id,logo_url)').eq('id', params.id).single(),
+      supabase.from('players').select('*,nba_experience, teams(name,color,id,logo_url)').eq('id', params.id).single(),
       supabase.from('player_stats').select('*').eq('player_id', params.id).order('season', { ascending: false }),
       supabase.from('injury_log').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', { ascending: true }),
@@ -95,6 +199,22 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   const potColor: Record<string,string> = {A:'#b45309',B:'#15803d',C:'#1d4ed8',D:'#b45309',E:'#e06040',F:'#dc2626'}
   const potBg:    Record<string,string> = {A:'#2a2000',B:'#0a2a10',C:'#0a1a3a',D:'#2a1500',E:'#2a0800',F:'#2a0000'}
 
+
+  const AWARD_LABELS: Record<string,string> = {
+    potw_eastern:'Player of the Week (East)', potw_western:'Player of the Week (West)',
+    potm_eastern:'Player of the Month (East)', potm_western:'Player of the Month (West)',
+    mvp:'MVP', dpoy:'Defensive Player of the Year', roy:'Rookie of the Year',
+    coy:'Coach of the Year', mip:'Most Improved Player', finals_mvp:'Finals MVP',
+    all_nba_1:'1st Team All-NBA', all_nba_2:'2nd Team All-NBA', all_nba_3:'3rd Team All-NBA',
+    all_rookie_1:'1st Rookie Team', all_rookie_2:'2nd Rookie Team',
+  }
+  const AWARD_COLORS: Record<string,string> = {
+    mvp:'#c8102e', dpoy:'#15803d', roy:'#6d28d9', finals_mvp:'#c8102e',
+    all_nba_1:'#b45309', all_nba_2:'#5c554e', all_nba_3:'#8a8279',
+    potw_eastern:'#b45309', potw_western:'#1d4ed8',
+    potm_eastern:'#b45309', potm_western:'#1d4ed8',
+    all_rookie_1:'#6d28d9', all_rookie_2:'#8a8279',
+  }
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
 
@@ -375,6 +495,42 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
         </div>
       </div>
+
+      {/* Awards */}
+      {playerAwards && playerAwards.length > 0 && (
+        <div className="mt-6">
+          <div className="sec-hdr mb-4">
+            <span className="sec-title">
+              <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+              Awards & Honours
+            </span>
+          </div>
+          <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+            {playerAwards.map((a:any,i:number) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3"
+                   style={{borderBottom:i<playerAwards.length-1?'1px solid #e2dcd5':'none',
+                           background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+                <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
+                    {AWARD_LABELS[a.award_type]||a.award_type}
+                  </div>
+                  <div className="text-xs" style={{color:'#8a8279'}}>
+                    {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
+                  </div>
+                </div>
+                {a.stats_context?.ppg && (
+                  <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
+                    {a.stats_context.ppg} PPG
+                    {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
+                    {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

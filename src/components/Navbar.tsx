@@ -14,6 +14,7 @@ const NAV = [
   { label: 'Transactions',  href: '/transactions',    icon: 'ti-arrows-exchange' },
   { label: 'Trade Center',  href: '/trade-center',    icon: 'ti-switch-horizontal' },
   { label: 'All-Star',      href: '/all-star',        icon: 'ti-star' },
+  { label: 'Awards',        href: '/awards',          icon: 'ti-trophy' },
 ]
 
 const COMM_LINKS = [

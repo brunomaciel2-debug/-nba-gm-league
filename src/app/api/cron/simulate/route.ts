@@ -390,6 +390,245 @@ export async function GET(req: NextRequest) {
       }
     } catch(hlErr) { console.warn('Highlights step failed', hlErr) }
 
+
+    // ── AWARDS ────────────────────────────────────────────
+    try {
+      const isEndOfMonth = week % 4 === 0
+      const isEndOfSeason = week >= 26
+
+      // ── PLAYER OF THE WEEK (every week, both conferences) ──
+      // Algorithm: performance score = pts*1.0 + reb*1.2 + ast*1.5 + stl*3 + blk*3
+      //            + win_bonus (if team won, +20% to score)
+      //            + carry_bonus (if team lost but player scored >35, +10%)
+      // Only players with >=3 games in the week qualify
+      const { data: weekBoxes } = await supabaseAdmin
+        .from('box_scores')
+        .select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
+        .in('game_id', gamesCreated)
+
+      const { data: weekGamesData } = await supabaseAdmin
+        .from('games').select('id,home_team,away_team,home_score,away_score')
+        .in('id', gamesCreated)
+
+      const gameResultMap: Record<string,{winner:string,loser:string,scores:string}> = {}
+      for (const g of (weekGamesData||[])) {
+        const hw = (g.home_score||0) > (g.away_score||0)
+        gameResultMap[g.id] = {
+          winner: hw ? g.home_team : g.away_team,
+          loser:  hw ? g.away_team : g.home_team,
+          scores: `${g.home_score}-${g.away_score}`
+        }
+      }
+
+      // Get player team+conference
+      const { data: allPlayers } = await supabaseAdmin
+        .from('players').select('id,name,team_id,teams!inner(conference)')
+        .in('id', (weekBoxes||[]).map((b:any)=>b.player_id).filter(Boolean))
+
+      const playerConf: Record<string,string> = {}
+      const playerTeam: Record<string,string> = {}
+      for (const p of (allPlayers||[])) {
+        playerConf[p.id] = (p.teams as any)?.conference || 'Eastern'
+        playerTeam[p.id] = p.team_id
+      }
+
+      // Aggregate by player
+      const playerWeekStats: Record<string,{pts:number,reb:number,ast:number,stl:number,blk:number,games:number,wins:number,teamId:string}> = {}
+      for (const b of (weekBoxes||[])) {
+        if (!b.player_id || (b.mins||0) < 10) continue
+        if (!playerWeekStats[b.player_id]) {
+          playerWeekStats[b.player_id] = {pts:0,reb:0,ast:0,stl:0,blk:0,games:0,wins:0,teamId:b.team_id}
+        }
+        const s = playerWeekStats[b.player_id]
+        s.pts += b.pts||0; s.reb += b.reb||0; s.ast += b.ast||0
+        s.stl += b.stl||0; s.blk += b.blk||0; s.games++
+        if (gameResultMap[b.game_id]?.winner === b.team_id) s.wins++
+      }
+
+      // Score each player
+      const potwCandidates: {id:string,score:number,conf:string,stats:any}[] = []
+      for (const [pid, s] of Object.entries(playerWeekStats)) {
+        if (s.games < 2) continue
+        const g = s.games
+        const baseScore = (s.pts/g)*1.0 + (s.reb/g)*1.2 + (s.ast/g)*1.5 + (s.stl/g)*3 + (s.blk/g)*3
+        const winPct = s.wins / g
+        const winBonus = winPct >= 0.5 ? 1.2 : (s.pts/g >= 35 ? 1.1 : 1.0) // carry bonus for big games in losses
+        potwCandidates.push({
+          id: pid, score: baseScore * winBonus, conf: playerConf[pid] || 'Eastern',
+          stats: {ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),
+                  spg:(s.stl/g).toFixed(1),bpg:(s.blk/g).toFixed(1),games:g,wins:s.wins}
+        })
+      }
+
+      for (const conf of ['Eastern','Western']) {
+        const winner = potwCandidates.filter(c=>c.conf===conf).sort((a,b)=>b.score-a.score)[0]
+        if (winner) {
+          await supabaseAdmin.from('awards').upsert({
+            season:'2025-26', award_type:`potw_${conf.toLowerCase()}`,
+            period:`week_${week}`, conference: conf,
+            player_id: winner.id, team_id: playerTeam[winner.id],
+            score: winner.score, stats_context: winner.stats,
+            notes: `Week ${week} ${conf} Player of the Week`
+          }, {onConflict:'season,award_type,period'})
+        }
+      }
+
+      // ── PLAYER OF THE MONTH (every 4 weeks) ──
+      if (isEndOfMonth) {
+        const monthNum = Math.floor(week/4)
+        const { data: monthBoxes } = await supabaseAdmin
+          .from('box_scores')
+          .select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
+          .in('game_id',
+            (await supabaseAdmin.from('games').select('id')
+              .eq('season','2025-26')
+              .gte('week_number', (monthNum-1)*4+1)
+              .lte('week_number', monthNum*4)).data?.map((g:any)=>g.id)||[]
+          )
+
+        const monthStats: Record<string,{pts:number,reb:number,ast:number,stl:number,blk:number,games:number,wins:number,teamId:string}> = {}
+        for (const b of (monthBoxes||[])) {
+          if (!b.player_id||(b.mins||0)<10) continue
+          if (!monthStats[b.player_id]) monthStats[b.player_id]={pts:0,reb:0,ast:0,stl:0,blk:0,games:0,wins:0,teamId:b.team_id}
+          const s=monthStats[b.player_id]
+          s.pts+=b.pts||0;s.reb+=b.reb||0;s.ast+=b.ast||0;s.stl+=b.stl||0;s.blk+=b.blk||0;s.games++
+          if(gameResultMap[b.game_id]?.winner===b.team_id) s.wins++
+        }
+
+        const potmCandidates = Object.entries(monthStats)
+          .filter(([,s])=>s.games>=6)
+          .map(([pid,s])=>{
+            const g=s.games
+            const score=(s.pts/g)*1.0+(s.reb/g)*1.2+(s.ast/g)*1.5+(s.stl/g)*3+(s.blk/g)*3
+            const winBonus=(s.wins/g)>=0.5?1.2:1.0
+            return {id:pid,score:score*winBonus,conf:playerConf[pid]||'Eastern',
+              stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g,wins:s.wins}}
+          })
+
+        for (const conf of ['Eastern','Western']) {
+          const winner = potmCandidates.filter(c=>c.conf===conf).sort((a,b)=>b.score-a.score)[0]
+          if (winner) {
+            await supabaseAdmin.from('awards').upsert({
+              season:'2025-26', award_type:`potm_${conf.toLowerCase()}`,
+              period:`month_${monthNum}`, conference:conf,
+              player_id:winner.id, team_id:playerTeam[winner.id],
+              score:winner.score, stats_context:winner.stats,
+              notes:`Month ${monthNum} ${conf} Player of the Month`
+            },{onConflict:'season,award_type,period'})
+          }
+        }
+      }
+
+      // ── END OF SEASON AWARDS ──
+      if (isEndOfSeason) {
+        // Min 65 games for annual award eligibility
+        const MIN_GAMES = 65
+
+        const { data: seasonStats } = await supabaseAdmin
+          .from('player_stats').select('*,players!inner(id,name,pos,team_id,nba_experience,potential_grade,teams!inner(id,name,conference,wins,pts_allowed))')
+          .gte('games', MIN_GAMES)
+
+        if (seasonStats && seasonStats.length > 0) {
+          // MVP: pts*1+reb*1.2+ast*1.5+stl*3+blk*3, weighted by team wins, consistency
+          const mvpScores = seasonStats.map((s:any) => {
+            const g = s.games||1
+            const base = (s.pts/g)*1.0+(s.reb/g)*1.2+(s.ast/g)*1.5+(s.stl/g)*3+(s.blk/g)*3
+            const teamWins = (s.players?.teams?.wins||0)/82
+            return {id:s.player_id,score:base*(1+teamWins*0.4),
+              stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g}}
+          }).sort((a:any,b:any)=>b.score-a.score)
+
+          if (mvpScores[0]) await supabaseAdmin.from('awards').upsert({
+            season:'2025-26',award_type:'mvp',period:'season',
+            player_id:mvpScores[0].id,score:mvpScores[0].score,
+            stats_context:mvpScores[0].stats,notes:'Most Valuable Player'
+          },{onConflict:'season,award_type,period'})
+
+          // DPOY: blk*4+stl*4, bonus if team is top-10 in points allowed
+          const { data: defStats } = await supabaseAdmin
+            .from('player_stats')
+            .select('player_id,blk,stl,games,players!inner(team_id,teams!inner(pts_allowed,wins))')
+            .gte('games', MIN_GAMES)
+          // Get league average pts allowed for defensive team bonus
+          const { data: teamDef } = await supabaseAdmin
+            .from('teams').select('id,pts_allowed').not('id','in','(ALL,RVS)').order('pts_allowed',{ascending:true})
+          const topDefTeams = new Set((teamDef||[]).slice(0,10).map((t:any)=>t.id))
+          if (defStats) {
+            const dpoyScores = defStats.map((s:any)=>{
+              const g = s.games||1
+              const baseScore = ((s.blk||0)/g)*4 + ((s.stl||0)/g)*4
+              const teamId = s.players?.team_id
+              // +15% bonus if player's team is top-10 in defense (proves defensive impact)
+              const defBonus = topDefTeams.has(teamId) ? 1.15 : 1.0
+              return { id:s.player_id, score: baseScore * defBonus }
+            }).sort((a:any,b:any)=>b.score-a.score)
+            if (dpoyScores[0]) await supabaseAdmin.from('awards').upsert({
+              season:'2025-26',award_type:'dpoy',period:'season',
+              player_id:dpoyScores[0].id,score:dpoyScores[0].score,
+              notes:'Defensive Player of the Year'
+            },{onConflict:'season,award_type,period'})
+          }
+
+          // ROY: only players with nba_experience === 0 (true rookies), min 20 games
+          const { data: rookies } = await supabaseAdmin
+            .from('player_stats').select('player_id,pts,reb,ast,games,players!inner(nba_experience,potential_grade)')
+            .gte('games', 20)
+          const royScores = (rookies||[])
+            .filter((s:any) => (s.players?.nba_experience ?? 1) === 0)
+            .map((s:any) => {
+              const g = s.games||1
+              return {id:s.player_id, score:(s.pts/g)+(s.reb/g)*0.8+(s.ast/g)*1.2}
+            }).sort((a:any,b:any)=>b.score-a.score)
+          if (royScores[0]) await supabaseAdmin.from('awards').upsert({
+            season:'2025-26',award_type:'roy',period:'season',
+            player_id:royScores[0].id,score:royScores[0].score,
+            notes:'Rookie of the Year'
+          },{onConflict:'season,award_type,period'})
+
+          // COY: head coach of team with most wins vs expected
+          const { data: teams } = await supabaseAdmin.from('teams').select('id,wins,losses').not('id','in','(ALL,RVS)')
+          if (teams) {
+            const { data: hcs } = await supabaseAdmin.from('coaches').select('*').eq('role','head_coach').not('team_id','is',null)
+            const coySorted = (hcs||[]).map((c:any)=>{
+              const t = teams.find((tm:any)=>tm.id===c.team_id)
+              const expectedWins = ((c.off_adjustment+c.def_adjustment)/200)*82
+              const overachieve = (t?.wins||0) - expectedWins
+              return {id:c.id,teamId:c.team_id,score:overachieve}
+            }).sort((a:any,b:any)=>b.score-a.score)
+            if (coySorted[0]) await supabaseAdmin.from('awards').upsert({
+              season:'2025-26',award_type:'coy',period:'season',
+              coach_id:coySorted[0].id,team_id:coySorted[0].teamId,
+              score:coySorted[0].score,notes:'Coach of the Year'
+            },{onConflict:'season,award_type,period'})
+          }
+
+          // ALL-NBA TEAMS (top 15 by score)
+          // All-NBA teams - top 15 by MVP score (already filtered by MIN_GAMES above)
+          const allNBATeams: [string,number,number][] = [['all_nba_1',0,5],['all_nba_2',5,10],['all_nba_3',10,15]]
+          for (const [type,from,to] of allNBATeams) {
+            const members = mvpScores.slice(from,to)
+            for (const m of members) {
+              await supabaseAdmin.from('awards').upsert({
+                season:'2025-26', award_type:type, period:`season_${m.id}`,
+                player_id:m.id, score:m.score, stats_context:m.stats
+              }, {onConflict:'season,award_type,period'})
+            }
+          }
+          // All-Rookie teams - top 10 rookies by ROY score
+          const allRookieTeams: [string,number,number][] = [['all_rookie_1',0,5],['all_rookie_2',5,10]]
+          for (const [type,from,to] of allRookieTeams) {
+            const members = royScores.slice(from,to)
+            for (const m of members) {
+              await supabaseAdmin.from('awards').upsert({
+                season:'2025-26', award_type:type, period:`season_${m.id}`,
+                player_id:m.id, score:m.score
+              }, {onConflict:'season,award_type,period'})
+            }
+          }
+        }
+      }
+    } catch(awardsErr) { console.warn('Awards step failed:', awardsErr) }
+
     // Apply health recovery for days since last game
     try {
       const isMonday = new Date().getDay() === 1
