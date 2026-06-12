@@ -569,10 +569,10 @@ export async function GET(req: NextRequest) {
             },{onConflict:'season,award_type,period'})
           }
 
-          // ROY: only players with nba_experience === 0 (true rookies), min 20 games
+          // ROY: only players with nba_experience === 0 (true rookies), min 65 games
           const { data: rookies } = await supabaseAdmin
             .from('player_stats').select('player_id,pts,reb,ast,games,players!inner(nba_experience,potential_grade)')
-            .gte('games', 20)
+            .gte('games', MIN_GAMES)
           const royScores = (rookies||[])
             .filter((s:any) => (s.players?.nba_experience ?? 1) === 0)
             .map((s:any) => {
