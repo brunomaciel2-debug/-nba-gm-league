@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
+import { calcOvr } from '@/lib/ovr'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import ApplyForm from './ApplyForm'
@@ -19,11 +20,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
 
   const isOpen = !profile
   const tc = readableTeamColor((team as any).color)
-  const calcOvr = (p: any) => Math.round(
-    (p.siq*.12 + p.consistency*.10 + p.pressure*.08 +
-    (p.layup+p.dunk)/2*.10 + p.three*.08 + p.idef*.08 + p.pdef*.07 +
-    p.stamina*.05 + p.ball_hdl*.07 + p.pass_iq*.05 + p.def_reb*.05 + p.blk*.05 + p.stl*.05)
-  )
+
   const capFmt = (n: number) => n >= 1000000 ? '$' + (n/1000000).toFixed(1) + 'M' : '$' + n?.toLocaleString()
   const cap = (team as any).salary_cap
   const used = (team as any).cap_used
