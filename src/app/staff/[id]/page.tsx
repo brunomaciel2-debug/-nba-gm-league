@@ -6,19 +6,21 @@ export const revalidate = 60
 
 
 const TIPS: Record<string,string> = {
-  off_adjustment:  "Ability to counter the opponent's defence in real time. Impacts shot quality and offensive efficiency.",
-  def_adjustment:  "Ability to adapt the team's defence to neutralise the opponent's offence.",
-  substitutions:   'Making the right substitutions at the right moment. Affects fatigue management and matchup exploitation.',
-  timeout_mgmt:    "Knowing when to call a timeout. Boosts morale during runs and in late-game pressure situations.",
-  off_development: "Improves players offensive attributes: Three Point, Layup, Dunk, Mid-Range, Free Throws, Shot IQ, Draw Foul.",
-  def_development: "Improves players defensive attributes: Block, Steal, Interior Defense, Perimeter Defense.",
-  tactical_dev:    'Improves basketball IQ: Pass Vision, Pass IQ, Assist Role, Offensive and Defensive Rebound positioning.',
-  physical_dev:    'Improves athletic attributes: Stamina and Durability.',
-  mental_dev:      'Improves psychological resilience: Clutch, Consistency, Crowd Effect resistance, Morale stability.',
-  conditioning:    'Reduces health loss per game and per training session. Higher = players stay fresher across the season.',
-  recovery_boost:  'Increases health recovery between games. Stacks with training intensity.',
-  injury_prevent:  'Reduces the probability of injuries occurring in games and training.',
-  rehab_speed:     'Reduces the recovery time of injured players. 80+ can cut injury time by 20-30%.',
+  off_adjustment:  "Offensive Adjustment — how well the coach reads the opponent defence and adapts the attack in real time. Affects shot quality, spacing decisions and play-calling.",
+  def_adjustment:  "Defensive Adjustment — ability to identify and neutralise the opponent offensive system. Higher values reduce easy baskets allowed.",
+  substitutions:   "Substitutions — making the right rotation at the right moment. Impacts fatigue management, foul trouble handling and matchup exploitation.",
+  timeout_mgmt:    "Timeout Management — knowing when to call a timeout and what to say. Triggers morale boosts during opponent runs and improves composure in late-game situations.",
+  off_development: "Offensive Development — how effectively this coach improves players offensive skills over time. Affects: Three Point, Layup, Dunk, Mid-Range, Free Throw, Shot IQ, Draw Foul.",
+  def_development: "Defensive Development — improves players defensive attributes each week. Affects: Block, Steal, Interior Defense, Perimeter Defense.",
+  tactical_dev:    "Tactical Development — improves basketball IQ and team-play attributes. Affects: Pass Vision, Pass IQ, Assist Role, Offensive and Defensive Rebound positioning.",
+  physical_dev:    "Physical Development — improves athletic conditioning attributes. Affects: Stamina (late-game performance) and Durability (injury resistance).",
+  mental_dev:      "Mental Development — builds psychological resilience. Affects: Clutch (pressure situations), Consistency (game-to-game variance), Crowd Effect resistance and Morale stability.",
+  conditioning:    "Conditioning — reduces health loss per game and per training session. A rating of 80+ keeps players significantly fresher across an 82-game season.",
+  recovery_boost:  "Recovery — increases daily health recovery between games. Stacks multiplicatively with the team training intensity setting. Higher values accelerate bounce-back from heavy minutes.",
+  injury_prevent:  "Injury Prevention — reduces the base probability of injuries occurring in games and practice. Each 10 points above 60 reduces injury chance by approximately 5%.",
+  rehab_speed:     "Rehab Speed — reduces the recovery time of injured players. A physio rated 80+ can cut injury absence by up to 30%, keeping key players on the court.",
+  style_boost:     "Style Match Boost — this percentage bonus is applied when the GM weekly tactical orders match this coach preferred style. For example, if the GM sets Pick & Roll and the coach prefers Pick & Roll, the team gets this performance boost. Set your weekly orders to align with your coach for maximum effect.",
+  personality:     "Coach Personality — affects player development and team chemistry. Calm coaches (1-4) benefit low-ego players with consistency below 60. Intense coaches (7-10) motivate high-ego players with consistency above 75. A Head Coach and Assistant Coach with complementary personalities (one calm, one intense) give a +5% development bonus across the squad.",
 }
 
 function Tooltip({ text }: { text: string }) {
@@ -177,14 +179,21 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
                         style={{background:'#15803d',color:'#fff'}}>
                     {DEF[coach.pref_def_style]||coach.pref_def_style}
                   </span>
-                  <span className="text-sm px-3 py-1 rounded-lg font-semibold"
+                  <span className="relative group text-sm px-3 py-1 rounded-lg font-semibold cursor-help"
                         style={{background:'#1d4ed8',color:'#fff'}}>
                     +{coach.style_boost}% style match
+                    <span className="absolute bottom-full left-0 mb-1 z-50 px-3 py-2 rounded-lg text-xs
+                                     opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+                          style={{background:'#1a1512',color:'#f5f1eb',width:240,
+                                  whiteSpace:'normal',lineHeight:1.5,fontWeight:400,
+                                  boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
+                      {TIPS.style_boost}
+                    </span>
                   </span>
                 </div>
                 {/* Personality thermometer */}
                 <div className="mb-1 flex justify-between text-xs" style={{color:'#5c554e'}}>
-                  <span>Personality</span>
+                  <span>Personality<Tooltip text={TIPS.personality} /></span>
                   <span className="font-semibold">
                     {coach.personality<=3?'Calm':coach.personality<=6?'Balanced':coach.personality<=8?'Intense':'Hot-headed'}
                     {' '}({coach.personality}/10)
