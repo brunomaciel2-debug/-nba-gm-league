@@ -9,7 +9,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
   const teamId = params.teamId.toUpperCase()
   const [{ data: team }, { data: players }, { data: coaches }, { data: profile }] = await Promise.all([
     supabase.from('teams').select('*').eq('id', teamId).single(),
-    supabase.from('players').select('id,name,pos,salary,usage,potential_grade')
+    supabase.from('players').select('id,name,pos,salary,usage,three,layup,dunk,mid,ft,siq,blk,stl,idef,pdef,def_reb,off_reb,stamina,durability,ball_hdl,pass_iq,pressure,consistency,crowd_effect')
       .eq('team_id', teamId).eq('status','active').order('usage',{ascending:false}),
     supabase.from('coaches').select('name,role').eq('team_id', teamId),
     supabase.from('gm_profiles').select('id,display_name').eq('team_id', teamId).single(),
@@ -19,6 +19,11 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
 
   const isOpen = !profile
   const tc = readableTeamColor((team as any).color)
+  const calcOvr = (p: any) => Math.round(
+    (p.siq*.12 + p.consistency*.10 + p.pressure*.08 +
+    (p.layup+p.dunk)/2*.10 + p.three*.08 + p.idef*.08 + p.pdef*.07 +
+    p.stamina*.05 + p.ball_hdl*.07 + p.pass_iq*.05 + p.def_reb*.05 + p.blk*.05 + p.stl*.05)
+  )
   const capFmt = (n: number) => n >= 1000000 ? '$' + (n/1000000).toFixed(1) + 'M' : '$' + n?.toLocaleString()
   const cap = (team as any).salary_cap
   const used = (team as any).cap_used
@@ -89,11 +94,11 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
                    style={{borderBottom:'1px solid #2a2218'}}>
                 <span className="text-xs w-7 flex-shrink-0" style={{color:'#6a5a4a'}}>{p.pos}</span>
                 <span className="text-xs flex-1 font-semibold" style={{color:'#f0ebe0'}}>{p.name}</span>
-                <span className="text-xs px-1.5 py-0.5 rounded font-bold"
-                      style={{background:p.potential_grade==='A'?'#2a2000':'#1a1610',
-                              color:p.potential_grade==='A'?'#ffd040':p.potential_grade==='B'?'#40e080':'#6a5a4a'}}>
-                  {p.potential_grade}
-                </span>
+                {(() => {
+                  const ovr = calcOvr(p)
+                  const c = ovr>=85?'#ffd040':ovr>=75?'#40e080':ovr>=65?'#60a0ff':'#6a5a4a'
+                  return <span className="text-xs font-black w-6 text-right" style={{color:c}}>{ovr}</span>
+                })()}
                 <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(p.salary)}</span>
               </div>
             </Link>
