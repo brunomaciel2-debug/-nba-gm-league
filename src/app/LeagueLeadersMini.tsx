@@ -30,9 +30,9 @@ async function getLeaders(stat: 'pts' | 'ast' | 'reb', minGamesRatio = 0.70) {
 }
 
 const CATS = [
-  { key: 'pts' as const, label: 'Points',   unit: 'PPG', color: '#ffa040', icon: '🏀' },
-  { key: 'ast' as const, label: 'Assists',  unit: 'APG', color: '#40d0d0', icon: '🎯' },
-  { key: 'reb' as const, label: 'Rebounds', unit: 'RPG', color: '#60a0ff', icon: '💪' },
+  { key: 'pts' as const, label: 'Points',   unit: 'PPG', color: '#d97706', icon: 'ti-ball-basketball' },
+  { key: 'ast' as const, label: 'Assists',  unit: 'APG', color: '#0891b2', icon: 'ti-arrows-exchange' },
+  { key: 'reb' as const, label: 'Rebounds', unit: 'RPG', color: '#1d4ed8', icon: 'ti-arrow-bounce' },
 ]
 
 export default async function LeagueLeadersMini() {
@@ -68,7 +68,7 @@ export default async function LeagueLeadersMini() {
               <div className="px-5 py-3 flex items-center justify-between"
                    style={{borderBottom:'1px solid #3a3228'}}>
                 <span className="text-xs font-bold uppercase tracking-widest" style={{color:cat.color}}>
-                  {cat.icon} {cat.label} Leaders
+                  <i className={`ti ${cat.icon}`} style={{fontSize:14,marginRight:6}}></i>{cat.label} Leaders
                 </span>
                 <span className="text-xs font-bold" style={{color:cat.color}}>{cat.unit}</span>
               </div>

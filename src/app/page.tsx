@@ -109,8 +109,9 @@ export default async function HomePage() {
 
         {/* Performance of the Week */}
         <div className="rounded-2xl p-5" style={{background:'#fff',border:'1px solid #e5e1d8',borderTop:'3px solid #f59e0b',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-          <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#ffd040'}}>
-            ⭐ Performance of the Week
+          <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #f0ede6'}}>
+            <i className="ti ti-award" style={{fontSize:18,color:'#d97706'}}></i>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#92400e',letterSpacing:'1px'}}>Performance of the Week</span>
           </div>
           {hl?.potw ? (
             <>
@@ -158,8 +159,9 @@ export default async function HomePage() {
 
         {/* Upset of the Week */}
         <div className="rounded-2xl p-5" style={{background:'#fff',border:'1px solid #e5e1d8',borderTop:'3px solid #dc2626',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-          <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#e04040'}}>
-            💥 Upset of the Week
+          <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #f0ede6'}}>
+            <i className="ti ti-bolt" style={{fontSize:18,color:'#dc2626'}}></i>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#991b1b',letterSpacing:'1px'}}>Upset of the Week</span>
           </div>
           {hl?.uotw_winner ? (
             <>
@@ -213,8 +215,9 @@ export default async function HomePage() {
 
         {/* Hot Streak */}
         <div className="rounded-2xl p-5" style={{background:'#fff',border:'1px solid #e5e1d8',borderTop:'3px solid #f97316',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
-          <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#ffa040'}}>
-            🔥 Hot Streak
+          <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #f0ede6'}}>
+            <i className="ti ti-flame" style={{fontSize:18,color:'#ea580c'}}></i>
+            <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#9a3412',letterSpacing:'1px'}}>Hot Streak</span>
           </div>
           {hl?.hstreak_team ? (
             <>
@@ -228,8 +231,9 @@ export default async function HomePage() {
                 </div>
                 <div>
                   <div className="font-black text-lg" style={{color:'#111827'}}>{hl.hstreak_team.name}</div>
-                  <div className="text-2xl font-black" style={{color:'#ffa040'}}>
-                    {'🔥'.repeat(Math.min(hl.hstreak_wins,5))} {hl.hstreak_wins}W streak
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <i className="ti ti-flame" style={{fontSize:16,color:'#ea580c'}}></i>
+                    <span className="text-xl font-black" style={{color:'#ea580c'}}>{hl.hstreak_wins}-game win streak</span>
                   </div>
                 </div>
               </div>
