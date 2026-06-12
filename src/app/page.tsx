@@ -98,7 +98,7 @@ export default async function HomePage() {
               style={{ color: '#6a5a4a' }}>Latest News</h2>
           {newsItems.length > 0 ? (
             <div className="grid sm:grid-cols-2 gap-4 mb-6">
-              {rest.map((a:Article) => (
+              {newsItems.map((a:Article) => (
                 <Link key={a.id} href={`/news/${a.slug}`} className="no-underline group">
                   <div className="rounded-xl overflow-hidden h-full"
                        style={{ background: '#241f18', border: '1px solid #3a3228' }}>
