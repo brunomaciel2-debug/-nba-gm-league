@@ -29,7 +29,7 @@ export default async function HomePage() {
     <div className="max-w-7xl mx-auto px-4 py-6">
 
       {/* HERO */}
-      {featured ? (
+      {hero ? (
         <Link href={`/news/${hero.slug}`} className="no-underline block mb-8">
           <div className="relative rounded-2xl overflow-hidden"
                style={{ background: '#241f18', border: '1px solid #3a3228', minHeight: 260 }}>
@@ -39,7 +39,7 @@ export default async function HomePage() {
             )}
             <div className="relative p-8">
               <div className="flex gap-2 mb-3 flex-wrap">
-                {featured.tags?.map((tag:string) => (
+                {hero.tags?.map((tag:string) => (
                   <span key={tag} className="text-xs px-2 py-0.5 rounded-full font-semibold"
                         style={{ background: '#3a3228', color: '#60a0ff' }}>{tag}</span>
                 ))}
