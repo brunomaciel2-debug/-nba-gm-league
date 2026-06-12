@@ -46,14 +46,48 @@ export default function Navbar() {
           <InboxButton />
           {user ? (
             <div className="hidden sm:flex items-center gap-2">
-              <span className="text-xs font-semibold" style={{color:'#8a7a6a'}}>
-                {profile?.role==='commissioner' ? '👑 ' : ''}{profile?.display_name || profile?.teams?.name || user?.email?.split('@')[0] || 'User'}
-              </span>
-              <button onClick={signOut}
-                className="text-xs px-3 py-1.5 rounded-lg font-semibold"
-                style={{background:'#3a3228',color:'#8a7a6a'}}>
-                Sign Out
-              </button>
+              {profile?.role === 'commissioner' && (
+                <div className="relative group">
+                  <button className="text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1"
+                          style={{background:'#2a2000',color:'#ffd040',border:'1px solid #5a4a00'}}>
+                    👑 Commissioner ▾
+                  </button>
+                  <div className="absolute right-0 top-full mt-1 z-50 rounded-xl overflow-hidden opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all"
+                       style={{background:'#120f0a',border:'1px solid #3a3228',minWidth:200}}>
+                    {[
+                      {href:'/admin',                label:'⚙️ Commissioner Panel'},
+                      {href:'/admin/article/new',    label:'✍️ Write Article'},
+                      {href:'/admin/media',          label:'🖼️ Media Manager'},
+                      {href:'/admin/coaches',        label:'🎯 Coaching Staff'},
+                      {href:'/admin/applications',   label:'📋 GM Applications'},
+                      {href:'/admin/trades',         label:'🤝 Trade Approvals'},
+                    ].map(item => (
+                      <a key={item.href} href={item.href}
+                         className="block px-4 py-2.5 text-xs no-underline transition-all hover:brightness-125"
+                         style={{color:'#c0b8a8',borderBottom:'1px solid #2a2218'}}>
+                        {item.label}
+                      </a>
+                    ))}
+                    <button onClick={signOut}
+                      className="w-full text-left px-4 py-2.5 text-xs"
+                      style={{color:'#e04040'}}>
+                      🚪 Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
+              {profile?.role !== 'commissioner' && (
+                <span className="text-xs font-semibold" style={{color:'#8a7a6a'}}>
+                  {profile?.display_name || profile?.teams?.name || user?.email?.split('@')[0] || 'User'}
+                </span>
+              )}
+              {profile?.role !== 'commissioner' && (
+                <button onClick={signOut}
+                  className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+                  style={{background:'#3a3228',color:'#8a7a6a'}}>
+                  Sign Out
+                </button>
+              )}
             </div>
           ) : (
             <Link href="/login"
