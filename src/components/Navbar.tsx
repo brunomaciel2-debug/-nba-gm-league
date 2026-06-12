@@ -107,14 +107,14 @@ export default function Navbar() {
       </div>
 
       {/* NAV BAR */}
-      <nav style={{ background: '#fff', borderBottom: '2px solid #e5e1d8', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+      <nav style={{ background: '#fff', borderBottom: '1px solid #e5e1d8', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         <div className="max-w-7xl mx-auto px-4 hidden lg:flex items-center">
           {NAV.map(item => (
             <Link key={item.href} href={item.href}
               className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
-              style={{ padding: '12px 14px', fontSize: 13, fontWeight: 500, color: '#4b5563', borderBottom: '2px solid transparent', marginBottom: -2 }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#111827'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#4b5563'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
+              style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#1f2937', borderBottom: '3px solid transparent', marginBottom: -2 }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#1f2937'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
               <i className={`ti ${item.icon}`} style={{ fontSize: 15 }}></i>
               {item.label}
             </Link>

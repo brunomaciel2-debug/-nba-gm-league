@@ -52,9 +52,9 @@ export default async function HomePage() {
                      border:'1px solid #3a3228'}}>
           <div className="text-center">
             <div className="text-5xl mb-3">🏀</div>
-            <h1 className="text-4xl font-black mb-2" style={{color:'#f0ebe0'}}>NBA GM League</h1>
-            <p className="text-lg" style={{color:'#8a7a6a'}}>2025-26 Season</p>
-            <p className="text-xs mt-2" style={{color:'#4a3a2a'}}>
+            <h1 className="text-4xl font-black mb-2" style={{color:'#111827'}}>NBA GM League</h1>
+            <p className="text-lg" style={{color:'#6b7280'}}>2025-26 Season</p>
+            <p className="text-xs mt-2" style={{color:'#d1d5db'}}>
               Commissioner: upload a banner in the admin panel (recommended: 1200×280px)
             </p>
           </div>
@@ -82,13 +82,13 @@ export default async function HomePage() {
                 <div className="p-5">
                   <div className="text-xs font-bold mb-2 uppercase tracking-widest"
                        style={{color:i===0?'#60a0ff':'#40e080'}}>📌 Featured</div>
-                  <h2 className="text-xl font-black mb-2 leading-tight" style={{color:'#f0ebe0'}}>
+                  <h2 className="text-xl font-black mb-2 leading-tight" style={{color:'#111827'}}>
                     {art.title}
                   </h2>
                   {art.excerpt && (
-                    <p className="text-base" style={{color:'#4b5563',lineHeight:1.6}}>{art.excerpt}</p>
+                    <p className="text-sm" style={{color:'#374151',lineHeight:1.6}}>{art.excerpt}</p>
                   )}
-                  <p className="text-sm mt-3" style={{color:'#5a4a3a'}}>
+                  <p className="text-sm mt-3" style={{color:'#9ca3af'}}>
                     {new Date(art.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
                   </p>
                 </div>
@@ -126,7 +126,7 @@ export default async function HomePage() {
                      </div>}
                 </div>
                 <div>
-                  <div className="font-black text-lg" style={{color:'#f0ebe0'}}>{hl.potw.name}</div>
+                  <div className="font-black text-lg" style={{color:'#111827'}}>{hl.potw.name}</div>
                   <div className="text-sm" style={{color:teamColor(teamMap[hl.potw.team_id])}}>
                     {hl.potw.pos} · {teamMap[hl.potw.team_id]?.name}
                   </div>
@@ -136,7 +136,7 @@ export default async function HomePage() {
                 {[['PTS',hl.potw_pts,'#ffa040'],['REB',hl.potw_reb,'#60a0ff'],['AST',hl.potw_ast,'#40e080']].map(([l,v,c])=>(
                   <div key={l as string} className="rounded-xl p-2 text-center" style={{background:'#1a1610'}}>
                     <div className="text-xl font-black" style={{color:c as string}}>{v}</div>
-                    <div className="text-xs" style={{color:'#6a5a4a'}}>{l}</div>
+                    <div className="text-xs" style={{color:'#6b7280'}}>{l}</div>
                   </div>
                 ))}
               </div>
@@ -151,7 +151,7 @@ export default async function HomePage() {
           ) : (
             <div className="text-center py-6">
               <div className="text-3xl mb-2">⭐</div>
-              <p className="text-sm" style={{color:'#6a5a4a'}}>Available after first simulation</p>
+              <p className="text-sm" style={{color:'#6b7280'}}>Available after first simulation</p>
             </div>
           )}
         </div>
@@ -173,12 +173,12 @@ export default async function HomePage() {
                             style={{color:teamColor(hl.uotw_winner)}}>{hl.uotw_winner.id}</div>}
                   </div>
                   <div className="text-xs font-bold text-center" style={{color:'#40e080'}}>WIN</div>
-                  <div className="text-xs text-center" style={{color:'#f0ebe0'}}>{hl.uotw_winner.name}</div>
+                  <div className="text-xs text-center" style={{color:'#111827'}}>{hl.uotw_winner.name}</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-black" style={{color:'#e04040'}}>💥</div>
-                  <div className="text-base font-black" style={{color:'#f0ebe0'}}>{hl.uotw_score}</div>
-                  <div className="text-xs" style={{color:'#5a4a3a'}}>
+                  <div className="text-base font-black" style={{color:'#111827'}}>{hl.uotw_score}</div>
+                  <div className="text-xs" style={{color:'#9ca3af'}}>
                     {hl.uotw_odds ? `${Math.round(hl.uotw_odds*100)}% underdog` : ''}
                   </div>
                 </div>
@@ -191,10 +191,10 @@ export default async function HomePage() {
                             style={{color:teamColor(hl.uotw_loser)}}>{hl.uotw_loser?.id}</div>}
                   </div>
                   <div className="text-xs font-bold text-center" style={{color:'#e04040'}}>LOSS</div>
-                  <div className="text-xs text-center" style={{color:'#8a7a6a'}}>{hl.uotw_loser?.name}</div>
+                  <div className="text-xs text-center" style={{color:'#6b7280'}}>{hl.uotw_loser?.name}</div>
                 </div>
               </div>
-              {hl.uotw_notes && <p className="text-sm mb-3" style={{color:'#8a7a6a'}}>{hl.uotw_notes}</p>}
+              {hl.uotw_notes && <p className="text-sm mb-3" style={{color:'#6b7280'}}>{hl.uotw_notes}</p>}
               {hl.uotw_game && (
                 <Link href={`/game/${hl.uotw_game.id}`}
                       className="block text-center text-xs no-underline py-2 rounded-lg font-semibold"
@@ -206,7 +206,7 @@ export default async function HomePage() {
           ) : (
             <div className="text-center py-6">
               <div className="text-3xl mb-2">💥</div>
-              <p className="text-sm" style={{color:'#6a5a4a'}}>Available after first simulation</p>
+              <p className="text-sm" style={{color:'#6b7280'}}>Available after first simulation</p>
             </div>
           )}
         </div>
@@ -227,7 +227,7 @@ export default async function HomePage() {
                           style={{color:teamColor(hl.hstreak_team)}}>{hl.hstreak_team.id}</div>}
                 </div>
                 <div>
-                  <div className="font-black text-lg" style={{color:'#f0ebe0'}}>{hl.hstreak_team.name}</div>
+                  <div className="font-black text-lg" style={{color:'#111827'}}>{hl.hstreak_team.name}</div>
                   <div className="text-2xl font-black" style={{color:'#ffa040'}}>
                     {'🔥'.repeat(Math.min(hl.hstreak_wins,5))} {hl.hstreak_wins}W streak
                   </div>
@@ -247,7 +247,7 @@ export default async function HomePage() {
                          style={{borderBottom:'1px solid #3a3228'}}>
                       <span className="font-bold px-1.5 py-0.5 rounded"
                             style={{background:'#0a2a10',color:'#40e080'}}>W</span>
-                      <span style={{color:'#8a7a6a'}}>{isHome?'vs':'@'} {opp?.name}</span>
+                      <span style={{color:'#6b7280'}}>{isHome?'vs':'@'} {opp?.name}</span>
                       <span className="ml-auto font-bold" style={{color:'#40e080'}}>{us}–{them}</span>
                     </div>
                   </Link>
@@ -257,7 +257,7 @@ export default async function HomePage() {
           ) : (
             <div className="text-center py-6">
               <div className="text-3xl mb-2">🔥</div>
-              <p className="text-sm" style={{color:'#6a5a4a'}}>Available after first simulation</p>
+              <p className="text-sm" style={{color:'#6b7280'}}>Available after first simulation</p>
             </div>
           )}
         </div>
@@ -284,21 +284,21 @@ export default async function HomePage() {
                 <Link key={g.id} href={`/game/${g.id}`} className="no-underline">
                   <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
                        style={{background:'#241f18',border:'1px solid #3a3228'}}>
-                    <span className="text-xs w-6 font-semibold" style={{color:'#6a5a4a'}}>W{g.week_number}</span>
+                    <span className="text-xs w-6 font-semibold" style={{color:'#6b7280'}}>W{g.week_number}</span>
                     <div className="flex-1 flex items-center gap-3">
                       <span className="text-sm font-semibold" style={{color:winner==='home'?'#fff':'#8a7a6a'}}>
                         <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{background:teamColor(home)}}></span>
                         {home?.name||g.home_team}
                       </span>
                       <span className="text-base font-black" style={{color:winner==='home'?'#fff':'#6a5a4a'}}>{g.home_score}</span>
-                      <span className="text-sm" style={{color:'#4a3a2a'}}>–</span>
+                      <span className="text-sm" style={{color:'#d1d5db'}}>–</span>
                       <span className="text-base font-black" style={{color:winner==='away'?'#fff':'#6a5a4a'}}>{g.away_score}</span>
                       <span className="text-sm font-semibold" style={{color:winner==='away'?'#fff':'#8a7a6a'}}>
                         {away?.name||g.away_team}
                         <span className="inline-block w-2 h-2 rounded-full ml-1.5" style={{background:teamColor(away)}}></span>
                       </span>
                     </div>
-                    <span className="text-xs" style={{color:'#4a3a2a'}}>Box Score →</span>
+                    <span className="text-xs" style={{color:'#d1d5db'}}>Box Score →</span>
                   </div>
                 </Link>
               )
