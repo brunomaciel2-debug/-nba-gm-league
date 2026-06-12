@@ -101,7 +101,6 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
                 </>}
                 {(filter==='all'||filter==='physio') && <Th k="rehab" label="REHAB" />}
                 <Th k="attr"   label="RATING" />
-                <Th k="salary" label="AI SALARY" />
                 <th style={{background:'#120f0a',borderBottom:'1px solid #2a2218'}}></th>
               </tr>
             </thead>
@@ -111,7 +110,6 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
               ) : sorted.map((c:any, i:number) => {
                 const rc = ROLE_COLORS[c.role]||'#8a7a6a'
                 const attr = mainAttr(c)
-                const sal = suggestedSalary(c)
                 const attrColor = attr>=80?'#ffd040':attr>=70?'#40e080':attr>=60?'#60a0ff':'#6a5a4a'
                 return (
                   <tr key={c.id} style={{background:i%2===0?'#1a1610':'#181410',borderBottom:'1px solid #242018'}}>
@@ -135,7 +133,6 @@ function StaffTable({ staff, filter, setFilter, user, myTeamId, capFmt }: any) {
                     <td className="px-3 py-2.5 text-center">
                       <span className="font-black" style={{color:attrColor}}>{attr}</span>
                     </td>
-                    <td className="px-3 py-2.5 text-right font-semibold" style={{color:'#F5A623'}}>{capFmt(sal)}</td>
                     <td className="px-3 py-2.5">
                       {user && myTeamId && (
                         <a href={`/trade-center/staff-offer?coach=${c.id}`}

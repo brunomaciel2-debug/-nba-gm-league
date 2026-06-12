@@ -90,6 +90,22 @@ function StaffOfferPage() {
         </div>
       </div>
 
+      {/* Estimated Contract */}
+      <div className="rounded-xl p-4 mb-4" style={{background:'#1a1610',border:'1px solid #3a3228',borderLeft:'3px solid #F5A623'}}>
+        <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#F5A623'}}>
+          Estimated Contract
+        </div>
+        <div className="flex items-end gap-3">
+          <div>
+            <div className="text-2xl font-black" style={{color:'#f0ebe0'}}>${(salary/1000000).toFixed(2)}M<span className="text-sm font-normal" style={{color:'#6a5a4a'}}>/yr</span></div>
+            <div className="text-xs mt-0.5" style={{color:'#6a5a4a'}}>Based on {coach?.natural_role?.replace(/_/g,' ')} market rate × attributes</div>
+          </div>
+          <div className="text-xs px-2 py-1 rounded-lg ml-auto" style={{background:'#2a2000',color:'#ffa040'}}>
+            {years} year{years>1?'s':''} · ${Math.round(salary*years/1000000).toFixed(1)}M total
+          </div>
+        </div>
+      </div>
+
       <div className="mb-4">
         <label className="block text-xs font-semibold mb-1.5" style={{color:'#8a7a6a'}}>Role in your team</label>
         <select value={role} onChange={e=>setRole(e.target.value)}
