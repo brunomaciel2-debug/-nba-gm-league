@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 const ROLE_ORDER = ['head_coach','assistant_coach','trainer','physio']
@@ -114,7 +115,8 @@ export default async function CoachingStaff({ teamId }: { teamId: string }) {
           const info = ROLE_INFO[c.role] || {label:c.role,color:'#6b5f4e',icon:'👤'}
           const isCoach = c.role==='head_coach'||c.role==='assistant_coach'
           return (
-            <div key={c.id} className="rounded-xl p-4"
+            <Link key={c.id} href={`/staff/${c.id}`} className="no-underline group">
+            <div className="rounded-xl p-4 transition-all group-hover:brightness-95"
                  style={{background:'#e8e2d6',border:'1px solid #d4cec3',boxShadow:'0 1px 3px rgba(0,0,0,0.06)',borderTop:'3px solid '+info.color}}>
               {/* Header */}
               <div className="flex items-start justify-between mb-3">
@@ -183,6 +185,7 @@ export default async function CoachingStaff({ teamId }: { teamId: string }) {
                 <StatBar label="Rehab Speed"   value={c.rehab_speed}       color="#6d28d9" tipKey="rehab_speed" />
               )}
             </div>
+            </Link>
           )
         })}
       </div>
