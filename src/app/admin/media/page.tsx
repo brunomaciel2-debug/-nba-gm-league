@@ -36,6 +36,13 @@ export default function AdminMediaPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
+      {/* BANNER UPLOAD */}
+      <div className="rounded-xl p-5 mb-6" style={{background:'#241f18',border:'1px solid #3a3228',borderTop:'3px solid #ffd040'}}>
+        <h2 className="text-sm font-bold mb-1" style={{color:'#ffd040'}}>🖼️ Site Banner</h2>
+        <p className="text-xs mb-3" style={{color:'#6a5a4a'}}>Recommended size: 1200×280px · JPG or PNG · Used at top of homepage</p>
+        <BannerUpload />
+      </div>
+
       <h1 className="text-2xl font-bold text-white mb-2">🖼️ Media Manager</h1>
       <p className="text-sm mb-6" style={{ color:'#8a7a6a' }}>
         Upload team logos and player photos. Paste any public image URL (e.g. from ESPN, NBA.com, Wikipedia).

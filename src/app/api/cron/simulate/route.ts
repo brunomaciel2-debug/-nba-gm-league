@@ -315,6 +315,81 @@ export async function GET(req: NextRequest) {
       }
     } catch(devErr) { console.warn('Development step failed', devErr) }
 
+
+    // ── WEEKLY HIGHLIGHTS ─────────────────────────
+    try {
+      const { data: weekBoxes2 } = await supabaseAdmin
+        .from('box_scores').select('player_id,game_id,team_id,mins,pts,reb,ast,stl,blk')
+        .in('game_id', gamesCreated)
+
+      // Performance of the Week: composite score
+      let potwPlayer = null, potwScore = 0, potwBox: any = null
+      for (const box of (weekBoxes2||[])) {
+        const score = (box.pts||0)*1.0 + (box.reb||0)*1.2 + (box.ast||0)*1.5 + (box.stl||0)*3 + (box.blk||0)*3
+        if (score > potwScore && box.mins >= 15) { potwScore = score; potwBox = box }
+      }
+      if (potwBox) {
+        const { data: potwP } = await supabaseAdmin.from('players').select('id').eq('id',potwBox.player_id).single()
+        if (potwP) potwPlayer = potwP
+      }
+
+      // Upset of the Week: find game where lower-rated team won
+      let uotwGame: any = null, uotwOdds = 0.5
+      const { data: weekGames2 } = await supabaseAdmin.from('games').select('*').in('id',gamesCreated)
+      for (const g of (weekGames2||[])) {
+        const { data: homeP } = await supabaseAdmin.from('players').select('usage').eq('team_id',g.home_team).eq('status','active')
+        const { data: awayP } = await supabaseAdmin.from('players').select('usage').eq('team_id',g.away_team).eq('status','active')
+        const homeStr = (homeP||[]).reduce((s:number,p:any)=>s+(p.usage||50),0)/Math.max(1,(homeP||[]).length)
+        const awayStr = (awayP||[]).reduce((s:number,p:any)=>s+(p.usage||50),0)/Math.max(1,(awayP||[]).length)
+        const homeWin = (g.home_score||0) > (g.away_score||0)
+        const favoredHome = homeStr > awayStr
+        // Upset = favorite lost
+        if (favoredHome && !homeWin || !favoredHome && homeWin) {
+          const upsetOdds = homeWin ? awayStr/(homeStr+awayStr) : homeStr/(homeStr+awayStr)
+          if (upsetOdds < uotwOdds) { uotwOdds = upsetOdds; uotwGame = g }
+        }
+      }
+
+      // Hot Streak: team with most consecutive wins in recent games
+      const { data: allRecentGames } = await supabaseAdmin.from('games').select('*').eq('status','final').order('played_at',{ascending:false}).limit(100)
+      const streaks: Record<string,{count:number,games:string[]}> = {}
+      for (const g of (allRecentGames||[])) {
+        const hw = (g.home_score||0)>(g.away_score||0)
+        const wt = hw?g.home_team:g.away_team
+        const lt = hw?g.away_team:g.home_team
+        if (!streaks[wt]) streaks[wt]={count:0,games:[]}
+        if (!streaks[lt]) streaks[lt]={count:0,games:[]}
+        streaks[wt].count++
+        streaks[wt].games.push(g.id)
+        streaks[lt].count=0
+        streaks[lt].games=[]
+      }
+      const hotTeam = Object.entries(streaks).sort((a,b)=>b[1].count-a[1].count)[0]
+
+      // Save highlights
+      if (potwPlayer || uotwGame || hotTeam) {
+        await supabaseAdmin.from('weekly_highlights').upsert({
+          season:'2025-26', week_number:week,
+          potw_player_id: potwPlayer?.id || null,
+          potw_game_id:   potwBox?.game_id || null,
+          potw_pts: potwBox?.pts || 0,
+          potw_reb: potwBox?.reb || 0,
+          potw_ast: potwBox?.ast || 0,
+          potw_stl: potwBox?.stl || 0,
+          potw_blk: potwBox?.blk || 0,
+          potw_score: potwScore,
+          uotw_game_id:   uotwGame?.id || null,
+          uotw_winner_id: uotwGame ? ((uotwGame.home_score||0)>(uotwGame.away_score||0)?uotwGame.home_team:uotwGame.away_team) : null,
+          uotw_loser_id:  uotwGame ? ((uotwGame.home_score||0)>(uotwGame.away_score||0)?uotwGame.away_team:uotwGame.home_team) : null,
+          uotw_score: uotwGame ? `${uotwGame.home_score}-${uotwGame.away_score}` : null,
+          uotw_odds: uotwOdds,
+          hstreak_team_id: hotTeam?.[0] || null,
+          hstreak_wins:    hotTeam?.[1].count || 0,
+          hstreak_games:   hotTeam?.[1].games.slice(0,5) || [],
+        },{onConflict:'season,week_number'})
+      }
+    } catch(hlErr) { console.warn('Highlights step failed', hlErr) }
+
     // Apply health recovery for days since last game
     try {
       const isMonday = new Date().getDay() === 1
