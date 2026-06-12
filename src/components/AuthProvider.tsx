@@ -27,18 +27,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) console.error('Profile load error:', error)
     else console.log('Profile loaded:', data?.display_name, data?.role)
     setProfile(data)
+    setLoading(false)
   }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
-      if (session?.user) loadProfile(session.user.id)
-      setLoading(false)
+      if (session?.user) {
+        loadProfile(session.user.id)
+      } else {
+        setLoading(false)
+      }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) loadProfile(session.user.id)
-      else setProfile(null)
+      else { setProfile(null); setLoading(false) }
     })
     return () => subscription.unsubscribe()
   }, [])
