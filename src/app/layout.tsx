@@ -12,8 +12,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="min-h-screen" style={{ background: '#1a1610', color: '#f0ebe0' }}>
-        <Navbar />
-        <main><AuthProvider>{children}</AuthProvider></main>
+        <AuthProvider>
+          <Navbar />
+          <main>{children}</main>
+        </AuthProvider>
       </body>
     </html>
   )
