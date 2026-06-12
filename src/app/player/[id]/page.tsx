@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase'
+import { readableTeamColor } from '@/lib/color'
+import { calcOvr } from '@/lib/ovr'
 export const revalidate = 60
 
 const ATTR_GROUPS = [
