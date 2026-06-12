@@ -15,46 +15,17 @@ const DEF_LABELS: Record<string,string> = {
   man:'Man-to-Man',zone23:'Zone 2-3',press:'Full Press',pack:'Pack Paint'
 }
 
-// Tooltips for each attribute
-const TIPS: Record<string,string> = {
-  off_adjustment:  'Offensive Adjustment — ability to tactically counter the opponent\'s defence in real time. Higher = better shot quality against any defence.',
-  def_adjustment:  'Defensive Adjustment — ability to adapt the team\'s defence to the opponent\'s offensive system. Higher = fewer easy buckets allowed.',
-  substitutions:   'Substitutions — making the right substitutions at the right moment. Affects fatigue management and matchup exploitation.',
-  timeout_mgmt:    'Timeout Management — knowing when to call a timeout and what to say. Boosts morale during opponent runs and late-game pressure.',
-  off_development: 'Offensive Development — improves players\' offensive attributes over time: Three Point, Layup, Dunk, Mid-Range, Free Throws, Shot IQ, Draw Foul.',
-  def_development: 'Defensive Development — improves players\' defensive attributes: Block, Steal, Interior Defense, Perimeter Defense.',
-  tactical_dev:    'Tactical Development — improves basketball IQ and team play: Pass Vision, Pass IQ, Assist Role, Defensive & Offensive Rebound positioning.',
-  physical_dev:    'Physical Development — improves athletic attributes: Stamina and Durability.',
-  mental_dev:      'Mental Development — improves psychological resilience: Clutch/Pressure, Consistency, Crowd Effect resistance, Morale stability.',
-  conditioning:    'Conditioning — reduces health loss per game and per training session. Higher = players stay fresher throughout the season.',
-  recovery_boost:  'Recovery — increases health recovery between games. Stacks with training intensity. Higher = faster bounce-back.',
-  injury_prevent:  'Injury Prevention — reduces the probability of injuries occurring in games and practice.',
-  rehab_speed:     'Rehab Speed — reduces the recovery time of injured players. A 80+ physio can cut injury time by 20-30%.',
-  personality:     'Personality — 1=Calm & analytical (benefits low-ego players, consistency<60). 10=Intense & emotional (benefits high-ego players, consistency>75). Complementary HC+AC personalities give a +5% development bonus.',
-  style_boost:     'Style Match Boost — when the GM\'s weekly tactical orders match this coach\'s preferred style, the team gets this % performance boost.',
-}
-
-function Tip({ text }: { text: string }) {
-  return (
-    <span className="relative group inline-flex ml-1 cursor-help align-middle">
-      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full flex-shrink-0"
-            style={{background:'#d4cdc5',color:'#6b5f4e',fontSize:8,lineHeight:1}}>i</span>
-      <span className="absolute bottom-full left-0 mb-2 z-50 px-2.5 py-2 rounded-lg text-xs
-                       opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
-            style={{background:'#eee8df',border:'1px solid #d4cec3',color:'#3d3529',
-                    width:220,whiteSpace:'normal',lineHeight:1.5,fontWeight:400}}>
-        {text}
       </span>
     </span>
   )
 }
 
-function StatBar({ label, value, color, tipKey }: { label: string, value: number, color: string, tipKey?: string }) {
+function StatBar({ label, value, color, tipKey }: { label: string, value: number, color: string }) {
   if (!value) return null
   return (
     <div className="flex items-center gap-2 mb-1.5">
       <span className="text-xs flex-shrink-0" style={{color:'#6b5f4e',width:96}}>
-        {label}{tipKey && TIPS[tipKey] && <Tip text={TIPS[tipKey]} />}
+        {label}
       </span>
       <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:'#cec7bc'}}>
         <div className="h-full rounded-full" style={{width:value+'%',background:color}}></div>
@@ -73,7 +44,7 @@ function PersonalityBar({ value }: { value: number }) {
     <div className="mt-3">
       <div className="flex items-center justify-between text-xs mb-1">
         <span style={{color:'#6b5f4e'}}>
-          Personality<Tip text={TIPS.personality} />
+          Personality
         </span>
         <span className="font-semibold" style={{color}}>{label} {value}/10</span>
       </div>
@@ -142,19 +113,19 @@ export default async function CoachingStaff({ teamId }: { teamId: string }) {
                   <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{color:'#d97706'}}>
                     ⚡ Game Time
                   </div>
-                  <StatBar label="Off. Adjust"   value={c.off_adjustment}  color="#b45309" tipKey="off_adjustment" />
-                  <StatBar label="Def. Adjust"   value={c.def_adjustment}  color="#15803d" tipKey="def_adjustment" />
-                  <StatBar label="Substitutions" value={c.substitutions}   color="#1d4ed8" tipKey="substitutions" />
-                  <StatBar label="Timeout Mgmt"  value={c.timeout_mgmt}    color="#b45309" tipKey="timeout_mgmt" />
+                  <StatBar label="Off. Adjust"   value={c.off_adjustment}  color="#b45309" />
+                  <StatBar label="Def. Adjust"   value={c.def_adjustment}  color="#15803d" />
+                  <StatBar label="Substitutions" value={c.substitutions}   color="#1d4ed8" />
+                  <StatBar label="Timeout Mgmt"  value={c.timeout_mgmt}    color="#b45309" />
 
                   <div className="text-xs font-bold uppercase tracking-wider mb-2 mt-3" style={{color:'#7c3aed'}}>
                     📚 Practice Time
                   </div>
-                  <StatBar label="Off. Dev"    value={c.off_development}  color="#b45309" tipKey="off_development" />
-                  <StatBar label="Def. Dev"    value={c.def_development}  color="#15803d" tipKey="def_development" />
-                  <StatBar label="Tactical"    value={c.tactical_dev}     color="#1d4ed8" tipKey="tactical_dev" />
-                  <StatBar label="Physical"    value={c.physical_dev}     color="#6d28d9" tipKey="physical_dev" />
-                  <StatBar label="Mental"      value={c.mental_dev}       color="#b45309" tipKey="mental_dev" />
+                  <StatBar label="Off. Dev"    value={c.off_development}  color="#b45309" />
+                  <StatBar label="Def. Dev"    value={c.def_development}  color="#15803d" />
+                  <StatBar label="Tactical"    value={c.tactical_dev}     color="#1d4ed8" />
+                  <StatBar label="Physical"    value={c.physical_dev}     color="#6d28d9" />
+                  <StatBar label="Mental"      value={c.mental_dev}       color="#b45309" />
 
                   {/* Style preference */}
                   <div className="flex flex-wrap gap-1.5 mt-3">
@@ -166,7 +137,7 @@ export default async function CoachingStaff({ teamId }: { teamId: string }) {
                     </span>
                     <span className="text-xs px-2 py-0.5 rounded" style={{background:'#b45309',color:'#fff'}}>
                       +{c.style_boost}% match
-                      <Tip text={TIPS.style_boost} />
+                      
                     </span>
                   </div>
                   <PersonalityBar value={c.personality||5} />
@@ -175,14 +146,14 @@ export default async function CoachingStaff({ teamId }: { teamId: string }) {
 
               {c.role==='trainer' && (
                 <>
-                  <StatBar label="Conditioning"  value={c.conditioning}    color="#15803d" tipKey="conditioning" />
-                  <StatBar label="Recovery"      value={c.recovery_boost}  color="#1d4ed8" tipKey="recovery_boost" />
-                  <StatBar label="Inj. Prevent"  value={c.injury_prevent}  color="#b45309" tipKey="injury_prevent" />
+                  <StatBar label="Conditioning"  value={c.conditioning}    color="#15803d" />
+                  <StatBar label="Recovery"      value={c.recovery_boost}  color="#1d4ed8" />
+                  <StatBar label="Inj. Prevent"  value={c.injury_prevent}  color="#b45309" />
                 </>
               )}
 
               {c.role==='physio' && (
-                <StatBar label="Rehab Speed"   value={c.rehab_speed}       color="#6d28d9" tipKey="rehab_speed" />
+                <StatBar label="Rehab Speed"   value={c.rehab_speed}       color="#6d28d9" />
               )}
             </div>
             </Link>
