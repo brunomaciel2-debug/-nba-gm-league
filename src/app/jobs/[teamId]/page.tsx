@@ -10,7 +10,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
   const [{ data: team }, { data: players }, { data: coaches }, { data: profile }] = await Promise.all([
     supabase.from('teams').select('*').eq('id', teamId).single(),
     supabase.from('players').select('id,name,pos,salary,usage,potential_grade')
-      .eq('team_id', teamId).eq('status','active').order('usage',{ascending:false}).limit(12),
+      .eq('team_id', teamId).eq('status','active').order('usage',{ascending:false}),
     supabase.from('coaches').select('name,role').eq('team_id', teamId),
     supabase.from('gm_profiles').select('id,display_name').eq('team_id', teamId).single(),
   ])
@@ -68,6 +68,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
             ['Head Coach', hc?.name || 'TBA'],
             ['Cap Space', space > 0 ? '+' + capFmt(space) : 'Over cap ' + capFmt(Math.abs(space))],
             ['Arena', (team as any).arena],
+            ['Capacity', (team as any).arena_capacity ? (team as any).arena_capacity.toLocaleString() + ' seats' : 'N/A'],
             ['City', (team as any).city],
           ].map(([l, v]) => (
             <div key={l} className="flex justify-between py-1.5" style={{borderBottom:'1px solid #2a2218'}}>
@@ -80,20 +81,22 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
         {/* Roster preview */}
         <div className="rounded-xl p-4" style={{background:'#241f18',border:'1px solid #3a3228'}}>
           <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6a5a4a'}}>
-            🏀 Key Players
+            🏀 Full Roster ({(players||[]).length} players)
           </h3>
-          {(players||[]).slice(0,8).map((p:any) => (
-            <div key={p.id} className="flex items-center gap-2 py-1.5"
-                 style={{borderBottom:'1px solid #2a2218'}}>
-              <span className="text-xs w-7 flex-shrink-0" style={{color:'#6a5a4a'}}>{p.pos}</span>
-              <span className="text-xs flex-1 font-semibold" style={{color:'#f0ebe0'}}>{p.name}</span>
-              <span className="text-xs px-1.5 py-0.5 rounded font-bold"
-                    style={{background:p.potential_grade==='A'?'#2a2000':'#1a1610',
-                            color:p.potential_grade==='A'?'#ffd040':p.potential_grade==='B'?'#40e080':'#6a5a4a'}}>
-                {p.potential_grade}
-              </span>
-              <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(p.salary)}</span>
-            </div>
+          {(players||[]).map((p:any) => (
+            <Link key={p.id} href={`/player/${p.id}`} className="no-underline group">
+              <div className="flex items-center gap-2 py-1.5 group-hover:brightness-125 transition-all"
+                   style={{borderBottom:'1px solid #2a2218'}}>
+                <span className="text-xs w-7 flex-shrink-0" style={{color:'#6a5a4a'}}>{p.pos}</span>
+                <span className="text-xs flex-1 font-semibold" style={{color:'#f0ebe0'}}>{p.name}</span>
+                <span className="text-xs px-1.5 py-0.5 rounded font-bold"
+                      style={{background:p.potential_grade==='A'?'#2a2000':'#1a1610',
+                              color:p.potential_grade==='A'?'#ffd040':p.potential_grade==='B'?'#40e080':'#6a5a4a'}}>
+                  {p.potential_grade}
+                </span>
+                <span className="text-xs" style={{color:'#6a5a4a'}}>{capFmt(p.salary)}</span>
+              </div>
+            </Link>
           ))}
         </div>
       </div>
