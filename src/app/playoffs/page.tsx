@@ -3,173 +3,190 @@ import Link from 'next/link'
 import { readableTeamColor } from '@/lib/color'
 export const revalidate = 60
 
-const ROUND_LABELS: Record<number,string> = {
-  1: 'Play-In Tournament',
-  2: 'First Round',
-  3: 'Conference Semifinals',
-  4: 'Conference Finals',
-  5: 'NBA Finals',
+async function getStandings() {
+  const { data } = await supabase
+    .from('teams').select('id,name,color,logo_url,wins,losses,conference,pts_for,pts_against')
+    .not('id','in','(ALL,RVS)')
+  return data || []
 }
 
-function TeamSlot({ team, wins, isWinner, seed }: { team:any, wins:number, isWinner:boolean, seed?:number }) {
+function sortConf(teams: any[]) {
+  return [...teams].sort((a,b) => {
+    const pctA = a.wins / Math.max(1, a.wins+a.losses)
+    const pctB = b.wins / Math.max(1, b.wins+b.losses)
+    return pctB - pctA || b.wins - a.wins || (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against)
+  })
+}
+
+function TeamSlot({ team, seed, isPlayin, className }: {
+  team: any, seed: number, isPlayin?: boolean, className?: string
+}) {
   const tc = team ? readableTeamColor(team.color) : '#9c9088'
+  const gp = team ? team.wins + team.losses : 0
+  const pct = gp > 0 ? (team.wins/gp).toFixed(3).replace(/^0/,'') : '.000'
+
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
-         style={{background: isWinner?tc+'18':'#f5f1eb', border:`1px solid ${isWinner?tc+'44':'#d4cdc5'}`}}>
-      {seed && <span className="text-xs font-bold w-4 flex-shrink-0" style={{color:'#9c9088'}}>{seed}</span>}
-      {team?.logo_url
-        ?<img src={team.logo_url} alt="" className="w-7 h-7 object-contain flex-shrink-0"/>
-        :<div className="w-7 h-7 rounded flex items-center justify-center text-xs font-black flex-shrink-0"
-              style={{background:tc+'22',color:tc}}>{team?.id?.slice(0,3)||'TBD'}</div>}
-      <span className="text-sm font-semibold flex-1 truncate"
-            style={{color: team ? '#1a1512' : '#9c9088'}}>
-        {team?.name || 'TBD'}
-      </span>
-      <span className="text-lg font-black flex-shrink-0"
-            style={{color: isWinner?tc:'#9c9088'}}>{wins}</span>
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${className||''}`}
+         style={{
+           background: isPlayin ? '#fef9c3' : '#faf8f5',
+           border: `1px solid ${isPlayin ? '#b45309' : '#d4cdc5'}`,
+           minWidth: 0,
+         }}>
+      <span className="text-xs font-black w-4 flex-shrink-0 text-center"
+            style={{color: seed<=6?'#15803d':'#b45309'}}>{seed}</span>
+      {team ? (
+        <>
+          {team.logo_url
+            ? <img src={team.logo_url} alt="" className="w-7 h-7 object-contain flex-shrink-0"/>
+            : <div className="w-7 h-7 rounded flex items-center justify-center text-xs font-black flex-shrink-0"
+                   style={{background:tc+'22',color:tc}}>{team.id?.slice(0,3)}</div>}
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-bold truncate" style={{color:'#1a1512'}}>{team.name}</div>
+            <div className="text-xs" style={{color:'#8a8279'}}>{team.wins}W {team.losses}L</div>
+          </div>
+        </>
+      ) : (
+        <div className="flex-1">
+          <div className="text-xs font-bold" style={{color:'#9c9088'}}>N/A</div>
+          <div className="text-xs" style={{color:'#b0a89e'}}>Play-In</div>
+        </div>
+      )}
     </div>
   )
 }
 
-function SeriesCard({ series }: { series:any }) {
-  const high = series.team_high_data
-  const low  = series.team_low_data
-  const done = series.status === 'complete'
-  const isOne = series.games_needed === 1
-
+function Matchup({ hi, lo, hiSeed, loSeed, label }: {
+  hi: any, lo: any, hiSeed: number, loSeed: number, label?: string
+}) {
+  const isPlayin7 = loSeed >= 7
   return (
-    <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5',minWidth:240}}>
-      <div className="px-3 py-2 text-xs font-semibold"
-           style={{background:'#f0ece5',borderBottom:'1px solid #d4cdc5',color:'#5c554e'}}>
-        {isOne ? 'Single Game' : `Best of ${series.games_needed}`}
-        {done && <span className="ml-2 text-xs font-bold" style={{color:'#15803d'}}>✓ Complete</span>}
-      </div>
-      <div className="p-3 flex flex-col gap-2">
-        <TeamSlot team={high} wins={series.wins_high} isWinner={done && series.winner===high?.id} seed={series.seed_high} />
-        <div className="text-center text-xs font-bold" style={{color:'#9c9088'}}>vs</div>
-        <TeamSlot team={low}  wins={series.wins_low}  isWinner={done && series.winner===low?.id}  seed={series.seed_low} />
-      </div>
+    <div className="flex flex-col gap-1">
+      {label && <div className="text-xs font-bold mb-1" style={{color:'#8a8279'}}>{label}</div>}
+      <TeamSlot team={hi} seed={hiSeed} isPlayin={hiSeed>6} />
+      <div className="text-center text-xs font-bold" style={{color:'#d4cdc5'}}>vs</div>
+      <TeamSlot team={lo} seed={loSeed} isPlayin={loSeed>6} />
     </div>
   )
 }
 
 export default async function PlayoffsPage() {
-  const { data: rawSeries } = await supabase
-    .from('playoff_series')
-    .select('*')
-    .eq('season','2025-26')
-    .order('round').order('series_type')
+  const teams = await getStandings()
+  const east = sortConf(teams.filter(t => t.conference === 'Eastern'))
+  const west = sortConf(teams.filter(t => t.conference === 'Western'))
 
-  const { data: teams } = await supabase.from('teams').select('id,name,color,logo_url')
-  const teamMap = Object.fromEntries((teams||[]).map((t:any) => [t.id,t]))
+  // Seeds: 1-6 direct, 7-8 = N/A (from play-in)
+  const getSeeds = (ranked: any[]) => ({
+    s1: ranked[0], s2: ranked[1], s3: ranked[2],
+    s4: ranked[3], s5: ranked[4], s6: ranked[5],
+    s7: null, s8: null, // play-in
+    s7_cur: ranked[6], s8_cur: ranked[7], // current 7/8 before play-in
+    s9: ranked[8], s10: ranked[9],
+  })
 
-  const series = (rawSeries||[]).map((s:any) => ({
-    ...s,
-    team_high_data: s.team_high ? teamMap[s.team_high] : null,
-    team_low_data:  s.team_low  ? teamMap[s.team_low]  : null,
-    winner_data:    s.winner    ? teamMap[s.winner]     : null,
-  }))
+  const eSeeds = getSeeds(east)
+  const wSeeds = getSeeds(west)
 
-  const noPlayoffs = series.length === 0
-
-  const byRound = (round: number, conf?: string) =>
-    series.filter((s:any) => s.round===round && (!conf || s.conference===conf))
-
-  const playInEast = series.filter((s:any) => s.round===1 && s.conference==='Eastern')
-  const playInWest = series.filter((s:any) => s.round===1 && s.conference==='Western')
-
-  return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
-      <div className="sec-hdr mb-6">
-        <span className="sec-title">
-          <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
-          2025-26 NBA Playoffs
-        </span>
-        <Link href="/standings" className="text-xs no-underline font-semibold" style={{color:'#c8102e'}}>
-          Regular Season Standings →
-        </Link>
+  const ConferenceBracket = ({ conf, seeds, color }: { conf: string, seeds: ReturnType<typeof getSeeds>, color: string }) => (
+    <div>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-3 h-3 rounded-full" style={{background:color}}></div>
+        <h2 className="text-sm font-bold uppercase tracking-widest" style={{color:'#1a1512'}}>{conf} Conference</h2>
       </div>
 
-      {noPlayoffs ? (
-        <div className="rounded-2xl p-12 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-          <i className="ti ti-trophy" style={{fontSize:48,color:'#d4cdc5'}}></i>
-          <h2 className="text-xl font-bold mt-4 mb-2" style={{color:'#1a1512'}}>Playoffs Not Yet Started</h2>
-          <p className="text-sm mb-2" style={{color:'#5c554e'}}>The regular season must complete before playoffs begin.</p>
-          <p className="text-xs" style={{color:'#8a8279'}}>Commissioner can generate the playoff bracket from the Admin panel after Week 26.</p>
+      {/* Round 1 matchups */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <Matchup hi={seeds.s1} lo={seeds.s8} hiSeed={1} loSeed={8} label="1st Round" />
+        <Matchup hi={seeds.s4} lo={seeds.s5} hiSeed={4} loSeed={5} />
+        <Matchup hi={seeds.s2} lo={seeds.s7} hiSeed={2} loSeed={7} />
+        <Matchup hi={seeds.s3} lo={seeds.s6} hiSeed={3} loSeed={6} />
+      </div>
+
+      {/* Play-in preview */}
+      <div className="rounded-xl p-4 mb-4" style={{background:'#fef9c3',border:'1px solid #b45309'}}>
+        <div className="text-xs font-bold mb-2" style={{color:'#b45309'}}>
+          <i className="ti ti-tournament" style={{marginRight:4}}></i>Play-In (seeds 7-10)
         </div>
-      ) : (
-        <>
-          {/* PLAY-IN */}
-          {(playInEast.length > 0 || playInWest.length > 0) && (
-            <div className="mb-8">
-              <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1.5px'}}>
-                Play-In Tournament
-              </h2>
-              <div className="rounded-xl p-4 mb-4" style={{background:'#fef9c3',border:'1px solid #b45309'}}>
-                <div className="text-xs font-semibold mb-1" style={{color:'#b45309'}}>How Play-In works:</div>
-                <div className="text-xs" style={{color:'#5c554e'}}>
-                  <strong>Game A (7v8):</strong> Winner → #7 seed in Playoffs · Loser goes to Game C &nbsp;|&nbsp;
-                  <strong>Game B (9v10):</strong> Winner goes to Game C · Loser eliminated &nbsp;|&nbsp;
-                  <strong>Game C:</strong> Winner → #8 seed in Playoffs · Loser eliminated
-                </div>
-              </div>
-              <div className="grid md:grid-cols-2 gap-6">
-                {[['Eastern',playInEast],['Western',playInWest]].map(([conf,games])=>(
-                  <div key={conf as string}>
-                    <h3 className="text-xs font-semibold mb-3" style={{color:'#8a8279'}}>{conf as string} Conference</h3>
-                    <div className="flex flex-col gap-3">
-                      {(games as any[]).map((s:any) => (
-                        <div key={s.id} className="flex items-center gap-3">
-                          <span className="text-xs font-bold w-6 flex-shrink-0" style={{color:'#b45309'}}>
-                            {s.series_type.includes('_a_')?'A':s.series_type.includes('_b_')?'B':'C'}
-                          </span>
-                          <div className="flex-1"><SeriesCard series={s} /></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-xs mb-1" style={{color:'#8a8279'}}>Game A · 7 vs 8</div>
+            <TeamSlot team={seeds.s7_cur} seed={7} isPlayin />
+            <div className="text-center text-xs my-0.5" style={{color:'#d4cdc5'}}>vs</div>
+            <TeamSlot team={seeds.s8_cur} seed={8} isPlayin />
+          </div>
+          <div>
+            <div className="text-xs mb-1" style={{color:'#8a8279'}}>Game B · 9 vs 10</div>
+            <TeamSlot team={seeds.s9} seed={9} isPlayin />
+            <div className="text-center text-xs my-0.5" style={{color:'#d4cdc5'}}>vs</div>
+            <TeamSlot team={seeds.s10} seed={10} isPlayin />
+          </div>
+        </div>
+        <div className="text-xs mt-2" style={{color:'#8a8279'}}>
+          Winner A → #7 seed · Loser A vs Winner B → #8 seed · Loser B eliminated
+        </div>
+      </div>
 
-          {/* BRACKET */}
-          {[2,3,4].map(round => {
-            const eastSeries = byRound(round,'Eastern')
-            const westSeries = byRound(round,'Western')
-            if (!eastSeries.length && !westSeries.length) return null
-            return (
-              <div key={round} className="mb-8">
-                <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1.5px'}}>
-                  {ROUND_LABELS[round]}
-                </h2>
-                <div className="grid md:grid-cols-2 gap-6">
-                  {[['Eastern',eastSeries],['Western',westSeries]].map(([conf,confSeries])=>(
-                    <div key={conf as string}>
-                      <h3 className="text-xs font-semibold mb-3" style={{color:'#8a8279'}}>{conf as string}</h3>
-                      <div className={`grid gap-4 ${round===2?'grid-cols-2':'grid-cols-1'}`}>
-                        {(confSeries as any[]).map((s:any) => <SeriesCard key={s.id} series={s} />)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
+      {/* Semis placeholder */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        {[1,2].map(i=>(
+          <div key={i} className="rounded-lg p-3 text-center"
+               style={{background:'#f0ece5',border:'1px dashed #d4cdc5'}}>
+            <div className="text-xs font-semibold" style={{color:'#8a8279'}}>Conf. Semis</div>
+            <div className="text-xs mt-1" style={{color:'#b0a89e'}}>TBD</div>
+          </div>
+        ))}
+      </div>
 
-          {/* NBA FINALS */}
-          {byRound(5).length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#c8102e',letterSpacing:'1.5px'}}>
-                🏆 NBA Finals
-              </h2>
-              <div className="max-w-sm mx-auto">
-                {byRound(5).map((s:any) => <SeriesCard key={s.id} series={s} />)}
-              </div>
-            </div>
-          )}
-        </>
-      )}
+      {/* Finals placeholder */}
+      <div className="rounded-lg p-3 text-center"
+           style={{background:'#f0ece5',border:'1px dashed #d4cdc5'}}>
+        <div className="text-xs font-semibold" style={{color:'#8a8279'}}>Conference Finals</div>
+        <div className="text-xs mt-1" style={{color:'#b0a89e'}}>TBD</div>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="sec-hdr mb-2">
+        <span className="sec-title">
+          <i className="ti ti-tournament" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+          2025-26 Playoff Picture
+        </span>
+        <Link href="/standings" className="text-xs no-underline font-semibold" style={{color:'#c8102e'}}>
+          Full Standings →
+        </Link>
+      </div>
+      <p className="text-xs mb-6" style={{color:'#8a8279'}}>
+        Based on current standings. Seeds 7 and 8 show as N/A — they are determined by the Play-In Tournament at end of season. Updates after each simulation.
+      </p>
+
+      <div className="grid md:grid-cols-2 gap-8 mb-8">
+        <ConferenceBracket conf="Eastern" seeds={eSeeds} color="#1e3a8a" />
+        <ConferenceBracket conf="Western" seeds={wSeeds} color="#7c2d12" />
+      </div>
+
+      {/* NBA Finals placeholder */}
+      <div className="rounded-2xl p-6 text-center"
+           style={{background:'#faf8f5',border:'2px solid #c8102e',borderStyle:'dashed'}}>
+        <i className="ti ti-trophy" style={{fontSize:32,color:'#c8102e'}}></i>
+        <div className="text-sm font-bold mt-2 mb-1" style={{color:'#1a1512'}}>NBA Finals</div>
+        <div className="text-xs" style={{color:'#8a8279'}}>East Champion vs West Champion · Best of 7</div>
+        <div className="flex items-center justify-center gap-6 mt-4">
+          <div className="rounded-lg px-4 py-2" style={{background:'#f0ece5',border:'1px dashed #d4cdc5'}}>
+            <div className="text-xs font-bold" style={{color:'#1e3a8a'}}>East Champion</div>
+            <div className="text-xs" style={{color:'#8a8279'}}>TBD</div>
+          </div>
+          <span className="font-black text-lg" style={{color:'#d4cdc5'}}>vs</span>
+          <div className="rounded-lg px-4 py-2" style={{background:'#f0ece5',border:'1px dashed #d4cdc5'}}>
+            <div className="text-xs font-bold" style={{color:'#7c2d12'}}>West Champion</div>
+            <div className="text-xs" style={{color:'#8a8279'}}>TBD</div>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-xs text-center mt-4" style={{color:'#b0a89e'}}>
+        This is a projected bracket based on current standings and updates automatically after each simulation run.
+      </p>
     </div>
   )
 }
