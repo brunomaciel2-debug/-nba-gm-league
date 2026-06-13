@@ -23,10 +23,10 @@ export default function TradeCenterPage() {
         .not('id','in','(ALL,RVS)').order('name'),
       supabase.from('trade_block').select('*, players(id,name,pos,salary,team_id,health), teams(id,name,color,logo_url)')
         .eq('status','available').order('created_at',{ascending:false}),
-      supabase.from('coaches').select('*').is('team_id',null).order('role').order('name'),
-    ]).then(([{data:ts},{data:tb},{data:fs}]) => {
+    ]).then(([{data:ts},{data:tb}]) => {
       setTeams(ts||[])
-      setTradeBlock(tb||[])      setLoading(false)
+      setTradeBlock(tb||[])
+      setLoading(false)
     })
   }, [])
 
