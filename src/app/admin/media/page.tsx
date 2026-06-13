@@ -316,18 +316,39 @@ export default function AdminMediaPage() {
           {/* Others */}
           {logoSec === 'others' && (
             <div>
-              <p style={{fontSize:11,color:'#8a8279',marginBottom:12}}>
-                All-Star and Rookie/Sophomore team logos.
+              <p style={{fontSize:11,color:'#8a8279',marginBottom:16}}>
+                All-Star and Rookie/Sophomore team logos. Run <code>patch_special_teams.sql</code> first if slots are missing.
               </p>
-              <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                {nbaForFilter.filter((t:any)=>['ALL','RVS'].includes(t.id)).map((t:any) => (
-                  <LogoRow key={t.id} item={t} table="teams" onSave={saveLogo} saving={saving} saved={saved}/>
-                ))}
-                {/* Static entries for Rookie/Sophomore (same table, different names) */}
-                <div style={{padding:'12px 16px',borderRadius:12,background:'#f5f1eb',
-                             border:'1px solid #d4cdc5',fontSize:12,color:'#8a8279'}}>
-                  Rookie Team & Sophomore Team logos will be available once those entries are created in the database.
-                </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+                {/* All-Stars East / West */}
+                {['ALL','RVS','ROO','SOP'].map(id => {
+                  const labels: Record<string,string> = {
+                    ALL:'All-Stars East', RVS:'All-Stars West',
+                    ROO:'Rookie Team', SOP:'Sophomore Team'
+                  }
+                  const colors: Record<string,string> = {
+                    ALL:'#1e3a5f', RVS:'#7c2d12', ROO:'#6d28d9', SOP:'#b45309'
+                  }
+                  const found = nbaForFilter.find((t:any) => t.id === id)
+                  const item = found || { id, name: labels[id], logo_url: '' }
+                  return (
+                    <div key={id} style={{borderRadius:12,overflow:'hidden',
+                                          border:`2px solid ${colors[id]}22`}}>
+                      <div style={{padding:'8px 12px',fontSize:11,fontWeight:700,
+                                   background:colors[id]+'18',color:colors[id],
+                                   letterSpacing:'0.5px'}}>
+                        {labels[id]}
+                      </div>
+                      <div style={{padding:12,background:'#faf8f5'}}>
+                        {found
+                          ? <LogoRow item={item} table="teams" onSave={saveLogo} saving={saving} saved={saved}/>
+                          : <div style={{fontSize:12,color:'#8a8279',padding:'8px 0'}}>
+                              Not found in DB — run patch_special_teams.sql
+                            </div>}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
