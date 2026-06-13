@@ -20,7 +20,7 @@ const ATTR_LABEL: Record<string,string> = {
   stamina:'STA',durability:'DUR',def_reb:'DREB',off_reb:'OREB',
   pressure:'CLU',consistency:'CON',crowd_effect:'CE',
 }
-const EXP_LABEL = (n:number) => n===0?'Rookie':n===1?'2nd Yr':n===2?'3rd Yr':`${n} Yrs`
+
 
 function attrColor(v:number) {
   if(v>=85) return '#b45309'; if(v>=75) return '#15803d'
@@ -198,8 +198,8 @@ function RosterTab({ players }: { players: any[] }) {
                   </td>
                   <td className="px-2 py-2 text-center" style={{color:'#5c554e'}}>{p.age||'—'}</td>
                   <td className="px-2 py-2 text-center">
-                    <span style={{color:(p.nba_experience??1)===0?'#6d28d9':'#5c554e',fontSize:10,fontWeight:600}}>
-                      {EXP_LABEL(p.nba_experience??0)}
+                    <span style={{color:'#5c554e',fontSize:11,fontWeight:700}}>
+                      {p.nba_experience ?? 0}
                     </span>
                   </td>
                   {ATTR_GROUPS.map(g => g.attrs.map(a => (

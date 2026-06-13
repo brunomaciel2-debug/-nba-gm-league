@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+'use client'
 import Link from 'next/link'
 
 const ROLE_ORDER = ['head_coach','assistant_coach','trainer','physio']
@@ -51,10 +51,7 @@ function PersonalityBar({ value }: { value: number }) {
   )
 }
 
-export default async function CoachingStaff({ teamId }: { teamId: string }) {
-  const { data: staff } = await supabase
-    .from('coaches').select('*').eq('team_id', teamId)
-
+export default function CoachingStaff({ staff }: { staff: any[] }) {
   if (!staff || staff.length === 0) return (
     <div>
       <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{color:'#5c554e',letterSpacing:'1.5px'}}>COACHING STAFF</h2>
@@ -79,7 +76,6 @@ export default async function CoachingStaff({ teamId }: { teamId: string }) {
             <Link key={c.id} href={`/staff/${c.id}`} className="no-underline group">
               <div className="rounded-xl p-4 h-full transition-all group-hover:brightness-95"
                    style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:'3px solid '+info.color}}>
-                {/* Header */}
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <div className="text-xs font-semibold mb-0.5" style={{color:info.color}}>
@@ -97,48 +93,37 @@ export default async function CoachingStaff({ teamId }: { teamId: string }) {
                     <div className="text-xs" style={{color:'#8a8279'}}>{c.contract_years}yr</div>
                   </div>
                 </div>
-
                 {isCoach && (
                   <>
-                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{color:'#b45309',letterSpacing:'1px'}}>
-                      Game Time
-                    </div>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{color:'#b45309',letterSpacing:'1px'}}>Game Time</div>
                     <StatBar label="Off. Adjust"   value={c.off_adjustment}  color="#b45309" />
                     <StatBar label="Def. Adjust"   value={c.def_adjustment}  color="#15803d" />
                     <StatBar label="Substitutions" value={c.substitutions}   color="#1d4ed8" />
                     <StatBar label="Timeout Mgmt"  value={c.timeout_mgmt}    color="#b45309" />
-
-                    <div className="text-xs font-bold uppercase tracking-wider mb-2 mt-3" style={{color:'#6d28d9',letterSpacing:'1px'}}>
-                      Practice
-                    </div>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2 mt-3" style={{color:'#6d28d9',letterSpacing:'1px'}}>Practice</div>
                     <StatBar label="Off. Dev"  value={c.off_development} color="#b45309" />
                     <StatBar label="Def. Dev"  value={c.def_development} color="#15803d" />
                     <StatBar label="Tactical"  value={c.tactical_dev}    color="#1d4ed8" />
                     <StatBar label="Physical"  value={c.physical_dev}    color="#6d28d9" />
                     <StatBar label="Mental"    value={c.mental_dev}      color="#b45309" />
-
                     <div className="flex flex-wrap gap-1.5 mt-3">
-                      <span className="text-xs px-2 py-0.5 rounded font-semibold"
-                            style={{background:'#b45309',color:'#fff'}}>
+                      <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{background:'#b45309',color:'#fff'}}>
                         {ATK_LABELS[c.pref_atk_style]||c.pref_atk_style}
                       </span>
-                      <span className="text-xs px-2 py-0.5 rounded font-semibold"
-                            style={{background:'#15803d',color:'#fff'}}>
+                      <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{background:'#15803d',color:'#fff'}}>
                         {DEF_LABELS[c.pref_def_style]||c.pref_def_style}
                       </span>
                     </div>
                     <PersonalityBar value={c.personality||5} />
                   </>
                 )}
-
                 {c.role==='trainer' && (
                   <>
-                    <StatBar label="Conditioning" value={c.conditioning}    color="#15803d" />
-                    <StatBar label="Recovery"     value={c.recovery_boost}  color="#1d4ed8" />
-                    <StatBar label="Inj. Prevent" value={c.injury_prevent}  color="#b45309" />
+                    <StatBar label="Conditioning" value={c.conditioning}   color="#15803d" />
+                    <StatBar label="Recovery"     value={c.recovery_boost} color="#1d4ed8" />
+                    <StatBar label="Inj. Prevent" value={c.injury_prevent} color="#b45309" />
                   </>
                 )}
-
                 {c.role==='physio' && (
                   <StatBar label="Rehab Speed" value={c.rehab_speed} color="#6d28d9" />
                 )}

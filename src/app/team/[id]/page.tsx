@@ -10,7 +10,7 @@ export const revalidate = 60
 
 export default async function TeamPage({ params }: { params: { id: string } }) {
   const teamId = params.id.toUpperCase()
-  const [{ data: team }, { data: players }, { data: games }, { data: allTeams }, { data: injuries }] =
+  const [{ data: team }, { data: players }, { data: games }, { data: allTeams }, { data: injuries }, { data: coaches }] =
     await Promise.all([
       supabase.from('teams').select('*').eq('id', teamId).single(),
       supabase.from('players').select('*, player_stats(*)')
@@ -20,6 +20,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         .order('week_number').order('game_number'),
       supabase.from('teams').select('id,name,color,logo_url,arena'),
       supabase.from('injury_log').select('*').eq('status','active').limit(100),
+      supabase.from('coaches').select('*').eq('team_id', teamId),
     ])
 
   if (!team) return <div className="p-8 text-center" style={{color:'#6b5f4e'}}>Team not found.</div>
@@ -111,7 +112,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
 
       {/* COACHING STAFF */}
       <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-        <CoachingStaff teamId={teamId} />
+        <CoachingStaff staff={coaches||[]} />
       </div>
 
       {/* INJURY REPORT */}
