@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     coaches:      ['photo_url'],
     teams:        ['logo_url'],
     gleague_teams:['logo_url'],
+    world_teams:  ['logo_url'],
   }
   if (!allowed[table]?.includes(field)) {
     return NextResponse.json({ error: 'Not allowed' }, { status: 403 })

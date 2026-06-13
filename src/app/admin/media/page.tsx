@@ -103,6 +103,7 @@ export default function AdminMediaPage() {
   // Logos data
   const [nbaTeams,  setNbaTeams]  = useState<any[]>([])
   const [glTeams,   setGlTeams]   = useState<any[]>([])
+  const [worldTeams,setWorldTeams]= useState<any[]>([])
 
   // Photos data
   const [nbaForFilter,  setNbaForFilter]  = useState<any[]>([])
@@ -122,6 +123,8 @@ export default function AdminMediaPage() {
       })
     supabase.from('gleague_teams').select('id,name,color,logo_url,conference').order('name')
       .then(({data}) => { if (data) setGlTeams(data); setGlForFilter(data||[]) })
+    supabase.from('world_teams').select('id,name,color,logo_url,continent,country').order('continent').order('name')
+      .then(({data}) => { if (data) setWorldTeams(data) })
   }, [])
 
   // Fetch players when team selected
@@ -314,14 +317,14 @@ export default function AdminMediaPage() {
 
           {/* Rest of the World */}
           {logoSec === 'world' && (
-            <div style={{borderRadius:12,padding:32,textAlign:'center',
-                         background:'#faf8f5',border:'2px dashed #d4cdc5'}}>
-              <div style={{fontSize:32,marginBottom:8}}>🌍</div>
-              <div style={{fontSize:14,fontWeight:600,color:'#5c554e',marginBottom:4}}>
-                Rest of the World Teams
-              </div>
-              <div style={{fontSize:12,color:'#8a8279'}}>
-                International teams for pre-season games will appear here once created.
+            <div>
+              <p style={{fontSize:11,color:'#8a8279',marginBottom:12}}>
+                {worldTeams.length} international teams for pre-season friendlies.
+              </p>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {worldTeams.map((t:any) => (
+                  <LogoRow key={t.id} item={t} table="world_teams" onSave={saveLogo} saving={saving} saved={saved}/>
+                ))}
               </div>
             </div>
           )}
