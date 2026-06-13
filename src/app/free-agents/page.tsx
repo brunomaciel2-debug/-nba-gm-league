@@ -279,7 +279,7 @@ export default function FreeAgentsPage() {
     Promise.all([
       supabase.from('players')
         .select('*, photo_url, player_stats(pts,reb,ast,stl,blk,games,fgm,fga,tpm,tpa,ftm,fta,season)')
-        .is('team_id', null).eq('status', 'active'),
+        .is('team_id', null).is('world_team_id', null).eq('status', 'active'),
       supabase.from('coaches').select('*').is('team_id', null),
     ]).then(([{ data: pl }, { data: st }]) => {
       setPlayers(pl || [])

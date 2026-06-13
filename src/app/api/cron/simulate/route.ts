@@ -722,6 +722,31 @@ export async function GET(req: NextRequest) {
       }
     } catch(awardsErr) { console.warn('Awards step failed:', awardsErr) }
 
+
+    // ── END OF SEASON AGING ────────────────────────────────────
+    // Runs once when week >= 26. Ages ALL players +1 (NBA, FA, G-League, World teams)
+    // Also increments nba_experience for active NBA players
+    if (week >= 26) {
+      try {
+        const { data: everyPlayer } = await supabaseAdmin
+          .from('players').select('id,age,nba_experience,team_id,status').not('age','is',null)
+        if (everyPlayer) {
+          for (let i = 0; i < everyPlayer.length; i += 50) {
+            const chunk = everyPlayer.slice(i, i + 50)
+            await Promise.all(chunk.map((p:any) =>
+              supabaseAdmin.from('players').update({
+                age: (p.age || 20) + 1,
+                ...(p.team_id && p.status === 'active'
+                  ? { nba_experience: (p.nba_experience || 0) + 1 }
+                  : {})
+              }).eq('id', p.id)
+            ))
+          }
+          console.log(`[Season End] Aged ${everyPlayer.length} players +1 year`)
+        }
+      } catch(ageErr) { console.warn('Aging step failed:', ageErr) }
+    }
+
     // Apply health recovery for days since last game
     try {
       const isMonday = new Date().getDay() === 1
