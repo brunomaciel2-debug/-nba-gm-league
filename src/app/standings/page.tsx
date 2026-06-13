@@ -2,8 +2,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
+import Link from 'next/link'
 
-type View = 'conference' | 'division' | 'league'
+type View = 'conference' | 'league'
 
 const DIV_MAP: Record<string,string> = {
   'Boston Celtics':'Atlantic','Brooklyn Nets':'Atlantic','New York Knicks':'Atlantic',
@@ -20,167 +21,208 @@ const DIV_MAP: Record<string,string> = {
   'New Orleans Pelicans':'Southwest','San Antonio Spurs':'Southwest',
 }
 
-const CONF_DIVS: Record<string,string[]> = {
-  'Eastern': ['Atlantic','Central','Southeast'],
-  'Western': ['Northwest','Pacific','Southwest'],
+function calcGB(leader: any, team: any) {
+  if (!leader || (leader.wins === team.wins && leader.losses === team.losses)) return '—'
+  const gb = ((leader.wins - team.wins) + (team.losses - leader.losses)) / 2
+  return gb === 0 ? '—' : gb.toFixed(1)
+}
+
+function seedStyle(rank: number) {
+  if (rank <= 6) return {
+    bg: '#f0fdf4', border: '#16a34a22',
+    badge: { bg: '#15803d', color: '#fff', label: 'Playoffs' }
+  }
+  if (rank <= 10) return {
+    bg: '#fefce8', border: '#ca8a0422',
+    badge: { bg: '#b45309', color: '#fff', label: 'Play-In' }
+  }
+  return { bg: undefined, border: undefined, badge: null }
 }
 
 export default function StandingsPage() {
   const [teams, setTeams] = useState<any[]>([])
-  const [view, setView] = useState<View>('conference')
+  const [view, setView]   = useState<View>('conference')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('teams').select('*').not('id','in','(ALL,RVS)').then(({ data, error }) => {
-      if (data) {
-        setTeams(data.sort((a:any,b:any) =>
-          b.wins - a.wins || (b.pts_for - b.pts_against) - (a.pts_for - a.pts_against)
-        ))
-      }
+    supabase.from('teams').select('*').not('id','in','(ALL,RVS)').then(({ data }) => {
+      if (data) setTeams(data.sort((a:any,b:any) => b.wins-a.wins || (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against)))
       setLoading(false)
     })
   }, [])
 
-  if (loading) return (
-    <div className="max-w-5xl mx-auto px-4 py-12 text-center">
-      <p style={{ color:'#6b5f4e' }}>Loading standings...</p>
-    </div>
-  )
+  if (loading) return <div className="max-w-5xl mx-auto px-4 py-12 text-center" style={{color:'#5c554e'}}>Loading standings...</div>
 
   const byConf = (conf: string) => teams.filter(t => t.conference === conf)
-  const byDiv  = (div: string)  => teams.filter(t => DIV_MAP[t.name] === div)
+    .sort((a:any,b:any) => b.wins-a.wins || (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against))
 
   const TeamLogo = ({ t }: { t: any }) => {
     const tc = readableTeamColor(t.color)
     return t.logo_url
-      ? <img src={t.logo_url} alt="" className="w-9 h-9 object-contain flex-shrink-0" />
-      : <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-xs font-black flex-shrink-0"
-              style={{ background:tc+'33', color:tc }}>{t.id.slice(0,2)}</span>
+      ? <img src={t.logo_url} alt="" className="w-10 h-10 object-contain flex-shrink-0" />
+      : <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl text-xs font-black flex-shrink-0"
+              style={{ background:tc+'22', color:tc }}>{t.id.slice(0,3)}</span>
   }
 
-  const Row = ({ t, rank, showDiv }: { t: any, rank: number, showDiv?: boolean }) => {
-    const gp = t.wins + t.losses
-    const pct = gp > 0 ? (t.wins/gp).toFixed(3) : '.000'
-    const diff = t.pts_for - t.pts_against
-    const isPlayoff = rank <= 8
+  const ConferenceTable = ({ conf }: { conf: string }) => {
+    const confTeams = byConf(conf)
+    const leader = confTeams[0]
     return (
-      <tr style={{ background: rank%2===0?'#eae4db':'#ede8df', borderBottom:'1px solid #16120d' }}>
-        <td className="px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs w-5 text-right font-bold"
-                  style={{ color: isPlayoff?'#15803d':'#5c554e' }}>{rank}</span>
-            <TeamLogo t={t} />
-            <span className="font-semibold text-sm" style={{color:"#1a1512"}}>{t.name}</span>
-            {isPlayoff && <span className="text-xs px-1 rounded" style={{ background:'#15803d',color:'#fff' }}>P</span>}
-            {showDiv && <span className="text-xs ml-1" style={{ color:'#9c8e7a' }}>{DIV_MAP[t.name]}</span>}
+      <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3"
+             style={{background:conf==='Eastern'?'#1e3a5f':'#3b1a08',borderBottom:'1px solid #d4cdc5'}}>
+          <span className="text-sm font-bold" style={{color:'#fff'}}>{conf} Conference</span>
+          <div className="flex items-center gap-4 text-xs font-bold" style={{color:'rgba(255,255,255,0.6)'}}>
+            <span className="w-6 text-center">W</span>
+            <span className="w-6 text-center">L</span>
+            <span className="w-12 text-center">PCT</span>
+            <span className="w-10 text-center">GB</span>
           </div>
-        </td>
-        <td className="px-3 py-2.5 text-right font-bold text-sm" style={{ color:'#166534' }}>{t.wins}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.losses}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#2d2723' }}>{pct}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{gp||'—'}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.pts_for||'—'}</td>
-        <td className="px-3 py-2.5 text-right text-sm" style={{ color:'#6b5f4e' }}>{t.pts_against||'—'}</td>
-        <td className="px-3 py-2.5 text-right text-sm font-semibold"
-            style={{ color: diff>0?'#15803d':diff<0?'#dc2626':'#5c554e' }}>
-          {diff>0?'+':''}{diff||'—'}
-        </td>
-      </tr>
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-4 px-5 py-2 text-xs" style={{background:'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm" style={{background:'#15803d'}}></div>
+            <span style={{color:'#5c554e'}}>Playoffs (1-6)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm" style={{background:'#b45309'}}></div>
+            <span style={{color:'#5c554e'}}>Play-In (7-10)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm" style={{background:'#d4cdc5'}}></div>
+            <span style={{color:'#5c554e'}}>Eliminated (11+)</span>
+          </div>
+        </div>
+
+        {confTeams.map((t: any, i: number) => {
+          const rank = i + 1
+          const gp   = t.wins + t.losses
+          const pct  = gp > 0 ? (t.wins / gp).toFixed(3).replace(/^0/, '') : '.000'
+          const gb   = calcGB(leader, t)
+          const ss   = seedStyle(rank)
+
+          return (
+            <Link key={t.id} href={`/team/${t.id}`} className="no-underline group">
+              <div className="flex items-center gap-3 px-4 py-2.5 transition-all group-hover:brightness-95"
+                   style={{
+                     background: ss.bg || (i%2===0?'#faf8f5':'#f5f1eb'),
+                     borderBottom: '1px solid #e2dcd5',
+                     borderLeft: `3px solid ${rank<=6?'#15803d':rank<=10?'#b45309':'transparent'}`,
+                   }}>
+                {/* Rank */}
+                <span className="text-xs font-bold w-5 text-right flex-shrink-0"
+                      style={{color: rank<=6?'#15803d':rank<=10?'#b45309':'#9c9088'}}>
+                  {rank}
+                </span>
+
+                {/* Logo */}
+                <TeamLogo t={t} />
+
+                {/* Name + division */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold truncate" style={{color:'#1a1512'}}>{t.name}</div>
+                  <div className="text-xs" style={{color:'#8a8279'}}>{DIV_MAP[t.name]||''}</div>
+                </div>
+
+                {/* Seed badge */}
+                {ss.badge && rank <= 10 && (
+                  <span className="hidden sm:inline text-xs px-1.5 py-0.5 rounded font-bold flex-shrink-0"
+                        style={{background:ss.badge.bg,color:ss.badge.color,fontSize:10}}>
+                    {rank<=6?`#${rank}`:`PI`}
+                  </span>
+                )}
+
+                {/* Stats */}
+                <div className="flex items-center gap-4 flex-shrink-0">
+                  <span className="w-6 text-center text-sm font-bold" style={{color:'#15803d'}}>{t.wins}</span>
+                  <span className="w-6 text-center text-sm font-bold" style={{color:'#dc2626'}}>{t.losses}</span>
+                  <span className="w-12 text-center text-sm font-semibold" style={{color:'#1a1512'}}>{pct}</span>
+                  <span className="w-10 text-center text-sm" style={{color:'#5c554e'}}>{gb}</span>
+                </div>
+              </div>
+            </Link>
+          )
+        })}
+
+        {/* Play-in explanation */}
+        <div className="px-5 py-3 text-xs" style={{background:'#f5f1eb',borderTop:'1px solid #e2dcd5',color:'#8a8279'}}>
+          Play-In: 7 vs 8 (winner = #7 seed) · 9 vs 10 (winner faces loser of 7v8 → #8 seed)
+        </div>
+      </div>
     )
   }
 
-  const Head = () => (
-    <thead>
-      <tr style={{ background:'#ddd7ca', borderBottom:'1px solid #d4cec3' }}>
-        {['Team','W','L','PCT','GP','PF','PA','+/-'].map((h,i) => (
-          <th key={h} className={`px-${i===0?4:3} py-2.5 font-semibold text-xs ${i===0?'text-left':'text-right'}`}
-              style={{ color:'#6b5f4e' }}>{h}</th>
-        ))}
-      </tr>
-    </thead>
-  )
+  const allSorted = [...teams].sort((a:any,b:any) => b.wins-a.wins || (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against))
+  const leagueLeader = allSorted[0]
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <h1 className="text-2xl font-bold" style={{color:"#1a1512"}}>🏆 Standings — 2025-26</h1>
-        <div className="flex gap-1 p-1 rounded-xl" style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
-          {(['conference','division','league'] as View[]).map(v => (
-            <button key={v} onClick={() => setView(v)}
-              className="px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
-              style={{ background:view===v?'#d4cdc5':'transparent', color:view===v?'#1d4ed8':'#5c554e' }}>
-              {v}
+      <div className="sec-hdr mb-6">
+        <span className="sec-title">
+          <i className="ti ti-list-numbers" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+          Standings — 2025-26
+        </span>
+        <div className="flex gap-2">
+          {(['conference','league'] as const).map(v=>(
+            <button key={v} onClick={()=>setView(v)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+              style={{background:view===v?'#1a1512':'#f0ece5',color:view===v?'#fff':'#5c554e',
+                      border:'1px solid '+(view===v?'#1a1512':'#d4cdc5')}}>
+              {v==='conference'?'By Conference':'League'}
             </button>
           ))}
         </div>
       </div>
 
-      {/* CONFERENCE */}
-      {view === 'conference' && ['Eastern','Western'].map(conf => (
-        <div key={conf} className="mb-8">
-          <h2 className="text-base font-bold mb-3"
-              style={{ color:conf==='Eastern'?'#dc2626':'#1d4ed8' }}>{conf} Conference</h2>
-          <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>
-            <table className="w-full"><Head />
-              <tbody>{byConf(conf).map((t,i) => <Row key={t.id} t={t} rank={i+1} />)}</tbody>
-            </table>
-          </div>
+      {view === 'conference' && (
+        <div className="grid md:grid-cols-2 gap-6">
+          <ConferenceTable conf="Eastern" />
+          <ConferenceTable conf="Western" />
         </div>
-      ))}
+      )}
 
-      {/* DIVISION */}
-      {view === 'division' && ['Eastern','Western'].map(conf => (
-        <div key={conf} className="mb-8">
-          <h2 className="text-base font-bold mb-4"
-              style={{ color:conf==='Eastern'?'#dc2626':'#1d4ed8' }}>{conf} Conference</h2>
-          <div className="grid md:grid-cols-3 gap-4">
-            {CONF_DIVS[conf].map(div => (
-              <div key={div} className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>
-                <div className="px-4 py-2 text-xs font-bold uppercase tracking-widest"
-                     style={{ background:'#ddd7ca',borderBottom:'1px solid #d4cec3',
-                              color:conf==='Eastern'?'#e06060':'#6090d0' }}>{div}</div>
-                <table className="w-full">
-                  <thead>
-                    <tr style={{ background:'#ddd7ca',borderBottom:'1px solid #d4cec3' }}>
-                      {['Team','W','L','PCT'].map((h,i) => (
-                        <th key={h} className={`px-3 py-2 font-semibold text-xs ${i===0?'text-left':'text-right'}`}
-                            style={{ color:'#6b5f4e' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {byDiv(div).map((t,i) => {
-                      const gp=t.wins+t.losses
-                      return (
-                        <tr key={t.id} style={{ background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #16120d' }}>
-                          <td className="px-3 py-2">
-                            <div className="flex items-center gap-1.5">
-                              <TeamLogo t={t} />
-                              <span className="text-xs font-semibold" style={{color:"#1a1512"}}>{t.id}</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-right text-xs font-bold" style={{ color:'#166534' }}>{t.wins}</td>
-                          <td className="px-3 py-2 text-right text-xs" style={{ color:'#6b5f4e' }}>{t.losses}</td>
-                          <td className="px-3 py-2 text-right text-xs" style={{ color:'#2d2723' }}>
-                            {gp>0?(t.wins/gp).toFixed(3):'.000'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* LEAGUE */}
       {view === 'league' && (
-        <div className="rounded-xl overflow-hidden" style={{ border:'1px solid #d4cec3' }}>
-          <table className="w-full"><Head />
-            <tbody>{teams.map((t,i) => <Row key={t.id} t={t} rank={i+1} showDiv />)}</tbody>
-          </table>
+        <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+          <div className="flex items-center justify-between px-5 py-3"
+               style={{background:'#1a1512',borderBottom:'1px solid #d4cdc5'}}>
+            <span className="text-sm font-bold" style={{color:'#fff'}}>League Standings</span>
+            <div className="flex items-center gap-4 text-xs font-bold" style={{color:'rgba(255,255,255,0.6)'}}>
+              <span className="w-6 text-center">W</span>
+              <span className="w-6 text-center">L</span>
+              <span className="w-12 text-center">PCT</span>
+              <span className="w-10 text-center">GB</span>
+            </div>
+          </div>
+          {allSorted.map((t:any,i:number) => {
+            const rank = i+1
+            const gp = t.wins+t.losses
+            const pct = gp>0?(t.wins/gp).toFixed(3).replace(/^0/,''):'.000'
+            const gb = calcGB(leagueLeader,t)
+            const ss = seedStyle(rank <= 16 ? (i%2===0?rank:rank) : 11) // rough
+            return (
+              <Link key={t.id} href={`/team/${t.id}`} className="no-underline group">
+                <div className="flex items-center gap-3 px-4 py-2.5 transition-all group-hover:brightness-95"
+                     style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5',
+                             borderLeft:`3px solid ${i<12?'#15803d':i<20?'#b45309':'transparent'}`}}>
+                  <span className="text-xs font-bold w-5 text-right flex-shrink-0" style={{color:'#9c9088'}}>{rank}</span>
+                  <TeamLogo t={t} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-bold truncate" style={{color:'#1a1512'}}>{t.name}</div>
+                    <div className="text-xs" style={{color:'#8a8279'}}>{t.conference}</div>
+                  </div>
+                  <div className="flex items-center gap-4 flex-shrink-0">
+                    <span className="w-6 text-center text-sm font-bold" style={{color:'#15803d'}}>{t.wins}</span>
+                    <span className="w-6 text-center text-sm font-bold" style={{color:'#dc2626'}}>{t.losses}</span>
+                    <span className="w-12 text-center text-sm font-semibold" style={{color:'#1a1512'}}>{pct}</span>
+                    <span className="w-10 text-center text-sm" style={{color:'#5c554e'}}>{gb}</span>
+                  </div>
+                </div>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>
