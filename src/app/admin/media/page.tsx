@@ -1,8 +1,36 @@
 'use client'
-import React from 'react'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import BannerUpload from './BannerUpload'
+
+
+function LogoRow({ team, onSave, saving, saved }: { team:any, onSave:(id:string,url:string)=>void, saving:string|null, saved:string|null }) {
+  const [url, setUrl] = React.useState(team.logo_url||'')
+  return (
+    <div className="flex items-center gap-4 p-4 rounded-xl"
+         style={{ background:'#faf8f5',border:'1px solid #d4cdc5' }}>
+      <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+           style={{ background:'#f0ece5',border:'2px solid #d4cdc5' }}>
+        {url
+          ? <img src={url} alt="" className="w-full h-full object-contain p-1"
+                 onError={e=>(e.currentTarget.style.display='none')} />
+          : <span className="text-xs font-black" style={{ color:'#5c554e' }}>{team.id}</span>}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-bold mb-1.5" style={{color:'#1a1512'}}>{team.name}</div>
+        <input value={url} onChange={e=>setUrl(e.target.value)}
+          placeholder="Paste logo URL here..."
+          className="w-full text-xs px-3 py-2 rounded-lg"
+          style={{ background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none' }} />
+      </div>
+      <button onClick={()=>onSave(team.id,url)} disabled={saving===team.id}
+        className="text-xs font-bold px-4 py-2 rounded-lg flex-shrink-0 disabled:opacity-40"
+        style={{ background:saved===team.id?'#15803d':'#1d4ed8',color:'#fff',minWidth:80 }}>
+        {saving===team.id?'Saving…':saved===team.id?'✓ Saved':'Save'}
+      </button>
+    </div>
+  )
+}
 
 export default function AdminMediaPage() {
   const [teams, setTeams]   = useState<any[]>([])
@@ -73,40 +101,9 @@ export default function AdminMediaPage() {
           <p className="text-xs mb-2" style={{ color:'#8a8279' }}>
             Paste any public image URL. Recommended: Wikipedia team logos or ESPN CDN images. Press <strong>Save</strong> to confirm.
           </p>
-          {teams.map(team => {
-            const [url, setUrl] = React.useState(team.logo_url||'')
-            return (
-            <div key={team.id} className="flex items-center gap-4 p-4 rounded-xl"
-                 style={{ background:'#faf8f5',border:'1px solid #d4cdc5' }}>
-              {/* Preview — updates live as you type */}
-              <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden flex-shrink-0"
-                   style={{ background:'#f0ece5',border:'2px solid #d4cdc5' }}>
-                {url
-                  ? <img src={url} alt="" className="w-full h-full object-contain p-1"
-                         onError={e=>(e.currentTarget.style.display='none')} />
-                  : <span className="text-xs font-black" style={{ color:'#5c554e' }}>{team.id}</span>
-                }
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold mb-1.5" style={{color:'#1a1512'}}>{team.name}</div>
-                <input
-                  value={url}
-                  onChange={e=>setUrl(e.target.value)}
-                  placeholder="Paste logo URL here..."
-                  className="w-full text-xs px-3 py-2 rounded-lg"
-                  style={{ background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none' }}
-                />
-              </div>
-              <button
-                onClick={()=>saveLogo(team.id,url)}
-                disabled={saving===team.id}
-                className="text-xs font-bold px-4 py-2 rounded-lg flex-shrink-0 disabled:opacity-40"
-                style={{ background: saved===team.id?'#15803d':'#1d4ed8', color:'#fff', minWidth:80 }}>
-                {saving===team.id?'Saving…':saved===team.id?'✓ Saved':'Save'}
-              </button>
-            </div>
-            )
-          })}
+          {teams.map(team => (
+            <LogoRow key={team.id} team={team} onSave={saveLogo} saving={saving} saved={saved} />
+          ))}
         </div>
       )}
 
