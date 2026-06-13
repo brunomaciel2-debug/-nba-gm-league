@@ -50,9 +50,24 @@ export async function GET(req: NextRequest) {
       gamesCreated.push(gameRec.id)
 
       await supabaseAdmin.from('box_scores').insert([
-        ...result.homeBox.map((b:any) => ({ ...b, game_id: gameRec.id, team_id: ht.id })),
-        ...result.awayBox.map((b:any) => ({ ...b, game_id: gameRec.id, team_id: at.id })),
+        ...result.homeBox.map((b:any) => ({
+          ...b, game_id: gameRec.id, team_id: ht.id,
+          is_triple_double: [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length >= 3
+        })),
+        ...result.awayBox.map((b:any) => ({
+          ...b, game_id: gameRec.id, team_id: at.id,
+          is_triple_double: [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length >= 3
+        })),
       ])
+      // Update triple_doubles counter in player_stats
+      const allBox = [...result.homeBox, ...result.awayBox]
+      for (const b of allBox) {
+        const isTD = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length >= 3
+        if (isTD && b.player_id) {
+          const { data: ps } = await supabaseAdmin.from('player_stats').select('triple_doubles').eq('player_id',b.player_id).eq('season','2025-26').single()
+          await supabaseAdmin.from('player_stats').update({ triple_doubles: ((ps as any)?.triple_doubles||0)+1 }).eq('player_id',b.player_id).eq('season','2025-26')
+        }
+      }
       if (result.pbp.length > 0) {
         await supabaseAdmin.from('play_by_play').insert(result.pbp.map((p:any) => ({ ...p, game_id: gameRec.id })))
       }
