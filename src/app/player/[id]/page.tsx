@@ -532,7 +532,6 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           </div>
         )}
 
-      </div>
     </div>
   )
 }
