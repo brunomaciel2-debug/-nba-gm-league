@@ -55,6 +55,7 @@ export default function AdminPage() {
           {icon:'🤝',label:'Trade Approvals',   desc:'Review pending trade proposals',         href:'/admin/trades',    color:'#c2410c'},
           {icon:'🏥',label:'Injury Report',     desc:'Add/update player injuries',             href:'/admin/injuries',  color:'#dc2626'},
           {icon:'👥',label:'Manage GMs',        desc:'Assign GMs to teams, send invites',      href:'/admin/gms',       color:'#166534'},
+          {icon:'🏆',label:'Generate Playoffs', desc:'Create play-in and playoff bracket after Week 26', href:'/admin/playoffs', color:'#c8102e'},
           {icon:'📋',label:'GM Applications',      desc:'Review and approve GM job applications',  href:'/admin/applications',color:'#166534'},
           {icon:'🎯',label:'Coaching Staff',     desc:'View all coaches, free agents',          href:'/admin/coaches',   color:'#b45309'},
         ].map(item=>(
