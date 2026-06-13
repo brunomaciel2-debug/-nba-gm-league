@@ -479,11 +479,11 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
 
       {/* CONTRACT */}
-          {(contracts||[]).length > 0 && (
-            <>
-              <div className="sec-hdr mb-3">
-                <span className="sec-title">Contract</span>
-              </div>
+      {(contracts||[]).length > 0 && (
+        <div className="mt-6">
+          <div className="sec-hdr mb-3">
+            <span className="sec-title">Contract</span>
+          </div>
               <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cdc5' }}>
                 <table className="w-full text-sm">
                   <thead>
@@ -530,10 +530,10 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                   </tbody>
                 </table>
               </div>
-            </>
-          )}
+          </div>
+        )}
 
-                </div>
+      </div>
     </div>
   )
 }
