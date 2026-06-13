@@ -60,8 +60,8 @@ export async function GET(req: NextRequest) {
         })),
       ])
       // Update triple_doubles counter in player_stats
-      const allBox = [...result.homeBox, ...result.awayBox]
-      for (const b of allBox) {
+      const tdBox = [...result.homeBox, ...result.awayBox]
+      for (const b of tdBox) {
         const isTD = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length >= 3
         if (isTD && b.player_id) {
           const { data: ps } = await supabaseAdmin.from('player_stats').select('triple_doubles').eq('player_id',b.player_id).eq('season','2025-26').single()
