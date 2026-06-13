@@ -90,8 +90,8 @@ export default function GLeaguePage() {
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
                                style={{background:tc+'18'}}>
-                            {t.nba?.logo_url
-                              ?<img src={t.nba.logo_url} alt="" className="w-full h-full object-contain p-1"/>
+                            {(t.logo_url||t.nba?.logo_url)
+                              ?<img src={t.logo_url||t.nba?.logo_url} alt="" className="w-full h-full object-contain p-1"/>
                               :<span className="text-sm font-black" style={{color:tc}}>{t.id}</span>}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -146,8 +146,8 @@ export default function GLeaguePage() {
                             style={{color:i<8?'#15803d':'#9c9088'}}>{i+1}</span>
                       <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0"
                            style={{background:tc+'18'}}>
-                        {t.nba?.logo_url
-                          ?<img src={t.nba.logo_url} alt="" className="w-full h-full object-contain p-0.5"/>
+                        {(t.logo_url||t.nba?.logo_url)
+                          ?<img src={t.logo_url||t.nba?.logo_url} alt="" className="w-full h-full object-contain p-0.5"/>
                           :<div className="w-full h-full flex items-center justify-center" style={{fontSize:8,fontWeight:900,color:tc}}>{t.id}</div>}
                       </div>
                       <div className="flex-1 min-w-0">

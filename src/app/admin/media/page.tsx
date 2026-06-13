@@ -171,8 +171,11 @@ export default function AdminMediaPage() {
       setNbaTeams(t=>t.map((x:any)=>x.id===id?{...x,logo_url:url}:x))
       await fetch('/api/revalidate?path=/teams').catch(()=>null)
       await fetch('/api/revalidate?path=/standings').catch(()=>null)
+      await fetch(`/api/revalidate?path=/team/${id}`).catch(()=>null)
     } else {
       setGlTeams(t=>t.map((x:any)=>x.id===id?{...x,logo_url:url}:x))
+      await fetch('/api/revalidate?path=/gleague').catch(()=>null)
+      await fetch(`/api/revalidate?path=/gleague/${id}`).catch(()=>null)
     }
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }

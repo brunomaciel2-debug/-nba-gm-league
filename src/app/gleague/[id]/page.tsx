@@ -170,8 +170,8 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
           <div style={{width:96,height:96,borderRadius:16,background:tc+'22',
                        border:`2px solid ${tc}44`,display:'flex',alignItems:'center',
                        justifyContent:'center',flexShrink:0,overflow:'hidden'}}>
-            {team.nba?.logo_url
-              ?<img src={team.nba.logo_url} alt={team.name} style={{width:'100%',height:'100%',objectFit:'contain',padding:4}}/>
+            {(team.logo_url || team.nba?.logo_url)
+              ?<img src={team.logo_url || team.nba?.logo_url} alt={team.name} style={{width:'100%',height:'100%',objectFit:'contain',padding:4}}/>
               :<span style={{fontSize:24,fontWeight:900,color:tc}}>{team.id}</span>}
           </div>
           <div style={{flex:1,minWidth:0}}>
