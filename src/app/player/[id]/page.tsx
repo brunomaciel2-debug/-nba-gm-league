@@ -3,6 +3,50 @@ import { readableTeamColor } from '@/lib/color'
 import { calcOvr } from '@/lib/ovr'
 export const revalidate = 60
 
+const ATTR_TIPS: Record<string,string> = {
+  usage:       "Usage Rate — how often this player is involved in offensive plays. High usage = primary option. Impacts scoring consistency and team dependency.",
+  three:       "Three Point — shooting ability from beyond the arc. Affects three-point percentage and floor spacing.",
+  layup:       "Layup — finishing ability at the rim. Impacts shot conversion near the basket.",
+  dunk:        "Dunk — ability to finish with power above the rim. High value reduces blocks against near-basket shots.",
+  mid:         "Mid-Range — ability to score from mid-range. Affects pull-up jumpers and post fades.",
+  ft:          "Free Throws — free throw shooting accuracy. Critical in late-game situations and when fouled.",
+  siq:         "Shot IQ — decision-making on shot selection. High value = player takes good shots and avoids contested ones.",
+  draw_foul:   "Draw Foul — ability to get to the free throw line. High value earns more foul calls on drives and in the post.",
+  blk:         "Block — ability to block opponent shots. Impacts interior defence and psychological deterrence.",
+  stl:         "Steal — ability to strip the ball or intercept passes. Affects transition offence and opponent turnover rate.",
+  idef:        "Interior Defense — ability to defend in the paint against post players and drivers. Reduces easy buckets inside.",
+  pdef:        "Perimeter Defense — ability to guard on the perimeter. Affects opponent shooting percentage on the wing.",
+  def_reb:     "Defensive Rebound — ability to secure rebounds after opponent misses. Limits second-chance points.",
+  off_reb:     "Offensive Rebound — ability to recover missed shots offensively. Creates extra possessions for the team.",
+  stamina:     "Stamina — endurance across a game. Low stamina = significant stat drop in the 4th quarter and back-to-backs.",
+  durability:  "Durability — resistance to injuries. Low durability increases injury probability during games and practice.",
+  ball_hdl:    "Ball Handling — ability to dribble under pressure and create off the dribble. Affects turnover rate.",
+  pass_vis:    "Pass Vision — ability to read the defence and find open teammates. Impacts assist opportunities.",
+  pass_iq:     "Pass IQ — decision-making when passing. High value = fewer turnovers, better offensive flow.",
+  assist_role: "Assist Role — how naturally this player fits into a pass-first role. High value = better assist consistency.",
+  pressure:    "Clutch/Pressure — performance in high-pressure moments (last 2 minutes, playoffs). Key for closers.",
+  consistency: "Consistency — game-to-game variance in performance. High value = reliable production every night.",
+  crowd_effect:"Crowd Effect — how much crowd noise affects this player. Low value = struggles in hostile environments.",
+  streaky:     "Streaky — tendency to have hot and cold streaks. Can be explosive but unpredictable.",
+  trash_talk:  "Trash Talk — ability to get in opponents' heads. High value slightly reduces opponent performance.",
+  moral:       "Morale — current mental state. Affects consistency and willingness to perform. Impacted by playing time and results.",
+}
+
+function AttrTooltip({ tip }: { tip: string }) {
+  return (
+    <span className="relative group inline-flex ml-1 cursor-help align-middle">
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full text-xs font-bold flex-shrink-0"
+            style={{background:'#d4cdc5',color:'#5c554e',lineHeight:1,fontSize:9}}>i</span>
+      <span className="absolute left-0 top-full mt-1 z-50 px-2.5 py-2 rounded-lg text-xs
+                       opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+            style={{background:'#1a1512',color:'#f5f1eb',width:220,whiteSpace:'normal',
+                    lineHeight:1.5,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
+        {tip}
+      </span>
+    </span>
+  )
+}
+
 const ATTR_GROUPS = [
   { label: 'Scoring',       color: '#b45309', attrs: [
     {key:'usage',label:'Usage Rate'},{key:'three',label:'Three Point'},
@@ -39,7 +83,7 @@ const TYPE_LABEL: Record<string,{label:string,color:string,bg:string}> = {
   qualifying_offer: {label:'QO',            color:'#b45309', bg:'#fef3c7'},
 }
 
-function AttrBar({ value, color }: { value: number, color: string }) {
+function AttrBar({ value, color, attrKey }: { value: number, color: string, attrKey?: string }) {
   const pct = Math.min(100, Math.max(0, value))
   const barColor = value>=85?'#b45309':value>=70?color:value>=50?color+'99':'#dc2626'
   return (
@@ -191,7 +235,10 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                      style={{ color:group.color, letterSpacing:'1px' }}>{group.label}</div>
                 {group.attrs.map(attr => (
                   <div key={attr.key} className="mb-2">
-                    <div className="text-xs mb-0.5" style={{ color:'#5c554e' }}>{attr.label}</div>
+                    <div className="text-xs mb-0.5 flex items-center" style={{ color:'#5c554e' }}>
+                      {attr.label}
+                      {ATTR_TIPS[attr.key] && <AttrTooltip tip={ATTR_TIPS[attr.key]} />}
+                    </div>
                     <AttrBar value={(p as any)[attr.key]||0} color={group.color} />
                   </div>
                 ))}
