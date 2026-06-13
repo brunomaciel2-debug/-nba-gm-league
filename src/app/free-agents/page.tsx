@@ -5,195 +5,185 @@ import { supabase } from '@/lib/supabase'
 import { calcOvr, ovrColor } from '@/lib/ovr'
 
 const POSITIONS = ['All','PG','SG','SF','PF','C']
-const SORT_OPTIONS = [
-  {value:'ovr',label:'Overall'},{value:'age',label:'Age'},
-  {value:'pts',label:'Points'},{value:'reb',label:'Rebounds'},
-  {value:'ast',label:'Assists'},{value:'salary',label:'Salary Ask'},
-]
+type Mode = 'stats' | 'attributes'
 
-const POT_COLOR: Record<string,string> = {A:'#c8102e',B:'#b45309',C:'#1d4ed8',D:'#6b6258',F:'#9c9088'}
-const EXP_LABEL = (n:number) => n===0?'Rookie':n===1?'2nd Year':n===2?'3rd Year':`${n} Yrs`
-const EXP_COLOR = (n:number) => n===0?'#6d28d9':n<=2?'#1d4ed8':'#5c554e'
-
-// Salary range based on OVR
-function salaryRange(ovr: number): string {
-  if (ovr >= 90) return '$30M – $45M'
-  if (ovr >= 85) return '$20M – $30M'
-  if (ovr >= 80) return '$12M – $20M'
-  if (ovr >= 75) return '$8M – $14M'
-  if (ovr >= 70) return '$5M – $10M'
-  if (ovr >= 65) return '$3M – $6M'
-  if (ovr >= 60) return '$1.5M – $4M'
-  return '$1M – $2.5M'
+const TOOLTIPS: Record<string,string> = {
+  PPG:'Points Per Game', RPG:'Rebounds Per Game', APG:'Assists Per Game',
+  SPG:'Steals Per Game', BPG:'Blocks Per Game', 'FG%':'Field Goal %',
+  '3P%':'Three-Point %', 'FT%':'Free Throw %', TO:'Turnovers Per Game',
+  '3PT':'Three-Point Shooting (0-100)', LAY:'Layup — rim finishing (0-100)',
+  DNK:'Dunk power (0-100)', MID:'Mid-Range (0-100)', FT:'Free Throw mechanics (0-100)',
+  SIQ:'Shot IQ (0-100)', DF:'Draw Foul (0-100)', BLK:'Block (0-100)',
+  STL:'Steal (0-100)', IDEF:'Interior Defense (0-100)', PDEF:'Perimeter Defense (0-100)',
+  DREB:'Def. Rebound (0-100)', OREB:'Off. Rebound (0-100)',
+  STA:'Stamina (0-100)', DUR:'Durability (0-100)',
+  BH:'Ball Handle (0-100)', PV:'Pass Vision (0-100)',
+  PIQ:'Pass IQ (0-100)', AR:'Assist Role (0-100)',
+  CLU:'Clutch (0-100)', CON:'Consistency (0-100)', CE:'Crowd Effect (0-100)', STR:'Streaky (0-100)',
+  EXP:'NBA Experience (seasons)', AGE:'Player age', OVR:'Overall rating',
 }
 
-const ATTR_GROUPS = [
-  {label:'Scoring',   color:'#b45309', attrs:['usage','three','layup','dunk','mid','ft','siq','draw_foul']},
-  {label:'Defense',   color:'#15803d', attrs:['blk','stl','idef','pdef']},
-  {label:'Playmaking',color:'#1d4ed8', attrs:['ball_hdl','pass_vis','pass_iq','assist_role']},
-  {label:'Physical',  color:'#6d28d9', attrs:['stamina','durability','def_reb','off_reb']},
-  {label:'Mental',    color:'#c2410c', attrs:['pressure','consistency','crowd_effect']},
+const ATTR_COLS = [
+  {key:'three',      label:'3PT',  color:'#b45309'},
+  {key:'layup',      label:'LAY',  color:'#c2410c'},
+  {key:'dunk',       label:'DNK',  color:'#c2410c'},
+  {key:'mid',        label:'MID',  color:'#c2410c'},
+  {key:'ft',         label:'FT',   color:'#0e7490'},
+  {key:'siq',        label:'SIQ',  color:'#c2410c'},
+  {key:'draw_foul',  label:'DF',   color:'#c2410c'},
+  {key:'blk',        label:'BLK',  color:'#c2410c'},
+  {key:'stl',        label:'STL',  color:'#7c3aed'},
+  {key:'idef',       label:'IDEF', color:'#166534'},
+  {key:'pdef',       label:'PDEF', color:'#166534'},
+  {key:'def_reb',    label:'DREB', color:'#1e40af'},
+  {key:'off_reb',    label:'OREB', color:'#1e40af'},
+  {key:'stamina',    label:'STA',  color:'#7c3aed'},
+  {key:'durability', label:'DUR',  color:'#7c3aed'},
+  {key:'ball_hdl',   label:'BH',   color:'#0e7490'},
+  {key:'pass_vis',   label:'PV',   color:'#0e7490'},
+  {key:'pass_iq',    label:'PIQ',  color:'#0e7490'},
+  {key:'assist_role',label:'AR',   color:'#0e7490'},
+  {key:'pressure',   label:'CLU',  color:'#b45309'},
+  {key:'consistency',label:'CON',  color:'#b45309'},
+  {key:'crowd_effect',label:'CE',  color:'#b45309'},
+  {key:'streaky',    label:'STR',  color:'#b45309'},
 ]
-const ATTR_LABEL: Record<string,string> = {
-  usage:'Usage',three:'3PT',layup:'Layup',dunk:'Dunk',mid:'Mid',ft:'FT',siq:'Shot IQ',draw_foul:'Draw Foul',
-  blk:'Block',stl:'Steal',idef:'Int. Def',pdef:'Per. Def',
-  ball_hdl:'Ball Hdl',pass_vis:'Pass Vis',pass_iq:'Pass IQ',assist_role:'Ast Role',
-  stamina:'Stamina',durability:'Durability',def_reb:'D. Reb',off_reb:'O. Reb',
-  pressure:'Clutch',consistency:'Consist.',crowd_effect:'Crowd',
+
+function attrColor(v:number) {
+  if (v>=90) return '#b45309'
+  if (v>=80) return '#15803d'
+  if (v>=70) return '#1d4ed8'
+  if (v>=60) return '#1a1512'
+  return '#8a8279'
 }
 
-function AttrBar({value,color}:{value:number,color:string}) {
-  const pct = Math.min(100, value||0)
-  const c = value>=85?'#b45309':value>=70?color:value>=50?color+'aa':'#dc2626'
+function Tip({text}:{text:string}) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:'#e2dcd5'}}>
-        <div style={{width:pct+'%',height:'100%',background:c,borderRadius:3}}/>
+    <span className="relative group inline-flex ml-1 cursor-help align-middle">
+      <span className="inline-flex items-center justify-center w-3 h-3 rounded-full text-xs font-bold"
+            style={{background:'#d4cdc5',color:'#5c554e',fontSize:8,lineHeight:1}}>i</span>
+      <span className="absolute left-0 top-full mt-1 z-50 px-2 py-1.5 rounded-lg text-xs
+                       opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+            style={{background:'#1a1512',color:'#f5f1eb',width:180,whiteSpace:'normal',
+                    lineHeight:1.4,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
+        {text}
+      </span>
+    </span>
+  )
+}
+
+function ColHeader({label,sortKey,active,dir,onClick}:{label:string,sortKey:string,active:boolean,dir:string,onClick:()=>void}) {
+  return (
+    <th className="px-2 py-2.5 text-center cursor-pointer select-none whitespace-nowrap"
+        onClick={onClick}
+        style={{background:'#f0ece5',color:active?'#c8102e':'#5c554e',fontSize:11,fontWeight:700,
+                letterSpacing:'0.5px',borderBottom:'2px solid #d4cdc5',
+                borderRight:'1px solid #e2dcd5'}}>
+      {label}
+      {TOOLTIPS[label] && <Tip text={TOOLTIPS[label]}/>}
+      {active && <span style={{marginLeft:3}}>{dir==='desc'?'↓':'↑'}</span>}
+    </th>
+  )
+}
+
+function Bar({value,color}:{value:number,color:string}) {
+  const v = value||0
+  const c = attrColor(v)
+  return (
+    <div className="flex items-center gap-1.5 justify-center">
+      <div className="w-14 h-1.5 rounded-full overflow-hidden flex-shrink-0" style={{background:'#e2dcd5'}}>
+        <div style={{width:Math.min(v,100)+'%',height:'100%',background:c,borderRadius:3}}/>
       </div>
-      <span className="text-xs font-bold w-6 text-right" style={{color:c,fontSize:10}}>{value||0}</span>
+      <span className="text-xs font-bold w-5 text-right flex-shrink-0" style={{color:c,fontSize:10}}>{v}</span>
     </div>
   )
 }
 
-function PlayerCard({p}:{p:any}) {
-  const ovr = calcOvr(p)
-  const oc = ovrColor(ovr)
-  const gp = p.stats?.games||0
-  const avg = (v:number) => gp>0?(v/gp).toFixed(1):'—'
-  return (
-    <div className="rounded-2xl overflow-hidden" style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:'3px solid '+oc}}>
-      {/* Header */}
-      <div className="p-4 flex items-start gap-3">
-        <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
-             style={{background:oc+'15',border:'1.5px solid '+oc+'33'}}>
-          {p.photo_url
-            ?<img src={p.photo_url} alt="" className="w-full h-full object-cover rounded-xl"/>
-            :<span className="text-xl font-black" style={{color:oc}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</span>}
-        </div>
-        <div className="flex-1 min-w-0">
-          <Link href={`/player/${p.id}`} className="no-underline hover:underline">
-            <div className="font-bold text-base leading-tight" style={{color:'#1a1512'}}>{p.name}</div>
-          </Link>
-          <div className="flex items-center gap-2 flex-wrap mt-1">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{background:'#e8e2d8',color:'#3d3731'}}>{p.pos}</span>
-            <span className="text-xs" style={{color:'#8a8279'}}>Age {p.age||'—'}</span>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded"
-                  style={{background:EXP_COLOR(p.nba_experience)+'18',color:EXP_COLOR(p.nba_experience)}}>
-              {EXP_LABEL(p.nba_experience??1)}
-            </span>
-          </div>
-        </div>
-        <div className="text-center flex-shrink-0">
-          <div className="text-2xl font-black" style={{color:oc}}>{ovr}</div>
-          <div className="text-xs font-bold" style={{color:oc}}>OVR</div>
-          <div className="text-xs mt-0.5 font-bold" style={{color:POT_COLOR[p.potential_grade]||'#8a8279'}}>
-            {p.potential_grade} POT
-          </div>
-        </div>
-      </div>
-
-      {/* Stats bar */}
-      {gp > 0 && (
-        <div className="px-4 pb-3 flex gap-4">
-          {[{v:avg(p.stats.pts),l:'PPG',c:'#b45309'},{v:avg(p.stats.reb),l:'RPG',c:'#15803d'},{v:avg(p.stats.ast),l:'APG',c:'#1d4ed8'},{v:avg(p.stats.stl),l:'SPG',c:'#6d28d9'},{v:avg(p.stats.blk),l:'BPG',c:'#c2410c'}].map(s=>(
-            <div key={s.l} className="text-center">
-              <div className="text-sm font-black" style={{color:s.c}}>{s.v}</div>
-              <div className="text-xs" style={{color:'#9c9088',fontSize:9}}>{s.l}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Attributes */}
-      <div className="px-4 pb-3 grid grid-cols-2 gap-x-4 gap-y-2">
-        {ATTR_GROUPS.map(g=>(
-          <div key={g.label}>
-            <div className="text-xs font-bold mb-1" style={{color:g.color,fontSize:9,letterSpacing:'0.5px'}}>{g.label.toUpperCase()}</div>
-            {g.attrs.map(a=>(
-              <div key={a} className="flex items-center gap-1 mb-0.5">
-                <span className="w-12 flex-shrink-0" style={{fontSize:9,color:'#8a8279'}}>{ATTR_LABEL[a]}</span>
-                <AttrBar value={p[a]||0} color={g.color}/>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-
-      {/* Salary ask + action */}
-      <div className="px-4 py-3 flex items-center justify-between"
-           style={{borderTop:'1px solid #e2dcd5',background:'#f5f1eb'}}>
-        <div>
-          <div className="text-xs" style={{color:'#8a8279'}}>Estimated ask</div>
-          <div className="text-sm font-bold" style={{color:'#1a1512'}}>{salaryRange(ovr)}</div>
-        </div>
-        <Link href={`/player/${p.id}`}
-              className="text-xs font-bold px-4 py-2 rounded-lg no-underline"
-              style={{background:'#c8102e',color:'#fff'}}>
-          Full Profile →
-        </Link>
-      </div>
-    </div>
-  )
+function salaryRange(ovr:number) {
+  if (ovr>=90) return '$30M–$45M'
+  if (ovr>=85) return '$20M–$30M'
+  if (ovr>=80) return '$12M–$20M'
+  if (ovr>=75) return '$8M–$14M'
+  if (ovr>=70) return '$5M–$10M'
+  if (ovr>=65) return '$3M–$6M'
+  if (ovr>=60) return '$1.5M–$4M'
+  return '$1M–$2.5M'
 }
+
+const EXP_LABEL = (n:number) => n===0?'Rookie':n===1?'2nd Yr':n===2?'3rd Yr':`${n} Yrs`
 
 export default function FreeAgentsPage() {
   const [players, setPlayers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [pos, setPos]         = useState('All')
-  const [sortBy, setSortBy]   = useState('ovr')
-  const [search, setSearch]   = useState('')
-  const [maxAge, setMaxAge]   = useState(42)
-  const [view, setView]       = useState<'cards'|'table'>('table')
+  const [pos,    setPos]    = useState('All')
+  const [mode,   setMode]   = useState<Mode>('attributes')
+  const [sortKey,setSortKey]= useState('ovr')
+  const [sortDir,setSortDir]= useState<'desc'|'asc'>('desc')
+  const [search, setSearch] = useState('')
+  const [maxAge, setMaxAge] = useState(42)
 
   useEffect(()=>{
     supabase.from('players')
-      .select('*, player_stats(pts,reb,ast,stl,blk,games,season)')
+      .select('*, player_stats(pts,reb,ast,stl,blk,games,fgm,fga,tpm,tpa,ftm,fta,season)')
       .is('team_id',null)
       .eq('status','active')
       .then(({data})=>{
-        const withStats = (data||[]).map((p:any)=>{
-          const s = (p.player_stats||[]).find((s:any)=>s.season==='2025-26')
-          return {...p, stats:s||null}
-        })
-        setPlayers(withStats)
+        setPlayers(data||[])
         setLoading(false)
       })
   },[])
 
-  const filtered = players
+  const rows = players.map((p:any)=>{
+    const s = (p.player_stats||[]).find((s:any)=>s.season==='2025-26') || {}
+    const gp = s.games||0
+    const avg = (v:number) => gp>0 ? parseFloat((v/gp).toFixed(1)) : 0
+    const ovr = calcOvr(p)
+    return {
+      ...p, ovr,
+      ppg:avg(s.pts), rpg:avg(s.reb), apg:avg(s.ast),
+      spg:avg(s.stl), bpg:avg(s.blk),
+      fgpct:s.fga>0?parseFloat((s.fgm/s.fga*100).toFixed(1)):0,
+      tppct:s.tpa>0?parseFloat((s.tpm/s.tpa*100).toFixed(1)):0,
+      ftpct:s.fta>0?parseFloat((s.ftm/s.fta*100).toFixed(1)):0,
+      topg:avg(s.turnovers),
+    }
+  })
+
+  const filtered = rows
     .filter(p=>pos==='All'||p.pos===pos)
     .filter(p=>!search||p.name.toLowerCase().includes(search.toLowerCase()))
     .filter(p=>(p.age||25)<=maxAge)
-    .map(p=>({...p,_ovr:calcOvr(p)}))
-    .sort((a,b)=>{
-      if(sortBy==='ovr')    return b._ovr-a._ovr
-      if(sortBy==='age')    return (a.age||25)-(b.age||25)
-      if(sortBy==='salary') return b._ovr-a._ovr // use OVR as proxy
-      if(sortBy==='pts')    return ((b.stats?.pts||0)/(b.stats?.games||1))-((a.stats?.pts||0)/(a.stats?.games||1))
-      if(sortBy==='reb')    return ((b.stats?.reb||0)/(b.stats?.games||1))-((a.stats?.reb||0)/(a.stats?.games||1))
-      if(sortBy==='ast')    return ((b.stats?.ast||0)/(b.stats?.games||1))-((a.stats?.ast||0)/(a.stats?.games||1))
-      return 0
+    .sort((a:any,b:any)=>{
+      const av=a[sortKey]??0, bv=b[sortKey]??0
+      return sortDir==='desc'?bv-av:av-bv
     })
 
+  const handleSort = (key:string) => {
+    if(sortKey===key) setSortDir(d=>d==='desc'?'asc':'desc')
+    else { setSortKey(key); setSortDir('desc') }
+  }
+
+  const POT_COLOR: Record<string,string> = {A:'#c8102e',B:'#b45309',C:'#1d4ed8',D:'#6b6258',F:'#9c9088'}
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="max-w-full px-4 py-6">
       <div className="sec-hdr mb-4">
         <span className="sec-title">
           <i className="ti ti-user-plus" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
           Free Agents — 2025-26
         </span>
         <span className="text-sm font-semibold" style={{color:'#8a8279'}}>
-          {loading?'Loading…':`${filtered.length} players available`}
+          {loading?'Loading…':`${filtered.length} players`}
         </span>
       </div>
 
       {/* Filters */}
-      <div className="rounded-xl p-4 mb-5 flex flex-wrap gap-3 items-end"
+      <div className="rounded-xl p-3 mb-4 flex flex-wrap gap-3 items-end"
            style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
         <div className="flex-1 min-w-36">
           <label className="text-xs font-semibold block mb-1" style={{color:'#5c554e'}}>Search</label>
           <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Player name..."
-            className="w-full px-3 py-2 rounded-lg text-sm"
+            className="w-full px-3 py-1.5 rounded-lg text-sm"
             style={{background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
         </div>
         <div>
@@ -201,31 +191,25 @@ export default function FreeAgentsPage() {
           <div className="flex gap-1">
             {POSITIONS.map(p=>(
               <button key={p} onClick={()=>setPos(p)}
-                className="text-xs font-bold px-2.5 py-1.5 rounded-lg"
-                style={{background:pos===p?'#1a1512':'#f0ece5',color:pos===p?'#fff':'#5c554e',border:'1px solid '+(pos===p?'#1a1512':'#d4cdc5')}}>
+                className="text-xs font-bold px-2 py-1.5 rounded-lg"
+                style={{background:pos===p?'#1a1512':'#f0ece5',color:pos===p?'#fff':'#5c554e',
+                        border:'1px solid '+(pos===p?'#1a1512':'#d4cdc5')}}>
                 {p}
               </button>
             ))}
           </div>
         </div>
         <div>
-          <label className="text-xs font-semibold block mb-1" style={{color:'#5c554e'}}>Sort</label>
-          <select value={sortBy} onChange={e=>setSortBy(e.target.value)}
-            className="px-3 py-2 rounded-lg text-sm"
-            style={{background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}>
-            {SORT_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-        <div>
           <label className="text-xs font-semibold block mb-1" style={{color:'#5c554e'}}>Max Age: {maxAge}</label>
           <input type="range" min={18} max={45} value={maxAge} onChange={e=>setMaxAge(+e.target.value)} className="w-28"/>
         </div>
         <div className="flex gap-1">
-          {(['table','cards'] as const).map(v=>(
-            <button key={v} onClick={()=>setView(v)}
-              className="text-xs font-bold px-3 py-1.5 rounded-lg"
-              style={{background:view===v?'#1a1512':'#f0ece5',color:view===v?'#fff':'#5c554e',border:'1px solid '+(view===v?'#1a1512':'#d4cdc5')}}>
-              <i className={`ti ${v==='table'?'ti-table':'ti-layout-grid'}`} style={{fontSize:13}}></i>
+          {(['attributes','stats'] as const).map(m=>(
+            <button key={m} onClick={()=>setMode(m)}
+              className="text-xs font-bold px-3 py-1.5 rounded-lg capitalize"
+              style={{background:mode===m?'#1a1512':'#f0ece5',color:mode===m?'#fff':'#5c554e',
+                      border:'1px solid '+(mode===m?'#1a1512':'#d4cdc5')}}>
+              {m==='attributes'?'⚡ Attributes':'📊 Stats'}
             </button>
           ))}
         </div>
@@ -233,59 +217,120 @@ export default function FreeAgentsPage() {
 
       {loading ? (
         <div className="text-center py-12" style={{color:'#8a8279'}}>Loading free agents...</div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-12" style={{color:'#8a8279'}}>
-          <i className="ti ti-user-off" style={{fontSize:40,color:'#d4cdc5'}}></i>
-          <p className="mt-3">No players match your filters.</p>
-        </div>
-      ) : view === 'cards' ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((p:any)=><PlayerCard key={p.id} p={p}/>)}
-        </div>
       ) : (
         <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
           <div className="overflow-x-auto">
-            <table className="w-full" style={{borderCollapse:'collapse'}}>
+            <table className="w-full" style={{borderCollapse:'collapse',fontSize:12}}>
               <thead>
-                <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                  {['Player','Pos','Age','Exp','OVR','POT','PPG','RPG','APG','Salary Ask',''].map(h=>(
-                    <th key={h} className="px-3 py-2.5 text-left"
-                        style={{color:'#5c554e',fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.5px',whiteSpace:'nowrap'}}>
-                      {h}
-                    </th>
-                  ))}
+                <tr style={{background:'#f0ece5'}}>
+                  {/* Fixed columns */}
+                  <th className="px-3 py-2.5 text-left sticky left-0 z-10 whitespace-nowrap"
+                      style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',
+                              borderRight:'1px solid #e2dcd5',minWidth:160,fontWeight:700,fontSize:11,color:'#5c554e'}}>
+                    Player
+                  </th>
+                  <th className="px-2 py-2.5 text-center whitespace-nowrap"
+                      style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',
+                              borderRight:'1px solid #e2dcd5',fontWeight:700,fontSize:11,color:'#5c554e'}}>
+                    Pos
+                  </th>
+                  {/* OVR — always visible */}
+                  <ColHeader label="OVR" sortKey={sortKey} active={sortKey==='ovr'} dir={sortDir} onClick={()=>handleSort('ovr')}/>
+                  {/* AGE */}
+                  <ColHeader label="AGE" sortKey={sortKey} active={sortKey==='age'} dir={sortDir} onClick={()=>handleSort('age')}/>
+                  {/* EXP */}
+                  <th className="px-2 py-2.5 text-center whitespace-nowrap"
+                      style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',
+                              borderRight:'1px solid #e2dcd5',fontWeight:700,fontSize:11,color:'#5c554e'}}>
+                    EXP<Tip text={TOOLTIPS.EXP}/>
+                  </th>
+
+                  {mode==='attributes' ? (
+                    ATTR_COLS.map(c=>(
+                      <ColHeader key={c.key} label={c.label} sortKey={sortKey}
+                        active={sortKey===c.key} dir={sortDir} onClick={()=>handleSort(c.key)}/>
+                    ))
+                  ) : (
+                    ['ppg','rpg','apg','spg','bpg','fgpct','tppct','ftpct','topg'].map(k=>(
+                      <ColHeader key={k} label={k.toUpperCase().replace('PCT','%')} sortKey={sortKey}
+                        active={sortKey===k} dir={sortDir} onClick={()=>handleSort(k)}/>
+                    ))
+                  )}
+                  <th className="px-3 py-2.5 text-center whitespace-nowrap"
+                      style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',
+                              fontWeight:700,fontSize:11,color:'#5c554e'}}>
+                    Salary Ask
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((p:any,i:number)=>{
-                  const ovr=p._ovr; const oc=ovrColor(ovr)
-                  const gp=p.stats?.games||0; const avg=(v:number)=>gp>0?(v/gp).toFixed(1):'—'
+                  const oc = ovrColor(p.ovr)
                   return (
-                    <tr key={p.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                      <td className="px-3 py-2.5">
-                        <Link href={`/player/${p.id}`} className="no-underline font-semibold hover:underline" style={{color:'#1a1512'}}>{p.name}</Link>
+                    <tr key={p.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',
+                                           borderBottom:'1px solid #e8e3db'}}>
+                      {/* Player name */}
+                      <td className="px-3 py-2 sticky left-0 z-10 whitespace-nowrap"
+                          style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderRight:'1px solid #e2dcd5'}}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 text-xs font-black"
+                               style={{background:oc+'18',color:oc}}>
+                            {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                          </div>
+                          <Link href={`/player/${p.id}`}
+                                className="font-semibold no-underline hover:underline"
+                                style={{color:'#1a1512'}}>{p.name}</Link>
+                        </div>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{background:'#e8e2d8',color:'#3d3731'}}>{p.pos}</span>
+                      {/* Pos */}
+                      <td className="px-2 py-2 text-center" style={{borderRight:'1px solid #e2dcd5'}}>
+                        <span className="text-xs font-semibold px-1.5 py-0.5 rounded"
+                              style={{background:'#e8e2d8',color:'#3d3731'}}>{p.pos}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-sm" style={{color:'#5c554e'}}>{p.age ?? '—'}</td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-xs font-semibold" style={{color:EXP_COLOR(p.nba_experience??1)}}>{EXP_LABEL(p.nba_experience??1)}</span>
+                      {/* OVR */}
+                      <td className="px-2 py-2 text-center" style={{borderRight:'1px solid #e2dcd5'}}>
+                        <span className="font-black text-sm" style={{color:oc}}>{p.ovr}</span>
                       </td>
-                      <td className="px-3 py-2.5"><span className="font-black" style={{color:oc}}>{ovr}</span></td>
-                      <td className="px-3 py-2.5"><span className="font-black text-sm" style={{color:POT_COLOR[p.potential_grade]||'#8a8279'}}>{p.potential_grade||'—'}</span></td>
-                      <td className="px-3 py-2.5 font-semibold" style={{color:'#b45309'}}>{avg(p.stats?.pts||0)}</td>
-                      <td className="px-3 py-2.5" style={{color:'#15803d'}}>{avg(p.stats?.reb||0)}</td>
-                      <td className="px-3 py-2.5" style={{color:'#1d4ed8'}}>{avg(p.stats?.ast||0)}</td>
-                      <td className="px-3 py-2.5 font-semibold text-sm" style={{color:'#1a1512'}}>{salaryRange(ovr)}</td>
-                      <td className="px-3 py-2.5">
-                        <Link href={`/player/${p.id}`} className="text-xs font-bold px-3 py-1.5 rounded-lg no-underline" style={{background:'#c8102e',color:'#fff'}}>View</Link>
+                      {/* Age */}
+                      <td className="px-2 py-2 text-center text-sm" style={{color:'#5c554e',borderRight:'1px solid #e2dcd5'}}>
+                        {p.age??'—'}
+                      </td>
+                      {/* Exp */}
+                      <td className="px-2 py-2 text-center" style={{borderRight:'1px solid #e2dcd5'}}>
+                        <span className="text-xs font-semibold"
+                              style={{color:(p.nba_experience??1)===0?'#6d28d9':'#5c554e'}}>
+                          {EXP_LABEL(p.nba_experience??1)}
+                        </span>
+                      </td>
+
+                      {mode==='attributes' ? (
+                        ATTR_COLS.map(c=>(
+                          <td key={c.key} className="px-1.5 py-2" style={{borderRight:'1px solid #e8e3db'}}>
+                            <Bar value={p[c.key]||0} color={c.color}/>
+                          </td>
+                        ))
+                      ) : (
+                        ['ppg','rpg','apg','spg','bpg','fgpct','tppct','ftpct','topg'].map(k=>(
+                          <td key={k} className="px-2 py-2 text-center text-sm font-semibold"
+                              style={{color:k==='topg'?'#dc2626':'#1a1512',borderRight:'1px solid #e8e3db'}}>
+                            {p[k]||'—'}
+                          </td>
+                        ))
+                      )}
+
+                      {/* Salary Ask */}
+                      <td className="px-3 py-2 text-center whitespace-nowrap font-semibold text-xs"
+                          style={{color:'#1a1512'}}>
+                        {salaryRange(p.ovr)}
                       </td>
                     </tr>
                   )
                 })}
               </tbody>
             </table>
+          </div>
+          <div className="px-4 py-2 text-xs" style={{background:'#f5f1eb',borderTop:'1px solid #e2dcd5',color:'#8a8279'}}>
+            Click column headers to sort · Hover <strong>i</strong> for definitions · Stats shown if player has games played
           </div>
         </div>
       )}
