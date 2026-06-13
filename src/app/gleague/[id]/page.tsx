@@ -42,7 +42,7 @@ export default async function GLeagueTeamPage({ params }: { params: { id: string
       .select('*, home:gleague_teams!gleague_games_home_team_fkey(id,name,color), away:gleague_teams!gleague_games_away_team_fkey(id,name,color)')
       .or(`home_team.eq.${params.id},away_team.eq.${params.id}`)
       .order('played_at'),
-    supabase.from('coaches').select('*').eq('team_id', (team as any).nba_affiliate).limit(4),
+    supabase.from('coaches').select('*').eq('gleague_team_id', params.id).limit(1),
   ])
 
   const tc = readableTeamColor((team as any).color || '#1d4ed8')
@@ -101,7 +101,7 @@ export default async function GLeagueTeamPage({ params }: { params: { id: string
       {(coaches||[]).length > 0 && (
         <div className="mt-6 rounded-xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
           <h2 className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1.5px'}}>
-            COACHING STAFF <span className="font-normal" style={{color:'#9c9088'}}>(NBA Affiliate)</span>
+            HEAD COACH
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {(coaches||[]).map((c:any) => {
