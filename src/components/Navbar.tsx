@@ -12,6 +12,7 @@ const NAV = [
   { label: 'Teams',         href: '/teams',           icon: 'ti-users' },
   { label: 'Leaders',       href: '/league-leaders',  icon: 'ti-trophy' },
   { label: 'Transactions',  href: '/transactions',    icon: 'ti-arrows-exchange' },
+  { label: 'Free Agents',    href: '/free-agents',      icon: 'ti-user-plus' },
   { label: 'Trade Center',  href: '/trade-center',    icon: 'ti-switch-horizontal' },
   { label: 'All-Star',      href: '/all-star',        icon: 'ti-star' },
   { label: 'Awards',        href: '/awards',          icon: 'ti-trophy' },
