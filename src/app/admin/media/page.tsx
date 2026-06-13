@@ -166,7 +166,11 @@ export default function AdminMediaPage() {
   const saveLogo = async (id:string, url:string, table:string) => {
     if (!url.trim()) return
     setSaving(id)
-    await supabase.from(table).update({logo_url:url}).eq('id',id)
+    const res = await fetch('/api/admin/media', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ table, id, field:'logo_url', value:url })
+    })
+    if (!res.ok) { setSaving(null); alert('Save failed'); return }
     if (table==='teams') {
       setNbaTeams(t=>t.map((x:any)=>x.id===id?{...x,logo_url:url}:x))
       await fetch('/api/revalidate?path=/teams').catch(()=>null)
@@ -183,7 +187,11 @@ export default function AdminMediaPage() {
   const savePhoto = async (id:string, url:string, type:'player'|'staff') => {
     setSaving(id)
     const table = type==='player'?'players':'coaches'
-    await supabase.from(table).update({photo_url:url}).eq('id',id)
+    const res = await fetch('/api/admin/media', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ table, id, field:'photo_url', value:url })
+    })
+    if (!res.ok) { setSaving(null); alert('Save failed — check permissions'); return }
     if (type==='player') {
       setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
       await fetch(`/api/revalidate?path=/player/${id}`).catch(()=>null)
