@@ -435,8 +435,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
       </div>
     </div>
-  )
-}
+  
 {/* AWARDS */}
           <div className="mt-2">
             <div className="sec-hdr mb-4">
