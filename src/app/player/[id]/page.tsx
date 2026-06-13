@@ -32,11 +32,11 @@ const ATTR_GROUPS = [
 ]
 
 const TYPE_LABEL: Record<string,{label:string,color:string,bg:string}> = {
-  guaranteed:       {label:'Guaranteed',   color:'#166534', bg:'#0a2a10'},
-  player_option:    {label:'Player Option', color:'#1e40af', bg:'#0a1a3a'},
-  team_option:      {label:'Team Option',   color:'#c2410c', bg:'#2a2010'},
-  two_way:          {label:'Two-Way',       color:'#7c3aed', bg:'#1a0a2a'},
-  qualifying_offer: {label:'QO',            color:'#b45309', bg:'#2a2000'},
+  guaranteed:       {label:'Guaranteed',   color:'#15803d', bg:'#dcfce7'},
+  player_option:    {label:'Player Option', color:'#1d4ed8', bg:'#dbeafe'},
+  team_option:      {label:'Team Option',   color:'#c2410c', bg:'#fee2e2'},
+  two_way:          {label:'Two-Way',       color:'#6d28d9', bg:'#ede9fe'},
+  qualifying_offer: {label:'QO',            color:'#b45309', bg:'#fef3c7'},
 }
 
 function AttrBar({ value, color }: { value: number, color: string }) {
@@ -51,46 +51,18 @@ function AttrBar({ value, color }: { value: number, color: string }) {
             style={{ color:value>=85?'#b45309':value>=70?'#1a1512':value>=50?'#5c554e':'#dc2626' }}>
         {value}
       </span>
-                  </div>
-                </div>
-                {a.stats_context?.ppg && (
-                  <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
-                    {a.stats_context.ppg} PPG
-                    {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
-                    {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
 function OVR({ value }: { value: number }) {
   const color = value>=85?'#b45309':value>=75?'#15803d':value>=65?'#1d4ed8':'#5c554e'
-  const bg    = value>=85?'#2a2000':value>=75?'#0a2a10':value>=65?'#0a1a3a':'#f0ece5'
+  const bg    = value>=85?'#fef3c7':value>=75?'#dcfce7':value>=65?'#dbeafe':'#f0ece5'
   return (
     <div className="flex flex-col items-center justify-center rounded-xl p-3 min-w-[60px]"
          style={{ background:bg, border:'1px solid '+color+'44' }}>
       <span className="text-2xl font-black" style={{ color }}>{value}</span>
-      <span className="text-xs" style={{ color:color+'99' }}>OVR</span>
-                  </div>
-                </div>
-                {a.stats_context?.ppg && (
-                  <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
-                    {a.stats_context.ppg} PPG
-                    {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
-                    {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <span className="text-xs font-semibold" style={{ color:color }}>OVR</span>
     </div>
   )
 }
@@ -98,32 +70,23 @@ function OVR({ value }: { value: number }) {
 export default async function PlayerPage({ params }: { params: { id: string } }) {
   const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }] =
     await Promise.all([
-      supabase.from('players').select('*,nba_experience, teams(name,color,id,logo_url)').eq('id', params.id).single(),
+      supabase.from('players').select('*, nba_experience, teams(name,color,id,logo_url)').eq('id', params.id).single(),
       supabase.from('player_stats').select('*').eq('player_id', params.id).order('season', { ascending: false }),
       supabase.from('injury_log').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', { ascending: true }),
-      supabase.from('awards').select('award_type,period,season,stats_context,created_at').eq('player_id', params.id).order('created_at',{ascending:false}),
+      supabase.from('awards').select('award_type,period,season,stats_context,created_at').eq('player_id', params.id).order('created_at', { ascending: false }),
     ])
 
-  if (!player) return <div className="p-8 text-center" style={{ color:'#6b5f4e' }}>Player not found.</div>
+  if (!player) return <div className="p-8 text-center" style={{ color:'#5c554e' }}>Player not found.</div>
 
   const p = player as any
   const team = p.teams as any
-  const teamColor = '#'+(team?.color||'3a8adf')
+  const tc = readableTeamColor(team?.color || '3a8adf')
 
   const ovr = calcOvr(p)
 
   const capFmt = (n:number) => n ? '$'+(n/1000000).toFixed(2)+'M' : '—'
   const pct    = (m:number,a:number) => a>0?(m/a*100).toFixed(1)+'%':'—'
-
-  // Current season contract
-  const currentContract = (contracts||[]).find((c:any) => c.season==='2025-26')
-  const totalValue = (contracts||[]).reduce((sum:number,c:any) => sum+c.salary, 0)
-
-  const potGrade = (p as any).potential_grade || 'C'
-  const potColor: Record<string,string> = {A:'#b45309',B:'#15803d',C:'#1d4ed8',D:'#b45309',E:'#e06040',F:'#dc2626'}
-  const potBg:    Record<string,string> = {A:'#2a2000',B:'#0a2a10',C:'#0a1a3a',D:'#2a1500',E:'#2a0800',F:'#2a0000'}
-
 
   const AWARD_LABELS: Record<string,string> = {
     potw_eastern:'Player of the Week (East)', potw_western:'Player of the Week (West)',
@@ -140,19 +103,23 @@ export default async function PlayerPage({ params }: { params: { id: string } })
     potm_eastern:'#b45309', potm_western:'#1d4ed8',
     all_rookie_1:'#6d28d9', all_rookie_2:'#8a8279',
   }
+
+  const currentContract = (contracts||[]).find((c:any) => c.season==='2025-26')
+  const totalValue = (contracts||[]).reduce((sum:number,c:any) => sum+c.salary, 0)
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
 
       {/* HEADER */}
       <div className="rounded-2xl p-6 mb-6"
-           style={{ background:'#e8e2d6', borderTop:'4px solid '+teamColor, border:'1px solid #d4cec3' }}>
+           style={{ background:'#faf8f5', borderTop:'4px solid '+tc, border:'1px solid #d4cdc5' }}>
         <div className="flex gap-5 flex-wrap items-start">
           <div className="flex-shrink-0">
             {p.photo_url
               ? <img src={p.photo_url} alt={p.name} className="w-28 h-28 rounded-xl object-cover"
-                     style={{ border:'2px solid '+teamColor }} />
+                     style={{ border:'2px solid '+tc }} />
               : <div className="w-28 h-28 rounded-xl flex items-center justify-center text-3xl font-black"
-                     style={{ background:teamColor+'22', color:teamColor, border:'2px solid '+teamColor }}>
+                     style={{ background:tc+'18', color:tc, border:'2px solid '+tc+'33' }}>
                   {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                 </div>
             }
@@ -160,47 +127,43 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
-                <div className="text-xs font-semibold mb-1" style={{ color:teamColor }}>
+                <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color:tc, letterSpacing:'1px' }}>
                   {team?.name} · {p.pos}
                 </div>
-                <h1 className="text-3xl font-black text-white mb-2">{p.name}</h1>
-                <div className="flex gap-4 text-sm flex-wrap">
-                  {p.nationality && <span style={{ color:'#6b5f4e' }}>🌍 {p.nationality}</span>}
-                  {p.age && <span style={{ color:'#6b5f4e' }}>Age {p.age}</span>}
+                <h1 className="text-3xl font-black mb-2" style={{ color:'#1a1512' }}>{p.name}</h1>
+                <div className="flex gap-3 text-sm flex-wrap items-center">
+                  {p.nationality && <span style={{ color:'#5c554e' }}>{p.nationality}</span>}
+                  {p.age && <span style={{ color:'#5c554e' }}>Age {p.age}</span>}
+                  {(p.nba_experience === 0)
+                    ? <span className="text-xs px-2 py-0.5 rounded font-bold" style={{background:'#6d28d9',color:'#fff'}}>Rookie</span>
+                    : (p.nba_experience === 1)
+                    ? <span className="text-xs px-2 py-0.5 rounded font-bold" style={{background:'#1d4ed8',color:'#fff'}}>Sophomore</span>
+                    : <span style={{ color:'#8a8279', fontSize:12 }}>{p.nba_experience}yr exp</span>
+                  }
                   {p.status !== 'active' && (
                     <span className="px-2 py-0.5 rounded font-semibold text-xs"
-                          style={{ background:'#fee2e2', color:'#ff4040' }}>
+                          style={{ background:'#fee2e2', color:'#dc2626' }}>
                       🏥 {p.injury_type||'Injured'}
                     </span>
                   )}
                 </div>
               </div>
-              <div className="flex flex-col gap-2 items-end">
-                <OVR value={ovr} />
-                <div className="rounded-lg px-2.5 py-1.5 text-center"
-                     style={{background:potBg[potGrade]||'#eee8df',border:'1px solid '+(potColor[potGrade]||'#5c554e')+'44'}}>
-                  <div className="text-lg font-black leading-none" style={{color:potColor[potGrade]||'#5c554e'}}>{potGrade}</div>
-                  <div style={{fontSize:9,color:'#6b5f4e'}}>POT</div>
-                </div>
-              </div>
+              <OVR value={ovr} />
             </div>
-            {/* Current season quick info */}
             {currentContract && (
               <div className="flex gap-6 mt-3 flex-wrap">
+                {[
+                  {label:'2025-26 Salary', val:capFmt(currentContract.salary)},
+                  {label:'Contract', val:`${(contracts||[]).length}yr`},
+                  {label:'Total Value', val:capFmt(totalValue)},
+                ].map(item=>(
+                  <div key={item.label}>
+                    <div className="text-xs" style={{ color:'#8a8279' }}>{item.label}</div>
+                    <div className="font-bold" style={{ color:'#1a1512' }}>{item.val}</div>
+                  </div>
+                ))}
                 <div>
-                  <div className="text-xs" style={{ color:'#6b5f4e' }}>2025-26 Salary</div>
-                  <div className="font-bold text-white">{capFmt(currentContract.salary)}</div>
-                </div>
-                <div>
-                  <div className="text-xs" style={{ color:'#6b5f4e' }}>Contract Length</div>
-                  <div className="font-bold text-white">{(contracts||[]).length}yr</div>
-                </div>
-                <div>
-                  <div className="text-xs" style={{ color:'#6b5f4e' }}>Total Value</div>
-                  <div className="font-bold text-white">{capFmt(totalValue)}</div>
-                </div>
-                <div>
-                  <div className="text-xs" style={{ color:'#6b5f4e' }}>Type</div>
+                  <div className="text-xs" style={{ color:'#8a8279' }}>Type</div>
                   <span className="text-xs font-bold px-2 py-0.5 rounded"
                         style={{ background:TYPE_LABEL[currentContract.type]?.bg||'#f0ece5',
                                  color:TYPE_LABEL[currentContract.type]?.color||'#5c554e' }}>
@@ -213,61 +176,22 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         </div>
       </div>
 
-      {/* HEALTH & MORALE */}
-      {(() => {
-        const health = p.health ?? 100
-        const moral  = p.moral  ?? 80
-        const hColor = health>=90?'#15803d':health>=80?'#a0e040':health>=65?'#b45309':health>=50?'#b45309':'#dc2626'
-        const hLabel = health>=90?'Healthy':health>=80?'Good':health>=65?'Limited':health>=50?'Questionable':'OUT'
-        const mColor = moral>=80?'#6d28d9':moral>=60?'#8030cc':'#dc2626'
-        const mLabel = moral>=80?'High':moral>=60?'Normal':'Low'
-        const perfNote = health>=90?'Full potential':health>=80?'~90% output':health>=65?'~75% output':health>=50?'~60% output · risk of aggravation':'Cannot play'
-        return (
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="rounded-xl p-4" style={{background:hColor+'18',border:'1px solid '+hColor+'55'}}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>❤️ Health</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:hColor+'33',color:hColor}}>{hLabel}</span>
-              </div>
-              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#cec7bc'}}>
-                <div className="h-full rounded-full" style={{width:health+'%',background:hColor}}></div>
-              </div>
-              <div className="flex items-end justify-between">
-                <span className="text-3xl font-black" style={{color:hColor}}>{health}%</span>
-                <span className="text-xs text-right" style={{color:'#6b5f4e',maxWidth:140}}>{perfNote}</span>
-              </div>
-            </div>
-            <div className="rounded-xl p-4" style={{background:mColor+'18',border:'1px solid '+mColor+'55'}}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>🧠 Morale</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:mColor+'33',color:mColor}}>{mLabel}</span>
-              </div>
-              <div className="h-3 rounded-full overflow-hidden mb-2" style={{background:'#cec7bc'}}>
-                <div className="h-full rounded-full" style={{width:moral+'%',background:mColor}}></div>
-              </div>
-              <div className="flex items-end justify-between">
-                <span className="text-3xl font-black" style={{color:mColor}}>{moral}%</span>
-                <span className="text-xs text-right" style={{color:'#6b5f4e'}}>Affects consistency & clutch performance</span>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
       <div className="grid md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
 
           {/* ATTRIBUTES */}
-          <h2 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color:'#6b5f4e' }}>Attributes</h2>
+          <div className="sec-hdr mb-4">
+            <span className="sec-title">Attributes</span>
+          </div>
           <div className="grid sm:grid-cols-2 gap-4 mb-6">
             {ATTR_GROUPS.map(group => (
               <div key={group.label} className="rounded-xl p-4"
-                   style={{ background:'#e8e2d6', border:'1px solid #d4cec3' }}>
+                   style={{ background:'#faf8f5', border:'1px solid #d4cdc5', borderTop:'2px solid '+group.color }}>
                 <div className="text-xs font-bold uppercase tracking-widest mb-3"
-                     style={{ color:group.color }}>{group.label}</div>
+                     style={{ color:group.color, letterSpacing:'1px' }}>{group.label}</div>
                 {group.attrs.map(attr => (
                   <div key={attr.key} className="mb-2">
-                    <div className="text-xs mb-0.5" style={{ color:'#6b5f4e' }}>{attr.label}</div>
+                    <div className="text-xs mb-0.5" style={{ color:'#5c554e' }}>{attr.label}</div>
                     <AttrBar value={(p as any)[attr.key]||0} color={group.color} />
                   </div>
                 ))}
@@ -275,36 +199,37 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             ))}
           </div>
 
-          {/* CONTRACT TABLE */}
+          {/* CONTRACT */}
           {(contracts||[]).length > 0 && (
             <>
-              <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6b5f4e' }}>Contract</h2>
-              <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cec3' }}>
+              <div className="sec-hdr mb-3">
+                <span className="sec-title">Contract</span>
+              </div>
+              <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cdc5' }}>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr style={{ background:'#ddd7ca', borderBottom:'1px solid #d4cec3' }}>
-                      <th className="px-4 py-2.5 text-left font-semibold" style={{ color:'#6b5f4e' }}>Season</th>
-                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#6b5f4e' }}>Salary</th>
-                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#6b5f4e' }}>Type</th>
+                    <tr style={{ background:'#f0ece5', borderBottom:'1px solid #d4cdc5' }}>
+                      <th className="px-4 py-2.5 text-left font-semibold" style={{ color:'#5c554e' }}>Season</th>
+                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Salary</th>
+                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Type</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(contracts||[]).map((c:any, i:number) => {
-                      const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#6b5f4e',bg:'#f0ece5'}
+                      const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#5c554e',bg:'#f0ece5'}
                       const isCurrent = c.season==='2025-26'
                       return (
                         <tr key={c.id}
-                            style={{ background:isCurrent?teamColor+'11':i%2===0?'#faf8f5':'#faf8f5',
-                                     borderBottom:'1px solid #16120d' }}>
+                            style={{ background:isCurrent?tc+'11':i%2===0?'#faf8f5':'#f5f1eb',
+                                     borderBottom:'1px solid #e2dcd5' }}>
                           <td className="px-4 py-2.5">
-                            <span className="font-semibold" style={{ color:isCurrent?teamColor:'#1a1512' }}>
+                            <span className="font-semibold" style={{ color:isCurrent?tc:'#1a1512' }}>
                               {c.season}
                             </span>
                             {isCurrent && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
-                                               style={{ background:teamColor+'33',color:teamColor }}>Current</span>}
+                                               style={{ background:tc+'22', color:tc }}>Current</span>}
                           </td>
-                          <td className="px-4 py-2.5 text-right font-bold"
-                              style={{ color:isCurrent?'#e8e2d6':'#1a1512' }}>
+                          <td className="px-4 py-2.5 text-right font-bold" style={{ color:'#1a1512' }}>
                             {capFmt(c.salary)}
                           </td>
                           <td className="px-4 py-2.5 text-right">
@@ -316,9 +241,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                         </tr>
                       )
                     })}
-                    <tr style={{ background:'#ddd7ca', borderTop:'1px solid #3a3228' }}>
-                      <td className="px-4 py-2.5 font-bold text-white">Total</td>
-                      <td className="px-4 py-2.5 text-right font-black" style={{ color:'#c2410c' }}>
+                    <tr style={{ background:'#f0ece5', borderTop:'2px solid #d4cdc5' }}>
+                      <td className="px-4 py-2.5 font-bold" style={{ color:'#1a1512' }}>Total</td>
+                      <td className="px-4 py-2.5 text-right font-black" style={{ color:'#c8102e' }}>
                         {capFmt(totalValue)}
                       </td>
                       <td></td>
@@ -329,16 +254,18 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             </>
           )}
 
-          {/* SEASON STATS */}
-          <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6b5f4e' }}>Season Statistics</h2>
+          {/* STATS */}
+          <div className="sec-hdr mb-3">
+            <span className="sec-title">Season Statistics</span>
+          </div>
           {(stats||[]).length > 0 ? (
-            <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cec3' }}>
+            <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cdc5' }}>
               <table className="w-full text-xs">
                 <thead>
-                  <tr style={{ background:'#ddd7ca',borderBottom:'1px solid #d4cec3' }}>
+                  <tr style={{ background:'#f0ece5', borderBottom:'1px solid #d4cdc5' }}>
                     {['Season','GP','PPG','RPG','APG','SPG','BPG','FG%','3P%','FT%','TO'].map(h=>(
                       <th key={h} className="px-3 py-2 font-semibold text-right first:text-left"
-                          style={{ color:'#6b5f4e' }}>{h}</th>
+                          style={{ color:'#5c554e' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -347,14 +274,14 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                     const gp=s.games||0
                     const avg=(v:number)=>gp>0?(v/gp).toFixed(1):'—'
                     return (
-                      <tr key={s.id} style={{ background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #16120d' }}>
-                        <td className="px-3 py-2 font-semibold text-white">{s.season}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#6b5f4e' }}>{gp}</td>
-                        <td className="px-3 py-2 text-right font-bold" style={{ color:'#c2410c' }}>{avg(s.pts)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#166534' }}>{avg(s.reb)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#1e40af' }}>{avg(s.ast)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#7c3aed' }}>{avg(s.stl)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#ff6040' }}>{avg(s.blk)}</td>
+                      <tr key={s.id} style={{ background:i%2===0?'#faf8f5':'#f5f1eb', borderBottom:'1px solid #e2dcd5' }}>
+                        <td className="px-3 py-2 font-semibold" style={{ color:'#1a1512' }}>{s.season}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#5c554e' }}>{gp}</td>
+                        <td className="px-3 py-2 text-right font-bold" style={{ color:'#b45309' }}>{avg(s.pts)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#15803d' }}>{avg(s.reb)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#1d4ed8' }}>{avg(s.ast)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#6d28d9' }}>{avg(s.stl)}</td>
+                        <td className="px-3 py-2 text-right" style={{ color:'#c2410c' }}>{avg(s.blk)}</td>
                         <td className="px-3 py-2 text-right">{pct(s.fgm,s.fga)}</td>
                         <td className="px-3 py-2 text-right">{pct(s.tpm,s.tpa)}</td>
                         <td className="px-3 py-2 text-right">{pct(s.ftm,s.fta)}</td>
@@ -366,96 +293,92 @@ export default async function PlayerPage({ params }: { params: { id: string } })
               </table>
             </div>
           ) : (
-            <div className="rounded-xl p-4 text-center mb-6" style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
-              <p className="text-sm" style={{ color:'#6b5f4e' }}>No stats yet — season hasn't started.</p>
+            <div className="rounded-xl p-4 text-center mb-6" style={{ background:'#faf8f5', border:'1px solid #d4cdc5' }}>
+              <p className="text-sm" style={{ color:'#5c554e' }}>No stats yet — season hasn't started.</p>
+            </div>
+          )}
+
+          {/* AWARDS */}
+          {playerAwards && playerAwards.length > 0 && (
+            <div className="mt-2">
+              <div className="sec-hdr mb-4">
+                <span className="sec-title">
+                  <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+                  Awards & Honours
+                </span>
+              </div>
+              <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+                {(playerAwards||[]).map((a:any,i:number) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-3"
+                       style={{borderBottom:i<(playerAwards||[]).length-1?'1px solid #e2dcd5':'none',
+                               background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+                    <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                    <div className="flex-1">
+                      <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
+                        {AWARD_LABELS[a.award_type]||a.award_type}
+                      </div>
+                      <div className="text-xs" style={{color:'#8a8279'}}>
+                        {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
+                      </div>
+                    </div>
+                    {a.stats_context?.ppg && (
+                      <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
+                        {a.stats_context.ppg} PPG
+                        {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
+                        {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
 
         {/* SIDEBAR */}
         <div className="flex flex-col gap-4">
-
-          {/* THIS SEASON STATS */}
-          <div className="rounded-xl p-4" style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
-            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6b5f4e' }}>This Season</h3>
+          <div className="rounded-xl p-4" style={{ background:'#faf8f5', border:'1px solid #d4cdc5' }}>
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color:'#5c554e', letterSpacing:'1px' }}>THIS SEASON</h3>
             {(stats||[])[0] ? (() => {
               const s=(stats||[])[0] as any
               const gp=s.games||0
               const avg=(v:number)=>gp>0?(v/gp).toFixed(1):'—'
               return (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   {[
-                    {label:'PPG',val:avg(s.pts),color:'#c2410c'},
-                    {label:'RPG',val:avg(s.reb),color:'#166534'},
-                    {label:'APG',val:avg(s.ast),color:'#1e40af'},
+                    {label:'PPG',val:avg(s.pts),color:'#b45309'},
+                    {label:'RPG',val:avg(s.reb),color:'#15803d'},
+                    {label:'APG',val:avg(s.ast),color:'#1d4ed8'},
                     {label:'FG%',val:s.fga>0?(s.fgm/s.fga*100).toFixed(1)+'%':'—',color:'#1a1512'},
                     {label:'3P%',val:s.tpa>0?(s.tpm/s.tpa*100).toFixed(1)+'%':'—',color:'#b45309'},
-                    {label:'GP', val:gp,color:'#6b5f4e'},
+                    {label:'GP', val:gp, color:'#5c554e'},
                   ].map(item=>(
-                    <div key={item.label} className="rounded-lg p-2.5 text-center" style={{ background:'#ddd7ca' }}>
+                    <div key={item.label} className="rounded-lg p-2.5 text-center" style={{ background:'#f0ece5' }}>
                       <div className="text-lg font-black" style={{ color:item.color }}>{item.val}</div>
-                      <div className="text-xs" style={{ color:'#6b5f4e' }}>{item.label}</div>
+                      <div className="text-xs" style={{ color:'#8a8279' }}>{item.label}</div>
                     </div>
                   ))}
                 </div>
               )
-            })() : <p className="text-xs text-center" style={{ color:'#6b5f4e' }}>No stats yet.</p>}
+            })() : <p className="text-xs text-center" style={{ color:'#8a8279' }}>No stats yet.</p>}
           </div>
 
-          {/* INJURY HISTORY */}
-          <div className="rounded-xl p-4" style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
-            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color:'#6b5f4e' }}>Injury History</h3>
+          <div className="rounded-xl p-4" style={{ background:'#faf8f5', border:'1px solid #d4cdc5' }}>
+            <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color:'#5c554e', letterSpacing:'1px' }}>INJURY HISTORY</h3>
             {(injuries||[]).length > 0 ? (injuries||[]).map((inj:any) => (
-              <div key={inj.id} className="py-2" style={{ borderBottom:'1px solid #d4cec3' }}>
-                <div className="text-sm font-semibold" style={{ color:'#ff4040' }}>{inj.injury_type}</div>
-                <div className="text-xs mt-0.5" style={{ color:'#6b5f4e' }}>
+              <div key={inj.id} className="py-2" style={{ borderBottom:'1px solid #e2dcd5' }}>
+                <div className="text-sm font-semibold" style={{ color:'#dc2626' }}>{inj.injury_type}</div>
+                <div className="text-xs mt-0.5" style={{ color:'#8a8279' }}>
                   {inj.games_out} games ·{' '}
                   {new Date(inj.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
                 </div>
               </div>
             )) : (
-              <p className="text-xs" style={{ color:'#6b5f4e' }}>No injury history. 💪</p>
+              <p className="text-xs" style={{ color:'#8a8279' }}>No injury history.</p>
             )}
           </div>
-
         </div>
       </div>
-
-      {/* Awards */}
-      {playerAwards && playerAwards.length > 0 && (
-        <div className="mt-6">
-          <div className="sec-hdr mb-4">
-            <span className="sec-title">
-              <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
-              Awards & Honours
-            </span>
-          </div>
-          <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-            {playerAwards.map((a:any,i:number) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3"
-                   style={{borderBottom:i<playerAwards.length-1?'1px solid #e2dcd5':'none',
-                           background:i%2===0?'#faf8f5':'#f5f1eb'}}>
-                <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
-                <div className="flex-1">
-                  <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
-                    {AWARD_LABELS[a.award_type]||a.award_type}
-                  </div>
-                  <div className="text-xs" style={{color:'#8a8279'}}>
-                    {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
-                  </div>
-                </div>
-                {a.stats_context?.ppg && (
-                  <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
-                    {a.stats_context.ppg} PPG
-                    {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
-                    {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
