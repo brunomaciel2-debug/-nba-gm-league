@@ -2,12 +2,12 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import type { Team } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export default async function TeamsPage() {
   const [{ data: teams }, { data: worldTeams }] = await Promise.all([
     supabase.from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)'),
-    supabase.from('world_teams').select('*').order('continent').order('country'),
+    supabase.from('world_teams').select('*').order('continent').order('country').order('name'),
   ])
   const byConf: Record<string,Record<string,Team[]>> = {}
   ;(teams||[]).forEach((t:Team)=>{
@@ -68,6 +68,58 @@ export default async function TeamsPage() {
           ))}
         </div>
       ))}
+
+      {/* ── INTERNATIONAL TEAMS ──────────────────────────── */}
+      {(worldTeams||[]).length > 0 && (
+        <div style={{marginTop:48,paddingTop:32,borderTop:'2px solid #d4cdc5'}}>
+          <div className="sec-hdr mb-2">
+            <span className="sec-title">
+              🌍 International Teams
+            </span>
+            <span className="text-xs" style={{color:'#8a8279'}}>Pre-season friendlies only</span>
+          </div>
+          <p className="text-xs mb-6" style={{color:'#8a8279'}}>
+            These teams are available for pre-season friendly games. GMs can propose a game from each team's page.
+          </p>
+          {Object.entries(
+            (worldTeams||[]).reduce((acc: Record<string,any[]>, t: any) => {
+              if (!acc[t.continent]) acc[t.continent] = []
+              acc[t.continent].push(t)
+              return acc
+            }, {})
+          ).sort().map(([continent, cteams]: any) => (
+            <div key={continent} style={{marginBottom:32}}>
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-3"
+                  style={{color:'#5c554e',letterSpacing:'1.5px'}}>{continent}</h3>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {cteams.map((t: any) => {
+                  const tc = t.color || '#1d4ed8'
+                  return (
+                    <Link key={t.id} href={`/world/${t.id}`} className="no-underline group">
+                      <div className="rounded-xl p-4 transition-all group-hover:brightness-95"
+                           style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderLeft:`4px solid ${tc}`}}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+                               style={{background:tc+'18'}}>
+                            {t.logo_url
+                              ?<img src={t.logo_url} alt="" className="w-full h-full object-contain p-0.5"/>
+                              :<span className="text-xs font-black" style={{color:tc}}>{t.id}</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-sm truncate" style={{color:'#1a1512'}}>{t.name}</div>
+                            <div className="text-xs" style={{color:'#8a8279'}}>{t.country}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   )
 }
