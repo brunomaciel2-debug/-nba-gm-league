@@ -147,7 +147,7 @@ export default function FreeAgentsPage() {
 
   useEffect(()=>{
     supabase.from('players')
-      .select('*,player_stats!left(pts,reb,ast,stl,blk,games,season)')
+      .select('*, player_stats(pts,reb,ast,stl,blk,games,season)')
       .is('team_id',null)
       .eq('status','active')
       .then(({data})=>{
@@ -268,7 +268,7 @@ export default function FreeAgentsPage() {
                       <td className="px-3 py-2.5">
                         <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{background:'#e8e2d8',color:'#3d3731'}}>{p.pos}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-sm" style={{color:'#5c554e'}}>{p.age||'—'}</td>
+                      <td className="px-3 py-2.5 text-sm" style={{color:'#5c554e'}}>{p.age ?? '—'}</td>
                       <td className="px-3 py-2.5">
                         <span className="text-xs font-semibold" style={{color:EXP_COLOR(p.nba_experience??1)}}>{EXP_LABEL(p.nba_experience??1)}</span>
                       </td>
