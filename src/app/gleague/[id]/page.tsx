@@ -32,7 +32,7 @@ export default async function GLeagueTeamPage({ params }: { params: { id: string
 
   const [{ data: players }, { data: recentGames }, { data: upcoming }] = await Promise.all([
     supabase.from('players').select('*, gleague_player_stats(*)')
-      .or(`gleague_team_id.eq.${params.id},and(on_gleague_assignment.eq.true,gleague_team_id.eq.${params.id})`)
+      .eq('gleague_team_id', params.id)
       .order('usage', { ascending: false }),
     supabase.from('gleague_games')
       .select('*, home:gleague_teams!gleague_games_home_team_fkey(id,name,color), away:gleague_teams!gleague_games_away_team_fkey(id,name,color)')
