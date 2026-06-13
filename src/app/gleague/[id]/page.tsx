@@ -259,9 +259,13 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
                                   background:bg,borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>
                         <div style={{display:'flex',alignItems:'center',gap:8}}>
                           <div style={{width:22,height:22,borderRadius:4,flexShrink:0,
-                                       background:oc+'18',display:'flex',alignItems:'center',
-                                       justifyContent:'center',fontSize:8,fontWeight:900,color:oc}}>
-                            {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                                       overflow:'hidden',background:oc+'18',display:'flex',
+                                       alignItems:'center',justifyContent:'center'}}>
+                            {p.photo_url
+                              ?<img src={p.photo_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                              :<span style={{fontSize:8,fontWeight:900,color:oc}}>
+                                {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                              </span>}
                           </div>
                           <Link href={`/player/${p.id}`}
                                 style={{fontWeight:600,color:'#1a1512',textDecoration:'none',

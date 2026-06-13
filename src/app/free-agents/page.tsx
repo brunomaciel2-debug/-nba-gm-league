@@ -208,10 +208,22 @@ function StaffTab({ staff }: { staff: any[] }) {
                 return (
                   <tr key={c.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                     <td className="px-3 py-2.5">
-                      <Link href={`/staff/${c.id}`} className="font-semibold no-underline hover:underline" style={{color:'#1a1512'}}>
-                        {c.name}
-                      </Link>
-                      {c.nationality && <span className="ml-1.5 text-xs" style={{color:'#8a8279'}}>{c.nationality}</span>}
+                      <div className="flex items-center gap-2">
+                        <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,overflow:'hidden',
+                                     background:rc+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          {c.photo_url
+                            ?<img src={c.photo_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                            :<span style={{fontSize:9,fontWeight:900,color:rc}}>
+                              {c.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                            </span>}
+                        </div>
+                        <div>
+                          <Link href={`/staff/${c.id}`} className="font-semibold no-underline hover:underline" style={{color:'#1a1512'}}>
+                            {c.name}
+                          </Link>
+                          {c.nationality && <span className="ml-1.5 text-xs" style={{color:'#8a8279'}}>{c.nationality}</span>}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-3 py-2.5">
                       <span className="text-xs font-semibold px-2 py-0.5 rounded"
@@ -424,9 +436,14 @@ export default function FreeAgentsPage() {
                         <td className="px-3 py-2 sticky left-0 z-10 whitespace-nowrap"
                             style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderRight:'1px solid #e2dcd5'}}>
                           <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-xs font-black"
-                                 style={{background:oc+'18',color:oc,fontSize:8}}>
-                              {p.name.split(' ').map((n: string) => n[0]).join('').slice(0,2)}
+                            <div className="w-5 h-5 rounded flex-shrink-0 overflow-hidden"
+                                 style={{background:oc+'18'}}>
+                              {p.photo_url
+                                ?<img src={p.photo_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                                :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',
+                                              justifyContent:'center',fontSize:8,fontWeight:900,color:oc}}>
+                                  {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                                </div>}
                             </div>
                             <Link href={`/player/${p.id}`} className="font-semibold no-underline hover:underline"
                                   style={{color:'#1a1512'}}>{p.name}</Link>

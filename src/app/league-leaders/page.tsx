@@ -71,7 +71,9 @@ export default async function LeagueLeadersPage() {
                             ? <img src={p.photo} alt="" className="w-full h-full object-cover" />
                             : <div className="w-full h-full flex items-center justify-center text-xs font-black"
                                    style={{ color:readableTeamColor(p.teamColor||'555') }}>
-                                {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                                {p.photo
+                                  ?<img src={p.photo} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                                  :p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                               </div>
                           }
                         </div>

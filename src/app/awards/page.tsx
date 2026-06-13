@@ -67,7 +67,9 @@ function AwardCard({ award }: { award: any }) {
               {entity.photo_url || entity.logo_url
                 ?<img src={entity.photo_url||entity.logo_url} alt="" className="w-full h-full object-cover"/>
                 :<div className="w-full h-full flex items-center justify-center font-black text-lg" style={{color:tc}}>
-                   {entity.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                   {entity.photo_url
+                     ?<img src={entity.photo_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/>
+                     :entity.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                  </div>}
             </div>
             <div className="flex-1">
@@ -127,7 +129,9 @@ function TeamAward({ awards, type }: { awards: any[], type: string }) {
                        style={{background:tc+'18'}}>
                     {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
                       :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>
-                         {p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                         {p?.photo_url
+                           ?<img src={p.photo_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover',borderRadius:'50%'}}/>
+                           :p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                        </div>}
                   </div>
                   <div className="flex-1">
