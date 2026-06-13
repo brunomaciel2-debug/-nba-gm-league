@@ -22,31 +22,31 @@ function Seed({ team, seed }: { team: any, seed: number }) {
   const isPlayin = seed >= 7
   const tc = team ? readableTeamColor(team.color) : '#9c9088'
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5 rounded"
+    <div className="flex items-center gap-1.5 px-3 py-2 rounded"
          style={{
            background: isPlayin ? '#fef9c3' : '#faf8f5',
            border: `1px solid ${isPlayin ? '#f0c040' : '#d4cdc5'}`,
            minWidth: 0, width: '100%',
          }}>
-      <span className="text-xs font-black flex-shrink-0 w-3.5"
-            style={{color: seed<=6?'#15803d':'#b45309',fontSize:10}}>{seed}</span>
+      <span className="text-xs font-black flex-shrink-0 w-5"
+            style={{color: seed<=6?'#15803d':'#b45309',fontSize:13}}>{seed}</span>
       {team?.logo_url
-        ? <img src={team.logo_url} alt="" style={{width:18,height:18,objectFit:'contain',flexShrink:0}}/>
-        : <div style={{width:18,height:18,borderRadius:3,background:tc+'22',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <span style={{fontSize:7,fontWeight:900,color:tc}}>{(team?.id||'?').slice(0,3)}</span>
+        ? <img src={team.logo_url} alt="" style={{width:24,height:24,objectFit:'contain',flexShrink:0}}/>
+        : <div style={{width:24,height:24,borderRadius:3,background:tc+'22',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <span style={{fontSize:10,fontWeight:900,color:tc}}>{(team?.id||'?').slice(0,3)}</span>
           </div>
       }
-      <span className="truncate" style={{fontSize:10,fontWeight:600,color: team?'#1a1512':'#9c9088',minWidth:0}}>
+      <span className="truncate" style={{fontSize:13,fontWeight:600,color: team?'#1a1512':'#9c9088',minWidth:0}}>
         {team ? team.name.replace('Los Angeles','LA').replace('Golden State','GS').replace('Oklahoma City','OKC').replace('New Orleans','NO').replace('San Antonio','SA') : 'TBD'}
       </span>
-      <span className="flex-shrink-0" style={{fontSize:9,color:'#8a8279',marginLeft:'auto'}}>{team?`${team.wins}-${team.losses}`:''}</span>
+      <span className="flex-shrink-0" style={{fontSize:12,color:'#8a8279',marginLeft:'auto'}}>{team?`${team.wins}-${team.losses}`:''}</span>
     </div>
   )
 }
 
 function Matchup({ hiTeam, loTeam, hiSeed, loSeed }: { hiTeam:any, loTeam:any, hiSeed:number, loSeed:number }) {
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+    <div style={{display:'flex',flexDirection:'column',gap:3}}>
       <Seed team={hiTeam} seed={hiSeed} />
       <Seed team={loTeam} seed={loSeed} />
     </div>
@@ -87,7 +87,7 @@ export default async function PlayoffsPage() {
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',alignItems:'center'}}>
 
             {/* Round 1 — leftmost */}
-            <div style={{display:'flex',flexDirection:'column',gap:24}}>
+            <div style={{display:'flex',flexDirection:'column',gap:32}}>
               <Matchup hiTeam={eTop[0]} loTeam={null}    hiSeed={1} loSeed={8} />
               <Matchup hiTeam={eTop[3]} loTeam={eTop[4]} hiSeed={4} loSeed={5} />
               <Matchup hiTeam={eTop[1]} loTeam={null}    hiSeed={2} loSeed={7} />
@@ -95,32 +95,32 @@ export default async function PlayoffsPage() {
             </div>
 
             {/* Conf Semis */}
-            <div style={{display:'flex',flexDirection:'column',gap:80,justifyContent:'space-around'}}>
-              <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                <div style={{height:36,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:9,color:'#8a8279',fontWeight:600}}>SEMI A</span>
+            <div style={{display:'flex',flexDirection:'column',gap:96,justifyContent:'space-around'}}>
+              <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                <div style={{height:48,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:12,color:'#8a8279',fontWeight:600}}>SEMI A</span>
                 </div>
-                <div style={{height:36,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:9,color:'#8a8279',fontWeight:600}}>TBD</span>
+                <div style={{height:48,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:12,color:'#8a8279',fontWeight:600}}>TBD</span>
                 </div>
               </div>
-              <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                <div style={{height:36,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:9,color:'#8a8279',fontWeight:600}}>SEMI B</span>
+              <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                <div style={{height:48,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:12,color:'#8a8279',fontWeight:600}}>SEMI B</span>
                 </div>
-                <div style={{height:36,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:9,color:'#8a8279',fontWeight:600}}>TBD</span>
+                <div style={{height:48,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:12,color:'#8a8279',fontWeight:600}}>TBD</span>
                 </div>
               </div>
             </div>
 
             {/* Conf Finals */}
             <div style={{display:'flex',flexDirection:'column',gap:2,alignSelf:'center'}}>
-              <div style={{height:40,background:'#e8f0fe',border:'1px dashed #1e3a8a44',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:9,color:'#1e3a8a',fontWeight:700}}>EAST FINAL</span>
+              <div style={{height:52,background:'#e8f0fe',border:'1px dashed #1e3a8a44',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontSize:12,color:'#1e3a8a',fontWeight:700}}>EAST FINAL</span>
               </div>
-              <div style={{height:40,background:'#e8f0fe',border:'1px dashed #1e3a8a44',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:9,color:'#1e3a8a',fontWeight:700}}>TBD</span>
+              <div style={{height:52,background:'#e8f0fe',border:'1px dashed #1e3a8a44',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontSize:12,color:'#1e3a8a',fontWeight:700}}>TBD</span>
               </div>
             </div>
           </div>
@@ -128,16 +128,16 @@ export default async function PlayoffsPage() {
 
         {/* ── NBA FINALS (center) ── */}
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,minWidth:100}}>
-          <i className="ti ti-trophy" style={{fontSize:24,color:'#c8102e',marginBottom:4}}></i>
-          <div style={{fontSize:9,fontWeight:700,color:'#c8102e',letterSpacing:'1px',textTransform:'uppercase',textAlign:'center',marginBottom:8}}>NBA Finals</div>
-          <div style={{width:96,height:40,background:'#fff0f0',border:'1.5px dashed #c8102e',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <span style={{fontSize:9,color:'#c8102e',fontWeight:700}}>EAST</span>
+          <i className="ti ti-trophy" style={{fontSize:32,color:'#c8102e',marginBottom:4}}></i>
+          <div style={{fontSize:12,fontWeight:700,color:'#c8102e',letterSpacing:'1px',textTransform:'uppercase',textAlign:'center',marginBottom:8}}>NBA Finals</div>
+          <div style={{width:120,height:52,background:'#fff0f0',border:'1.5px dashed #c8102e',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <span style={{fontSize:12,color:'#c8102e',fontWeight:700}}>EAST</span>
           </div>
-          <div style={{fontSize:9,color:'#d4cdc5',fontWeight:700,margin:'2px 0'}}>vs</div>
-          <div style={{width:96,height:40,background:'#fff0f0',border:'1.5px dashed #c8102e',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <span style={{fontSize:9,color:'#c8102e',fontWeight:700}}>WEST</span>
+          <div style={{fontSize:12,color:'#d4cdc5',fontWeight:700,margin:'2px 0'}}>vs</div>
+          <div style={{width:120,height:52,background:'#fff0f0',border:'1.5px dashed #c8102e',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <span style={{fontSize:12,color:'#c8102e',fontWeight:700}}>WEST</span>
           </div>
-          <div style={{fontSize:8,color:'#8a8279',marginTop:6,textAlign:'center'}}>Best of 7</div>
+          <div style={{fontSize:11,color:'#8a8279',marginTop:6,textAlign:'center'}}>Best of 7</div>
         </div>
 
         {/* ── WEST (right side, reads inward) ── */}
@@ -148,36 +148,36 @@ export default async function PlayoffsPage() {
 
             {/* Conf Finals */}
             <div style={{display:'flex',flexDirection:'column',gap:2,alignSelf:'center'}}>
-              <div style={{height:40,background:'#fef3e8',border:'1px dashed #7c2d1244',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:9,color:'#7c2d12',fontWeight:700}}>WEST FINAL</span>
+              <div style={{height:52,background:'#fef3e8',border:'1px dashed #7c2d1244',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontSize:12,color:'#7c2d12',fontWeight:700}}>WEST FINAL</span>
               </div>
-              <div style={{height:40,background:'#fef3e8',border:'1px dashed #7c2d1244',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:9,color:'#7c2d12',fontWeight:700}}>TBD</span>
+              <div style={{height:52,background:'#fef3e8',border:'1px dashed #7c2d1244',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontSize:12,color:'#7c2d12',fontWeight:700}}>TBD</span>
               </div>
             </div>
 
             {/* Conf Semis */}
-            <div style={{display:'flex',flexDirection:'column',gap:80,justifyContent:'space-around'}}>
-              <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                <div style={{height:36,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:9,color:'#8a8279',fontWeight:600}}>SEMI A</span>
+            <div style={{display:'flex',flexDirection:'column',gap:96,justifyContent:'space-around'}}>
+              <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                <div style={{height:48,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:12,color:'#8a8279',fontWeight:600}}>SEMI A</span>
                 </div>
-                <div style={{height:36,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:9,color:'#8a8279',fontWeight:600}}>TBD</span>
+                <div style={{height:48,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:12,color:'#8a8279',fontWeight:600}}>TBD</span>
                 </div>
               </div>
-              <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                <div style={{height:36,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:9,color:'#8a8279',fontWeight:600}}>SEMI B</span>
+              <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                <div style={{height:48,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:12,color:'#8a8279',fontWeight:600}}>SEMI B</span>
                 </div>
-                <div style={{height:36,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:9,color:'#8a8279',fontWeight:600}}>TBD</span>
+                <div style={{height:48,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <span style={{fontSize:12,color:'#8a8279',fontWeight:600}}>TBD</span>
                 </div>
               </div>
             </div>
 
             {/* Round 1 — rightmost */}
-            <div style={{display:'flex',flexDirection:'column',gap:24}}>
+            <div style={{display:'flex',flexDirection:'column',gap:32}}>
               <Matchup hiTeam={wTop[0]} loTeam={null}    hiSeed={1} loSeed={8} />
               <Matchup hiTeam={wTop[3]} loTeam={wTop[4]} hiSeed={4} loSeed={5} />
               <Matchup hiTeam={wTop[1]} loTeam={null}    hiSeed={2} loSeed={7} />
