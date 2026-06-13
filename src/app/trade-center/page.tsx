@@ -34,11 +34,6 @@ export default function TradeCenterPage() {
   const isCommissioner = profile?.role === 'commissioner'
   const capFmt = (n:number) => n>=1000000?'$'+(n/1000000).toFixed(1)+'M':'$'+n?.toLocaleString()
 
-  const ROLE_COLORS: Record<string,string> = {
-    head_coach:'#b45309',assistant_coach:'#1d4ed8',trainer:'#15803d',physio:'#6d28d9'
-  }    staffFilter==='all' || c.role===staffFilter
-  )
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Header */}
@@ -127,18 +122,6 @@ export default function TradeCenterPage() {
                 })}
               </div>
             </div>
-          )}
-
-          {/* ── STAFF FREE AGENCY ──────────────────────── */}
-          {tab==='staff' && (
-            <StaffTable
-              staff={freeStaff}
-              filter={staffFilter}
-              setFilter={setStaffFilter}
-              user={user}
-              myTeamId={myTeamId}
-              capFmt={capFmt}
-            />
           )}
 
           {/* ── TRADE BLOCK ─────────────────────────────── */}
