@@ -53,8 +53,8 @@ export default function StandingsPage() {
   const TeamLogo = ({ t }: { t: any }) => {
     const tc = readableTeamColor(t.color)
     return t.logo_url
-      ? <img src={t.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0" />
-      : <span className="inline-flex items-center justify-center w-6 h-6 rounded text-xs font-black flex-shrink-0"
+      ? <img src={t.logo_url} alt="" className="w-9 h-9 object-contain flex-shrink-0" />
+      : <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-xs font-black flex-shrink-0"
               style={{ background:tc+'33', color:tc }}>{t.id.slice(0,2)}</span>
   }
 
@@ -70,7 +70,7 @@ export default function StandingsPage() {
             <span className="text-xs w-5 text-right font-bold"
                   style={{ color: isPlayoff?'#15803d':'#5c554e' }}>{rank}</span>
             <TeamLogo t={t} />
-            <span className="font-semibold text-white text-sm">{t.name}</span>
+            <span className="font-semibold text-sm" style={{color:"#1a1512"}}>{t.name}</span>
             {isPlayoff && <span className="text-xs px-1 rounded" style={{ background:'#15803d',color:'#fff' }}>P</span>}
             {showDiv && <span className="text-xs ml-1" style={{ color:'#9c8e7a' }}>{DIV_MAP[t.name]}</span>}
           </div>
@@ -103,7 +103,7 @@ export default function StandingsPage() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-white">🏆 Standings — 2025-26</h1>
+        <h1 className="text-2xl font-bold" style={{color:"#1a1512"}}>🏆 Standings — 2025-26</h1>
         <div className="flex gap-1 p-1 rounded-xl" style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
           {(['conference','division','league'] as View[]).map(v => (
             <button key={v} onClick={() => setView(v)}
@@ -156,7 +156,7 @@ export default function StandingsPage() {
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-1.5">
                               <TeamLogo t={t} />
-                              <span className="text-xs font-semibold text-white">{t.id}</span>
+                              <span className="text-xs font-semibold" style={{color:"#1a1512"}}>{t.id}</span>
                             </div>
                           </td>
                           <td className="px-3 py-2 text-right text-xs font-bold" style={{ color:'#166534' }}>{t.wins}</td>
