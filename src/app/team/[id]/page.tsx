@@ -48,11 +48,11 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
       <div className="rounded-2xl p-6 mb-4"
            style={{background:'#e8e2d6',borderTop:'4px solid '+color,border:'1px solid #d4cec3'}}>
         <div className="flex flex-wrap items-center gap-6">
-          <div className="w-20 h-20 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+          <div className="w-28 h-28 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                style={{background:color+'22',border:'2px solid '+color+'44'}}>
             {t.logo_url
-              ?<img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-2"/>
-              :<span className="text-2xl font-black" style={{color}}>{t.id}</span>}
+              ?<img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1"/>
+              :<span className="text-3xl font-black" style={{color}}>{t.id}</span>}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold mb-1" style={{color}}>{t.conference} · {t.division}</div>

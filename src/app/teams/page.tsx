@@ -34,12 +34,14 @@ export default async function TeamsPage() {
                       <div className="rounded-xl p-4 h-full transition-all"
                            style={{background:'#e8e2d6',border:'1px solid #d4cec3',
                                    borderTop:'3px solid '+tc}}>
-                        <div className="flex items-center gap-2 mb-2">
-                          {t.logo_url
-                            ?<img src={t.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>
-                            :<span className="text-xs font-black" style={{color:tc}}>{t.id}</span>
-                          }
-                          {!t.logo_url && <span className="text-xs font-black" style={{color:tc}}></span>}
+                        <div className="flex justify-center mb-3">
+                          <div className="w-16 h-16 flex items-center justify-center overflow-hidden rounded-xl"
+                               style={{background:tc+'15'}}>
+                            {t.logo_url
+                              ?<img src={t.logo_url} alt="" className="w-full h-full object-contain p-1"/>
+                              :<span className="text-2xl font-black" style={{color:tc}}>{t.id}</span>
+                            }
+                          </div>
                         </div>
                         <div className="text-sm font-semibold group-hover:brightness-125 transition-all leading-tight mb-2"
                              style={{color:'#1a1612'}}>
