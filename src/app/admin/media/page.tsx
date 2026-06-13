@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import BannerUpload from './BannerUpload'
@@ -22,9 +23,13 @@ export default function AdminMediaPage() {
   }, [selTeam])
 
   const saveLogo = async (teamId:string, url:string) => {
+    if (!url.trim()) return
     setSaving(teamId)
     await supabase.from('teams').update({ logo_url: url }).eq('id', teamId)
     setTeams(t=>t.map(x=>x.id===teamId?{...x,logo_url:url}:x))
+    // Trigger revalidation so logos appear immediately site-wide
+    await fetch('/api/revalidate?path=/teams').catch(()=>null)
+    await fetch('/api/revalidate?path=/standings').catch(()=>null)
     setSaving(null);setSaved(teamId);setTimeout(()=>setSaved(null),1500)
   }
 
@@ -65,36 +70,43 @@ export default function AdminMediaPage() {
       {/* LOGOS TAB */}
       {tab === 'logos' && (
         <div className="flex flex-col gap-3">
-          <p className="text-xs mb-2" style={{ color:'#6b5f4e' }}>
-            Tip: Find logos on Wikipedia (right-click image → Copy image address) or wikimedia.org
+          <p className="text-xs mb-2" style={{ color:'#8a8279' }}>
+            Paste any public image URL. Recommended: Wikipedia team logos or ESPN CDN images. Press <strong>Save</strong> to confirm.
           </p>
-          {teams.map(team => (
+          {teams.map(team => {
+            const [url, setUrl] = React.useState(team.logo_url||'')
+            return (
             <div key={team.id} className="flex items-center gap-4 p-4 rounded-xl"
-                 style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
-              {/* Preview */}
-              <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
-                   style={{ background:'#'+team.color+'22',border:'1px solid #'+team.color+'44' }}>
-                {team.logo_url
-                  ? <img src={team.logo_url} alt="" className="w-full h-full object-contain p-1" />
-                  : <span className="text-xs font-black" style={{ color:'#'+team.color }}>{team.id}</span>
+                 style={{ background:'#faf8f5',border:'1px solid #d4cdc5' }}>
+              {/* Preview — updates live as you type */}
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden flex-shrink-0"
+                   style={{ background:'#f0ece5',border:'2px solid #d4cdc5' }}>
+                {url
+                  ? <img src={url} alt="" className="w-full h-full object-contain p-1"
+                         onError={e=>(e.currentTarget.style.display='none')} />
+                  : <span className="text-xs font-black" style={{ color:'#5c554e' }}>{team.id}</span>
                 }
               </div>
-              <div className="flex-1">
-                <div className="text-sm font-semibold text-white mb-1">{team.name}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold mb-1.5" style={{color:'#1a1512'}}>{team.name}</div>
                 <input
-                  defaultValue={team.logo_url||''}
-                  onBlur={e=>saveLogo(team.id,e.target.value)}
+                  value={url}
+                  onChange={e=>setUrl(e.target.value)}
                   placeholder="Paste logo URL here..."
                   className="w-full text-xs px-3 py-2 rounded-lg"
-                  style={{ background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1512',outline:'none' }}
+                  style={{ background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none' }}
                 />
               </div>
-              <span className="text-xs flex-shrink-0 w-16 text-center"
-                    style={{ color:saved===team.id?'#15803d':saving===team.id?'#5c554e':'transparent' }}>
-                {saved===team.id?'✓ Saved':saving===team.id?'Saving...':''}
-              </span>
+              <button
+                onClick={()=>saveLogo(team.id,url)}
+                disabled={saving===team.id}
+                className="text-xs font-bold px-4 py-2 rounded-lg flex-shrink-0 disabled:opacity-40"
+                style={{ background: saved===team.id?'#15803d':'#1d4ed8', color:'#fff', minWidth:80 }}>
+                {saving===team.id?'Saving…':saved===team.id?'✓ Saved':'Save'}
+              </button>
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
