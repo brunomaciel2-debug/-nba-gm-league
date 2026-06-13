@@ -13,7 +13,8 @@ export default async function WorldTeamPage({ params }: { params: { id: string }
   const { data: players } = await supabase
     .from('players').select('id,name,pos,age,nationality,usage,photo_url')
     .eq('world_team_id', params.id.toUpperCase())
-    .order('usage', { ascending: false })
+    .eq('nba_recruitable', false)
+    .order('pos').order('usage', { ascending: false })
 
   const { data: friendlies } = await supabase
     .from('friendly_requests')

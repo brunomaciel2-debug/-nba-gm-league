@@ -114,7 +114,7 @@ function OVR({ value }: { value: number }) {
 export default async function PlayerPage({ params }: { params: { id: string } }) {
   const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }, { data: lastGames }] =
     await Promise.all([
-      supabase.from('players').select('*, nba_experience, teams(name,color,id,logo_url)').eq('id', params.id).single(),
+      supabase.from('players').select('*, nba_experience, nba_recruitable, world_team_id, world_teams:world_team_id(id,name,country), teams(name,color,id,logo_url)').eq('id', params.id).single(),
       supabase.from('player_stats').select('*,triple_doubles').eq('player_id', params.id).order('season', { ascending: false }),
       supabase.from('injury_log').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', { ascending: true }),
@@ -173,7 +173,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
                 <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color:tc, letterSpacing:'1px' }}>
-                  {team?.name} · {p.pos}
+                  {p.world_team_id && p.world_teams ? `${p.world_teams.name} · ${p.world_teams.country}` : team?.name} · {p.pos}
                 </div>
                 <h1 className="text-3xl font-black mb-2" style={{ color:'#1a1512' }}>{p.name}</h1>
                 <div className="flex gap-3 text-sm flex-wrap items-center">
@@ -226,7 +226,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
     
       {/* G-League Assignment */}
-      {p.team_id && (
+      {p.team_id && p.nba_recruitable !== false && (
         <div className="mb-4">
           {p.on_gleague_assignment ? (
             <div className="flex items-center justify-between px-4 py-3 rounded-xl"
@@ -262,6 +262,17 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           )}
         </div>
       )}
+      {/* Non-recruitable notice */}
+      {p.nba_recruitable === false && (
+        <div className="mb-4 px-4 py-3 rounded-xl flex items-center gap-2"
+             style={{background:'#fef9c3',border:'1px solid #b45309'}}>
+          <i className="ti ti-world" style={{fontSize:16,color:'#b45309'}}></i>
+          <span className="text-xs font-semibold" style={{color:'#b45309'}}>
+            International player — not available for NBA contracts. Pre-season friendly only.
+          </span>
+        </div>
+      )}
+
       {/* ATTRIBUTES */}
           <div className="sec-hdr mb-4">
             <span className="sec-title">Attributes</span>
