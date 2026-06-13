@@ -266,7 +266,7 @@ export default function FreeAgentsPage() {
   useEffect(() => {
     Promise.all([
       supabase.from('players')
-        .select('*, player_stats(pts,reb,ast,stl,blk,games,fgm,fga,tpm,tpa,ftm,fta,season)')
+        .select('*, photo_url, player_stats(pts,reb,ast,stl,blk,games,fgm,fga,tpm,tpa,ftm,fta,season)')
         .is('team_id', null).eq('status', 'active'),
       supabase.from('coaches').select('*').is('team_id', null),
     ]).then(([{ data: pl }, { data: st }]) => {

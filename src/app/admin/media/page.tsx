@@ -184,8 +184,13 @@ export default function AdminMediaPage() {
     setSaving(id)
     const table = type==='player'?'players':'coaches'
     await supabase.from(table).update({photo_url:url}).eq('id',id)
-    if (type==='player') setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
-    else setStaffItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+    if (type==='player') {
+      setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+      await fetch(`/api/revalidate?path=/player/${id}`).catch(()=>null)
+    } else {
+      setStaffItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+      await fetch(`/api/revalidate?path=/staff/${id}`).catch(()=>null)
+    }
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }
 

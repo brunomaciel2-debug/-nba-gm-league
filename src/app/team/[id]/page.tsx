@@ -6,7 +6,7 @@ import TeamPageTabs from './TeamPageTabs'
 import InjuryReport from './InjuryReport'
 import CoachingStaff from './CoachingStaff'
 import { readableTeamColor } from '@/lib/color'
-export const revalidate = 60
+export const dynamic = "force-dynamic"
 
 export default async function TeamPage({ params }: { params: { id: string } }) {
   const teamId = params.id.toUpperCase()

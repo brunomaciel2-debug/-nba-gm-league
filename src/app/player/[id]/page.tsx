@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { calcOvr } from '@/lib/ovr'
-export const revalidate = 60
+export const dynamic = "force-dynamic"
 
 const ATTR_TIPS: Record<string,string> = {
   usage:       "Usage Rate — how often this player is involved in offensive plays. High usage = primary option. Impacts scoring consistency and team dependency.",
