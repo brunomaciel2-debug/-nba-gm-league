@@ -307,37 +307,77 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           </div>
           {(stats||[]).length > 0 ? (
             <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cdc5' }}>
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto">
+              <table className="w-full text-xs" style={{minWidth:700}}>
                 <thead>
-                  <tr style={{ background:'#f0ece5', borderBottom:'1px solid #d4cdc5' }}>
-                    {['Season','GP','PPG','RPG','APG','SPG','BPG','FG%','3P%','FT%','TO'].map(h=>(
-                      <th key={h} className="px-3 py-2 font-semibold text-right first:text-left"
-                          style={{ color:'#5c554e' }}>{h}</th>
+                  <tr style={{ background:'#f0ece5', borderBottom:'2px solid #d4cdc5' }}>
+                    {[
+                      {h:'Season',   align:'left'},
+                      {h:'GP',       align:'right'},
+                      {h:'MIN',      align:'right'},
+                      {h:'PPG',      align:'right'},
+                      {h:'RPG',      align:'right'},
+                      {h:'APG',      align:'right'},
+                      {h:'SPG',      align:'right'},
+                      {h:'BPG',      align:'right'},
+                      {h:'OREB',     align:'right'},
+                      {h:'DREB',     align:'right'},
+                      {h:'FG%',      align:'right'},
+                      {h:'3P%',      align:'right'},
+                      {h:'FT%',      align:'right'},
+                      {h:'TO',       align:'right'},
+                      {h:'PF',       align:'right'},
+                      {h:'TD',       align:'right'},
+                      {h:'+/-',      align:'right'},
+                    ].map(({h,align})=>(
+                      <th key={h} className="px-2.5 py-2.5 font-bold"
+                          style={{ color:'#5c554e', textAlign: align as any, whiteSpace:'nowrap',
+                                   fontSize:10, letterSpacing:'0.3px' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {(stats||[]).map((s:any,i:number) => {
-                    const gp=s.games||0
-                    const avg=(v:number)=>gp>0?(v/gp).toFixed(1):'—'
+                    const gp  = s.games||0
+                    const avg = (v:number) => gp>0 ? (v/gp).toFixed(1) : '—'
+                    const avgM= (v:number) => gp>0 ? (v/gp).toFixed(0) : '—'
+                    const pctS= (m:number,a:number) => a>0 ? (m/a*100).toFixed(1)+'%' : '—'
+                    const oreb = s.oreb || 0
+                    const dreb = s.reb ? (s.reb - oreb) : 0
+                    const pm   = s.plus_minus || 0
                     return (
-                      <tr key={s.id} style={{ background:i%2===0?'#faf8f5':'#f5f1eb', borderBottom:'1px solid #e2dcd5' }}>
-                        <td className="px-3 py-2 font-semibold" style={{ color:'#1a1512' }}>{s.season}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#5c554e' }}>{gp}</td>
-                        <td className="px-3 py-2 text-right font-bold" style={{ color:'#b45309' }}>{avg(s.pts)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#15803d' }}>{avg(s.reb)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#1d4ed8' }}>{avg(s.ast)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#6d28d9' }}>{avg(s.stl)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#c2410c' }}>{avg(s.blk)}</td>
-                        <td className="px-3 py-2 text-right">{pct(s.fgm,s.fga)}</td>
-                        <td className="px-3 py-2 text-right">{pct(s.tpm,s.tpa)}</td>
-                        <td className="px-3 py-2 text-right">{pct(s.ftm,s.fta)}</td>
-                        <td className="px-3 py-2 text-right" style={{ color:'#dc2626' }}>{avg(s.turnovers)}</td>
+                      <tr key={s.id||i} style={{ background:i%2===0?'#faf8f5':'#f5f1eb', borderBottom:'1px solid #e2dcd5' }}>
+                        <td className="px-2.5 py-2.5 font-bold" style={{ color:'#1a1512', whiteSpace:'nowrap' }}>{s.season}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#5c554e' }}>{gp}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#5c554e' }}>{avgM(s.mins||0)}</td>
+                        <td className="px-2.5 py-2.5 text-right font-bold" style={{ color:'#b45309' }}>{avg(s.pts)}</td>
+                        <td className="px-2.5 py-2.5 text-right font-semibold" style={{ color:'#15803d' }}>{avg(s.reb)}</td>
+                        <td className="px-2.5 py-2.5 text-right font-semibold" style={{ color:'#1d4ed8' }}>{avg(s.ast)}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#6d28d9' }}>{avg(s.stl)}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#c2410c' }}>{avg(s.blk)}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#5c554e' }}>{avg(oreb)}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#5c554e' }}>{avg(dreb)}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#5c554e' }}>{pctS(s.fgm,s.fga)}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#5c554e' }}>{pctS(s.tpm,s.tpa)}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#5c554e' }}>{pctS(s.ftm,s.fta)}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#dc2626' }}>{avg(s.turnovers)}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{ color:'#8a8279' }}>{avg(s.pf||0)}</td>
+                        <td className="px-2.5 py-2.5 text-right font-bold" style={{ color: s.triple_doubles>0?'#6d28d9':'#8a8279' }}>
+                          {s.triple_doubles||0}
+                        </td>
+                        <td className="px-2.5 py-2.5 text-right font-semibold"
+                            style={{ color: pm>0?'#15803d':pm<0?'#dc2626':'#8a8279' }}>
+                          {pm>0?'+':''}{pm||0}
+                        </td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
+              </div>
+              <div className="px-4 py-2 text-xs" style={{color:'#a89f97',borderTop:'1px solid #e2dcd5',background:'#f5f1eb'}}>
+                Per game averages · TD = Triple-Doubles · +/- = season total
+              </div>
             </div>
           ) : (
             <div className="rounded-xl p-4 text-center mb-6" style={{ background:'#faf8f5', border:'1px solid #d4cdc5' }}>
