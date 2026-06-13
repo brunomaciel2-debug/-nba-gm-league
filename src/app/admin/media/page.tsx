@@ -3,163 +3,412 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import BannerUpload from './BannerUpload'
 
+// ── Shared components ────────────────────────────────────────────────────────
 
-function LogoRow({ team, onSave, saving, saved }: { team:any, onSave:(id:string,url:string)=>void, saving:string|null, saved:string|null }) {
-  const [url, setUrl] = React.useState(team.logo_url||'')
+function LogoRow({ item, table, idField='id', onSave, saving, saved }: {
+  item: any, table: string, idField?: string,
+  onSave: (id:string, url:string, table:string) => void,
+  saving: string|null, saved: string|null
+}) {
+  const [url, setUrl] = React.useState(item.logo_url||'')
+  const id = item[idField]
   return (
-    <div className="flex items-center gap-4 p-4 rounded-xl"
-         style={{ background:'#faf8f5',border:'1px solid #d4cdc5' }}>
-      <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-           style={{ background:'#f0ece5',border:'2px solid #d4cdc5' }}>
+    <div style={{display:'flex',alignItems:'center',gap:16,padding:16,
+                 background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12}}>
+      <div style={{width:56,height:56,borderRadius:12,flexShrink:0,overflow:'hidden',
+                   background:'#f0ece5',border:'2px solid #d4cdc5',display:'flex',
+                   alignItems:'center',justifyContent:'center'}}>
         {url
-          ? <img src={url} alt="" className="w-full h-full object-contain p-1"
-                 onError={e=>(e.currentTarget.style.display='none')} />
-          : <span className="text-xs font-black" style={{ color:'#5c554e' }}>{team.id}</span>}
+          ? <img src={url} alt="" style={{width:'100%',height:'100%',objectFit:'contain',padding:4}}
+                 onError={e=>(e.currentTarget.style.display='none')}/>
+          : <span style={{fontSize:10,fontWeight:900,color:'#5c554e'}}>{id}</span>}
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-bold mb-1.5" style={{color:'#1a1512'}}>{team.name}</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:700,color:'#1a1512',marginBottom:6}}>{item.name}</div>
         <input value={url} onChange={e=>setUrl(e.target.value)}
           placeholder="Paste logo URL here..."
-          className="w-full text-xs px-3 py-2 rounded-lg"
-          style={{ background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none' }} />
+          style={{width:'100%',fontSize:11,padding:'6px 10px',borderRadius:8,boxSizing:'border-box',
+                  background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
       </div>
-      <button onClick={()=>onSave(team.id,url)} disabled={saving===team.id}
-        className="text-xs font-bold px-4 py-2 rounded-lg flex-shrink-0 disabled:opacity-40"
-        style={{ background:saved===team.id?'#15803d':'#1d4ed8',color:'#fff',minWidth:80 }}>
-        {saving===team.id?'Saving…':saved===team.id?'✓ Saved':'Save'}
+      <button onClick={()=>onSave(id,url,table)}
+        disabled={saving===id}
+        style={{fontSize:11,fontWeight:700,padding:'8px 16px',borderRadius:8,flexShrink:0,
+                minWidth:80,border:'none',cursor:'pointer',opacity:saving===id?0.4:1,
+                background:saved===id?'#15803d':'#1d4ed8',color:'#fff'}}>
+        {saving===id?'Saving…':saved===id?'✓ Saved':'Save'}
       </button>
     </div>
   )
 }
 
+function PhotoRow({ item, type, onSave, saving, saved }: {
+  item: any, type: 'player'|'staff',
+  onSave: (id:string, url:string, type:'player'|'staff') => void,
+  saving: string|null, saved: string|null
+}) {
+  const [url, setUrl] = React.useState(item.photo_url||'')
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:16,padding:12,
+                 background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12}}>
+      <div style={{width:48,height:48,borderRadius:8,flexShrink:0,overflow:'hidden',
+                   background:'#d4cdc5',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        {url
+          ? <img src={url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+          : <span style={{fontSize:13,fontWeight:900,color:'#6b5f4e'}}>
+              {item.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+            </span>}
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+          <span style={{fontSize:13,fontWeight:600,color:'#1a1512'}}>{item.name}</span>
+          <span style={{fontSize:10,padding:'2px 6px',borderRadius:4,
+                        background:'#d4cdc5',color:'#5c554e'}}>{item.pos||item.role?.replace(/_/g,' ')}</span>
+        </div>
+        <input value={url} onChange={e=>setUrl(e.target.value)}
+          placeholder="Paste photo URL..."
+          style={{width:'100%',fontSize:11,padding:'5px 8px',borderRadius:6,boxSizing:'border-box',
+                  background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
+      </div>
+      <button onClick={()=>onSave(item.id,url,type)}
+        disabled={saving===item.id}
+        style={{fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:8,flexShrink:0,
+                minWidth:72,border:'none',cursor:'pointer',opacity:saving===item.id?0.4:1,
+                background:saved===item.id?'#15803d':'#1d4ed8',color:'#fff'}}>
+        {saving===item.id?'…':saved===item.id?'✓':'Save'}
+      </button>
+    </div>
+  )
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
+
+type LogoSection = 'nba'|'gleague'|'world'|'others'
+type PhotoSection = 'players'|'staff'
+type MainTab = 'logos'|'photos'
+
+const SPECIAL_TEAMS = [
+  {id:'ALL',  name:'All-Stars East'},
+  {id:'RVS',  name:'All-Stars West'},
+  {id:'ALL2', name:'Rookie Team'},
+  {id:'RVS2', name:'Sophomore Team'},
+]
+
 export default function AdminMediaPage() {
-  const [teams, setTeams]   = useState<any[]>([])
-  const [players, setPlayers] = useState<any[]>([])
-  const [selTeam, setSelTeam] = useState('')
-  const [tab, setTab] = useState<'logos'|'photos'>('logos')
-  const [saving, setSaving] = useState<string|null>(null)
-  const [saved,  setSaved]  = useState<string|null>(null)
+  const [mainTab,   setMainTab]   = useState<MainTab>('logos')
+  const [logoSec,   setLogoSec]   = useState<LogoSection>('nba')
+  const [photoSec,  setPhotoSec]  = useState<PhotoSection>('players')
+  const [saving,    setSaving]    = useState<string|null>(null)
+  const [saved,     setSaved]     = useState<string|null>(null)
+
+  // Logos data
+  const [nbaTeams,  setNbaTeams]  = useState<any[]>([])
+  const [glTeams,   setGlTeams]   = useState<any[]>([])
+
+  // Photos data
+  const [nbaForFilter,  setNbaForFilter]  = useState<any[]>([])
+  const [glForFilter,   setGlForFilter]   = useState<any[]>([])
+  const [selTeam,   setSelTeam]   = useState<string>('')
+  const [photoItems, setPhotoItems] = useState<any[]>([])
+  const [staffItems, setStaffItems] = useState<any[]>([])
+  const [selStaffTeam, setSelStaffTeam] = useState<string>('')
 
   useEffect(() => {
-    supabase.from('teams').select('id,name,color,logo_url').order('name').then(({data})=>data&&setTeams(data))
+    supabase.from('teams').select('id,name,color,logo_url').order('name')
+      .then(({data}) => {
+        if (data) {
+          setNbaTeams(data.filter((t:any) => !['ALL','RVS'].includes(t.id)))
+          setNbaForFilter(data)
+        }
+      })
+    supabase.from('gleague_teams').select('id,name,color,logo_url,conference').order('name')
+      .then(({data}) => { if (data) setGlTeams(data); setGlForFilter(data||[]) })
   }, [])
 
+  // Fetch players when team selected
   useEffect(() => {
-    if (!selTeam) return
-    supabase.from('players').select('id,name,pos,photo_url').eq('team_id',selTeam)
-      .order('usage',{ascending:false}).then(({data})=>data&&setPlayers(data))
+    if (!selTeam) { setPhotoItems([]); return }
+    if (selTeam === 'GLEAGUE') {
+      supabase.from('players').select('id,name,pos,photo_url')
+        .not('gleague_team_id','is',null).is('team_id',null)
+        .order('gleague_team_id').order('usage',{ascending:false})
+        .then(({data}) => setPhotoItems(data||[]))
+    } else if (selTeam === 'FA') {
+      supabase.from('players').select('id,name,pos,photo_url')
+        .is('team_id',null).is('gleague_team_id',null).eq('status','active')
+        .order('usage',{ascending:false})
+        .then(({data}) => setPhotoItems(data||[]))
+    } else {
+      supabase.from('players').select('id,name,pos,photo_url')
+        .eq('team_id',selTeam).order('usage',{ascending:false})
+        .then(({data}) => setPhotoItems(data||[]))
+    }
   }, [selTeam])
 
-  const saveLogo = async (teamId:string, url:string) => {
+  // Fetch staff when team selected
+  useEffect(() => {
+    if (!selStaffTeam) { setStaffItems([]); return }
+    if (selStaffTeam === 'GLEAGUE') {
+      supabase.from('coaches').select('id,name,role,photo_url,gleague_team_id')
+        .not('gleague_team_id','is',null)
+        .order('gleague_team_id')
+        .then(({data}) => setStaffItems(data||[]))
+    } else if (selStaffTeam === 'FA') {
+      supabase.from('coaches').select('id,name,role,photo_url')
+        .is('team_id',null).is('gleague_team_id',null)
+        .then(({data}) => setStaffItems(data||[]))
+    } else {
+      supabase.from('coaches').select('id,name,role,photo_url')
+        .eq('team_id',selStaffTeam)
+        .then(({data}) => setStaffItems(data||[]))
+    }
+  }, [selStaffTeam])
+
+  const saveLogo = async (id:string, url:string, table:string) => {
     if (!url.trim()) return
-    setSaving(teamId)
-    await supabase.from('teams').update({ logo_url: url }).eq('id', teamId)
-    setTeams(t=>t.map(x=>x.id===teamId?{...x,logo_url:url}:x))
-    // Trigger revalidation so logos appear immediately site-wide
-    await fetch('/api/revalidate?path=/teams').catch(()=>null)
-    await fetch('/api/revalidate?path=/standings').catch(()=>null)
-    setSaving(null);setSaved(teamId);setTimeout(()=>setSaved(null),1500)
+    setSaving(id)
+    await supabase.from(table).update({logo_url:url}).eq('id',id)
+    if (table==='teams') {
+      setNbaTeams(t=>t.map((x:any)=>x.id===id?{...x,logo_url:url}:x))
+      await fetch('/api/revalidate?path=/teams').catch(()=>null)
+      await fetch('/api/revalidate?path=/standings').catch(()=>null)
+    } else {
+      setGlTeams(t=>t.map((x:any)=>x.id===id?{...x,logo_url:url}:x))
+    }
+    setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }
 
-  const savePhoto = async (playerId:string, url:string) => {
-    setSaving(playerId)
-    await supabase.from('players').update({ photo_url: url }).eq('id', playerId)
-    setPlayers(p=>p.map(x=>x.id===playerId?{...x,photo_url:url}:x))
-    setSaving(null);setSaved(playerId);setTimeout(()=>setSaved(null),1500)
+  const savePhoto = async (id:string, url:string, type:'player'|'staff') => {
+    setSaving(id)
+    const table = type==='player'?'players':'coaches'
+    await supabase.from(table).update({photo_url:url}).eq('id',id)
+    if (type==='player') setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+    else setStaffItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+    setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }
+
+  // Team options for photos filter
+  const playerTeamOptions = [
+    {value:'',      label:'— Select team —'},
+    ...(nbaForFilter.filter((t:any)=>!['ALL','RVS'].includes(t.id)).map((t:any)=>({value:t.id,label:t.name}))),
+    {value:'GLEAGUE', label:'── G-League Players ──'},
+    {value:'FA',    label:'── Free Agents ──'},
+  ]
+  const staffTeamOptions = [
+    {value:'',      label:'— Select team —'},
+    ...(nbaForFilter.filter((t:any)=>!['ALL','RVS'].includes(t.id)).map((t:any)=>({value:t.id,label:t.name}))),
+    {value:'GLEAGUE', label:'── G-League Staff ──'},
+    {value:'FA',    label:'── Staff Free Agents ──'},
+  ]
+
+  const LOGO_SECTIONS: {key:LogoSection, label:string}[] = [
+    {key:'nba',    label:'NBA Teams'},
+    {key:'gleague',label:'G-League Teams'},
+    {key:'world',  label:'Rest of the World'},
+    {key:'others', label:'Others'},
+  ]
+  const PHOTO_SECTIONS: {key:PhotoSection, label:string}[] = [
+    {key:'players', label:'Players'},
+    {key:'staff',   label:'Staff'},
+  ]
+
+  const btnStyle = (active:boolean) => ({
+    padding:'8px 18px', borderRadius:8, fontSize:13, fontWeight:600,
+    border:'none', cursor:'pointer',
+    background: active ? '#1a1512' : '#f0ece5',
+    color: active ? '#fff' : '#5c554e',
+  })
+
+  const subBtnStyle = (active:boolean, color='#1d4ed8') => ({
+    padding:'6px 14px', borderRadius:6, fontSize:12, fontWeight:600,
+    border:'1px solid '+(active?color:'#d4cdc5'), cursor:'pointer',
+    background: active ? color : '#faf8f5',
+    color: active ? '#fff' : '#5c554e',
+  })
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* BANNER UPLOAD */}
-      <div className="rounded-xl p-5 mb-6" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #b45309'}}>
-        <h2 className="text-sm font-bold mb-1" style={{color:'#b45309'}}>🖼️ Site Banner</h2>
-        <p className="text-xs mb-3" style={{color:'#6b5f4e'}}>Recommended size: 1200×280px · JPG or PNG · Used at top of homepage</p>
+    <div style={{maxWidth:960,margin:'0 auto',padding:'24px 16px'}}>
+
+      {/* BANNER */}
+      <div style={{borderRadius:12,padding:20,marginBottom:24,
+                   background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #b45309'}}>
+        <h2 style={{fontSize:13,fontWeight:700,color:'#b45309',marginBottom:4}}>🖼️ Site Banner</h2>
+        <p style={{fontSize:11,color:'#6b5f4e',marginBottom:12}}>Recommended: 1200×280px · JPG or PNG</p>
         <BannerUpload />
       </div>
 
-      <h1 className="text-2xl font-bold text-white mb-2">🖼️ Media Manager</h1>
-      <p className="text-sm mb-6" style={{ color:'#6b5f4e' }}>
-        Upload team logos and player photos. Paste any public image URL (e.g. from ESPN, NBA.com, Wikipedia).
+      <h1 style={{fontSize:22,fontWeight:700,color:'#1a1512',marginBottom:4}}>🖼️ Media Manager</h1>
+      <p style={{fontSize:12,color:'#6b5f4e',marginBottom:24}}>
+        Manage logos and photos. Paste any public image URL and click Save.
       </p>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        {(['logos','photos'] as const).map(t=>(
-          <button key={t} onClick={()=>setTab(t)}
-            className="px-5 py-2 rounded-lg text-sm font-semibold capitalize transition-all"
-            style={{ background:tab===t?'#d4cdc5':'#faf8f5',
-                     color:tab===t?'#1d4ed8':'#5c554e',
-                     border:'1px solid '+(tab===t?'#3a6a9f':'#d4cdc5') }}>
-            {t==='logos'?'🏀 Team Logos':'👤 Player Photos'}
+      {/* MAIN TABS */}
+      <div style={{display:'flex',gap:8,marginBottom:24,borderBottom:'2px solid #d4cdc5',paddingBottom:0}}>
+        {(['logos','photos'] as const).map(t => (
+          <button key={t} onClick={()=>setMainTab(t)} style={{
+            ...btnStyle(mainTab===t),
+            borderBottom: mainTab===t ? '3px solid #c8102e' : '3px solid transparent',
+            borderRadius:0, marginBottom:-2, background:'transparent',
+            color: mainTab===t ? '#1a1512' : '#5c554e',
+            fontWeight: mainTab===t ? 700 : 500,
+          }}>
+            {t==='logos' ? '🏀 Logos' : '👤 Photos'}
           </button>
         ))}
       </div>
 
-      {/* LOGOS TAB */}
-      {tab === 'logos' && (
-        <div className="flex flex-col gap-3">
-          <p className="text-xs mb-2" style={{ color:'#8a8279' }}>
-            Paste any public image URL. Recommended: Wikipedia team logos or ESPN CDN images. Press <strong>Save</strong> to confirm.
-          </p>
-          {teams.map(team => (
-            <LogoRow key={team.id} team={team} onSave={saveLogo} saving={saving} saved={saved} />
-          ))}
+      {/* ── LOGOS ── */}
+      {mainTab === 'logos' && (
+        <div>
+          {/* Sub-tabs */}
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:20}}>
+            {LOGO_SECTIONS.map(s => (
+              <button key={s.key} onClick={()=>setLogoSec(s.key)} style={subBtnStyle(logoSec===s.key)}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* NBA Teams */}
+          {logoSec === 'nba' && (
+            <div>
+              <p style={{fontSize:11,color:'#8a8279',marginBottom:12}}>
+                30 NBA franchises. Paste a public PNG/SVG URL and Save.
+              </p>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {nbaTeams.map(t => (
+                  <LogoRow key={t.id} item={t} table="teams" onSave={saveLogo} saving={saving} saved={saved}/>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* G-League Teams */}
+          {logoSec === 'gleague' && (
+            <div>
+              <p style={{fontSize:11,color:'#8a8279',marginBottom:12}}>
+                30 G-League affiliates. Note: G-League teams currently inherit the NBA affiliate logo if no separate logo is set.
+              </p>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {glTeams.map(t => (
+                  <LogoRow key={t.id} item={t} table="gleague_teams" onSave={saveLogo} saving={saving} saved={saved}/>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Rest of the World */}
+          {logoSec === 'world' && (
+            <div style={{borderRadius:12,padding:32,textAlign:'center',
+                         background:'#faf8f5',border:'2px dashed #d4cdc5'}}>
+              <div style={{fontSize:32,marginBottom:8}}>🌍</div>
+              <div style={{fontSize:14,fontWeight:600,color:'#5c554e',marginBottom:4}}>
+                Rest of the World Teams
+              </div>
+              <div style={{fontSize:12,color:'#8a8279'}}>
+                International teams for pre-season games will appear here once created.
+              </div>
+            </div>
+          )}
+
+          {/* Others */}
+          {logoSec === 'others' && (
+            <div>
+              <p style={{fontSize:11,color:'#8a8279',marginBottom:12}}>
+                All-Star and Rookie/Sophomore team logos.
+              </p>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                {nbaForFilter.filter((t:any)=>['ALL','RVS'].includes(t.id)).map((t:any) => (
+                  <LogoRow key={t.id} item={t} table="teams" onSave={saveLogo} saving={saving} saved={saved}/>
+                ))}
+                {/* Static entries for Rookie/Sophomore (same table, different names) */}
+                <div style={{padding:'12px 16px',borderRadius:12,background:'#f5f1eb',
+                             border:'1px solid #d4cdc5',fontSize:12,color:'#8a8279'}}>
+                  Rookie Team & Sophomore Team logos will be available once those entries are created in the database.
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* PHOTOS TAB */}
-      {tab === 'photos' && (
+      {/* ── PHOTOS ── */}
+      {mainTab === 'photos' && (
         <div>
-          <div className="mb-4">
-            <label className="text-xs font-semibold uppercase tracking-widest mb-2 block" style={{ color:'#6b5f4e' }}>
-              Select Team
-            </label>
-            <select value={selTeam} onChange={e=>setSelTeam(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl text-sm"
-              style={{ background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none' }}>
-              <option value="">— Choose a team —</option>
-              {teams.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
+          {/* Sub-tabs */}
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:20}}>
+            {PHOTO_SECTIONS.map(s => (
+              <button key={s.key} onClick={()=>setPhotoSec(s.key)} style={subBtnStyle(photoSec===s.key,'#c8102e')}>
+                {s.label}
+              </button>
+            ))}
           </div>
-          {selTeam && (
-            <div className="flex flex-col gap-3">
-              <p className="text-xs mb-1" style={{ color:'#6b5f4e' }}>
-                Tip: Find headshots on ESPN (right-click → Copy image address) or cdn.nba.com
-              </p>
-              {players.map(p => (
-                <div key={p.id} className="flex items-center gap-4 p-3 rounded-xl"
-                     style={{ background:'#e8e2d6',border:'1px solid #d4cec3' }}>
-                  {/* Photo preview */}
-                  <div className="w-12 h-12 rounded-lg flex-shrink-0 overflow-hidden"
-                       style={{ background:'#d4cdc5' }}>
-                    {p.photo_url
-                      ? <img src={p.photo_url} alt="" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full flex items-center justify-center text-sm font-black"
-                              style={{ color:'#6b5f4e' }}>
-                          {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
-                        </div>
-                    }
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-white">{p.name}</span>
-                      <span className="text-xs px-1.5 py-0.5 rounded"
-                            style={{ background:'#d4cdc5',color:'#6b5f4e' }}>{p.pos}</span>
-                    </div>
-                    <input
-                      defaultValue={p.photo_url||''}
-                      onBlur={e=>savePhoto(p.id,e.target.value)}
-                      placeholder="Paste photo URL..."
-                      className="w-full text-xs px-3 py-1.5 rounded-lg"
-                      style={{ background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1512',outline:'none' }}
-                    />
-                  </div>
-                  <span className="text-xs flex-shrink-0 w-16 text-center"
-                        style={{ color:saved===p.id?'#15803d':saving===p.id?'#5c554e':'transparent' }}>
-                    {saved===p.id?'✓ Saved':saving===p.id?'Saving...':''}
-                  </span>
+
+          {/* PLAYERS */}
+          {photoSec === 'players' && (
+            <div>
+              <div style={{marginBottom:16}}>
+                <label style={{fontSize:11,fontWeight:700,textTransform:'uppercase',
+                               letterSpacing:'1px',color:'#5c554e',display:'block',marginBottom:6}}>
+                  Filter by Team
+                </label>
+                <select value={selTeam} onChange={e=>setSelTeam(e.target.value)}
+                  style={{width:'100%',padding:'10px 12px',borderRadius:10,fontSize:13,
+                          background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
+                  {playerTeamOptions.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              {selTeam && photoItems.length === 0 && (
+                <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>No players found.</div>
+              )}
+              {!selTeam && (
+                <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>
+                  Select a team to manage player photos.
                 </div>
-              ))}
+              )}
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {photoItems.map(p => (
+                  <PhotoRow key={p.id} item={p} type="player" onSave={savePhoto} saving={saving} saved={saved}/>
+                ))}
+              </div>
+              {photoItems.length > 0 && (
+                <p style={{fontSize:11,color:'#8a8279',marginTop:12}}>
+                  Tip: Find headshots on ESPN (right-click → Copy image address) or cdn.nba.com
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* STAFF */}
+          {photoSec === 'staff' && (
+            <div>
+              <div style={{marginBottom:16}}>
+                <label style={{fontSize:11,fontWeight:700,textTransform:'uppercase',
+                               letterSpacing:'1px',color:'#5c554e',display:'block',marginBottom:6}}>
+                  Filter by Team
+                </label>
+                <select value={selStaffTeam} onChange={e=>setSelStaffTeam(e.target.value)}
+                  style={{width:'100%',padding:'10px 12px',borderRadius:10,fontSize:13,
+                          background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
+                  {staffTeamOptions.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              {selStaffTeam && staffItems.length === 0 && (
+                <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>No staff found.</div>
+              )}
+              {!selStaffTeam && (
+                <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>
+                  Select a team to manage staff photos.
+                </div>
+              )}
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {staffItems.map(s => (
+                  <PhotoRow key={s.id} item={s} type="staff" onSave={savePhoto} saving={saving} saved={saved}/>
+                ))}
+              </div>
             </div>
           )}
         </div>
