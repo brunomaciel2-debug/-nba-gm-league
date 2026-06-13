@@ -247,61 +247,6 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             ))}
           </div>
 
-          {/* CONTRACT */}
-          {(contracts||[]).length > 0 && (
-            <>
-              <div className="sec-hdr mb-3">
-                <span className="sec-title">Contract</span>
-              </div>
-              <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cdc5' }}>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background:'#f0ece5', borderBottom:'1px solid #d4cdc5' }}>
-                      <th className="px-4 py-2.5 text-left font-semibold" style={{ color:'#5c554e' }}>Season</th>
-                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Salary</th>
-                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(contracts||[]).map((c:any, i:number) => {
-                      const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#5c554e',bg:'#f0ece5'}
-                      const isCurrent = c.season==='2025-26'
-                      return (
-                        <tr key={c.id}
-                            style={{ background:isCurrent?tc+'11':i%2===0?'#faf8f5':'#f5f1eb',
-                                     borderBottom:'1px solid #e2dcd5' }}>
-                          <td className="px-4 py-2.5">
-                            <span className="font-semibold" style={{ color:isCurrent?tc:'#1a1512' }}>
-                              {c.season}
-                            </span>
-                            {isCurrent && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
-                                               style={{ background:tc+'22', color:tc }}>Current</span>}
-                          </td>
-                          <td className="px-4 py-2.5 text-right font-bold" style={{ color:'#1a1512' }}>
-                            {capFmt(c.salary)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded"
-                                  style={{ background:typeInfo.bg, color:typeInfo.color }}>
-                              {typeInfo.label}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    <tr style={{ background:'#f0ece5', borderTop:'2px solid #d4cdc5' }}>
-                      <td className="px-4 py-2.5 font-bold" style={{ color:'#1a1512' }}>Total</td>
-                      <td className="px-4 py-2.5 text-right font-black" style={{ color:'#c8102e' }}>
-                        {capFmt(totalValue)}
-                      </td>
-                      <td></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
           {/* STATS */}
           <div className="sec-hdr mb-3">
             <span className="sec-title">Season Statistics</span>
@@ -386,48 +331,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             </div>
           )}
 
-          {/* AWARDS */}
-          <div className="mt-2">
-            <div className="sec-hdr mb-4">
-              <span className="sec-title">
-                <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
-                Awards & Honours
-              </span>
-            </div>
-            <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-              {(playerAwards||[]).length === 0 ? (
-                <div className="px-4 py-6 text-center" style={{background:'#faf8f5'}}>
-                  <i className="ti ti-trophy" style={{fontSize:28,color:'#d4cdc5'}}></i>
-                  <p className="text-sm mt-2" style={{color:'#8a8279'}}>No awards yet</p>
-                </div>
-              ) : (playerAwards||[]).map((a:any,i:number) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3"
-                     style={{borderBottom:i<(playerAwards||[]).length-1?'1px solid #e2dcd5':'none',
-                             background:i%2===0?'#faf8f5':'#f5f1eb'}}>
-                  <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
-                      {AWARD_LABELS[a.award_type]||a.award_type}
-                    </div>
-                    <div className="text-xs" style={{color:'#8a8279'}}>
-                      {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
-                    </div>
-                  </div>
-                  {a.stats_context?.ppg && (
-                    <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
-                      {a.stats_context.ppg} PPG
-                      {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
-                      {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-
-      {/* LAST 5 GAMES */}
+          {/* LAST 5 GAMES */}
       <div className="mt-6">
         <div className="sec-hdr mb-4">
           <span className="sec-title">
@@ -530,6 +434,106 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       </div>
 
       </div>
+    </div>
+  )
+}
+{/* AWARDS */}
+          <div className="mt-2">
+            <div className="sec-hdr mb-4">
+              <span className="sec-title">
+                <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+                Awards & Honours
+              </span>
+            </div>
+            <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+              {(playerAwards||[]).length === 0 ? (
+                <div className="px-4 py-6 text-center" style={{background:'#faf8f5'}}>
+                  <i className="ti ti-trophy" style={{fontSize:28,color:'#d4cdc5'}}></i>
+                  <p className="text-sm mt-2" style={{color:'#8a8279'}}>No awards yet</p>
+                </div>
+              ) : (playerAwards||[]).map((a:any,i:number) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3"
+                     style={{borderBottom:i<(playerAwards||[]).length-1?'1px solid #e2dcd5':'none',
+                             background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+                  <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
+                      {AWARD_LABELS[a.award_type]||a.award_type}
+                    </div>
+                    <div className="text-xs" style={{color:'#8a8279'}}>
+                      {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
+                    </div>
+                  </div>
+                  {a.stats_context?.ppg && (
+                    <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
+                      {a.stats_context.ppg} PPG
+                      {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
+                      {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+
+      {/* CONTRACT */}
+          {(contracts||[]).length > 0 && (
+            <>
+              <div className="sec-hdr mb-3">
+                <span className="sec-title">Contract</span>
+              </div>
+              <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cdc5' }}>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ background:'#f0ece5', borderBottom:'1px solid #d4cdc5' }}>
+                      <th className="px-4 py-2.5 text-left font-semibold" style={{ color:'#5c554e' }}>Season</th>
+                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Salary</th>
+                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(contracts||[]).map((c:any, i:number) => {
+                      const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#5c554e',bg:'#f0ece5'}
+                      const isCurrent = c.season==='2025-26'
+                      return (
+                        <tr key={c.id}
+                            style={{ background:isCurrent?tc+'11':i%2===0?'#faf8f5':'#f5f1eb',
+                                     borderBottom:'1px solid #e2dcd5' }}>
+                          <td className="px-4 py-2.5">
+                            <span className="font-semibold" style={{ color:isCurrent?tc:'#1a1512' }}>
+                              {c.season}
+                            </span>
+                            {isCurrent && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
+                                               style={{ background:tc+'22', color:tc }}>Current</span>}
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-bold" style={{ color:'#1a1512' }}>
+                            {capFmt(c.salary)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded"
+                                  style={{ background:typeInfo.bg, color:typeInfo.color }}>
+                              {typeInfo.label}
+                            </span>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                    <tr style={{ background:'#f0ece5', borderTop:'2px solid #d4cdc5' }}>
+                      <td className="px-4 py-2.5 font-bold" style={{ color:'#1a1512' }}>Total</td>
+                      <td className="px-4 py-2.5 text-right font-black" style={{ color:'#c8102e' }}>
+                        {capFmt(totalValue)}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+                </div>
     </div>
   )
 }
