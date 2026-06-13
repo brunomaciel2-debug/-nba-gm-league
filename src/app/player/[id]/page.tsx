@@ -299,40 +299,43 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           )}
 
           {/* AWARDS */}
-          {playerAwards && playerAwards.length > 0 && (
-            <div className="mt-2">
-              <div className="sec-hdr mb-4">
-                <span className="sec-title">
-                  <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
-                  Awards & Honours
-                </span>
-              </div>
-              <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-                {(playerAwards||[]).map((a:any,i:number) => (
-                  <div key={i} className="flex items-center gap-3 px-4 py-3"
-                       style={{borderBottom:i<(playerAwards||[]).length-1?'1px solid #e2dcd5':'none',
-                               background:i%2===0?'#faf8f5':'#f5f1eb'}}>
-                    <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
-                        {AWARD_LABELS[a.award_type]||a.award_type}
-                      </div>
-                      <div className="text-xs" style={{color:'#8a8279'}}>
-                        {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
-                      </div>
-                    </div>
-                    {a.stats_context?.ppg && (
-                      <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
-                        {a.stats_context.ppg} PPG
-                        {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
-                        {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+          <div className="mt-2">
+            <div className="sec-hdr mb-4">
+              <span className="sec-title">
+                <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+                Awards & Honours
+              </span>
             </div>
-          )}
+            <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+              {(playerAwards||[]).length === 0 ? (
+                <div className="px-4 py-6 text-center" style={{background:'#faf8f5'}}>
+                  <i className="ti ti-trophy" style={{fontSize:28,color:'#d4cdc5'}}></i>
+                  <p className="text-sm mt-2" style={{color:'#8a8279'}}>No awards yet</p>
+                </div>
+              ) : (playerAwards||[]).map((a:any,i:number) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3"
+                     style={{borderBottom:i<(playerAwards||[]).length-1?'1px solid #e2dcd5':'none',
+                             background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+                  <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
+                      {AWARD_LABELS[a.award_type]||a.award_type}
+                    </div>
+                    <div className="text-xs" style={{color:'#8a8279'}}>
+                      {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
+                    </div>
+                  </div>
+                  {a.stats_context?.ppg && (
+                    <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
+                      {a.stats_context.ppg} PPG
+                      {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
+                      {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* SIDEBAR */}
