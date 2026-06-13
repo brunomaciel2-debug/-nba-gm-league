@@ -497,11 +497,10 @@ export default function FreeAgentsPage() {
             Click column headers to sort · Hover <strong>i</strong> for definitions · Stats shown if player has games played
           </div>
         </div>
-      )}
+      )
     ) : (
-        /* STAFF FREE AGENTS */
-        <StaffFA staff={staff} />
-      )}
+      <StaffFA staff={staff} />
+    )}
     </div>
   )
 }
