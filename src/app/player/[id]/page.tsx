@@ -112,7 +112,7 @@ function OVR({ value }: { value: number }) {
 }
 
 export default async function PlayerPage({ params }: { params: { id: string } }) {
-  const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }] =
+  const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }, { data: lastGames }] =
     await Promise.all([
       supabase.from('players').select('*, nba_experience, teams(name,color,id,logo_url)').eq('id', params.id).single(),
       supabase.from('player_stats').select('*,triple_doubles').eq('player_id', params.id).order('season', { ascending: false }),
@@ -220,14 +220,14 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="flex flex-col gap-0">
         <div className="md:col-span-2">
 
           {/* ATTRIBUTES */}
           <div className="sec-hdr mb-4">
             <span className="sec-title">Attributes</span>
           </div>
-          <div className="grid sm:grid-cols-2 gap-4 mb-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {ATTR_GROUPS.map(group => (
               <div key={group.label} className="rounded-xl p-4"
                    style={{ background:'#faf8f5', border:'1px solid #d4cdc5', borderTop:'2px solid '+group.color }}>
@@ -425,49 +425,109 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           </div>
         </div>
 
-        {/* SIDEBAR */}
-        <div className="flex flex-col gap-4">
-          <div className="rounded-xl p-4" style={{ background:'#faf8f5', border:'1px solid #d4cdc5' }}>
-            <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color:'#5c554e', letterSpacing:'1px' }}>THIS SEASON</h3>
-            {(stats||[])[0] ? (() => {
-              const s=(stats||[])[0] as any
-              const gp=s.games||0
-              const avg=(v:number)=>gp>0?(v/gp).toFixed(1):'—'
-              return (
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    {label:'PPG',val:avg(s.pts),color:'#b45309'},
-                    {label:'RPG',val:avg(s.reb),color:'#15803d'},
-                    {label:'APG',val:avg(s.ast),color:'#1d4ed8'},
-                    {label:'FG%',val:s.fga>0?(s.fgm/s.fga*100).toFixed(1)+'%':'—',color:'#1a1512'},
-                    {label:'3P%',val:s.tpa>0?(s.tpm/s.tpa*100).toFixed(1)+'%':'—',color:'#b45309'},
-                    {label:'GP', val:gp, color:'#5c554e'},
-                  ].map(item=>(
-                    <div key={item.label} className="rounded-lg p-2.5 text-center" style={{ background:'#f0ece5' }}>
-                      <div className="text-lg font-black" style={{ color:item.color }}>{item.val}</div>
-                      <div className="text-xs" style={{ color:'#8a8279' }}>{item.label}</div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })() : <p className="text-xs text-center" style={{ color:'#8a8279' }}>No stats yet.</p>}
-          </div>
 
-          <div className="rounded-xl p-4" style={{ background:'#faf8f5', border:'1px solid #d4cdc5' }}>
-            <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color:'#5c554e', letterSpacing:'1px' }}>INJURY HISTORY</h3>
-            {(injuries||[]).length > 0 ? (injuries||[]).map((inj:any) => (
-              <div key={inj.id} className="py-2" style={{ borderBottom:'1px solid #e2dcd5' }}>
-                <div className="text-sm font-semibold" style={{ color:'#dc2626' }}>{inj.injury_type}</div>
-                <div className="text-xs mt-0.5" style={{ color:'#8a8279' }}>
-                  {inj.games_out} games ·{' '}
-                  {new Date(inj.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}
+      {/* LAST 5 GAMES */}
+      <div className="mt-6">
+        <div className="sec-hdr mb-4">
+          <span className="sec-title">
+            <i className="ti ti-calendar-stats" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+            Last 5 Games
+          </span>
+        </div>
+        {(lastGames||[]).length === 0 ? (
+          <div className="rounded-xl p-4 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+            <p className="text-sm" style={{color:'#8a8279'}}>No games played yet.</p>
+          </div>
+        ) : (
+          <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+            <div className="overflow-x-auto">
+            <table className="w-full text-xs" style={{minWidth:600}}>
+              <thead>
+                <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
+                  {['Date','Matchup','Result','MIN','PTS','REB','AST','STL','BLK','FG','3P','FT','+/-'].map(h=>(
+                    <th key={h} className="px-2.5 py-2.5 font-bold text-right first:text-left second:text-left"
+                        style={{color:'#5c554e',fontSize:10,letterSpacing:'0.3px',whiteSpace:'nowrap'}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(lastGames||[]).map((b:any,i:number) => {
+                  const g = b.games
+                  if (!g) return null
+                  const isHome = g.home_team === p.team_id
+                  const opp = isHome ? g.away : g.home
+                  const myScore = isHome ? g.home_score : g.away_score
+                  const oppScore = isHome ? g.away_score : g.home_score
+                  const won = myScore > oppScore
+                  const oppColor = opp ? readableTeamColor(opp.color) : '#5c554e'
+                  return (
+                    <tr key={b.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                      <td className="px-2.5 py-2.5 whitespace-nowrap" style={{color:'#8a8279'}}>
+                        {g.played_at ? new Date(g.played_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}
+                      </td>
+                      <td className="px-2.5 py-2.5 whitespace-nowrap">
+                        <span style={{color:'#8a8279'}}>{isHome?'vs':'@'} </span>
+                        <span style={{color:oppColor,fontWeight:600}}>{opp?.name||'—'}</span>
+                      </td>
+                      <td className="px-2.5 py-2.5 font-bold whitespace-nowrap"
+                          style={{color:won?'#15803d':'#dc2626'}}>
+                        {won?'W':'L'} {myScore}-{oppScore}
+                      </td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.mins||0}</td>
+                      <td className="px-2.5 py-2.5 text-right font-bold" style={{color:'#b45309'}}>{b.pts||0}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#15803d'}}>{b.reb||0}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#1d4ed8'}}>{b.ast||0}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#6d28d9'}}>{b.stl||0}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#c2410c'}}>{b.blk||0}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.fgm||0}/{b.fga||0}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.tpm||0}/{b.tpa||0}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.ftm||0}/{b.fta||0}</td>
+                      <td className="px-2.5 py-2.5 text-right font-semibold"
+                          style={{color:(b.plus_minus||0)>0?'#15803d':(b.plus_minus||0)<0?'#dc2626':'#8a8279'}}>
+                        {(b.plus_minus||0)>0?'+':''}{b.plus_minus||0}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* INJURY HISTORY */}
+      <div className="mt-6 mb-6">
+        <div className="sec-hdr mb-4">
+          <span className="sec-title">
+            <i className="ti ti-medical-cross" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
+            Injury History
+          </span>
+        </div>
+        <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+          {(injuries||[]).length === 0 ? (
+            <div className="px-4 py-5 text-center" style={{background:'#faf8f5'}}>
+              <p className="text-sm" style={{color:'#8a8279'}}>No injury history — clean bill of health.</p>
+            </div>
+          ) : (injuries||[]).map((inj:any,i:number) => (
+            <div key={inj.id} className="flex items-center gap-4 px-4 py-3"
+                 style={{borderBottom:i<(injuries||[]).length-1?'1px solid #e2dcd5':'none',
+                         background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+              <i className="ti ti-alert-triangle" style={{fontSize:16,color:'#dc2626',flexShrink:0}}></i>
+              <div className="flex-1">
+                <div className="text-sm font-semibold" style={{color:'#dc2626'}}>{inj.injury_type}</div>
+                <div className="text-xs mt-0.5" style={{color:'#8a8279'}}>
+                  {new Date(inj.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
                 </div>
               </div>
-            )) : (
-              <p className="text-xs" style={{ color:'#8a8279' }}>No injury history.</p>
-            )}
-          </div>
+              <div className="text-sm font-semibold text-right" style={{color:'#5c554e'}}>
+                {inj.games_out} game{inj.games_out!==1?'s':''} out
+              </div>
+            </div>
+          ))}
         </div>
+      </div>
+
       </div>
     </div>
   )
