@@ -224,7 +224,45 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       <div className="flex flex-col gap-0">
         <div className="md:col-span-2">
 
-          {/* ATTRIBUTES */}
+    
+      {/* G-League Assignment */}
+      {p.team_id && (
+        <div className="mb-4">
+          {p.on_gleague_assignment ? (
+            <div className="flex items-center justify-between px-4 py-3 rounded-xl"
+                 style={{background:'#fef9c3',border:'1px solid #b45309'}}>
+              <div className="text-xs font-semibold" style={{color:'#b45309'}}>
+                <i className="ti ti-ball-basketball" style={{marginRight:4}}></i>
+                On G-League Assignment
+              </div>
+              <form action="/api/gleague/recall" method="POST">
+                <input type="hidden" name="playerId" value={p.id}/>
+                <button type="submit" className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                        style={{background:'#1d4ed8',color:'#fff'}}>
+                  Recall to NBA
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between px-4 py-3 rounded-xl"
+                 style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+              <div className="text-xs" style={{color:'#5c554e'}}>
+                <i className="ti ti-ball-basketball" style={{marginRight:4}}></i>
+                Available for G-League assignment
+              </div>
+              <form action="/api/gleague/assign" method="POST">
+                <input type="hidden" name="playerId" value={p.id}/>
+                <input type="hidden" name="teamId" value={p.team_id}/>
+                <button type="submit" className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                        style={{background:'#15803d',color:'#fff'}}>
+                  Send to G-League
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      )}
+      {/* ATTRIBUTES */}
           <div className="sec-hdr mb-4">
             <span className="sec-title">Attributes</span>
           </div>

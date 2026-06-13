@@ -406,6 +406,84 @@ export async function GET(req: NextRequest) {
     } catch(hlErr) { console.warn('Highlights step failed', hlErr) }
 
 
+
+    // ── G-LEAGUE SIMULATION ────────────────────────────────
+    try {
+      const { data: glGames } = await supabaseAdmin
+        .from('gleague_games')
+        .select('*, home:gleague_teams!gleague_games_home_team_fkey(*), away:gleague_teams!gleague_games_away_team_fkey(*)')
+        .eq('week_number', week)
+        .eq('status', 'scheduled')
+        .eq('season', '2025-26')
+
+      for (const game of (glGames || [])) {
+        // Simple score simulation based on team records
+        const homeAdv = 3
+        const base = 105 + Math.round(Math.random() * 20)
+        const homeScore = base + homeAdv + Math.round(Math.random() * 15)
+        const awayScore = base - homeAdv + Math.round(Math.random() * 15)
+        const hWon = homeScore > awayScore
+
+        await supabaseAdmin.from('gleague_games').update({
+          home_score: homeScore, away_score: awayScore, status: 'final'
+        }).eq('id', game.id)
+
+        // Update G-League team records
+        await supabaseAdmin.from('gleague_teams').update({
+          wins: (game.home?.wins||0) + (hWon?1:0),
+          losses: (game.home?.losses||0) + (hWon?0:1),
+        }).eq('id', game.home_team)
+
+        await supabaseAdmin.from('gleague_teams').update({
+          wins: (game.away?.wins||0) + (hWon?0:1),
+          losses: (game.away?.losses||0) + (hWon?1:0),
+        }).eq('id', game.away_team)
+
+        // Simulate stats for assigned players
+        const { data: assignedPlayers } = await supabaseAdmin
+          .from('players').select('*')
+          .eq('on_gleague_assignment', true)
+          .in('gleague_team_id', [game.home_team, game.away_team])
+
+        for (const p of (assignedPlayers || [])) {
+          const pts  = Math.round(12 + Math.random() * 20 + (p.usage||50)/10)
+          const reb  = Math.round(3  + Math.random() * 8)
+          const ast  = Math.round(1  + Math.random() * 6)
+          const stl  = Math.round(Math.random() * 3)
+          const blk  = Math.round(Math.random() * 2)
+
+          const { data: existStat } = await supabaseAdmin
+            .from('gleague_player_stats').select('*')
+            .eq('player_id', p.id).eq('season','2025-26').single()
+
+          if (existStat) {
+            await supabaseAdmin.from('gleague_player_stats').update({
+              games: existStat.games + 1,
+              pts: existStat.pts + pts, reb: existStat.reb + reb,
+              ast: existStat.ast + ast, stl: existStat.stl + stl, blk: existStat.blk + blk,
+            }).eq('id', existStat.id)
+          } else {
+            await supabaseAdmin.from('gleague_player_stats').insert({
+              player_id: p.id, gleague_team_id: p.gleague_team_id,
+              season: '2025-26', games: 1,
+              pts, reb, ast, stl, blk
+            })
+          }
+
+          // G-League boosts development slightly
+          const devBoost = Math.random() < 0.15
+          if (devBoost) {
+            const attrs = ['three','layup','mid','ft','siq','ball_hdl','pass_vis','stamina','durability']
+            const attr  = attrs[Math.floor(Math.random() * attrs.length)]
+            const cur   = (p as any)[attr] || 60
+            if (cur < 90) {
+              await supabaseAdmin.from('players').update({ [attr]: cur + 1 }).eq('id', p.id)
+            }
+          }
+        }
+      }
+    } catch(glErr) { console.warn('G-League sim error:', glErr) }
+
     // ── AWARDS ────────────────────────────────────────────
     try {
       const isEndOfMonth = week % 4 === 0
