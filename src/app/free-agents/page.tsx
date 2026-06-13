@@ -305,8 +305,8 @@ export default function FreeAgentsPage() {
 
                       {mode==='attributes' ? (
                         ATTR_COLS.map(c=>(
-                          <td key={c.key} className="px-1.5 py-2" style={{borderRight:'1px solid #e8e3db'}}>
-                            <Bar value={p[c.key]||0} color={c.color}/>
+                          <td key={c.key} className="px-2 py-2 text-center" style={{borderRight:'1px solid #e8e3db'}}>
+                            <span className="text-xs font-bold" style={{color:attrColor(p[c.key]||0)}}>{p[c.key]||0}</span>
                           </td>
                         ))
                       ) : (
