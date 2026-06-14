@@ -151,7 +151,7 @@ export default function AdminMediaPage() {
   useEffect(() => {
     if (!selStaffTeam) { setStaffItems([]); return }
     if (selStaffTeam === 'GLEAGUE') {
-      supabase.from('coaches').select('id,name,role,photo_url,gleague_team_id')
+      supabase.from('coaches').select('id,name,role,photo_url,team_id,gleague_team_id')
         .not('gleague_team_id','is',null)
         .order('gleague_team_id')
         .then(({data}) => setStaffItems(data||[]))
