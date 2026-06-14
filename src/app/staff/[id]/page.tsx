@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { readableTeamColor } from '@/lib/color'
-export const revalidate = 60
+export const revalidate = 0
 
 
 const TIPS: Record<string,string> = {
@@ -47,7 +47,6 @@ const ROLE_INFO: Record<string,{label:string,color:string,icon:string}> = {
 
 const ATK: Record<string,string> = {motion:'Motion',pickroll:'Pick & Roll',transition:'Fast Break',iso:'Isolation',post:'Post-Up'}
 const DEF: Record<string,string> = {man:'Man-to-Man',zone23:'Zone 2-3',press:'Full Press',pack:'Pack Paint'}
-const SEASONS = ['2025-26','2026-27','2027-28']
 
 function StatRow({ label, value, color, tipKey }: { label:string, value:number, color:string, tipKey?:string }) {
   if (!value) return null
@@ -77,7 +76,6 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
   const tc = team ? readableTeamColor((team as any).color) : '#5c554e'
   const isCoach = coach.role === 'head_coach' || coach.role === 'assistant_coach'
 
-  // Salary over contract years
   const contractYears = Array.from({ length: coach.contract_years || 1 }, (_, i) => {
     const yr = 2025 + i
     const season = `${yr}-${String(yr+1).slice(2)}`
@@ -99,10 +97,16 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
         borderTop: `4px solid ${info.color}`
       }}>
         <div className="flex items-start gap-5 flex-wrap">
-          <div className="w-20 h-20 rounded-2xl flex items-center justify-center flex-shrink-0"
+
+          {/* FOTO ou ICONE */}
+          <div className="w-20 h-20 rounded-2xl flex-shrink-0 overflow-hidden flex items-center justify-center"
                style={{background:info.color+'18',border:`2px solid ${info.color}33`}}>
-            <i className={`ti ${info.icon}`} style={{fontSize:36,color:info.color}}></i>
+            {coach.photo_url
+              ? <img src={coach.photo_url} alt={coach.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+              : <i className={`ti ${info.icon}`} style={{fontSize:36,color:info.color}}></i>
+            }
           </div>
+
           <div className="flex-1">
             <div className="text-xs font-bold uppercase tracking-widest mb-1"
                  style={{color:info.color,letterSpacing:'1.5px'}}>
@@ -167,31 +171,23 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
                 <StatRow label="Mental"            value={coach.mental_dev}     tipKey="mental_dev" color="#b45309" />
               </div>
 
-              {/* Style & Personality */}
               <div className="rounded-xl p-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
                 <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1px'}}>Style & Personality</div>
                 <div className="flex flex-wrap gap-2 mb-4">
-                  <span className="text-sm px-3 py-1 rounded-lg font-semibold"
-                        style={{background:'#b45309',color:'#fff'}}>
+                  <span className="text-sm px-3 py-1 rounded-lg font-semibold" style={{background:'#b45309',color:'#fff'}}>
                     {ATK[coach.pref_atk_style]||coach.pref_atk_style}
                   </span>
-                  <span className="text-sm px-3 py-1 rounded-lg font-semibold"
-                        style={{background:'#15803d',color:'#fff'}}>
+                  <span className="text-sm px-3 py-1 rounded-lg font-semibold" style={{background:'#15803d',color:'#fff'}}>
                     {DEF[coach.pref_def_style]||coach.pref_def_style}
                   </span>
-                  <span className="relative group text-sm px-3 py-1 rounded-lg font-semibold cursor-help"
-                        style={{background:'#1d4ed8',color:'#fff'}}>
+                  <span className="relative group text-sm px-3 py-1 rounded-lg font-semibold cursor-help" style={{background:'#1d4ed8',color:'#fff'}}>
                     +{coach.style_boost}% style match
-                    <span className="absolute bottom-full left-0 mb-1 z-50 px-3 py-2 rounded-lg text-xs
-                                     opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
-                          style={{background:'#1a1512',color:'#f5f1eb',width:240,
-                                  whiteSpace:'normal',lineHeight:1.5,fontWeight:400,
-                                  boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
+                    <span className="absolute bottom-full left-0 mb-1 z-50 px-3 py-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+                          style={{background:'#1a1512',color:'#f5f1eb',width:240,whiteSpace:'normal',lineHeight:1.5,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
                       {TIPS.style_boost}
                     </span>
                   </span>
                 </div>
-                {/* Personality thermometer */}
                 <div className="mb-1 flex justify-between text-xs" style={{color:'#5c554e'}}>
                   <span>Personality<Tooltip text={TIPS.personality} /></span>
                   <span className="font-semibold">
@@ -202,8 +198,7 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
                 <div className="h-3 rounded-full overflow-hidden relative"
                      style={{background:'linear-gradient(to right,#3b82f6,#22c55e,#f97316,#ef4444)'}}>
                   <div className="absolute top-0 h-full w-3 rounded-full"
-                       style={{left:`calc(${((coach.personality-1)/9)*100}% - 6px)`,
-                               background:'#fff',boxShadow:'0 0 0 2px rgba(0,0,0,0.2)'}}/>
+                       style={{left:`calc(${((coach.personality-1)/9)*100}% - 6px)`,background:'#fff',boxShadow:'0 0 0 2px rgba(0,0,0,0.2)'}}/>
                 </div>
                 <div className="flex justify-between text-xs mt-1" style={{color:'#a89f97'}}>
                   <span>Calm</span><span>Intense</span>
@@ -215,9 +210,9 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
           {coach.role === 'trainer' && (
             <div className="rounded-xl p-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
               <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e'}}>Attributes</div>
-              <StatRow label="Conditioning"     value={coach.conditioning}    tipKey="conditioning" color="#15803d" />
-              <StatRow label="Recovery"         value={coach.recovery_boost}  tipKey="recovery_boost" color="#1d4ed8" />
-              <StatRow label="Injury Prevention"value={coach.injury_prevent}  tipKey="injury_prevent" color="#b45309" />
+              <StatRow label="Conditioning"      value={coach.conditioning}   tipKey="conditioning" color="#15803d" />
+              <StatRow label="Recovery"          value={coach.recovery_boost} tipKey="recovery_boost" color="#1d4ed8" />
+              <StatRow label="Injury Prevention" value={coach.injury_prevent} tipKey="injury_prevent" color="#b45309" />
             </div>
           )}
 
@@ -269,7 +264,6 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
             </div>
           </div>
 
-          {/* Natural role note */}
           {coach.natural_role && coach.natural_role !== coach.role && (
             <div className="rounded-xl p-4" style={{background:'#fff8e8',border:'1px solid #b45309',borderLeft:'4px solid #b45309'}}>
               <div className="text-xs font-bold mb-1" style={{color:'#b45309'}}>
