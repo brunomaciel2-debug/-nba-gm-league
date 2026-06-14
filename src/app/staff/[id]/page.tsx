@@ -79,7 +79,7 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
   const contractYears = Array.from({ length: coach.contract_years || 1 }, (_, i) => {
     const yr = 2025 + i
     const season = `${yr}-${String(yr+1).slice(2)}`
-    return { season, salary: Math.round(coach.salary * Math.pow(1.05, i)) }
+    return { season, salary: coach.salary }
   })
 
   return (
