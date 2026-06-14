@@ -96,11 +96,11 @@ function ColTh({ label, color, sortKey, active, dir, onClick }: {
 }
 
 export default function GLeagueTeamPage({ params }: { params: { id: string } }) {
-  const [tab, setTab]       = useState<Tab>('roster')
-  const [team, setTeam]     = useState<any>(null)
+  const [tab, setTab]         = useState<Tab>('roster')
+  const [team, setTeam]       = useState<any>(null)
   const [players, setPlayers] = useState<any[]>([])
-  const [games, setGames]   = useState<any[]>([])
-  const [coach, setCoach]   = useState<any>(null)
+  const [games, setGames]     = useState<any[]>([])
+  const [coach, setCoach]     = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [sortKey, setSortKey] = useState('ovr')
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('desc')
@@ -138,9 +138,9 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
     <div style={{textAlign:'center',padding:'48px',color:'#8a8279'}}>Team not found.</div>
   )
 
-  const tc  = readableTeamColor(team.color||'#1d4ed8')
-  const gp  = team.wins + team.losses
-  const pct = gp>0 ? (team.wins/gp).toFixed(3).replace(/^0/,'') : '.000'
+  const tc       = readableTeamColor(team.color||'#1d4ed8')
+  const gp       = team.wins + team.losses
+  const pct      = gp>0 ? (team.wins/gp).toFixed(3).replace(/^0/,'') : '.000'
   const played   = games.filter((g:any) => g.status==='final')
   const upcoming = games.filter((g:any) => g.status!=='final')
 
@@ -149,12 +149,13 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
     const s   = (p.gleague_player_stats||[])[0]
     const gp2 = s?.games||0
     const avg = (v:number) => gp2>0 ? parseFloat((v/gp2).toFixed(1)) : 0
-    return { ...p, ovr,
-      ppg: avg(s?.pts||0), rpg: avg(s?.reb||0), apg: avg(s?.ast||0) }
+    return { ...p, ovr, ppg: avg(s?.pts||0), rpg: avg(s?.reb||0), apg: avg(s?.ast||0) }
   }).sort((a:any,b:any) => {
     const av=a[sortKey]??0, bv=b[sortKey]??0
     return sortDir==='desc' ? bv-av : av-bv
   })
+
+  const coachInitials = coach ? coach.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2) : ''
 
   return (
     <div style={{maxWidth:1200,margin:'0 auto',padding:'24px 16px'}}>
@@ -178,15 +179,11 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
             <div style={{fontSize:11,fontWeight:600,color:tc,marginBottom:2}}>
               G-League · {team.conference} Conference
             </div>
-            <h1 style={{fontSize:28,fontWeight:700,color:'#1a1512',margin:'0 0 4px'}}>
-              {team.name}
-            </h1>
-            <div style={{fontSize:13,color:'#6b5f4e'}}>
-              {team.arena}{team.city?` · ${team.city}`:''}
-            </div>
+            <h1 style={{fontSize:28,fontWeight:700,color:'#1a1512',margin:'0 0 4px'}}>{team.name}</h1>
+            <div style={{fontSize:13,color:'#6b5f4e'}}>{team.arena}{team.city?` · ${team.city}`:''}</div>
             {team.nba && (
               <Link href={`/team/${team.nba.id}`} style={{fontSize:12,fontWeight:600,color:tc,textDecoration:'none',display:'block',marginTop:4}}>
-                ↑ NBA Affiliate: {team.nba.name}
+                → NBA Affiliate: {team.nba.name}
               </Link>
             )}
           </div>
@@ -230,9 +227,7 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
                 <tr style={{background:'#f0ece5'}}>
                   <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5',
                               padding:'10px 12px',textAlign:'left',fontWeight:700,fontSize:11,color:'#5c554e',
-                              position:'sticky',left:0,zIndex:10,minWidth:150}}>
-                    Player
-                  </th>
+                              position:'sticky',left:0,zIndex:10,minWidth:150}}>Player</th>
                   <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5',
                               padding:'8px',textAlign:'center',fontWeight:700,fontSize:11,color:'#5c554e'}}>POS</th>
                   <ColTh label="OVR" color="#1a1512" active={sortKey==='ovr'} dir={sortDir} onClick={()=>handleSort('ovr')}/>
@@ -268,8 +263,7 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
                               </span>}
                           </div>
                           <Link href={`/player/${p.id}`}
-                                style={{fontWeight:600,color:'#1a1512',textDecoration:'none',
-                                        fontSize:12}}>
+                                style={{fontWeight:600,color:'#1a1512',textDecoration:'none',fontSize:12}}>
                             {p.name}
                           </Link>
                           {p.on_gleague_assignment && (
@@ -285,19 +279,13 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
                       <td style={{padding:'6px 4px',textAlign:'center',borderRight:'1px solid #e2dcd5'}}>
                         <span style={{fontWeight:900,fontSize:13,color:oc}}>{p.ovr}</span>
                       </td>
-                      <td style={{padding:'6px 4px',textAlign:'center',color:'#5c554e',borderRight:'1px solid #e2dcd5'}}>
-                        {p.age||'—'}
-                      </td>
+                      <td style={{padding:'6px 4px',textAlign:'center',color:'#5c554e',borderRight:'1px solid #e2dcd5'}}>{p.age||'—'}</td>
                       <td style={{padding:'6px 4px',textAlign:'center',borderRight:'1px solid #e2dcd5'}}>
-                        <span style={{fontWeight:700,fontSize:11,color:'#5c554e'}}>
-                          {p.nba_experience ?? 0}
-                        </span>
+                        <span style={{fontWeight:700,fontSize:11,color:'#5c554e'}}>{p.nba_experience ?? 0}</span>
                       </td>
                       {ATTR_GROUPS.map(g => g.attrs.map(a => (
                         <td key={a} style={{padding:'6px 4px',textAlign:'center',borderRight:'1px solid #e8e3db'}}>
-                          <span style={{color:attrColor(p[a]||0),fontWeight:700,fontSize:11}}>
-                            {p[a]||0}
-                          </span>
+                          <span style={{color:attrColor(p[a]||0),fontWeight:700,fontSize:11}}>{p[a]||0}</span>
                         </td>
                       )))}
                       <td style={{padding:'6px 4px',textAlign:'center',color:'#b45309',fontWeight:600}}>{p.ppg||'—'}</td>
@@ -332,10 +320,8 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
                   const won = myScore > opScore
                   const otc = readableTeamColor(opp?.color||'#5c554e')
                   return (
-                    <div key={g.id} style={{display:'flex',alignItems:'center',gap:16,
-                                            padding:'10px 16px',
-                                            background:i%2===0?'#faf8f5':'#f5f1eb',
-                                            borderBottom:'1px solid #e2dcd5'}}>
+                    <div key={g.id} style={{display:'flex',alignItems:'center',gap:16,padding:'10px 16px',
+                                            background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                       <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:4,
                                     background:won?'#15803d':'#dc2626',color:'#fff',flexShrink:0}}>
                         {won?'W':'L'}
@@ -356,7 +342,6 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
               </div>
             </div>
           )}
-
           {upcoming.length > 0 && (
             <div>
               <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1.5px',
@@ -367,10 +352,8 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
                   const opp = isHome?g.away:g.home
                   const otc = readableTeamColor(opp?.color||'#5c554e')
                   return (
-                    <div key={g.id} style={{display:'flex',alignItems:'center',gap:16,
-                                            padding:'10px 16px',
-                                            background:i%2===0?'#faf8f5':'#f5f1eb',
-                                            borderBottom:'1px solid #e2dcd5'}}>
+                    <div key={g.id} style={{display:'flex',alignItems:'center',gap:16,padding:'10px 16px',
+                                            background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                       <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:4,
                                     background:'#e8e2d8',color:'#5c554e',flexShrink:0}}>
                         {isHome?'HOME':'AWAY'}
@@ -388,7 +371,6 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
               </div>
             </div>
           )}
-
           {played.length===0 && upcoming.length===0 && (
             <div style={{textAlign:'center',padding:'32px',color:'#8a8279'}}>No games scheduled.</div>
           )}
@@ -403,10 +385,20 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
           </div>
           <Link href={`/staff/${coach.id}`} style={{textDecoration:'none'}}>
             <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:'3px solid #b45309',
-                         borderRadius:12,padding:16,display:'inline-block',minWidth:220}}>
-              <div style={{fontSize:11,fontWeight:600,color:'#b45309',marginBottom:2}}>🎯 Head Coach</div>
-              <div style={{fontSize:16,fontWeight:700,color:'#1a1512'}}>{coach.name}</div>
-              <div style={{fontSize:11,color:'#8a8279',marginTop:2}}>{coach.nationality}{coach.age?` · Age ${coach.age}`:''}</div>
+                         borderRadius:12,padding:16,display:'inline-flex',alignItems:'center',gap:12,minWidth:220}}>
+              <div style={{width:48,height:48,borderRadius:10,overflow:'hidden',flexShrink:0,
+                           background:'#b4530918',border:'2px solid #b4530933',
+                           display:'flex',alignItems:'center',justifyContent:'center'}}>
+                {coach.photo_url
+                  ? <img src={coach.photo_url} alt={coach.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                  : <span style={{fontSize:14,fontWeight:800,color:'#b45309'}}>{coachInitials}</span>
+                }
+              </div>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,color:'#b45309',marginBottom:2}}>🏆 Head Coach</div>
+                <div style={{fontSize:16,fontWeight:700,color:'#1a1512'}}>{coach.name}</div>
+                <div style={{fontSize:11,color:'#8a8279',marginTop:2}}>{coach.nationality}{coach.age?` · Age ${coach.age}`:''}</div>
+              </div>
             </div>
           </Link>
         </div>
@@ -418,7 +410,7 @@ export default function GLeagueTeamPage({ params }: { params: { id: string } }) 
           INJURY REPORT
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8,fontSize:13,color:'#15803d'}}>
-          ✅ No active injuries. Full squad available.
+          ✓ No active injuries. Full squad available.
         </div>
       </div>
     </div>
