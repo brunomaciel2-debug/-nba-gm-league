@@ -197,7 +197,7 @@ export default function AdminMediaPage() {
   })
 
   // Group world teams by continent
-  const continents = [...new Set(worldTeams.map((t:any)=>t.continent).filter(Boolean))]
+  const continents = worldTeams.map((t:any)=>t.continent).filter((v:any,i:number,a:any[])=>v&&a.indexOf(v)===i)
 
   // NBA teams without special teams
   const nbaRegular = nbaTeams.filter((t:any)=>!['ALL','RVS','ROO','SOP'].includes(t.id))
