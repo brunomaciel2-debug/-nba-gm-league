@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 const ROLE_ORDER = ['head_coach','assistant_coach','trainer','physio']
 const ROLE_INFO: Record<string,{label:string,color:string,icon:string}> = {
-  head_coach:      {label:'Head Coach',      color:'#b45309',icon:'🎯'},
+  head_coach:      {label:'Head Coach',      color:'#b45309',icon:'🏆'},
   assistant_coach: {label:'Assistant Coach', color:'#1d4ed8',icon:'📋'},
   trainer:         {label:'Trainer',         color:'#15803d',icon:'💪'},
   physio:          {label:'Physio',          color:'#6d28d9',icon:'🏥'},
@@ -72,16 +72,25 @@ export default function CoachingStaff({ staff }: { staff: any[] }) {
         {sorted.map((c:any) => {
           const info = ROLE_INFO[c.role] || {label:c.role,color:'#5c554e',icon:'👤'}
           const isCoach = c.role==='head_coach'||c.role==='assistant_coach'
+          const initials = c.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()
           return (
             <Link key={c.id} href={`/staff/${c.id}`} className="no-underline group">
               <div className="rounded-xl p-4 h-full transition-all group-hover:brightness-95"
                    style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:'3px solid '+info.color}}>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
+                <div className="flex items-start gap-3 mb-3">
+                  {/* FOTO */}
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center"
+                       style={{background:info.color+'18',border:`2px solid ${info.color}33`}}>
+                    {c.photo_url
+                      ? <img src={c.photo_url} alt={c.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+                      : <span style={{fontSize:14,fontWeight:800,color:info.color}}>{initials}</span>
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold mb-0.5" style={{color:info.color}}>
-                      {info.icon} {info.label}
+                      {info.label}
                     </div>
-                    <div className="font-bold" style={{color:'#1a1512'}}>{c.name}</div>
+                    <div className="font-bold text-sm leading-tight" style={{color:'#1a1512'}}>{c.name}</div>
                     <div className="text-xs" style={{color:'#8a8279'}}>
                       {c.nationality}{c.age?` · Age ${c.age}`:''}
                     </div>
