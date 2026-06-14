@@ -3,8 +3,6 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import BannerUpload from './BannerUpload'
 
-// ── Shared components ────────────────────────────────────────────────────────
-
 function LogoRow({ item, table, idField='id', onSave, saving, saved }: {
   item: any, table: string, idField?: string,
   onSave: (id:string, url:string, table:string) => void,
@@ -35,7 +33,7 @@ function LogoRow({ item, table, idField='id', onSave, saving, saved }: {
         style={{fontSize:11,fontWeight:700,padding:'8px 16px',borderRadius:8,flexShrink:0,
                 minWidth:80,border:'none',cursor:'pointer',opacity:saving===id?0.4:1,
                 background:saved===id?'#15803d':'#1d4ed8',color:'#fff'}}>
-        {saving===id?'Saving…':saved===id?'✓ Saved':'Save'}
+        {saving===id?'Saving...':saved===id?'✔ Saved':'Save'}
       </button>
     </div>
   )
@@ -74,24 +72,15 @@ function PhotoRow({ item, type, onSave, saving, saved }: {
         style={{fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:8,flexShrink:0,
                 minWidth:72,border:'none',cursor:'pointer',opacity:saving===item.id?0.4:1,
                 background:saved===item.id?'#15803d':'#1d4ed8',color:'#fff'}}>
-        {saving===item.id?'…':saved===item.id?'✓':'Save'}
+        {saving===item.id?'...':saved===item.id?'✔':'Save'}
       </button>
     </div>
   )
 }
 
-// ── Main page ────────────────────────────────────────────────────────────────
-
 type LogoSection = 'nba'|'gleague'|'world'|'others'
 type PhotoSection = 'players'|'staff'
 type MainTab = 'logos'|'photos'
-
-const SPECIAL_TEAMS = [
-  {id:'ALL',  name:'All-Stars East'},
-  {id:'RVS',  name:'All-Stars West'},
-  {id:'ALL2', name:'Rookie Team'},
-  {id:'RVS2', name:'Sophomore Team'},
-]
 
 export default function AdminMediaPage() {
   const [mainTab,   setMainTab]   = useState<MainTab>('logos')
@@ -99,41 +88,45 @@ export default function AdminMediaPage() {
   const [photoSec,  setPhotoSec]  = useState<PhotoSection>('players')
   const [saving,    setSaving]    = useState<string|null>(null)
   const [saved,     setSaved]     = useState<string|null>(null)
+  const [debugMsg,  setDebugMsg]  = useState<string>('')
 
-  // Logos data
-  const [nbaTeams,  setNbaTeams]  = useState<any[]>([])
-  const [glTeams,   setGlTeams]   = useState<any[]>([])
-  const [worldTeams,setWorldTeams]= useState<any[]>([])
-
-  // Photos data
-  const [nbaForFilter,  setNbaForFilter]  = useState<any[]>([])
-  const [glForFilter,   setGlForFilter]   = useState<any[]>([])
-  const [selTeam,   setSelTeam]   = useState<string>('')
+  const [nbaTeams,   setNbaTeams]   = useState<any[]>([])
+  const [glTeams,    setGlTeams]    = useState<any[]>([])
+  const [worldTeams, setWorldTeams] = useState<any[]>([])
+  const [nbaForFilter, setNbaForFilter] = useState<any[]>([])
+  const [selTeam,    setSelTeam]    = useState<string>('')
   const [photoItems, setPhotoItems] = useState<any[]>([])
   const [staffItems, setStaffItems] = useState<any[]>([])
   const [selStaffTeam, setSelStaffTeam] = useState<string>('')
 
   useEffect(() => {
     supabase.from('teams').select('id,name,color,logo_url').order('name')
-      .then(({data}) => {
+      .then(({data, error}) => {
+        if (error) setDebugMsg('Teams error: ' + error.message)
         if (data) {
-          setNbaTeams(data.filter((t:any) => !['ALL','RVS'].includes(t.id)))
+          setNbaTeams(data.filter((t:any) => !['ALL','RVS','ROO','SOP'].includes(t.id)))
           setNbaForFilter(data)
         }
       })
     supabase.from('gleague_teams').select('id,name,color,logo_url,conference').order('name')
-      .then(({data}) => { if (data) setGlTeams(data); setGlForFilter(data||[]) })
+      .then(({data, error}) => {
+        if (error) setDebugMsg('GL error: ' + error.message)
+        if (data) { setGlTeams(data) }
+      })
     supabase.from('world_teams').select('id,name,color,logo_url,continent,country').order('continent').order('name')
-      .then(({data}) => { if (data) setWorldTeams(data) })
+      .then(({data, error}) => {
+        if (error) setDebugMsg('World error: ' + error.message)
+        if (data) setWorldTeams(data)
+      })
   }, [])
 
-  // Fetch players when team selected
+  // Fetch players
   useEffect(() => {
     if (!selTeam) { setPhotoItems([]); return }
     if (selTeam === 'GLEAGUE') {
       supabase.from('players').select('id,name,pos,photo_url')
         .not('gleague_team_id','is',null).is('team_id',null)
-        .order('gleague_team_id').order('usage',{ascending:false})
+        .order('usage',{ascending:false})
         .then(({data}) => setPhotoItems(data||[]))
     } else if (selTeam === 'FA') {
       supabase.from('players').select('id,name,pos,photo_url')
@@ -147,23 +140,22 @@ export default function AdminMediaPage() {
     }
   }, [selTeam])
 
-  // Fetch staff when team selected
+  // Fetch staff - usa service role via API para evitar problemas de RLS
   useEffect(() => {
     if (!selStaffTeam) { setStaffItems([]); return }
-    if (selStaffTeam === 'GLEAGUE') {
-      supabase.from('coaches').select('id,name,role,photo_url,team_id,gleague_team_id')
-        .not('gleague_team_id','is',null)
-        .order('gleague_team_id')
-        .then(({data}) => setStaffItems(data||[]))
-    } else if (selStaffTeam === 'FA') {
-      supabase.from('coaches').select('id,name,role,photo_url,team_id,gleague_team_id')
-        .is('team_id',null).is('gleague_team_id',null)
-        .then(({data}) => setStaffItems(data||[]))
-    } else {
-      supabase.from('coaches').select('id,name,role,photo_url,team_id,gleague_team_id')
-        .eq('team_id',selStaffTeam)
-        .then(({data}) => setStaffItems(data||[]))
+    setDebugMsg('A carregar staff para: ' + selStaffTeam)
+    
+    const loadStaff = async () => {
+      const res = await fetch(`/api/admin/media?type=staff&team=${selStaffTeam}`)
+      const json = await res.json()
+      if (json.error) {
+        setDebugMsg('Staff error: ' + json.error)
+      } else {
+        setDebugMsg('Staff carregado: ' + (json.staff?.length || 0) + ' membros')
+        setStaffItems(json.staff || [])
+      }
     }
+    loadStaff()
   }, [selStaffTeam])
 
   const saveLogo = async (id:string, url:string, table:string) => {
@@ -176,58 +168,53 @@ export default function AdminMediaPage() {
     if (!res.ok) { setSaving(null); alert('Save failed'); return }
     if (table==='teams') {
       setNbaTeams(t=>t.map((x:any)=>x.id===id?{...x,logo_url:url}:x))
-      await fetch('/api/revalidate?path=/teams').catch(()=>null)
-      await fetch('/api/revalidate?path=/standings').catch(()=>null)
-      await fetch(`/api/revalidate?path=/team/${id}`).catch(()=>null)
-    } else {
+    } else if (table==='gleague_teams') {
       setGlTeams(t=>t.map((x:any)=>x.id===id?{...x,logo_url:url}:x))
-      await fetch('/api/revalidate?path=/gleague').catch(()=>null)
-      await fetch(`/api/revalidate?path=/gleague/${id}`).catch(()=>null)
+    } else {
+      setWorldTeams(t=>t.map((x:any)=>x.id===id?{...x,logo_url:url}:x))
     }
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }
 
   const savePhoto = async (id:string, url:string, type:'player'|'staff') => {
     setSaving(id)
-    const table = type==='player'?'players':'coaches'
+    const photoType = type==='player' ? 'player_photo' : 'staff_photo'
     const res = await fetch('/api/admin/media', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ table, id, field:'photo_url', value:url })
+      body: JSON.stringify({ type: photoType, id, url })
     })
-    if (!res.ok) { setSaving(null); alert('Save failed — check permissions'); return }
+    if (!res.ok) { setSaving(null); alert('Save failed'); return }
     if (type==='player') {
       setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
-      await fetch(`/api/revalidate?path=/player/${id}`).catch(()=>null)
     } else {
       setStaffItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
-      await fetch(`/api/revalidate?path=/staff/${id}`).catch(()=>null)
     }
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }
 
-  // Team options for photos filter
   const playerTeamOptions = [
-    {value:'',      label:'— Select team —'},
-    ...(nbaForFilter.filter((t:any)=>!['ALL','RVS'].includes(t.id)).map((t:any)=>({value:t.id,label:t.name}))),
+    {value:'', label:'— Select team —'},
+    ...(nbaForFilter.filter((t:any)=>!['ALL','RVS','ROO','SOP'].includes(t.id)).map((t:any)=>({value:t.id,label:t.name}))),
     {value:'GLEAGUE', label:'── G-League Players ──'},
-    {value:'FA',    label:'── Free Agents ──'},
+    {value:'FA', label:'── Free Agents ──'},
   ]
+
   const staffTeamOptions = [
-    {value:'',      label:'— Select team —'},
-    ...(nbaForFilter.filter((t:any)=>!['ALL','RVS'].includes(t.id)).map((t:any)=>({value:t.id,label:t.name}))),
+    {value:'', label:'— Select team —'},
+    ...(nbaForFilter.filter((t:any)=>!['ALL','RVS','ROO','SOP'].includes(t.id)).map((t:any)=>({value:t.id,label:t.name}))),
     {value:'GLEAGUE', label:'── G-League Staff ──'},
-    {value:'FA',    label:'── Staff Free Agents ──'},
+    {value:'FA', label:'── Staff Free Agents ──'},
   ]
 
   const LOGO_SECTIONS: {key:LogoSection, label:string}[] = [
-    {key:'nba',    label:'NBA Teams'},
-    {key:'gleague',label:'G-League Teams'},
-    {key:'world',  label:'Rest of the World'},
+    {key:'nba', label:'NBA Teams'},
+    {key:'gleague', label:'G-League Teams'},
+    {key:'world', label:'Rest of the World'},
     {key:'others', label:'Others'},
   ]
   const PHOTO_SECTIONS: {key:PhotoSection, label:string}[] = [
     {key:'players', label:'Players'},
-    {key:'staff',   label:'Staff'},
+    {key:'staff', label:'Staff'},
   ]
 
   const btnStyle = (active:boolean) => ({
@@ -247,18 +234,25 @@ export default function AdminMediaPage() {
   return (
     <div style={{maxWidth:960,margin:'0 auto',padding:'24px 16px'}}>
 
-      {/* BANNER */}
       <div style={{borderRadius:12,padding:20,marginBottom:24,
                    background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #b45309'}}>
-        <h2 style={{fontSize:13,fontWeight:700,color:'#b45309',marginBottom:4}}>🖼️ Site Banner</h2>
-        <p style={{fontSize:11,color:'#6b5f4e',marginBottom:12}}>Recommended: 1200×280px · JPG or PNG</p>
+        <h2 style={{fontSize:13,fontWeight:700,color:'#b45309',marginBottom:4}}>🖼 Site Banner</h2>
+        <p style={{fontSize:11,color:'#6b5f4e',marginBottom:12}}>Recommended: 1200x280px · JPG or PNG</p>
         <BannerUpload />
       </div>
 
-      <h1 style={{fontSize:22,fontWeight:700,color:'#1a1512',marginBottom:4}}>🖼️ Media Manager</h1>
+      <h1 style={{fontSize:22,fontWeight:700,color:'#1a1512',marginBottom:4}}>🖼 Media Manager</h1>
       <p style={{fontSize:12,color:'#6b5f4e',marginBottom:24}}>
         Manage logos and photos. Paste any public image URL and click Save.
       </p>
+
+      {/* Debug message */}
+      {debugMsg && (
+        <div style={{background:'#fef3c7',border:'1px solid #f59e0b',borderRadius:8,
+                     padding:'8px 12px',marginBottom:16,fontSize:12,color:'#92400e'}}>
+          🔍 {debugMsg}
+        </div>
+      )}
 
       {/* MAIN TABS */}
       <div style={{display:'flex',gap:8,marginBottom:24,borderBottom:'2px solid #d4cdc5',paddingBottom:0}}>
@@ -275,10 +269,9 @@ export default function AdminMediaPage() {
         ))}
       </div>
 
-      {/* ── LOGOS ── */}
+      {/* LOGOS */}
       {mainTab === 'logos' && (
         <div>
-          {/* Sub-tabs */}
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:20}}>
             {LOGO_SECTIONS.map(s => (
               <button key={s.key} onClick={()=>setLogoSec(s.key)} style={subBtnStyle(logoSec===s.key)}>
@@ -287,94 +280,60 @@ export default function AdminMediaPage() {
             ))}
           </div>
 
-          {/* NBA Teams */}
           {logoSec === 'nba' && (
-            <div>
-              <p style={{fontSize:11,color:'#8a8279',marginBottom:12}}>
-                30 NBA franchises. Paste a public PNG/SVG URL and Save.
-              </p>
-              <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                {nbaTeams.map(t => (
-                  <LogoRow key={t.id} item={t} table="teams" onSave={saveLogo} saving={saving} saved={saved}/>
-                ))}
-              </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {nbaTeams.map(t => (
+                <LogoRow key={t.id} item={t} table="teams" onSave={saveLogo} saving={saving} saved={saved}/>
+              ))}
             </div>
           )}
 
-          {/* G-League Teams */}
           {logoSec === 'gleague' && (
-            <div>
-              <p style={{fontSize:11,color:'#8a8279',marginBottom:12}}>
-                30 G-League affiliates. Note: G-League teams currently inherit the NBA affiliate logo if no separate logo is set.
-              </p>
-              <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                {glTeams.map(t => (
-                  <LogoRow key={t.id} item={t} table="gleague_teams" onSave={saveLogo} saving={saving} saved={saved}/>
-                ))}
-              </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {glTeams.map(t => (
+                <LogoRow key={t.id} item={t} table="gleague_teams" onSave={saveLogo} saving={saving} saved={saved}/>
+              ))}
             </div>
           )}
 
-          {/* Rest of the World */}
           {logoSec === 'world' && (
-            <div>
-              <p style={{fontSize:11,color:'#8a8279',marginBottom:12}}>
-                {worldTeams.length} international teams for pre-season friendlies.
-              </p>
-              <div style={{display:'flex',flexDirection:'column',gap:10}}>
-                {worldTeams.map((t:any) => (
-                  <LogoRow key={t.id} item={t} table="world_teams" onSave={saveLogo} saving={saving} saved={saved}/>
-                ))}
-              </div>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {worldTeams.map((t:any) => (
+                <LogoRow key={t.id} item={t} table="world_teams" onSave={saveLogo} saving={saving} saved={saved}/>
+              ))}
             </div>
           )}
 
-          {/* Others */}
           {logoSec === 'others' && (
-            <div>
-              <p style={{fontSize:11,color:'#8a8279',marginBottom:16}}>
-                All-Star and Rookie/Sophomore team logos. Run <code>patch_special_teams.sql</code> first if slots are missing.
-              </p>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-                {/* All-Stars East / West */}
-                {['ALL','RVS','ROO','SOP'].map(id => {
-                  const labels: Record<string,string> = {
-                    ALL:'All-Stars East', RVS:'All-Stars West',
-                    ROO:'Rookie Team', SOP:'Sophomore Team'
-                  }
-                  const colors: Record<string,string> = {
-                    ALL:'#1e3a5f', RVS:'#7c2d12', ROO:'#6d28d9', SOP:'#b45309'
-                  }
-                  const found = nbaForFilter.find((t:any) => t.id === id)
-                  const item = found || { id, name: labels[id], logo_url: '' }
-                  return (
-                    <div key={id} style={{borderRadius:12,overflow:'hidden',
-                                          border:`2px solid ${colors[id]}22`}}>
-                      <div style={{padding:'8px 12px',fontSize:11,fontWeight:700,
-                                   background:colors[id]+'18',color:colors[id],
-                                   letterSpacing:'0.5px'}}>
-                        {labels[id]}
-                      </div>
-                      <div style={{padding:12,background:'#faf8f5'}}>
-                        {found
-                          ? <LogoRow item={item} table="teams" onSave={saveLogo} saving={saving} saved={saved}/>
-                          : <div style={{fontSize:12,color:'#8a8279',padding:'8px 0'}}>
-                              Not found in DB — run patch_special_teams.sql
-                            </div>}
-                      </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+              {['ALL','RVS','ROO','SOP'].map(id => {
+                const labels: Record<string,string> = {
+                  ALL:'All-Stars East', RVS:'All-Stars West',
+                  ROO:'Rookie Team', SOP:'Sophomore Team'
+                }
+                const found = nbaForFilter.find((t:any) => t.id === id)
+                const item = found || { id, name: labels[id], logo_url: '' }
+                return (
+                  <div key={id} style={{borderRadius:12,overflow:'hidden',border:'1px solid #d4cdc5'}}>
+                    <div style={{padding:'8px 12px',fontSize:11,fontWeight:700,background:'#f0ece5',color:'#1a1512'}}>
+                      {labels[id]}
                     </div>
-                  )
-                })}
-              </div>
+                    <div style={{padding:12,background:'#faf8f5'}}>
+                      {found
+                        ? <LogoRow item={item} table="teams" onSave={saveLogo} saving={saving} saved={saved}/>
+                        : <div style={{fontSize:12,color:'#8a8279'}}>Not found in DB</div>}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
       )}
 
-      {/* ── PHOTOS ── */}
+      {/* PHOTOS */}
       {mainTab === 'photos' && (
         <div>
-          {/* Sub-tabs */}
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:20}}>
             {PHOTO_SECTIONS.map(s => (
               <button key={s.key} onClick={()=>setPhotoSec(s.key)} style={subBtnStyle(photoSec===s.key,'#c8102e')}>
@@ -399,24 +358,19 @@ export default function AdminMediaPage() {
                   ))}
                 </select>
               </div>
-              {selTeam && photoItems.length === 0 && (
-                <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>No players found.</div>
-              )}
               {!selTeam && (
                 <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>
                   Select a team to manage player photos.
                 </div>
+              )}
+              {selTeam && photoItems.length === 0 && (
+                <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>No players found.</div>
               )}
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 {photoItems.map(p => (
                   <PhotoRow key={p.id} item={p} type="player" onSave={savePhoto} saving={saving} saved={saved}/>
                 ))}
               </div>
-              {photoItems.length > 0 && (
-                <p style={{fontSize:11,color:'#8a8279',marginTop:12}}>
-                  Tip: Find headshots on ESPN (right-click → Copy image address) or cdn.nba.com
-                </p>
-              )}
             </div>
           )}
 
@@ -436,13 +390,13 @@ export default function AdminMediaPage() {
                   ))}
                 </select>
               </div>
-              {selStaffTeam && staffItems.length === 0 && (
-                <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>No staff found.</div>
-              )}
               {!selStaffTeam && (
                 <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>
                   Select a team to manage staff photos.
                 </div>
+              )}
+              {selStaffTeam && staffItems.length === 0 && (
+                <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13}}>No staff found.</div>
               )}
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 {staffItems.map(s => (

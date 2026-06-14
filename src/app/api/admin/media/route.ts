@@ -10,28 +10,29 @@ const supabase = createClient(
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');
+  const team = searchParams.get('team');
 
   if (type === 'nba_teams') {
     const { data } = await supabase
       .from('teams')
-      .select('id, abbreviation, full_name, logo_url')
-      .order('full_name');
+      .select('id, name, logo_url')
+      .order('name');
     return NextResponse.json({ teams: data || [] });
   }
 
   if (type === 'gleague_teams') {
     const { data } = await supabase
       .from('gleague_teams')
-      .select('id, abbreviation, full_name, logo_url')
-      .order('full_name');
+      .select('id, name, logo_url')
+      .order('name');
     return NextResponse.json({ teams: data || [] });
   }
 
   if (type === 'world_teams') {
     const { data } = await supabase
       .from('world_teams')
-      .select('id, abbreviation, full_name, logo_url')
-      .order('full_name');
+      .select('id, name, logo_url')
+      .order('name');
     return NextResponse.json({ teams: data || [] });
   }
 
@@ -45,11 +46,21 @@ export async function GET(request: Request) {
   }
 
   if (type === 'staff') {
-    const { data } = await supabase
+    let query = supabase
       .from('coaches')
       .select('id, name, role, photo_url, team_id, gleague_team_id')
       .order('name');
-    return NextResponse.json({ staff: data || [] });
+
+    if (team === 'GLEAGUE') {
+      query = query.not('gleague_team_id', 'is', null);
+    } else if (team === 'FA') {
+      query = query.is('team_id', null).is('gleague_team_id', null);
+    } else if (team) {
+      query = query.eq('team_id', team);
+    }
+
+    const { data, error } = await query;
+    return NextResponse.json({ staff: data || [], error: error?.message });
   }
 
   return NextResponse.json({ error: 'Unknown type' }, { status: 400 });
@@ -57,8 +68,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { type, id, url } = body;
+  const { type, id, url, table, field, value } = body;
 
+  // Novo formato
   if (type === 'player_photo') {
     await supabase.from('players').update({ photo_url: url }).eq('id', id);
     revalidatePath('/');
@@ -71,21 +83,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   }
 
-  if (type === 'nba_logo') {
-    await supabase.from('teams').update({ logo_url: url }).eq('id', id);
-    revalidatePath('/teams');
-    return NextResponse.json({ success: true });
-  }
-
-  if (type === 'gleague_logo') {
-    await supabase.from('gleague_teams').update({ logo_url: url }).eq('id', id);
-    revalidatePath('/gleague');
-    return NextResponse.json({ success: true });
-  }
-
-  if (type === 'world_logo') {
-    await supabase.from('world_teams').update({ logo_url: url }).eq('id', id);
-    revalidatePath('/teams');
+  // Formato antigo (logos)
+  if (table && field && value !== undefined) {
+    const { error } = await supabase.from(table).update({ [field]: value }).eq('id', id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    revalidatePath('/');
     return NextResponse.json({ success: true });
   }
 
