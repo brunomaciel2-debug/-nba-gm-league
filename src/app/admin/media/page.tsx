@@ -156,11 +156,11 @@ export default function AdminMediaPage() {
         .order('gleague_team_id')
         .then(({data}) => setStaffItems(data||[]))
     } else if (selStaffTeam === 'FA') {
-      supabase.from('coaches').select('id,name,role,photo_url')
+      supabase.from('coaches').select('id,name,role,photo_url,team_id,gleague_team_id')
         .is('team_id',null).is('gleague_team_id',null)
         .then(({data}) => setStaffItems(data||[]))
     } else {
-      supabase.from('coaches').select('id,name,role,photo_url')
+      supabase.from('coaches').select('id,name,role,photo_url,team_id,gleague_team_id')
         .eq('team_id',selStaffTeam)
         .then(({data}) => setStaffItems(data||[]))
     }
