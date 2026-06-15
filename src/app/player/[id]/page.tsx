@@ -12,7 +12,7 @@ const ATTR_TIPS: Record<string,string> = {
   ft:          "Free Throws — free throw shooting accuracy. Critical in late-game situations and when fouled.",
   siq:         "Shot IQ — decision-making on shot selection. High value = player takes good shots and avoids contested ones.",
   draw_foul:   "Draw Foul — ability to get to the free throw line. High value earns more foul calls on drives and in the post.",
-  blk:         "Block — ability to block opponent shots. Impacts interior defence and psychological deterrence.",
+  blk:         "Block — ability to block opponent shhots. Impacts interior defence and psychological deterrence.",
   stl:         "Steal — ability to strip the ball or intercept passes. Affects transition offence and opponent turnover rate.",
   idef:        "Interior Defense — ability to defend in the paint against post players and drivers. Reduces easy buckets inside.",
   pdef:        "Perimeter Defense — ability to guard on the perimeter. Affects opponent shooting percentage on the wing.",
@@ -161,9 +161,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         <div className="flex gap-5 flex-wrap items-start">
           <div className="flex-shrink-0">
             {p.photo_url
-              ? <img src={p.photo_url} alt={p.name} className="w-28 h-28 rounded-xl object-cover"
+              ? <img src={p.photo_url} alt={p.name} className="w-40 h-40 rounded-xl object-cover"
                      style={{ border:'2px solid '+tc }} />
-              : <div className="w-28 h-28 rounded-xl flex items-center justify-center text-3xl font-black"
+              : <div className="w-40 h-40 rounded-xl flex items-center justify-center text-3xl font-black"
                      style={{ background:tc+'18', color:tc, border:'2px solid '+tc+'33' }}>
                   {p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                 </div>
