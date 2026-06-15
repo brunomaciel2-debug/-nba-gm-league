@@ -1,6 +1,6 @@
-'us.update({ photo_url: url }).eq('id', type==='player'?Number(id):id)e client'
+'use client'
 import React, { useState, useEffect } from 'react'
-imp.update({ photo_url: url }).eq('id', type==='player'?Number(id):id)ort { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import BannerUpload from './BannerUpload'
 
 function LogoRow({ item, table, onSave, saving, saved }: {
