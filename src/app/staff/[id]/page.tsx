@@ -99,7 +99,7 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
         <div className="flex items-start gap-5 flex-wrap">
 
           {/* FOTO ou ICONE */}
-          <div className="w-20 h-20 rounded-2xl flex-shrink-0 overflow-hidden flex items-center justify-center"
+          <div className="w-32 h-32 rounded-2xl flex-shrink-0 overflow-hidden flex items-center justify-center"
                style={{background:info.color+'18',border:`2px solid ${info.color}33`}}>
             {coach.photo_url
               ? <img src={coach.photo_url} alt={coach.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
