@@ -71,7 +71,7 @@ export async function POST(request: Request) {
   const { type, id, url, table, field, value } = body;
 
   // Novo formato
-  if (type === 'player_photo') {
+  if (body.photo_url !== undefined) { const t2=body.table||'players'; const eqId=t2==='players'?Number(body.id):body.id; await supabase.from(t2).update({photo_url:body.photo_url}).eq('id',eqId); revalidatePath('/'); return NextResponse.json({success:true}); }    if (type === 'player_photo') {
     await supabase.from('players').update({ photo_url: url }).eq('id', id);
     revalidatePath('/');
     return NextResponse.json({ success: true });
