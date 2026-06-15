@@ -65,7 +65,7 @@ export default async function LeagueLeadersPage() {
                         <span className="text-xs font-bold w-5 text-right flex-shrink-0"
                               style={{ color:i===0?cat.color:'#9c8e7a' }}>{i+1}</span>
                         {/* Photo */}
-                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0"
+                        <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0"
                              style={{ background:readableTeamColor(p.teamColor||'555')+'22' }}>
                           {p.photo
                             ? <img src={p.photo} alt="" className="w-full h-full object-cover" />
