@@ -166,7 +166,7 @@ export default function AdminMediaPage() {
   const savePhoto = async (id:string, url:string, type:'player'|'staff') => {
     setSaving(id)
     const table = type==='player'?'players':'coaches'
-    await supabase.from(table).update({ photo_url: url }).eq('id', type==='player'?Number(id):id)
+    await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table,id:type==='player'?Number(id):id,photo_url:url})})
     if (type==='player') setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
     else setStaffItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
