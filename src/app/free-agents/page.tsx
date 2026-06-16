@@ -120,7 +120,7 @@ function StaffTab({ staff }: { staff: any[] }) {
     .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a: any, b: any) => {
       let av = 0, bv = 0
-      if (sortKey === 'name')  { const r = a.name?.localeCompare(b.name) || 0; return sortDir === 'asc' ? r : -r }
+      if (sortKey === 'glTeam') { const r = (a.glTeam||'').localeCompare(b.glTeam||''); return sortDir === 'asc' ? r : -r }      if (sortKey === 'name')  { const r = a.name?.localeCompare(b.name) || 0; return sortDir === 'asc' ? r : -r }
       if (sortKey === 'age')   { av = a.age || 0;              bv = b.age || 0 }
       if (sortKey === 'attr')  { av = staffRating(a);          bv = staffRating(b) }
       if (sortKey === 'oa')    { av = a.off_adjustment || 0;   bv = b.off_adjustment || 0 }
@@ -300,7 +300,7 @@ export default function FreeAgentsPage() {
       fgpct: s.fga > 0 ? parseFloat((s.fgm/s.fga*100).toFixed(1)) : 0,
       tppct: s.tpa > 0 ? parseFloat((s.tpm/s.tpa*100).toFixed(1)) : 0,
       ftpct: s.fta > 0 ? parseFloat((s.ftm/s.fta*100).toFixed(1)) : 0,
-      topg: avg(s.turnovers),
+      topg: avg(s.turnovers), glTeam: p.gleague_teams?.name||null,
     }
   })
 
@@ -409,7 +409,7 @@ export default function FreeAgentsPage() {
                     <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
                                 fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
                                 borderRight:'1px solid #e2dcd5'}}>
-                      EXP<Tip text={TOOLTIPS.EXP}/>
+                      EXP<Tip text={TOOLTIPS.EXP}/></th><th onClick={()=>doSort('glTeam')} style={{cursor:'pointer',padding:'8px 10px',textAlign:'left',fontWeight:700,fontSize:11,color:'#8a8279',whiteSpace:'nowrap'}}>STATUS {sortKey==='glTeam'?(sortDir==='asc'?'▲':'▼'):''}
                     </th>
                     {mode === 'attributes' ? (
                       ATTR_COLS.map(c => (
@@ -462,7 +462,7 @@ export default function FreeAgentsPage() {
                         <td className="px-2 py-2 text-center" style={{borderRight:'1px solid #e2dcd5'}}>
                           <span className="text-xs font-semibold"
                                 style={{color:(p.nba_experience??1)===0?'#6d28d9':'#5c554e'}}>
-                            {EXP_LABEL(p.nba_experience ?? 1)}
+                            {EXP_LABEL(p.nba_experience ?? 1)}</span></td><td style={{padding:'6px 8px'}}><span style={{display:'inline-block',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:p.glTeam?'#1a3a2a':'#2a1a0a',color:p.glTeam?'#4ade80':'#d4a04a'}}>{p.glTeam||'FA'}</span>
                           </span>
                         </td>
                         {mode === 'attributes' ? (
