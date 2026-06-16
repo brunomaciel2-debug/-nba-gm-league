@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { calcOvr } from '@/lib/ovr'
+import OfferButton from './OfferButton'
 export const dynamic = "force-dynamic"
 
 const ATTR_TIPS: Record<string,string> = {
@@ -221,6 +222,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         </div>
       </div>
 
+      {!player.team_id && (
+              <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} />
+            )}
       <div className="flex flex-col gap-0">
         <div className="md:col-span-2">
 
