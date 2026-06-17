@@ -304,7 +304,9 @@ export default function FreeAgentsPage() {
     }
   })
 
+  const isGleague = tab === 'gleague'
   const filtered = rows
+    .filter(p => isGleague ? !!p.glTeam : !p.glTeam)
     .filter(p => pos === 'All' || p.pos === pos)
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
     .filter(p => (p.age || 25) <= maxAge)
@@ -328,13 +330,13 @@ export default function FreeAgentsPage() {
           Free Agents — 2025-26
         </span>
         <span className="text-sm font-semibold" style={{color:'#8a8279'}}>
-          {loading ? 'Loading…' : tab === 'players' ? `${filtered.length} players` : `${staff.length} staff`}
+          {loading ? 'Loading…' : tab === 'staff' ? `${staff.length} staff` : `${filtered.length} ${tab === 'gleague' ? 'G-Leaguers' : 'players'}`}
         </span>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4 border-b" style={{borderColor:'#d4cdc5'}}>
-        {(['players','staff'] as const).map(t => (
+        {(['players','gleague','staff'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             style={{padding:'10px 20px',fontSize:14,fontWeight:600,cursor:'pointer',
                     background:'transparent',border:'none',
