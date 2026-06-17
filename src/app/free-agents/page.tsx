@@ -6,7 +6,7 @@ import { calcOvr, ovrColor } from '@/lib/ovr'
 
 const POSITIONS = ['All','PG','SG','SF','PF','C']
 type Mode = 'stats' | 'attributes'
-type Tab  = 'players' | 'staff'
+type Tab  = 'players' | 'gleague' | 'staff'
 
 const TOOLTIPS: Record<string,string> = {
   '3PT':'Three-Point Shooting (0-100)', LAY:'Layup (0-100)', DNK:'Dunk (0-100)',
