@@ -120,8 +120,7 @@ function StaffTab({ staff }: { staff: any[] }) {
     .filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a: any, b: any) => {
       let av = 0, bv = 0
-      if (sortKey === 'glTeam') { const r = (a.glTeam||'').localeCompare(b.glTeam||''); return sortDir === 'asc' ? r : -r }
-      if (sortKey === 'name')  { const r = a.name?.localeCompare(b.name) || 0; return sortDir === 'asc' ? r : -r }
+      if (sortKey === 'glTeam') { const r = (a.glTeam||'').localeCompare(b.glTeam||''); return sortDir === 'asc' ? r : -r }      if (sortKey === 'name')  { const r = a.name?.localeCompare(b.name) || 0; return sortDir === 'asc' ? r : -r }
       if (sortKey === 'age')   { av = a.age || 0;              bv = b.age || 0 }
       if (sortKey === 'attr')  { av = staffRating(a);          bv = staffRating(b) }
       if (sortKey === 'oa')    { av = a.off_adjustment || 0;   bv = b.off_adjustment || 0 }
@@ -301,7 +300,7 @@ export default function FreeAgentsPage() {
       fgpct: s.fga > 0 ? parseFloat((s.fgm/s.fga*100).toFixed(1)) : 0,
       tppct: s.tpa > 0 ? parseFloat((s.tpm/s.tpa*100).toFixed(1)) : 0,
       ftpct: s.fta > 0 ? parseFloat((s.ftm/s.fta*100).toFixed(1)) : 0,
-      topg: avg(s.turnovers), glTeam: p.gleague_teams?.name||null,
+      topg: avg(s.turnovers), glTeam: p.gleague_teams?.name||null, glTeam: p.gleague_teams?.name||null,
     }
   })
 
@@ -310,8 +309,6 @@ export default function FreeAgentsPage() {
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
     .filter(p => (p.age || 25) <= maxAge)
     .sort((a: any, b: any) => {
-      if (sortKey === 'glTeam') { const r = (a.glTeam||'').localeCompare(b.glTeam||''); return sortDir === 'asc' ? r : -r }
-      if (sortKey === 'name') { const r = a.name?.localeCompare(b.name)||0; return sortDir === 'asc' ? r : -r }
       const av = a[sortKey] ?? 0, bv = b[sortKey] ?? 0
       return sortDir === 'desc' ? bv - av : av - bv
     })
