@@ -317,7 +317,7 @@ export default function FreeAgentsPage() {
 
   const handleSort = (key: string) => {
     if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
-    else { setSortKey(key); setSortDir('desc') }
+    else { setSortKey(key); setSortDir(key === 'glTeam' || key === 'name' ? 'asc' : 'desc') }
   }
 
   const POT_COLOR: Record<string,string> = {A:'#c8102e',B:'#b45309',C:'#1d4ed8',D:'#6b6258',F:'#9c9088'}
