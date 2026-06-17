@@ -222,6 +222,16 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         </div>
       </div>
 
+      {player.gleague_team_id && !player.team_id && (
+        <div style={{margin:'0 0 16px',padding:'16px',borderRadius:12,border:'1px solid #1a3a2a',background:'#0f1f15'}}>
+          <div style={{fontSize:11,fontWeight:700,color:'#4ade80',marginBottom:8,letterSpacing:1}}>G-LEAGUE CONTRACT</div>
+          <div style={{display:'flex',gap:24,flexWrap:'wrap'}}>
+            <div><div style={{fontSize:11,color:'#4ade80',opacity:0.7}}>Salary</div><div style={{fontWeight:700,color:'#4ade80'}}>$50,000</div></div>
+            <div><div style={{fontSize:11,color:'#4ade80',opacity:0.7}}>Type</div><div style={{fontWeight:700,color:'#4ade80'}}>G-League</div></div>
+            <div><div style={{fontSize:11,color:'#4ade80',opacity:0.7}}>Season</div><div style={{fontWeight:700,color:'#4ade80'}}>2025-26</div></div>
+          </div>
+        </div>
+      )}
       {!player.team_id && (
               <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} />
             )}
