@@ -309,6 +309,8 @@ export default function FreeAgentsPage() {
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
     .filter(p => (p.age || 25) <= maxAge)
     .sort((a: any, b: any) => {
+      if (sortKey === 'glTeam') { const r = (a.glTeam||'').localeCompare(b.glTeam||''); return sortDir === 'asc' ? r : -r }
+      if (sortKey === 'name') { const r = a.name?.localeCompare(b.name)||0; return sortDir === 'asc' ? r : -r }
       const av = a[sortKey] ?? 0, bv = b[sortKey] ?? 0
       return sortDir === 'desc' ? bv - av : av - bv
     })
