@@ -409,7 +409,7 @@ export default function FreeAgentsPage() {
                     <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
                                 fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
                                 borderRight:'1px solid #e2dcd5'}}>
-                      EXP<Tip text={TOOLTIPS.EXP}/></th><th onClick={()=>doSort('glTeam')} style={{cursor:'pointer',padding:'8px 10px',textAlign:'left',fontWeight:700,fontSize:11,color:'#8a8279',whiteSpace:'nowrap'}}>STATUS {sortKey==='glTeam'?(sortDir==='asc'?'^':'v'):''}</th>
+                      EXP<Tip text={TOOLTIPS.EXP}/></th><th onClick={()=>handleSort('glTeam')} style={{cursor:'pointer',padding:'8px 10px',textAlign:'left',fontWeight:700,fontSize:11,color:'#8a8279',whiteSpace:'nowrap'}}>STATUS {sortKey==='glTeam'?(sortDir==='asc'?'^':'v'):''}</th>
                     {mode === 'attributes' ? (
                       ATTR_COLS.map(c => (
                         <SortTh key={c.key} label={c.label} sk={sortKey} active={sortKey===c.key} dir={sortDir} onClick={() => handleSort(c.key)}/>
