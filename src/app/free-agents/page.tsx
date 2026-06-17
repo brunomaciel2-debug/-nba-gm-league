@@ -121,7 +121,7 @@ function StaffTab({ staff }: { staff: any[] }) {
     .sort((a: any, b: any) => {
       let av = 0, bv = 0
       if (sortKey === 'glTeam') { const r = (a.glTeam||'').localeCompare(b.glTeam||''); return sortDir === 'asc' ? r : -r }
-      if (sortKey === 'name')  \n      if (sortKey === 'name')  { const r = a.name?.localeCompare(b.name) || 0; 
+      if (sortKey === 'name')  { const r = a.name?.localeCompare(b.name) || 0; return sortDir === 'asc' ? r : -r }{ const r = a.name?.localeCompare(b.name) || 0; 
       if (sortKey === 'age')   { av = a.age || 0;              bv = b.age || 0 }
       if (sortKey === 'attr')  { av = staffRating(a);          bv = staffRating(b) }
       if (sortKey === 'oa')    { av = a.off_adjustment || 0;   bv = b.off_adjustment || 0 }
