@@ -461,9 +461,7 @@ export default function FreeAgentsPage() {
                         <td className="px-2 py-2 text-center" style={{borderRight:'1px solid #e2dcd5'}}>
                           <span className="text-xs font-semibold"
                                 style={{color:(p.nba_experience??1)===0?'#6d28d9':'#5c554e'}}>
-                            {EXP_LABEL(p.nba_experience ?? 1)}</span></td><td style={{padding:'6px 8px'}}><span style={{display:'inline-block',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:p.glTeam?'#1a3a2a':'#2a1a0a',color:p.glTeam?'#4ade80':'#d4a04a'}}>{p.glTeam||'FA'}</span>
-                          </span>
-                        </td>
+                            {EXP_LABEL(p.nba_experience ?? 1)}</span></td><td style={{padding:'6px 8px'}}><span style={{display:'inline-block',fontSize:10,fontWeight:700,padding:'2px 7px',borderRadius:5,background:p.glTeam?'#1a3a2a':'#2a1a0a',color:p.glTeam?'#4ade80':'#d4a04a'}}>{p.glTeam||'FA'}</span></td>
                         {mode === 'attributes' ? (
                           ATTR_COLS.map(c => (
                             <td key={c.key} className="px-2 py-2 text-center" style={{borderRight:'1px solid #e8e3db'}}>
