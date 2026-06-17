@@ -343,7 +343,7 @@ export default function FreeAgentsPage() {
                     color: tab===t ? '#1a1512' : '#5c554e',
                     borderBottom: tab===t ? '3px solid #c8102e' : '3px solid transparent',
                     marginBottom: -1}}>
-            {t === 'players' ? 'Players' : 'Staff'}
+            {t === 'players' ? 'Players' : t === 'gleague' ? 'G-Leaguers' : 'Staff'}
           </button>
         ))}
       </div>
