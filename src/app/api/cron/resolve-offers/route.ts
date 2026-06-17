@@ -3,13 +3,13 @@ import { createClient } from '@supabase/supabase-js'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-export async function POST(req: NextRequest) {
+async function resolveOffers() {
   const { data: offers } = await admin
     .from('fa_offers')
     .select('player_id, team_id, players(name, team_id, on_gleague_assignment)')
     .order('created_at')
 
-  if (!offers || offers.length === 0) return NextResponse.json({ resolved: 0 })
+  if (!offers || offers.length === 0) return { resolved: 0 }
 
   const byPlayer: Record<number, any[]> = {}
   for (const o of offers) {
@@ -41,5 +41,17 @@ export async function POST(req: NextRequest) {
     resolved++
   }
 
-  return NextResponse.json({ resolved })
+  return { resolved }
+}
+
+// Called by Vercel cron job
+export async function GET(req: NextRequest) {
+  const result = await resolveOffers()
+  return NextResponse.json(result)
+}
+
+// Called manually if needed
+export async function POST(req: NextRequest) {
+  const result = await resolveOffers()
+  return NextResponse.json(result)
 }
