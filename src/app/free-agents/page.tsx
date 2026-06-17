@@ -300,7 +300,7 @@ export default function FreeAgentsPage() {
       fgpct: s.fga > 0 ? parseFloat((s.fgm/s.fga*100).toFixed(1)) : 0,
       tppct: s.tpa > 0 ? parseFloat((s.tpm/s.tpa*100).toFixed(1)) : 0,
       ftpct: s.fta > 0 ? parseFloat((s.ftm/s.fta*100).toFixed(1)) : 0,
-      topg: avg(s.turnovers), glTeam: p.gleague_teams?.name||null, glTeam: p.gleague_teams?.name||null,
+      topg: avg(s.turnovers), glTeam: p.gleague_teams?.name||null,
     }
   })
 
