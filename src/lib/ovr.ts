@@ -1,22 +1,31 @@
 /**
  * Calculate Overall Rating (OVR) for a player.
  * Single source of truth — used everywhere.
+ * Weights defined by user via OVR_Formula_Builder.xlsx
+ * Total: 100%
  */
 export function calcOvr(p: any): number {
   if (!p) return 0
   return Math.round(
-    (p.usage     || 0) * 0.15 +
-    (p.siq       || 0) * 0.12 +
-    (p.consistency||0) * 0.10 +
-    (p.pressure  || 0) * 0.08 +
-    ((p.layup||0) + (p.dunk||0)) / 2 * 0.10 +
-    (p.three     || 0) * 0.08 +
-    (p.idef      || 0) * 0.08 +
-    (p.pdef      || 0) * 0.07 +
-    (p.stamina   || 0) * 0.05 +
-    (p.ball_hdl  || 0) * 0.07 +
-    (p.pass_iq   || 0) * 0.05 +
-    (p.def_reb   || 0) * 0.05
+    (p.usage      || 0) * 0.04 +
+    (p.siq        || 0) * 0.04 +
+    (p.layup      || 0) * 0.08 +
+    (p.dunk       || 0) * 0.06 +
+    (p.three      || 0) * 0.08 +
+    (p.mid        || 0) * 0.06 +
+    (p.ft         || 0) * 0.06 +
+    (p.draw_foul  || 0) * 0.08 +
+    (p.blk        || 0) * 0.05 +
+    (p.stl        || 0) * 0.05 +
+    (p.idef       || 0) * 0.04 +
+    (p.pdef       || 0) * 0.05 +
+    (p.def_reb    || 0) * 0.05 +
+    (p.off_reb    || 0) * 0.06 +
+    (p.stamina    || 0) * 0.04 +
+    (p.ball_hdl   || 0) * 0.07 +
+    (p.pass_vis   || 0) * 0.04 +
+    (p.pass_iq    || 0) * 0.04 +
+    (p.assist_role|| 0) * 0.01
   )
 }
 
