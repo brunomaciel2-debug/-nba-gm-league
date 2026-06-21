@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import GMPanel from './GMPanel'
 import RosterTable from './RosterTable'
 import TeamSchedule from './TeamSchedule'
 import TeamPageTabs from './TeamPageTabs'
@@ -90,16 +91,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
             </span>
           </div>
         </div>
-        <div className="rounded-xl p-4" style={{background:'#faf8f5',border:'1px solid #15803d',borderLeft:'4px solid #15803d'}}>
-          <h3 className="text-xs font-semibold uppercase tracking-widest mb-2" style={{color:'#15803d',letterSpacing:'1px'}}>GM PANEL</h3>
-          <p className="text-xs mb-3" style={{color:'#5c554e'}}>Depth chart, ball roles and tactics. Deadline: Sunday 23:59.</p>
-          <Link href={`/gm/orders/${teamId}`}
-                className="block text-center text-sm font-bold py-2.5 rounded-lg no-underline"
-                style={{background:'#15803d',color:'#fff',fontWeight:700}}>
-            Set Weekly Orders →
-          </Link>
-        </div>
-      </div>
+        <GMPanel teamId={teamId} />
 
       {/* ROSTER + SCHEDULE TABS */}
       <TeamPageTabs

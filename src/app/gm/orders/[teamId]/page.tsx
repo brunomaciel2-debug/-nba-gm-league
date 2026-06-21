@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 const POSITIONS = ['PG','SG','SF','PF','C']
@@ -32,6 +33,24 @@ const DEF_STYLES = [
 
 function InfoTip({ text }: { text: string }) {
   const [show, setShow] = useState(false)
+  if (isAuthorized === null) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh'}}>
+      <div style={{color:'#5c554e',textAlign:'center'}}>
+        <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>Verifying access...</div>
+      </div>
+    </div>
+  )
+  if (isAuthorized === false) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh'}}>
+      <div style={{textAlign:'center',padding:40,borderRadius:16,background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+        <div style={{fontSize:40,marginBottom:16}}>🔒</div>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:8,color:'#1a1512'}}>Access Denied</div>
+        <div style={{fontSize:14,marginBottom:20,color:'#5c554e'}}>Only the GM of this team or the Commissioner can access this page.</div>
+        <a href="/" style={{fontSize:14,fontWeight:700,padding:'10px 24px',borderRadius:8,background:'#1a1512',color:'#fff',textDecoration:'none'}}>Go Home</a>
+      </div>
+    </div>
+  )
+
   return (
     <span className="relative inline-flex ml-1 cursor-help"
           onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
@@ -68,10 +87,21 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
     C: {s:{name:'',mins:0},b1:{name:'',mins:0},b2:{name:'',mins:0}},
   })
   const [saving, setSaving] = useState(false)
+  const [isAuthorized, setIsAuthorized] = useState<boolean|null>(null)
+  const router = useRouter()
   const [saved, setSaved] = useState(false)
   const [locked, setLocked] = useState(false)
 
   useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setIsAuthorized(false); return }
+      const { data: gm } = await supabase.from('gm_profiles').select('team_id, is_commissioner').eq('id', user.id).single()
+      if (gm?.is_commissioner || gm?.team_id === teamId) {
+        setIsAuthorized(true)
+      } else {
+        setIsAuthorized(false)
+      }
+    })
     supabase.from('teams').select('*').eq('id',teamId).single().then(({data})=>data&&setTeam(data))
     supabase.from('players').select('name,pos,usage').eq('team_id',teamId).eq('status','active')
       .order('usage',{ascending:false}).then(({data})=>{ if(data)setPlayers(data) })
