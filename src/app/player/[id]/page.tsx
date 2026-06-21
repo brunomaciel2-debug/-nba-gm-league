@@ -2,7 +2,9 @@ import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { calcOvr } from '@/lib/ovr'
 import OfferButton from './OfferButton'
+import CutButton from './CutButton'
 export const dynamic = "force-dynamic"
+export const revalidate = 0
 
 const ATTR_TIPS: Record<string,string> = {
   usage:       "Usage Rate — how often this player is involved in offensive plays. High usage = primary option. Impacts scoring consistency and team dependency.",
@@ -13,7 +15,7 @@ const ATTR_TIPS: Record<string,string> = {
   ft:          "Free Throws — free throw shooting accuracy. Critical in late-game situations and when fouled.",
   siq:         "Shot IQ — decision-making on shot selection. High value = player takes good shots and avoids contested ones.",
   draw_foul:   "Draw Foul — ability to get to the free throw line. High value earns more foul calls on drives and in the post.",
-  blk:         "Block — ability to block opponent shhots. Impacts interior defence and psychological deterrence.",
+  blk:         "Block — ability to block opponent shots. Impacts interior defence and psychological deterrence.",
   stl:         "Steal — ability to strip the ball or intercept passes. Affects transition offence and opponent turnover rate.",
   idef:        "Interior Defense — ability to defend in the paint against post players and drivers. Reduces easy buckets inside.",
   pdef:        "Perimeter Defense — ability to guard on the perimeter. Affects opponent shooting percentage on the wing.",
@@ -233,12 +235,15 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         </div>
       )}
       {!player.team_id && (
-              <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} />
-            )}
+        <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} />
+      )}
+      {player.team_id && (
+        <CutButton playerId={player.id} playerTeamId={player.team_id ?? null} />
+      )}
       <div className="flex flex-col gap-0">
         <div className="md:col-span-2">
 
-    
+
       {/* G-League Assignment */}
       {p.team_id && p.nba_recruitable !== false && (
         <div className="mb-4">
@@ -498,7 +503,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
       </div>
     </div>
-  
+
 {/* AWARDS */}
           <div className="mt-2">
             <div className="sec-hdr mb-4">
@@ -558,6 +563,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                     {(contracts||[]).map((c:any, i:number) => {
                       const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#5c554e',bg:'#f0ece5'}
                       const isCurrent = c.season==='2025-26'
+                      const isWaived = c.waived === true
                       return (
                         <tr key={c.id}
                             style={{ background:isCurrent?tc+'11':i%2===0?'#faf8f5':'#f5f1eb',
@@ -568,6 +574,8 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                             </span>
                             {isCurrent && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
                                                style={{ background:tc+'22', color:tc }}>Current</span>}
+                            {isWaived && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
+                                               style={{ background:'#fee2e2', color:'#dc2626' }}>Waived</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right font-bold" style={{ color:'#1a1512' }}>
                             {capFmt(c.salary)}
