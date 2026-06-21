@@ -15,7 +15,7 @@ const ATTR_TIPS: Record<string,string> = {
   ft:          "Free Throws — free throw shooting accuracy. Critical in late-game situations and when fouled.",
   siq:         "Shot IQ — decision-making on shot selection. High value = player takes good shots and avoids contested ones.",
   draw_foul:   "Draw Foul — ability to get to the free throw line. High value earns more foul calls on drives and in the post.",
-  blk:         "Block — ability to block opponent shots. Impacts interior defence and psychological deterrence.",
+  blk:         "Block — ability to block opponent shhots. Impacts interior defence and psychological deterrence.",
   stl:         "Steal — ability to strip the ball or intercept passes. Affects transition offence and opponent turnover rate.",
   idef:        "Interior Defense — ability to defend in the paint against post players and drivers. Reduces easy buckets inside.",
   pdef:        "Perimeter Defense — ability to guard on the perimeter. Affects opponent shooting percentage on the wing.",
@@ -237,12 +237,8 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       {!player.team_id && (
         <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} />
       )}
-      {player.team_id && (
-        <CutButton playerId={player.id} playerTeamId={player.team_id ?? null} />
-      )}
       <div className="flex flex-col gap-0">
         <div className="md:col-span-2">
-
 
       {/* G-League Assignment */}
       {p.team_id && p.nba_recruitable !== false && (
@@ -251,7 +247,6 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             <div className="flex items-center justify-between px-4 py-3 rounded-xl"
                  style={{background:'#fef9c3',border:'1px solid #b45309'}}>
               <div className="text-xs font-semibold" style={{color:'#b45309'}}>
-                <i className="ti ti-ball-basketball" style={{marginRight:4}}></i>
                 On G-League Assignment
               </div>
               <form action="/api/gleague/recall" method="POST">
@@ -266,17 +261,19 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             <div className="flex items-center justify-between px-4 py-3 rounded-xl"
                  style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
               <div className="text-xs" style={{color:'#5c554e'}}>
-                <i className="ti ti-ball-basketball" style={{marginRight:4}}></i>
                 Available for G-League assignment
               </div>
-              <form action="/api/gleague/assign" method="POST">
-                <input type="hidden" name="playerId" value={p.id}/>
-                <input type="hidden" name="teamId" value={p.team_id}/>
-                <button type="submit" className="text-xs font-bold px-3 py-1.5 rounded-lg"
-                        style={{background:'#15803d',color:'#fff'}}>
-                  Send to G-League
-                </button>
-              </form>
+              <div className="flex items-center gap-2">
+                <form action="/api/gleague/assign" method="POST">
+                  <input type="hidden" name="playerId" value={p.id}/>
+                  <input type="hidden" name="teamId" value={p.team_id}/>
+                  <button type="submit" className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                          style={{background:'#15803d',color:'#fff'}}>
+                    Send to G-League
+                  </button>
+                </form>
+                <CutButton playerId={p.id} playerTeamId={p.team_id ?? null} />
+              </div>
             </div>
           )}
         </div>
@@ -326,23 +323,12 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                 <thead>
                   <tr style={{ background:'#f0ece5', borderBottom:'2px solid #d4cdc5' }}>
                     {[
-                      {h:'Season',   align:'left'},
-                      {h:'GP',       align:'right'},
-                      {h:'MIN',      align:'right'},
-                      {h:'PPG',      align:'right'},
-                      {h:'RPG',      align:'right'},
-                      {h:'APG',      align:'right'},
-                      {h:'SPG',      align:'right'},
-                      {h:'BPG',      align:'right'},
-                      {h:'OREB',     align:'right'},
-                      {h:'DREB',     align:'right'},
-                      {h:'FG%',      align:'right'},
-                      {h:'3P%',      align:'right'},
-                      {h:'FT%',      align:'right'},
-                      {h:'TO',       align:'right'},
-                      {h:'PF',       align:'right'},
-                      {h:'TD',       align:'right'},
-                      {h:'+/-',      align:'right'},
+                      {h:'Season',align:'left'},{h:'GP',align:'right'},{h:'MIN',align:'right'},
+                      {h:'PPG',align:'right'},{h:'RPG',align:'right'},{h:'APG',align:'right'},
+                      {h:'SPG',align:'right'},{h:'BPG',align:'right'},{h:'OREB',align:'right'},
+                      {h:'DREB',align:'right'},{h:'FG%',align:'right'},{h:'3P%',align:'right'},
+                      {h:'FT%',align:'right'},{h:'TO',align:'right'},{h:'PF',align:'right'},
+                      {h:'TD',align:'right'},{h:'+/-',align:'right'},
                     ].map(({h,align})=>(
                       <th key={h} className="px-2.5 py-2.5 font-bold"
                           style={{ color:'#5c554e', textAlign: align as any, whiteSpace:'nowrap',
@@ -402,10 +388,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           {/* LAST 5 GAMES */}
       <div className="mt-6">
         <div className="sec-hdr mb-4">
-          <span className="sec-title">
-            <i className="ti ti-calendar-stats" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
-            Last 5 Games
-          </span>
+          <span className="sec-title">Last 5 Games</span>
         </div>
         {(lastGames||[]).length === 0 ? (
           <div className="rounded-xl p-4 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
@@ -472,10 +455,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       {/* INJURY HISTORY */}
       <div className="mt-6 mb-6">
         <div className="sec-hdr mb-4">
-          <span className="sec-title">
-            <i className="ti ti-medical-cross" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
-            Injury History
-          </span>
+          <span className="sec-title">Injury History</span>
         </div>
         <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
           {(injuries||[]).length === 0 ? (
@@ -507,10 +487,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 {/* AWARDS */}
           <div className="mt-2">
             <div className="sec-hdr mb-4">
-              <span className="sec-title">
-                <i className="ti ti-trophy" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
-                Awards & Honours
-              </span>
+              <span className="sec-title">Awards & Honours</span>
             </div>
             <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
               {(playerAwards||[]).length === 0 ? (
@@ -543,7 +520,6 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             </div>
           </div>
 
-
       {/* CONTRACT */}
       {(contracts||[]).length > 0 && (
         <div className="mt-6">
@@ -557,6 +533,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                       <th className="px-4 py-2.5 text-left font-semibold" style={{ color:'#5c554e' }}>Season</th>
                       <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Salary</th>
                       <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Type</th>
+                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -574,8 +551,6 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                             </span>
                             {isCurrent && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
                                                style={{ background:tc+'22', color:tc }}>Current</span>}
-                            {isWaived && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
-                                               style={{ background:'#fee2e2', color:'#dc2626' }}>Waived</span>}
                           </td>
                           <td className="px-4 py-2.5 text-right font-bold" style={{ color:'#1a1512' }}>
                             {capFmt(c.salary)}
@@ -586,6 +561,14 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                               {typeInfo.label}
                             </span>
                           </td>
+                          <td className="px-4 py-2.5 text-right">
+                            {isWaived && (
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded"
+                                    style={{ background:'#fee2e2', color:'#dc2626' }}>
+                                Waived
+                              </span>
+                            )}
+                          </td>
                         </tr>
                       )
                     })}
@@ -594,6 +577,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                       <td className="px-4 py-2.5 text-right font-black" style={{ color:'#c8102e' }}>
                         {capFmt(totalValue)}
                       </td>
+                      <td></td>
                       <td></td>
                     </tr>
                   </tbody>
