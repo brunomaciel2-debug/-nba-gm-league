@@ -32,7 +32,6 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const capFmt = (n:number) => '$'+Math.round(n/1000000).toFixed(1)+'M'
   const teamsMap = Object.fromEntries((allTeams||[]).map((x:any)=>[x.id,x]))
 
-  // Filter injuries to only this team's players
   const teamPlayerIds = new Set((players||[]).map((p:any)=>p.id))
   const teamInjuries = (injuries||[]).filter((i:any)=>teamPlayerIds.has(i.player_id))
 
@@ -41,7 +40,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
     (g.home_team===teamId?g.home_score:g.away_score) > (g.home_team===teamId?g.away_score:g.home_score)
   ).length
   const losses = played.length - wins
-  const pct    = played.length>0?(wins/played.length).toFixed(3):'—'
+  const pct    = played.length>0?(wins/played.length).toFixed(3):'-'
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -92,6 +91,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
           </div>
         </div>
         <GMPanel teamId={teamId} />
+      </div>
 
       {/* ROSTER + SCHEDULE TABS */}
       <TeamPageTabs
