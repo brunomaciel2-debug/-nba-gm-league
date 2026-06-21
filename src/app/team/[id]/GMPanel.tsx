@@ -15,7 +15,7 @@ export default function GMPanel({ teamId }: { teamId: string }) {
         .select('team_id, is_commissioner')
         .eq('id', user.id)
         .single()
-      if (gm?.is_commissioner || gm?.team_id === teamId) {
+      if (gm?.role === 'commissioner' || gm?.team_id === teamId) {
         setAuthorized(true)
       }
       setLoading(false)

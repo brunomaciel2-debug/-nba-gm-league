@@ -79,7 +79,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setIsAuthorized(false); return }
       const { data: gm } = await supabase.from('gm_profiles').select('team_id, is_commissioner').eq('id', user.id).single()
-      if (gm?.is_commissioner || gm?.team_id === teamId) {
+      if (gm?.role === 'commissioner' || gm?.team_id === teamId) {
         setIsAuthorized(true)
       } else {
         setIsAuthorized(false)
