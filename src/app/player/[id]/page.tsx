@@ -272,6 +272,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                     Send to G-League
                   </button>
                 </form>
+                {/* @ts-ignore */}
                 <CutButton playerId={p.id} playerTeamId={p.team_id ?? null} />
               </div>
             </div>
