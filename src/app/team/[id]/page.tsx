@@ -6,7 +6,6 @@ import TeamSchedule from './TeamSchedule'
 import TeamPageTabs from './TeamPageTabs'
 import InjuryReport from './InjuryReport'
 import CoachingStaff from './CoachingStaff'
-import SeasonSidebar from '@/components/SeasonSidebar'
 import { readableTeamColor } from '@/lib/color'
 export const dynamic = "force-dynamic"
 
@@ -72,62 +71,48 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      {/* MAIN LAYOUT: content + sidebar */}
-      <div className="flex flex-col lg:flex-row gap-4">
-
-        {/* LEFT: main content */}
-        <div className="flex-1 min-w-0">
-
-          {/* CAP ROOM + GM PANEL */}
-          <div className="grid sm:grid-cols-2 gap-4 mb-4">
-            <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-              <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>💰 Cap Room</h3>
-              <div className="flex justify-between text-xs mb-1">
-                <span style={{color:'#6b5f4e'}}>Used</span>
-                <span className="font-bold" style={{color:'#1a1612'}}>{capFmt(used)}</span>
-              </div>
-              <div className="h-2 rounded-full overflow-hidden mb-1" style={{background:'#cec7bc'}}>
-                <div className="h-full rounded-full" style={{width:Math.min(100,used/cap*100)+'%',
-                  background:space>0?'#1d4ed8':'#dc2626'}}></div>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span style={{color:'#6b5f4e'}}>Cap: {capFmt(cap)}</span>
-                <span className="font-bold" style={{color:space>0?'#15803d':'#dc2626'}}>
-                  {space>0?'Space: +'+capFmt(space):'Over: '+capFmt(Math.abs(space))}
-                </span>
-              </div>
-            </div>
-            <GMPanel teamId={teamId} />
+      {/* CAP ROOM + GM PANEL */}
+      <div className="grid sm:grid-cols-2 gap-4 mb-4">
+        <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>💰 Cap Room</h3>
+          <div className="flex justify-between text-xs mb-1">
+            <span style={{color:'#6b5f4e'}}>Used</span>
+            <span className="font-bold" style={{color:'#1a1612'}}>{capFmt(used)}</span>
           </div>
-
-          {/* ROSTER + SCHEDULE TABS */}
-          <TeamPageTabs
-            players={players||[]}
-            games={games||[]}
-            teamId={teamId}
-            teamColor={color}
-            teamsMap={teamsMap}
-          />
-
-          {/* COACHING STAFF */}
-          <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-            <CoachingStaff staff={coaches||[]} />
+          <div className="h-2 rounded-full overflow-hidden mb-1" style={{background:'#cec7bc'}}>
+            <div className="h-full rounded-full" style={{width:Math.min(100,used/cap*100)+'%',
+              background:space>0?'#1d4ed8':'#dc2626'}}></div>
           </div>
-
-          {/* INJURY REPORT */}
-          <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-            <InjuryReport
-              injuries={teamInjuries||[]}
-              players={players||[]}
-            />
+          <div className="flex justify-between text-xs">
+            <span style={{color:'#6b5f4e'}}>Cap: {capFmt(cap)}</span>
+            <span className="font-bold" style={{color:space>0?'#15803d':'#dc2626'}}>
+              {space>0?'Space: +'+capFmt(space):'Over: '+capFmt(Math.abs(space))}
+            </span>
           </div>
         </div>
+        <GMPanel teamId={teamId} />
+      </div>
 
-        {/* RIGHT: sidebar */}
-        <div className="w-full lg:w-72 flex-shrink-0">
-          <SeasonSidebar />
-        </div>
+      {/* ROSTER + SCHEDULE TABS */}
+      <TeamPageTabs
+        players={players||[]}
+        games={games||[]}
+        teamId={teamId}
+        teamColor={color}
+        teamsMap={teamsMap}
+      />
 
+      {/* COACHING STAFF */}
+      <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+        <CoachingStaff staff={coaches||[]} />
+      </div>
+
+      {/* INJURY REPORT */}
+      <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+        <InjuryReport
+          injuries={teamInjuries||[]}
+          players={players||[]}
+        />
       </div>
     </div>
   )
