@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useAuth } from './AuthProvider'
 import InboxButton from './InboxButton'
+import ChatButton from './ChatButton'
 import SimulatorBanner from './SimulatorBanner'
 
 const NAV = [
@@ -49,6 +50,7 @@ export default function Navbar() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            <ChatButton />
             <InboxButton />
             {loading ? (
               <div className="w-8 h-8 rounded-full animate-pulse" style={{ background: 'rgba(255,255,255,0.1)' }} />

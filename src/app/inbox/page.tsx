@@ -1,233 +1,138 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useAuth } from '@/components/AuthProvider'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 
-const MSG_TYPE_STYLE: Record<string,{color:string,icon:string,label:string}> = {
-  message:        {color:'#1e40af',icon:'💬',label:'Message'},
-  trade_proposal: {color:'#b45309',icon:'🔄',label:'Trade Proposal'},
-  staff_offer:    {color:'#166534',icon:'👔',label:'Staff Offer'},
-  system:         {color:'#6b5f4e',icon:'🔔',label:'System'},
+const TYPE_ICONS: Record<string,string> = {
+  system: '🤖',
+  preseason_request: '🏀',
+  preseason_accepted: '✅',
+  preseason_declined: '❌',
+  injury: '🏥',
+  trade: '🔄',
+  contract: '📝',
+  award: '🏆',
 }
 
 export default function InboxPage() {
-  const { user, profile, loading: authLoading } = useAuth()
-  const [profiles,    setProfiles]    = useState<any[]>([])
-  const [thread,      setThread]      = useState<any | null>(null) // selected user to chat with
-  const [messages,    setMessages]    = useState<any[]>([])
-  const [newMsg,      setNewMsg]      = useState('')
-  const [sending,     setSending]     = useState(false)
-  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const router = useRouter()
+  const [messages, setMessages] = useState<any[]>([])
+  const [myTeamId, setMyTeamId] = useState<string|null>(null)
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState<'all'|'unread'>('all')
 
   useEffect(() => {
-    if (!authLoading && !user) router.push('/login')
-  }, [user, authLoading])
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setLoading(false); return }
+      const { data: gm } = await supabase.from('gm_profiles').select('team_id').eq('id', user.id).single()
+      if (!gm?.team_id) { setLoading(false); return }
+      setMyTeamId(gm.team_id)
 
-  useEffect(() => {
-    if (!user) return
-    // Load all GM profiles
-    supabase.from('gm_profiles').select('*, teams(id,name,color,logo_url)')
-      .neq('id', user.id).then(({ data }) => setProfiles(data||[]))
+      const { data } = await supabase
+        .from('inbox_messages')
+        .select('*')
+        .eq('to_team_id', gm.team_id)
+        .order('created_at', { ascending: false })
+        .limit(100)
+      setMessages(data || [])
+      setLoading(false)
 
-    // Presence for online status
-    const presence = supabase.channel('online-users')
-    presence.on('presence', { event: 'sync' }, () => {
-      const state = presence.presenceState()
-      setOnlineUsers(new Set(Object.keys(state)))
-    }).subscribe(async status => {
-      if (status === 'SUBSCRIBED') await presence.track({ user_id: user.id })
+      // Mark all as read
+      await supabase.from('inbox_messages')
+        .update({ read: true })
+        .eq('to_team_id', gm.team_id)
+        .eq('read', false)
     })
-    return () => { supabase.removeChannel(presence) }
-  }, [user])
+  }, [])
 
-  useEffect(() => {
-    if (!user || !thread) return
-    // Load messages for this thread
-    const load = async () => {
-      const { data } = await supabase.from('messages').select('*')
-        .or(`and(from_user.eq.${user.id},to_user.eq.${thread.id}),and(from_user.eq.${thread.id},to_user.eq.${user.id})`)
-        .order('created_at')
-      setMessages(data||[])
-      // Mark as read
-      await supabase.from('messages').update({ read: true })
-        .eq('to_user', user.id).eq('from_user', thread.id).eq('read', false)
-    }
-    load()
-    // Realtime subscription for this thread
-    const sub = supabase.channel(`thread-${thread.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-        const m = payload.new as any
-        if ((m.from_user===user.id&&m.to_user===thread.id)||(m.from_user===thread.id&&m.to_user===user.id)) {
-          setMessages(prev => [...prev, m])
-          if (m.to_user===user.id) supabase.from('messages').update({read:true}).eq('id',m.id)
-        }
-      }).subscribe()
-    return () => { supabase.removeChannel(sub) }
-  }, [user, thread])
+  const filtered = filter === 'unread' ? messages.filter(m => !m.read) : messages
+  const unreadCount = messages.filter(m => !m.read).length
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const sendMessage = async () => {
-    if (!newMsg.trim() || !thread || !user) return
-    setSending(true)
-    await supabase.from('messages').insert({
-      from_user: user.id, to_user: thread.id,
-      body: newMsg.trim(), type: 'message'
-    })
-    setNewMsg('')
-    setSending(false)
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso)
+    const now = new Date()
+    const diff = now.getTime() - d.getTime()
+    if (diff < 60000) return 'Just now'
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  if (authLoading) return (
-    <div className="flex items-center justify-center h-64" style={{color:'#6b5f4e'}}>Loading...</div>
-  )
-  if (!user) return null
+  if (loading) return <div className="p-8 text-center" style={{color:'#5c554e'}}>Loading...</div>
 
-  const teamColor = profile?.teams?.color ? '#'+profile.teams.color : '#1d4ed8'
+  if (!myTeamId) return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center p-8 rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+        <div className="text-4xl mb-4">🔒</div>
+        <div className="text-xl font-black mb-2" style={{color:'#1a1512'}}>Login Required</div>
+        <a href="/login" className="text-sm font-bold px-4 py-2 rounded-lg"
+           style={{background:'#1a1512',color:'#fff',textDecoration:'none'}}>Sign In</a>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <h1 className="text-xl font-bold mb-4" style={{color:'#1a1612'}}>✉️ Messages</h1>
-      <div className="flex gap-4 h-[600px]">
-        {/* Sidebar — GMs list */}
-        <div className="w-64 flex-shrink-0 rounded-xl overflow-hidden flex flex-col"
-             style={{border:'1px solid #d4cec3',background:'#e8e2d6'}}>
-          <div className="px-4 py-3" style={{borderBottom:'1px solid #d4cec3',background:'#ddd7ca'}}>
-            <p className="text-xs font-semibold" style={{color:'#6b5f4e'}}>All GMs</p>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {profiles.map(p => {
-              const tc = p.teams?.color ? '#'+p.teams.color : '#5c554e'
-              const isOnline = onlineUsers.has(p.id)
-              const isSelected = thread?.id === p.id
-              return (
-                <button key={p.id} onClick={() => setThread(p)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all"
-                  style={{background:isSelected?'#d4cdc5':'transparent',
-                          borderBottom:'1px solid #ddd8ce'}}>
-                  <div className="relative flex-shrink-0">
-                    <div className="w-9 h-9 rounded-full overflow-hidden"
-                         style={{background:tc+'22',border:'1.5px solid '+tc+'44'}}>
-                      {p.teams?.logo_url
-                        ?<img src={p.teams.logo_url} alt="" className="w-full h-full object-contain p-1"/>
-                        :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>
-                           {p.teams?.id?.slice(0,2)||'?'}
-                         </div>}
-                    </div>
-                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2"
-                         style={{background:isOnline?'#15803d':'#8a8279',borderColor:'#ede8df'}}></div>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate" style={{color:'#1a1612'}}>
-                      {p.display_name||p.teams?.name||'GM'}
-                    </div>
-                    <div className="text-xs" style={{color:tc}}>{p.teams?.name}</div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+    <div className="max-w-3xl mx-auto px-4 py-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-black mb-1" style={{color:'#1a1512'}}>📬 Inbox</h1>
+          <p className="text-sm" style={{color:'#8a8279'}}>
+            {messages.length} messages{unreadCount > 0 ? ` · ${unreadCount} unread` : ''}
+          </p>
         </div>
-
-        {/* Chat area */}
-        <div className="flex-1 rounded-xl flex flex-col overflow-hidden"
-             style={{border:'1px solid #d4cec3',background:'#e8e2d6'}}>
-          {thread ? (
-            <>
-              {/* Thread header */}
-              <div className="flex items-center gap-3 px-4 py-3"
-                   style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
-                <div className="w-8 h-8 rounded-full overflow-hidden"
-                     style={{background:'#cec7bc'}}>
-                  {thread.teams?.logo_url
-                    ?<img src={thread.teams.logo_url} alt="" className="w-full h-full object-contain p-1"/>
-                    :<div className="w-full h-full flex items-center justify-center text-xs font-black"
-                          style={{color:'#6b5f4e'}}>{thread.teams?.id?.slice(0,2)}</div>}
-                </div>
-                <div>
-                  <div className="font-semibold text-sm" style={{color:'#1a1612'}}>
-                    {thread.display_name||thread.teams?.name}
-                  </div>
-                  <div className="text-xs" style={{color:onlineUsers.has(thread.id)?'#15803d':'#8a8279'}}>
-                    {onlineUsers.has(thread.id)?'🟢 Online':'⚫ Offline'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-2">
-                {messages.length === 0 && (
-                  <div className="flex-1 flex items-center justify-center">
-                    <p className="text-sm" style={{color:'#9c8e7a'}}>No messages yet. Say hello!</p>
-                  </div>
-                )}
-                {messages.map((m:any) => {
-                  const isMe = m.from_user === user.id
-                  const typeInfo = MSG_TYPE_STYLE[m.type]||MSG_TYPE_STYLE.message
-                  return (
-                    <div key={m.id} className={`flex ${isMe?'justify-end':'justify-start'}`}>
-                      <div className="max-w-[70%]">
-                        {m.type !== 'message' && (
-                          <div className="text-xs mb-1 px-1" style={{color:typeInfo.color}}>
-                            {typeInfo.icon} {typeInfo.label}
-                          </div>
-                        )}
-                        <div className="px-4 py-2.5 rounded-2xl text-sm"
-                             style={{background:isMe?'#1e3a5f':'#d4cdc5',
-                                     color:'#1a1612',
-                                     borderBottomRightRadius:isMe?4:undefined,
-                                     borderBottomLeftRadius:!isMe?4:undefined}}>
-                          {m.subject && <div className="font-bold mb-1">{m.subject}</div>}
-                          {m.body}
-                          {m.ref_id && m.type==='trade_proposal' && (
-                            <Link href={`/trade-center/${m.ref_id}`}
-                                  className="block mt-2 text-xs no-underline"
-                                  style={{color:'#b45309'}}>
-                              View Trade Proposal →
-                            </Link>
-                          )}
-                        </div>
-                        <div className="text-xs mt-0.5 px-1"
-                             style={{color:'#b8ae9e',textAlign:isMe?'right':'left'}}>
-                          {new Date(m.created_at).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input */}
-              <div className="p-3" style={{borderTop:'1px solid #3a3228'}}>
-                <div className="flex gap-2">
-                  <input value={newMsg} onChange={e=>setNewMsg(e.target.value)}
-                    onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&sendMessage()}
-                    placeholder="Type a message..."
-                    className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
-                    style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}} />
-                  <button onClick={sendMessage} disabled={sending||!newMsg.trim()}
-                    className="px-4 py-2 rounded-xl font-bold text-sm disabled:opacity-40"
-                    style={{background:'#1d4ed8',color:'#e8e2d6'}}>
-                    {sending?'...':'Send'}
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3">
-              <div className="text-4xl">✉️</div>
-              <p className="text-sm" style={{color:'#6b5f4e'}}>Select a GM to start chatting</p>
-            </div>
-          )}
+        <div className="flex gap-2">
+          {(['all','unread'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className="px-3 py-1.5 rounded-full text-xs font-semibold"
+              style={{
+                background: filter===f ? '#1a1512' : '#e8e2d6',
+                color: filter===f ? '#f5f1eb' : '#5c554e',
+                border: '1px solid #d4cdc5',
+              }}>
+              {f === 'all' ? 'All' : `Unread${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
+            </button>
+          ))}
         </div>
       </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+          <div className="text-4xl mb-3">📭</div>
+          <p className="text-sm" style={{color:'#8a8279'}}>
+            {filter === 'unread' ? 'No unread messages' : 'Your inbox is empty'}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {filtered.map(msg => (
+            <div key={msg.id}
+                 className="flex items-start gap-4 px-4 py-4 rounded-xl"
+                 style={{
+                   background: msg.read ? '#faf8f5' : '#fff',
+                   border: `1px solid ${msg.read ? '#e2dcd5' : '#d4cdc5'}`,
+                   borderLeft: `4px solid ${msg.read ? '#d4cdc5' : '#c8102e'}`,
+                 }}>
+              <div className="text-2xl flex-shrink-0 mt-0.5">
+                {TYPE_ICONS[msg.type] || '📨'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                  <div className="font-bold text-sm" style={{color:'#1a1512'}}>{msg.subject}</div>
+                  <div className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>{fmtDate(msg.created_at)}</div>
+                </div>
+                <div className="text-sm" style={{color:'#5c554e',lineHeight:1.5}}>{msg.body}</div>
+                {msg.from_team_id && (
+                  <div className="text-xs mt-1.5" style={{color:'#8a8279'}}>
+                    From: {msg.from_team_id}
+                  </div>
+                )}
+              </div>
+              {!msg.read && (
+                <div className="w-2 h-2 rounded-full flex-shrink-0 mt-2"
+                     style={{background:'#c8102e'}}></div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
