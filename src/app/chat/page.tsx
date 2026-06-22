@@ -33,7 +33,7 @@ export default function ChatPage() {
 
     // Load all teams for DM channels
     supabase.from('teams').select('id,name,color,logo_url')
-      .not('id','in','(ALL,RVS)').order('name')
+      .not('id','in','(ALL,RVS,ROO,SOP)').order('name')
       .then(({ data }) => setTeams(data || []))
   }, [])
 
@@ -113,11 +113,12 @@ export default function ChatPage() {
     </div>
   )
 
-  if (!myTeamId) return (
+  if (!loading && !myTeamId) return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center p-8 rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
         <div className="text-4xl mb-4">🔒</div>
         <div className="text-xl font-black mb-2" style={{color:'#1a1512'}}>Login Required</div>
+        <p className="text-sm mb-4" style={{color:'#5c554e'}}>You need to be a GM to access the chat.</p>
         <a href="/login" className="text-sm font-bold px-4 py-2 rounded-lg"
            style={{background:'#1a1512',color:'#fff',textDecoration:'none'}}>Sign In</a>
       </div>
