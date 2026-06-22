@@ -129,13 +129,16 @@ export default function TeamSchedule({
                          border: '1px solid #e2dcd5',
                        }}>
 
-                    {/* Date */}
+                    {/* Date + Week */}
                     <div className="w-24 flex-shrink-0">
                       <div className="text-xs font-bold" style={{color:'#1a1512'}}>
                         {g.played_at ? fmtDate(g.played_at) : 'TBD'}
                       </div>
+                      {g.week_number > 0 && (
+                        <div className="text-xs" style={{color:'#8a8279'}}>Wk {g.week_number}</div>
+                      )}
                       {g.played_at && !isPlayed && (
-                        <div className="text-xs" style={{color:'#8a8279'}}>
+                        <div className="text-xs" style={{color:'#b45309'}}>
                           {fmtTime(g.played_at)}
                         </div>
                       )}

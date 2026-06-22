@@ -16,7 +16,8 @@ export default async function SchedulePage() {
     supabase.from('games')
       .select('*')
       .order('played_at')
-      .order('game_number'),
+      .order('game_number')
+      .range(0, 1299),
     supabase.from('teams').select('id,name,color,logo_url'),
   ])
 
@@ -97,11 +98,14 @@ export default async function SchedulePage() {
                 <div key={g.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
                      style={{background:'#faf8f5',border:'1px solid #e2dcd5'}}>
 
-                  {/* Date */}
-                  <div className="w-28 flex-shrink-0">
+                  {/* Date + Week */}
+                  <div className="w-36 flex-shrink-0">
                     <div className="text-xs font-bold" style={{color:'#1a1512'}}>
                       {g.played_at ? fmtDate(g.played_at) : 'TBD'}
                     </div>
+                    {g.week_number > 0 && (
+                      <div className="text-xs" style={{color:'#8a8279'}}>Wk {g.week_number}</div>
+                    )}
                   </div>
 
                   {/* Game type badge */}
