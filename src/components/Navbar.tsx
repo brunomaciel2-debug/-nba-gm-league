@@ -10,7 +10,6 @@ const NAV = [
   { label: 'Job Vacancies', href: '/jobs',            icon: 'ti-briefcase' },
   { label: 'Standings',     href: '/standings',       icon: 'ti-list-numbers' },
   { label: 'Schedule',      href: '/schedule',        icon: 'ti-calendar' },
-  { label: 'Pre-Season',    href: '/preseason',       icon: 'ti-ball-basketball' },
   { label: 'Teams',         href: '/teams',           icon: 'ti-users' },
   { label: 'Leaders',       href: '/league-leaders',  icon: 'ti-trophy' },
   { label: 'Transactions',  href: '/transactions',    icon: 'ti-arrows-exchange' },
