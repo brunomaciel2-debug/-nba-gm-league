@@ -12,7 +12,7 @@ export default function GMPanel({ teamId }: { teamId: string }) {
       if (!user) { setLoading(false); return }
       const { data: gm } = await supabase
         .from('gm_profiles')
-        .select('team_id, is_commissioner')
+        .select('team_id, role')
         .eq('id', user.id)
         .single()
       if (gm?.role === 'commissioner' || gm?.team_id === teamId) {
