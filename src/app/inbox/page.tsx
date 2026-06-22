@@ -22,14 +22,15 @@ export default function InboxPage() {
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setLoading(false); return }
-      const { data: gm } = await supabase.from('gm_profiles').select('team_id').eq('id', user.id).single()
-      if (!gm?.team_id) { setLoading(false); return }
-      setMyTeamId(gm.team_id)
+      const { data: gm } = await supabase.from('gm_profiles').select('team_id, role').eq('id', user.id).single()
+      const tid = gm?.team_id || (gm?.role === 'commissioner' ? 'commissioner' : null)
+      if (!tid) { setLoading(false); return }
+      setMyTeamId(tid)
 
       const { data } = await supabase
         .from('inbox_messages')
         .select('*')
-        .eq('to_team_id', gm.team_id)
+        .eq('to_team_id', tid)
         .order('created_at', { ascending: false })
         .limit(100)
       setMessages(data || [])
@@ -38,7 +39,7 @@ export default function InboxPage() {
       // Mark all as read
       await supabase.from('inbox_messages')
         .update({ read: true })
-        .eq('to_team_id', gm.team_id)
+        .eq('to_team_id', tid)
         .eq('read', false)
     })
   }, [])
@@ -58,11 +59,12 @@ export default function InboxPage() {
 
   if (loading) return <div className="p-8 text-center" style={{color:'#5c554e'}}>Loading...</div>
 
-  if (!myTeamId) return (
+  if (!loading && !myTeamId) return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center p-8 rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
         <div className="text-4xl mb-4">🔒</div>
         <div className="text-xl font-black mb-2" style={{color:'#1a1512'}}>Login Required</div>
+        <p className="text-sm mb-4" style={{color:'#5c554e'}}>You need to be a GM to access your inbox.</p>
         <a href="/login" className="text-sm font-bold px-4 py-2 rounded-lg"
            style={{background:'#1a1512',color:'#fff',textDecoration:'none'}}>Sign In</a>
       </div>
