@@ -47,6 +47,11 @@ export default function InboxPage() {
   const filtered = filter === 'unread' ? messages.filter(m => !m.read) : messages
   const unreadCount = messages.filter(m => !m.read).length
 
+  const deleteMsg = async (id: string) => {
+    await supabase.from('inbox_messages').delete().eq('id', id)
+    setMessages(prev => prev.filter(m => m.id !== id))
+  }
+
   const fmtDate = (iso: string) => {
     const d = new Date(iso)
     const now = new Date()
@@ -93,6 +98,16 @@ export default function InboxPage() {
             </button>
           ))}
         </div>
+        {messages.filter(m => m.read).length > 0 && (
+          <button onClick={async () => {
+            await supabase.from('inbox_messages').delete().eq('to_team_id', myTeamId).eq('read', true)
+            setMessages(prev => prev.filter(m => !m.read))
+          }}
+            className="text-xs px-3 py-1.5 rounded-lg"
+            style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5'}}>
+            🗑 Clear Read
+          </button>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -106,7 +121,7 @@ export default function InboxPage() {
         <div className="flex flex-col gap-2">
           {filtered.map(msg => (
             <div key={msg.id}
-                 className="flex items-start gap-4 px-4 py-4 rounded-xl"
+                 className="flex items-start gap-4 px-4 py-4 rounded-xl group"
                  style={{
                    background: msg.read ? '#faf8f5' : '#fff',
                    border: `1px solid ${msg.read ? '#e2dcd5' : '#d4cdc5'}`,
@@ -127,10 +142,18 @@ export default function InboxPage() {
                   </div>
                 )}
               </div>
-              {!msg.read && (
-                <div className="w-2 h-2 rounded-full flex-shrink-0 mt-2"
-                     style={{background:'#c8102e'}}></div>
-              )}
+              <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                {!msg.read && (
+                  <div className="w-2 h-2 rounded-full"
+                       style={{background:'#c8102e'}}></div>
+                )}
+                <button onClick={() => deleteMsg(msg.id)}
+                  className="text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{background:'#fee2e2',color:'#dc2626'}}
+                  title="Delete">
+                  🗑
+                </button>
+              </div>
             </div>
           ))}
         </div>
