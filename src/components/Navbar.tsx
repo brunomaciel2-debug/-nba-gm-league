@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { useAuth } from './AuthProvider'
 import InboxButton from './InboxButton'
+import SimulatorBanner from './SimulatorBanner'
 
 const NAV = [
   { label: 'Home',          href: '/',               icon: 'ti-home' },
@@ -12,7 +13,7 @@ const NAV = [
   { label: 'Teams',         href: '/teams',           icon: 'ti-users' },
   { label: 'Leaders',       href: '/league-leaders',  icon: 'ti-trophy' },
   { label: 'Transactions',  href: '/transactions',    icon: 'ti-arrows-exchange' },
-  { label: 'Free Agents',    href: '/free-agents',      icon: 'ti-user-plus' },
+  { label: 'Free Agents',    href: '/free-agents',    icon: 'ti-user-plus' },
   { label: 'Trade Center',  href: '/trade-center',    icon: 'ti-switch-horizontal' },
   { label: 'All-Star',      href: '/all-star',        icon: 'ti-star' },
   { label: 'Awards',        href: '/awards',          icon: 'ti-trophy' },
@@ -109,6 +110,9 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {/* SIMULATOR BANNER */}
+      <SimulatorBanner />
 
       {/* NAV BAR */}
       <nav style={{ background: '#faf8f5', borderBottom: '2px solid #d4cdc5', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
