@@ -46,7 +46,7 @@ export default function TeamSchedule({
     return new Date(a).getTime() - new Date(b).getTime()
   })
 
-  const played   = games.filter(g => g.status === 'final').length
+  const played  = games.filter(g => g.status === 'final').length
   const upcoming = games.filter(g => g.status !== 'final').length
 
   const fmtDate = (iso: string) => {
@@ -111,14 +111,15 @@ export default function TeamSchedule({
             {byMonth[month]
               .sort((a,b) => new Date(a.played_at||0).getTime() - new Date(b.played_at||0).getTime())
               .map((g, i) => {
-                const isHome   = g.home_team === teamId
-                const opp      = isHome ? g.away_team : g.home_team
-                const oppTeam  = teams[opp]
-                const oppColor = oppTeam ? readableTeamColor(oppTeam.color) : '#5c554e'
-                const isPlayed = g.status === 'final'
-                const myScore  = isHome ? g.home_score : g.away_score
-                const oppScore = isHome ? g.away_score : g.home_score
-                const won      = isPlayed && myScore > oppScore
+                const isHome    = g.home_team === teamId
+                const opp       = isHome ? g.away_team : g.home_team
+                const oppTeam   = teams[opp]
+                const oppColor  = oppTeam ? readableTeamColor(oppTeam.color) : '#5c554e'
+                const isPlayed  = g.status === 'final'
+                const myScore   = isHome ? g.home_score : g.away_score
+                const oppScore  = isHome ? g.away_score : g.home_score
+                const won       = isPlayed && myScore > oppScore
+                const lost      = isPlayed && myScore < oppScore
 
                 return (
                   <div key={g.id}
@@ -150,6 +151,20 @@ export default function TeamSchedule({
                         {isHome ? 'H' : 'A'}
                       </span>
                     </div>
+
+                    {/* Game type badge */}
+                    {g.game_type && g.game_type !== 'regular' && (
+                      <div className="flex-shrink-0">
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                              style={{
+                                background: g.game_type==='preseason' ? '#f0f9ff' : g.game_type==='playoff' ? '#fef2f2' : '#f0ece5',
+                                color:       g.game_type==='preseason' ? '#0369a1' : g.game_type==='playoff' ? '#dc2626' : '#5c554e',
+                                fontSize: 10,
+                              }}>
+                          {g.game_type==='preseason' ? 'Pre-Season' : g.game_type==='playoff' ? 'Playoffs' : g.game_type}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Opponent */}
                     <div className="flex-1 flex items-center gap-2 min-w-0">
