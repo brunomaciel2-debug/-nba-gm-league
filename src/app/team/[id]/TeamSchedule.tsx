@@ -5,19 +5,6 @@ import { readableTeamColor } from '@/lib/color'
 
 type Filter = 'all' | 'home' | 'away' | 'played' | 'upcoming'
 
-function AttendanceBar({ value, max=20000 }: { value:number, max?:number }) {
-  const pct = Math.min(100, Math.round(value/max*100))
-  const color = pct>=90?'#b45309':pct>=70?'#15803d':'#1d4ed8'
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{background:'#cec7bc'}}>
-        <div className="h-full rounded-full" style={{width:pct+'%',background:color}}></div>
-      </div>
-      <span className="text-xs" style={{color:'#6b5f4e'}}>{value.toLocaleString()}</span>
-    </div>
-  )
-}
-
 export default function TeamSchedule({
   games, teamId, teams
 }: {
@@ -25,183 +12,188 @@ export default function TeamSchedule({
 }) {
   const [filter, setFilter] = useState<Filter>('all')
 
+  const filters: {key:Filter, label:string}[] = [
+    {key:'all',      label:'All'},
+    {key:'upcoming', label:'Upcoming'},
+    {key:'played',   label:'Played'},
+    {key:'home',     label:'Home'},
+    {key:'away',     label:'Away'},
+  ]
+
   const filtered = games.filter(g => {
-    if (filter==='home')     return g.home_team===teamId
-    if (filter==='away')     return g.away_team===teamId
-    if (filter==='played')   return g.status==='final'
-    if (filter==='upcoming') return g.status==='scheduled'
+    if (filter === 'played')   return g.status === 'final'
+    if (filter === 'upcoming') return g.status !== 'final'
+    if (filter === 'home')     return g.home_team === teamId
+    if (filter === 'away')     return g.away_team === teamId
     return true
   })
 
-  const FILTERS: {key:Filter,label:string}[] = [
-    {key:'all',label:'All'},
-    {key:'played',label:'Played'},
-    {key:'upcoming',label:'Upcoming'},
-    {key:'home',label:'Home'},
-    {key:'away',label:'Away'},
-  ]
+  // Group by month
+  const byMonth: Record<string, any[]> = {}
+  for (const g of filtered) {
+    const d = g.played_at ? new Date(g.played_at) : null
+    const key = d
+      ? d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      : 'TBD'
+    if (!byMonth[key]) byMonth[key] = []
+    byMonth[key].push(g)
+  }
 
-  // Group by week
-  const byWeek: Record<number,any[]> = {}
-  filtered.forEach(g => {
-    if (!byWeek[g.week_number]) byWeek[g.week_number]=[]
-    byWeek[g.week_number].push(g)
+  // Sort months chronologically
+  const sortedMonths = Object.keys(byMonth).sort((a, b) => {
+    if (a === 'TBD') return 1
+    if (b === 'TBD') return -1
+    return new Date(a).getTime() - new Date(b).getTime()
   })
 
-  const W = (label: string) => (
-    <div className="flex items-center gap-1.5">
-      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#15803d',color:'#fff'}}>{label}</span>
-    </div>
-  )
-  const L = (label: string) => (
-    <div className="flex items-center gap-1.5">
-      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#fee2e2',color:'#dc2626'}}>{label}</span>
-    </div>
-  )
+  const played  = games.filter(g => g.status === 'final').length
+  const upcoming = games.filter(g => g.status !== 'final').length
+
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  }
+
+  const fmtTime = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'Europe/Lisbon' })
+  }
 
   return (
     <div>
-      {/* Filter tabs */}
-      <div className="flex gap-1 mb-4 flex-wrap">
-        {FILTERS.map(f=>(
-          <button key={f.key} onClick={()=>setFilter(f.key)}
-            className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-            style={{background:filter===f.key?'#d4cdc5':'transparent',
-                    color:filter===f.key?'#1a1512':'#5c554e',
-                    border:'1px solid '+(filter===f.key?'#d4cdc5':'#d4cdc5')}}>
+      {/* Stats bar */}
+      <div className="flex gap-4 mb-4 text-sm flex-wrap">
+        <span style={{color:'#6b5f4e'}}>{played} played</span>
+        <span style={{color:'#6b5f4e'}}>·</span>
+        <span style={{color:'#6b5f4e'}}>{upcoming} remaining</span>
+        <span style={{color:'#6b5f4e'}}>·</span>
+        <span style={{color:'#6b5f4e'}}>{games.length} total</span>
+      </div>
+
+      {/* Filter pills */}
+      <div className="flex gap-2 mb-5 flex-wrap">
+        {filters.map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)}
+            className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+            style={{
+              background: filter === f.key ? '#1a1512' : '#e8e2d6',
+              color:       filter === f.key ? '#f5f1eb' : '#5c554e',
+              border:      '1px solid ' + (filter === f.key ? '#1a1512' : '#d4cdc5'),
+            }}>
             {f.label}
           </button>
         ))}
-        <span className="ml-auto text-xs self-center" style={{color:'#6b5f4e'}}>
-          {filtered.length} games
-        </span>
       </div>
 
-      {/* Games by week */}
-      {Object.entries(byWeek).sort((a,b)=>+a[0]-+b[0]).map(([week,wgames])=>{
-        const isAllStar = +week===14
-        return (
-          <div key={week} className="mb-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-bold uppercase tracking-widest"
-                    style={{color:isAllStar?'#b45309':'#5c554e'}}>
-                {isAllStar ? '⭐ ALL-STAR WEEKEND' : `Week ${week}`}
-              </span>
-              {isAllStar && (
-                <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                      style={{background:'#fef3c7',color:'#b45309'}}>February</span>
-              )}
-            </div>
+      {filtered.length === 0 && (
+        <div className="text-center py-8 rounded-xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+          <p className="text-sm" style={{color:'#8a8279'}}>No games found.</p>
+        </div>
+      )}
 
-            <div className="flex flex-col gap-1.5">
-              {wgames.map((g:any)=>{
-                const isHome = g.home_team===teamId
-                const final  = g.status==='final'
-                const us     = isHome?g.home_score:g.away_score
-                const them   = isHome?g.away_score:g.home_score
-                const oppId  = isHome?g.away_team:g.home_team
-                const opp    = teams[oppId]
-                const win    = final && us>them
-                const loss   = final && us<them
-                const tc     = readableTeamColor(opp?.color||'555555')
-                const isAllStarGame = g.game_type==='allstar_game'
-                const isRookieGame  = g.game_type==='allstar_rookie'
+      {/* Games grouped by month */}
+      {sortedMonths.map(month => (
+        <div key={month} className="mb-6">
+          {/* Month header */}
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-bold uppercase tracking-widest"
+                  style={{color:'#b45309',letterSpacing:'1.5px'}}>
+              {month}
+            </span>
+            <div className="flex-1 h-px" style={{background:'#d4cdc5'}}></div>
+            <span className="text-xs" style={{color:'#8a8279'}}>
+              {byMonth[month].length} game{byMonth[month].length !== 1 ? 's' : ''}
+            </span>
+          </div>
 
-                if (isAllStarGame || isRookieGame) {
-                  return (
-                    <div key={g.id} className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                         style={{background:'#fef3c7',border:'1px solid #5a4a00'}}>
-                      <span className="text-lg">⭐</span>
-                      <div className="flex-1">
-                        <div className="font-bold text-sm" style={{color:'#b45309'}}>
-                          {isRookieGame?'Rookies vs Sophomores':'All-Star Game: East vs West'}
-                        </div>
-                        <div className="text-xs" style={{color:'#8a6a00'}}>
-                          {isRookieGame?'Saturday':'Sunday'} · All-Star Weekend
-                        </div>
-                      </div>
-                      {final && g.home_score!=null && (
-                        <span className="font-bold text-sm" style={{color:'#b45309'}}>
-                          {g.home_score}–{g.away_score}
-                        </span>
-                      )}
-                      {final && (
-                        <Link href={`/game/${g.id}`} className="no-underline text-xs px-2 py-1 rounded"
-                              style={{background:'#d4cdc5',color:'#1a1612'}}>Box →</Link>
-                      )}
-                    </div>
-                  )
-                }
+          {/* Games list */}
+          <div className="flex flex-col gap-1.5">
+            {byMonth[month]
+              .sort((a,b) => new Date(a.played_at||0).getTime() - new Date(b.played_at||0).getTime())
+              .map((g, i) => {
+                const isHome    = g.home_team === teamId
+                const opp       = isHome ? g.away_team : g.home_team
+                const oppTeam   = teams[opp]
+                const oppColor  = oppTeam ? readableTeamColor(oppTeam.color) : '#5c554e'
+                const isPlayed  = g.status === 'final'
+                const myScore   = isHome ? g.home_score : g.away_score
+                const oppScore  = isHome ? g.away_score : g.home_score
+                const won       = isPlayed && myScore > oppScore
+                const lost      = isPlayed && myScore < oppScore
 
                 return (
-                  <div key={g.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
-                       style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-                    {/* Home/Away badge */}
-                    <span className="text-xs font-bold w-8 text-center flex-shrink-0"
-                          style={{color:isHome?'#1d4ed8':'#5c554e'}}>
-                      {isHome?'HOME':'AWAY'}
-                    </span>
+                  <div key={g.id}
+                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
+                       style={{
+                         background: i % 2 === 0 ? '#faf8f5' : '#f5f1eb',
+                         border: '1px solid #e2dcd5',
+                       }}>
 
-                    {/* Day */}
-                    <span className="text-xs w-6 flex-shrink-0" style={{color:'#6b5f4e'}}>
-                      {g.day_of_week==='Monday'?'MON':'THU'}
-                    </span>
-
-                    {/* Opponent logo + name */}
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="w-6 h-6 rounded overflow-hidden flex-shrink-0"
-                           style={{background:tc+'22'}}>
-                        {opp?.logo_url
-                          ?<img src={opp.logo_url} alt="" className="w-full h-full object-contain p-0.5"/>
-                          :<div className="w-full h-full flex items-center justify-center text-xs font-black"
-                                style={{color:tc,fontSize:8}}>{oppId?.slice(0,2)}</div>}
+                    {/* Date */}
+                    <div className="w-24 flex-shrink-0">
+                      <div className="text-xs font-bold" style={{color:'#1a1512'}}>
+                        {g.played_at ? fmtDate(g.played_at) : 'TBD'}
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold truncate" style={{color:'#1a1612'}}>
-                          {isHome?'vs':'@'} {opp?.name||oppId}
+                      {g.played_at && !isPlayed && (
+                        <div className="text-xs" style={{color:'#8a8279'}}>
+                          {fmtTime(g.played_at)}
                         </div>
-                        {opp?.arena && isHome && (
-                          <div className="text-xs truncate" style={{color:'#6b5f4e'}}>{opp.arena}</div>
-                        )}
-                      </div>
+                      )}
+                    </div>
+
+                    {/* Home/Away badge */}
+                    <div className="w-8 flex-shrink-0 text-center">
+                      <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                            style={{
+                              background: isHome ? '#dbeafe' : '#f0ece5',
+                              color:       isHome ? '#1d4ed8' : '#6b5f4e',
+                            }}>
+                        {isHome ? 'H' : 'A'}
+                      </span>
+                    </div>
+
+                    {/* Opponent */}
+                    <div className="flex-1 flex items-center gap-2 min-w-0">
+                      {oppTeam?.logo_url && (
+                        <img src={oppTeam.logo_url} alt={opp}
+                             className="w-5 h-5 object-contain flex-shrink-0" />
+                      )}
+                      <Link href={`/team/${opp}`}
+                            className="text-sm font-semibold hover:underline truncate"
+                            style={{color: oppColor}}>
+                        {oppTeam?.name || opp}
+                      </Link>
                     </div>
 
                     {/* Score or status */}
-                    {final ? (
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <span className="text-xs font-bold px-1.5 py-0.5 rounded"
-                              style={{background:win?'#0a2a10':'#2a0a0a',
-                                      color:win?'#15803d':'#dc2626'}}>
-                          {win?'W':'L'}
+                    <div className="flex-shrink-0 text-right">
+                      {isPlayed ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black px-2 py-0.5 rounded"
+                                style={{
+                                  background: won ? '#dcfce7' : '#fee2e2',
+                                  color:       won ? '#15803d' : '#dc2626',
+                                }}>
+                            {won ? 'W' : 'L'}
+                          </span>
+                          <span className="text-sm font-bold" style={{color:'#1a1512'}}>
+                            {myScore}-{oppScore}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded"
+                              style={{background:'#f0ece5',color:'#8a8279'}}>
+                          Scheduled
                         </span>
-                        <span className="text-sm font-bold w-12 text-center"
-                              style={{color:win?'#15803d':'#dc2626'}}>
-                          {us}–{them}
-                        </span>
-                        {g.attendance>0 && (
-                          <AttendanceBar value={g.attendance} />
-                        )}
-                        <Link href={`/game/${g.id}`} className="no-underline text-xs px-2 py-1 rounded flex-shrink-0"
-                              style={{background:'#d4cdc5',color:'#1e40af'}}>
-                          Box →
-                        </Link>
-                      </div>
-                    ) : (
-                      <span className="text-xs flex-shrink-0" style={{color:'#9c8e7a'}}>Scheduled</span>
-                    )}
+                      )}
+                    </div>
+
                   </div>
                 )
               })}
-            </div>
           </div>
-        )
-      })}
-
-      {filtered.length===0 && (
-        <div className="rounded-xl p-6 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-          <p className="text-sm" style={{color:'#6b5f4e'}}>No games to show.</p>
         </div>
-      )}
+      ))}
     </div>
   )
 }
