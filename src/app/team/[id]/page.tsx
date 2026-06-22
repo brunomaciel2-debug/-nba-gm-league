@@ -1,11 +1,6 @@
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
 import GMPanel from './GMPanel'
-import RosterTable from './RosterTable'
-import TeamSchedule from './TeamSchedule'
 import TeamPageTabs from './TeamPageTabs'
-import InjuryReport from './InjuryReport'
-import CoachingStaff from './CoachingStaff'
 import { readableTeamColor } from '@/lib/color'
 export const dynamic = "force-dynamic"
 
@@ -93,27 +88,17 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         <GMPanel teamId={teamId} />
       </div>
 
-      {/* ROSTER + SCHEDULE TABS */}
+      {/* TABS: Roster (+ Coaching + Injuries) | Schedule | Contracts */}
       <TeamPageTabs
         players={players||[]}
         games={games||[]}
         teamId={teamId}
         teamColor={color}
         teamsMap={teamsMap}
+        coaches={coaches||[]}
+        injuries={teamInjuries}
       />
 
-      {/* COACHING STAFF */}
-      <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-        <CoachingStaff staff={coaches||[]} />
-      </div>
-
-      {/* INJURY REPORT */}
-      <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-        <InjuryReport
-          injuries={teamInjuries||[]}
-          players={players||[]}
-        />
-      </div>
     </div>
   )
 }

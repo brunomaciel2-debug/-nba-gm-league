@@ -3,16 +3,18 @@ import { useState } from 'react'
 import RosterTable from './RosterTable'
 import TeamSchedule from './TeamSchedule'
 import ContractsTable from './ContractsTable'
+import CoachingStaff from './CoachingStaff'
+import InjuryReport from './InjuryReport'
 
 type Tab = 'roster' | 'schedule' | 'contracts'
 
 export default function TeamPageTabs({
-  players, games, teamId, teamsMap, teamColor
+  players, games, teamId, teamsMap, teamColor, coaches, injuries
 }: {
-  players: any[], games: any[], teamId: string, teamsMap: any, teamColor: string
+  players: any[], games: any[], teamId: string, teamsMap: any, teamColor: string,
+  coaches: any[], injuries: any[]
 }) {
   const [tab, setTab] = useState<Tab>('roster')
-
   const played   = games.filter((g:any) => g.status === 'final').length
   const upcoming = games.filter((g:any) => g.status !== 'final').length
 
@@ -62,7 +64,17 @@ export default function TeamPageTabs({
 
       {/* Content */}
       {tab === 'roster' && (
-        <RosterTable players={players} teamColor={teamColor} />
+        <>
+          <RosterTable players={players} teamColor={teamColor} />
+          {/* Coaching Staff — only in Roster tab */}
+          <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+            <CoachingStaff staff={coaches} />
+          </div>
+          {/* Injury Report — only in Roster tab */}
+          <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+            <InjuryReport injuries={injuries} players={players} />
+          </div>
+        </>
       )}
       {tab === 'schedule' && (
         <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />
