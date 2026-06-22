@@ -3,6 +3,7 @@ import Link from 'next/link'
 import type { Article, Game, Team, Transaction } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
 import LeagueLeadersMini from './LeagueLeadersMini'
+import SeasonTimeline from '@/components/SeasonTimeline'
 export const revalidate = 60
 
 function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#1d4ed8' }
@@ -33,15 +34,12 @@ export default async function HomePage() {
   const bannerUrl = (siteConfig as any)?.banner_url
   const hl = highlight as any
 
-  // Hot streak: find team with most consecutive wins
-  const teamRecords: Record<string,{wins:number,streak:number,last:Game[]}> = {}
-  ;(teams||[]).forEach((t:Team) => { teamRecords[t.id] = {wins:0,streak:0,last:[]} })
   const sortedGames = [...(recentGames||[])].sort((a:any,b:any) => new Date(b.played_at).getTime()-new Date(a.played_at).getTime())
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
 
-      {/* ── BANNER ─────────────────────────────────── */}
+      {/* BANNER */}
       {bannerUrl ? (
         <div className="rounded-2xl overflow-hidden mb-6" style={{height:280}}>
           <img src={bannerUrl} alt="NBA GM League" className="w-full h-full object-cover"/>
@@ -54,14 +52,11 @@ export default async function HomePage() {
             <div className="text-5xl mb-3">🏀</div>
             <h1 className="text-4xl font-black mb-2" style={{color:'#1a1612'}}>NBA GM League</h1>
             <p className="text-lg" style={{color:'#6b5f4e'}}>2025-26 Season</p>
-            <p className="text-xs mt-2" style={{color:'#b8ae9e'}}>
-              Commissioner: upload a banner in the admin panel (recommended: 1200×280px)
-            </p>
           </div>
         </div>
       )}
 
-      {/* ── FEATURED ARTICLES ──────────────────────── */}
+      {/* FEATURED ARTICLES */}
       {(featured1 || featured2) && (
         <>
         <div className="section-header mb-5">
@@ -99,7 +94,7 @@ export default async function HomePage() {
         </>
       )}
 
-      {/* ── WEEKLY HIGHLIGHTS ──────────────────────── */}
+      {/* WEEKLY HIGHLIGHTS */}
       <div className="section-header mb-5">
         <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
           <i className="ti ti-flame" style={{fontSize:14,marginRight:6,color:'#b45309'}}></i>Weekly Highlights
@@ -151,7 +146,7 @@ export default async function HomePage() {
             </>
           ) : (
             <div className="text-center py-6">
-              <div className="text-3xl mb-2">⭐</div>
+              <div className="text-3xl mb-2">⏳</div>
               <p className="text-sm" style={{color:'#6b5f4e'}}>Available after first simulation</p>
             </div>
           )}
@@ -178,7 +173,7 @@ export default async function HomePage() {
                   <div className="text-xs text-center" style={{color:'#1a1612'}}>{hl.uotw_winner.name}</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-black" style={{color:'#dc2626'}}>💥</div>
+                  <div className="text-lg font-black" style={{color:'#dc2626'}}>🆚</div>
                   <div className="text-base font-black" style={{color:'#1a1612'}}>{hl.uotw_score}</div>
                   <div className="text-xs" style={{color:'#9c8e7a'}}>
                     {hl.uotw_odds ? `${Math.round(hl.uotw_odds*100)}% underdog` : ''}
@@ -207,7 +202,7 @@ export default async function HomePage() {
             </>
           ) : (
             <div className="text-center py-6">
-              <div className="text-3xl mb-2">💥</div>
+              <div className="text-3xl mb-2">🆚</div>
               <p className="text-sm" style={{color:'#6b5f4e'}}>Available after first simulation</p>
             </div>
           )}
@@ -237,7 +232,6 @@ export default async function HomePage() {
                   </div>
                 </div>
               </div>
-              {/* Recent games */}
               {(hl.hstreak_games||[]).slice(0,4).map((gid:string) => {
                 const g = (recentGames||[]).find((x:any)=>x.id===gid) as any
                 if (!g) return null
@@ -252,7 +246,7 @@ export default async function HomePage() {
                       <span className="font-bold px-1.5 py-0.5 rounded"
                             style={{background:'#15803d',color:'#fff'}}>W</span>
                       <span style={{color:'#6b5f4e'}}>{isHome?'vs':'@'} {opp?.name}</span>
-                      <span className="ml-auto font-bold" style={{color:'#166534'}}>{us}–{them}</span>
+                      <span className="ml-auto font-bold" style={{color:'#166534'}}>{us}-{them}</span>
                     </div>
                   </Link>
                 )
@@ -267,10 +261,13 @@ export default async function HomePage() {
         </div>
       </div>
 
-{/* ── LEAGUE LEADERS MINI ───────────────────── */}
+      {/* SEASON TIMELINE */}
+      <SeasonTimeline />
+
+      {/* LEAGUE LEADERS MINI */}
       <LeagueLeadersMini />
 
-      {/* ── RECENT RESULTS ─────────────────────────── */}
+      {/* RECENT RESULTS */}
       {(recentGames||[]).length > 0 && (
         <>
           <div className="section-header mb-4">
@@ -295,7 +292,7 @@ export default async function HomePage() {
                         {home?.name||g.home_team}
                       </span>
                       <span className="text-base font-black" style={{color:winner==='home'?'#e8e2d6':'#5c554e'}}>{g.home_score}</span>
-                      <span className="text-sm" style={{color:'#b8ae9e'}}>–</span>
+                      <span className="text-sm" style={{color:'#b8ae9e'}}>-</span>
                       <span className="text-base font-black" style={{color:winner==='away'?'#e8e2d6':'#5c554e'}}>{g.away_score}</span>
                       <span className="text-sm font-semibold" style={{color:winner==='away'?'#e8e2d6':'#5c554e'}}>
                         {away?.name||g.away_team}
