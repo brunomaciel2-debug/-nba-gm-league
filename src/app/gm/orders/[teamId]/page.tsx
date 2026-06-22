@@ -40,7 +40,7 @@ function InfoTip({ text }: { text: string }) {
             style={{ background:'#d4cdc5', color:'#1e40af', fontSize:9 }}>i</span>
       {show && (
         <span className="absolute bottom-full left-0 mb-1.5 z-50 px-2.5 py-1.5 rounded-lg text-xs pointer-events-none"
-              style={{ background:'#16120d', border:'1px solid #d4cec3', color:'#1a1512',
+              style={{ background:'#1a1512', border:'1px solid #3a3228', color:'#f5f1eb',
                        width:200, lineHeight:1.4, whiteSpace:'normal' }}>
           {text}
         </span>
@@ -234,7 +234,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
               const roleInfo = BALL_ROLES.find(r=>r.value===role)||BALL_ROLES[1]
               return (
                 <tr key={p.name} style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #16120d'}}>
-                  <td className="px-4 py-2.5 font-semibold text-white">{p.name}
+                  <td className="px-4 py-2.5 font-semibold" style={{color:'#1a1512'}}>{p.name}
                     <span className="ml-2 text-xs" style={{color:'#6b5f4e'}}>{p.pos}</span>
                   </td>
                   <td className="px-4 py-2.5">
