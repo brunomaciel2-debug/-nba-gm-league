@@ -12,14 +12,20 @@ const GAME_TYPE_LABEL: Record<string,{label:string,bg:string,color:string}> = {
 }
 
 export default async function SchedulePage() {
-  const [{ data: games }, { data: teams }] = await Promise.all([
+  const [
+    { data: games1 }, { data: games2 }, { data: teams }
+  ] = await Promise.all([
     supabase.from('games')
       .select('*')
-      .order('played_at')
-      .order('game_number')
-      .range(0, 1299),
+      .order('played_at').order('game_number')
+      .range(0, 699),
+    supabase.from('games')
+      .select('*')
+      .order('played_at').order('game_number')
+      .range(700, 1299),
     supabase.from('teams').select('id,name,color,logo_url'),
   ])
+  const games = [...(games1||[]), ...(games2||[])]
 
   const teamMap = Object.fromEntries((teams||[]).map((t:any)=>[t.id,t]))
 
