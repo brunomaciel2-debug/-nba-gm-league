@@ -25,8 +25,8 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
     }
     setSubmitting(true); setError('')
     try {
-      // Insert application (user account created by commissioner on approval)
-      const { error: err } = await supabase.from('job_applications').insert({
+      // Insert application
+      const { data: app, error: err } = await supabase.from('job_applications').insert({
         team_id: teamId,
         full_name: form.full_name,
         age: form.age ? parseInt(form.age) : null,
@@ -36,8 +36,18 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
         username: form.username,
         motivation: form.motivation,
         status: 'pending',
-      })
+      }).select().single()
       if (err) throw err
+
+      // Send notification to Commissioner inbox
+      await supabase.from('inbox_messages').insert({
+        to_team_id: 'commissioner',
+        subject: `📋 New GM Application — ${teamName}`,
+        body: `${form.full_name} (${form.email}) has applied to manage the ${teamName}. ${form.motivation ? `Motivation: "${form.motivation}"` : ''} Review at /admin/applications.`,
+        type: 'application',
+        metadata: { application_id: app?.id, team_id: teamId, email: form.email, full_name: form.full_name, password: form.password },
+      })
+
       setStep('submitted')
     } catch(e: any) {
       setError(e.message || 'Something went wrong.')
@@ -77,7 +87,7 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
         Your application to manage the <strong style={{color:'#1a1612'}}>{teamName}</strong> has been sent to the Commissioner.
       </p>
       <p className="text-sm mb-6" style={{color:'#5a8a5a'}}>
-        You'll receive an email once your application is reviewed. If approved, you'll get your login credentials.
+        The Commissioner has been notified. If approved, your account will be activated and you'll be able to log in.
       </p>
       <Link href="/jobs" className="text-sm font-bold px-4 py-2 rounded-lg no-underline"
             style={{background:'#1d4ed8',color:'#e8e2d6'}}>
@@ -128,7 +138,7 @@ export default function ApplyForm({ teamId, teamName }: { teamId: string, teamNa
       </div>
 
       <p className="text-xs mb-4" style={{color:'#9c8e7a'}}>
-        * Your account will be created by the Commissioner upon approval. Your password will be set as submitted.
+        * Your account will be created by the Commissioner upon approval.
       </p>
 
       <div className="flex gap-3">
