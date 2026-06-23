@@ -17,15 +17,15 @@ const BALL_ROLES = [
 ]
 
 const ATK_STYLES = [
-  { value:'motion',     label:'Motion Offense',   desc:'Ball movement and player movement - balanced' },
-  { value:'pickroll',   label:'Pick & Roll',       desc:'Heavy pick-and-roll usage - creates open looks' },
+  { value:'motion',     label:'Motion Offense',   desc:'Ball movement and player movement — balanced' },
+  { value:'pickroll',   label:'Pick & Roll',       desc:'Heavy pick-and-roll usage — creates open looks' },
   { value:'transition', label:'Fast Break',        desc:'Push pace after rebounds and turnovers' },
   { value:'iso',        label:'Isolation',         desc:'Let your best player create 1-on-1' },
   { value:'post',       label:'Post-Up',           desc:'Feed the big man in the low post' },
 ]
 
 const DEF_STYLES = [
-  { value:'man',    label:'Man-to-Man',       desc:'Standard on-ball coverage - most common' },
+  { value:'man',    label:'Man-to-Man',       desc:'Standard on-ball coverage — most common' },
   { value:'zone23', label:'Zone 2-3',          desc:'Clogs the paint, forces mid-range shots' },
   { value:'press',  label:'Full-Court Press',  desc:'High pressure, creates turnovers but tires players' },
   { value:'pack',   label:'Pack the Paint',    desc:'Collapse on drives, allow perimeter shots' },
@@ -33,6 +33,24 @@ const DEF_STYLES = [
 
 function InfoTip({ text }: { text: string }) {
   const [show, setShow] = useState(false)
+  if (isAuthorized === null) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh'}}>
+      <div style={{color:'#5c554e',textAlign:'center'}}>
+        <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>Verifying access...</div>
+      </div>
+    </div>
+  )
+  if (isAuthorized === false) return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh'}}>
+      <div style={{textAlign:'center',padding:40,borderRadius:16,background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+        <div style={{fontSize:40,marginBottom:16}}>🔒</div>
+        <div style={{fontSize:22,fontWeight:900,marginBottom:8,color:'#1a1512'}}>Access Denied</div>
+        <div style={{fontSize:14,marginBottom:20,color:'#5c554e'}}>Only the GM of this team or the Commissioner can access this page.</div>
+        <a href="/" style={{fontSize:14,fontWeight:700,padding:'10px 24px',borderRadius:8,background:'#1a1512',color:'#fff',textDecoration:'none'}}>Go Home</a>
+      </div>
+    </div>
+  )
+
   return (
     <span className="relative inline-flex ml-1 cursor-help"
           onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
@@ -40,7 +58,7 @@ function InfoTip({ text }: { text: string }) {
             style={{ background:'#d4cdc5', color:'#1e40af', fontSize:9 }}>i</span>
       {show && (
         <span className="absolute bottom-full left-0 mb-1.5 z-50 px-2.5 py-1.5 rounded-lg text-xs pointer-events-none"
-              style={{ background:'#1a1512', border:'1px solid #3a3228', color:'#f5f1eb',
+              style={{ background:'#16120d', border:'1px solid #d4cec3', color:'#1a1512',
                        width:200, lineHeight:1.4, whiteSpace:'normal' }}>
           {text}
         </span>
@@ -55,7 +73,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   const [team, setTeam] = useState<any>(null)
   const [pris, setPris] = useState(['','',''])
   const [clutch, setClutch] = useState('')
-  const [ballRoles, setBallRoles] = useState<Record<string,string>>({})
+  const [ballRoles, setBallRoles] = useState<Record<string,string>>({}) // name -> role
   const [pace, setPace] = useState(70)
   const [threeRate, setThreeRate] = useState(38)
   const [atkStyle, setAtkStyle] = useState('motion')
@@ -75,17 +93,15 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   const [locked, setLocked] = useState(false)
 
   useEffect(() => {
-    // AUTH CHECK — only GM of this team or Commissioner
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setIsAuthorized(false); return }
-      const { data: gm } = await supabase.from('gm_profiles').select('team_id, role').eq('id', user.id).single()
-      if (gm?.role === 'commissioner' || gm?.team_id === teamId) {
+      const { data: gm } = await supabase.from('gm_profiles').select('team_id, is_commissioner').eq('id', user.id).single()
+      if (gm?.is_commissioner || gm?.team_id === teamId) {
         setIsAuthorized(true)
       } else {
         setIsAuthorized(false)
       }
     })
-
     supabase.from('teams').select('*').eq('id',teamId).single().then(({data})=>data&&setTeam(data))
     supabase.from('players').select('name,pos,usage').eq('team_id',teamId).eq('status','active')
       .order('usage',{ascending:false}).then(({data})=>{ if(data)setPlayers(data) })
@@ -128,26 +144,6 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
     return (parseInt(p.s?.mins)||0)+(parseInt(p.b1?.mins)||0)+(parseInt(p.b2?.mins)||0)
   }
 
-  // AUTH GUARDS — must be before return
-  if (isAuthorized === null) return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh'}}>
-      <div style={{color:'#5c554e',textAlign:'center'}}>
-        <div style={{fontSize:18,fontWeight:700,marginBottom:8}}>Verifying access...</div>
-      </div>
-    </div>
-  )
-
-  if (isAuthorized === false) return (
-    <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh'}}>
-      <div style={{textAlign:'center',padding:40,borderRadius:16,background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-        <div style={{fontSize:40,marginBottom:16}}>🔒</div>
-        <div style={{fontSize:22,fontWeight:900,marginBottom:8,color:'#1a1512'}}>Access Denied</div>
-        <div style={{fontSize:14,marginBottom:20,color:'#5c554e'}}>Only the GM of this team or the Commissioner can access this page.</div>
-        <a href="/" style={{fontSize:14,fontWeight:700,padding:'10px 24px',borderRadius:8,background:'#1a1512',color:'#fff',textDecoration:'none'}}>Go Home</a>
-      </div>
-    </div>
-  )
-
   const teamColor = team ? '#'+team.color : '#1d4ed8'
 
   return (
@@ -156,14 +152,14 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       <div className="flex items-center gap-4 mb-6">
         {team?.logo_url && <img src={team.logo_url} alt="" className="w-12 h-12 object-contain" />}
         <div>
-          <h1 className="text-2xl font-bold text-white">Weekly Orders - {team?.name||teamId}</h1>
+          <h1 className="text-2xl font-bold text-white">Weekly Orders — {team?.name||teamId}</h1>
           <p className="text-sm" style={{color:'#6b5f4e'}}>Deadline: Sunday 23:59 Lisbon time</p>
         </div>
         {locked && <span className="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold"
                           style={{background:'#fee2e2',color:'#dc2626'}}>⚠️ Locked</span>}
       </div>
 
-      {/* DEPTH CHART */}
+      {/* ── DEPTH CHART ─────────────────────────────── */}
       <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>
         Depth Chart
         <InfoTip text="Assign players to positions and set their minutes. Each position must total exactly 48 minutes." />
@@ -192,7 +188,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
                               onChange={e=>setDc(d=>({...d,[pos]:{...d[pos],[key]:{...d[pos]?.[key],name:e.target.value}}}))}
                               className="w-full text-xs px-2 py-1.5 rounded mb-2"
                               style={{background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
-                        <option value="">-- None --</option>
+                        <option value="">— None —</option>
                         {players.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
                       </select>
                       <div className="flex items-center gap-1">
@@ -211,13 +207,13 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         })}
       </div>
 
-      {/* BALL ROLES */}
+      {/* ── BALL ROLES ──────────────────────────────── */}
       <h2 className="text-xs font-semibold uppercase tracking-widest mb-1" style={{color:'#6b5f4e'}}>
         Ball Role per Player
         <InfoTip text="Defines each player's role with the ball. Ball Dominant = primary decision-maker who controls the possession outcome. Balanced = mixes creating for self and others. Off-Ball = moves without the ball, finishes plays." />
       </h2>
       <p className="text-xs mb-3" style={{color:'#9c8e7a'}}>
-        Different from offensive priority - this defines <em>how</em> each player uses the ball, not who gets it first.
+        Different from offensive priority — this defines <em>how</em> each player uses the ball, not who gets it first.
       </p>
       <div className="rounded-xl overflow-hidden mb-8" style={{border:'1px solid #d4cec3'}}>
         <table className="w-full text-xs">
@@ -234,7 +230,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
               const roleInfo = BALL_ROLES.find(r=>r.value===role)||BALL_ROLES[1]
               return (
                 <tr key={p.name} style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #16120d'}}>
-                  <td className="px-4 py-2.5 font-semibold" style={{color:'#1a1512'}}>{p.name}
+                  <td className="px-4 py-2.5 font-semibold text-white">{p.name}
                     <span className="ml-2 text-xs" style={{color:'#6b5f4e'}}>{p.pos}</span>
                   </td>
                   <td className="px-4 py-2.5">
@@ -254,12 +250,12 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         </table>
       </div>
 
-      {/* OFFENSIVE PRIORITIES */}
+      {/* ── OFFENSIVE PRIORITIES ─────────────────────── */}
       <h2 className="text-xs font-semibold uppercase tracking-widest mb-1" style={{color:'#6b5f4e'}}>
         Offensive Priorities
-        <InfoTip text="Who receives the ball in a scoring situation. 1st Option gets the ball most often in half-court sets. This is about finalization - not ball control." />
+        <InfoTip text="Who receives the ball in a scoring situation. 1st Option gets the ball most often in half-court sets. This is about finalization — not ball control." />
       </h2>
-      <p className="text-xs mb-3" style={{color:'#9c8e7a'}}>Who finishes plays - gets the ball in scoring position.</p>
+      <p className="text-xs mb-3" style={{color:'#9c8e7a'}}>Who finishes plays — gets the ball in scoring position.</p>
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[0,1,2].map(i=>(
           <div key={i}>
@@ -270,31 +266,31 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
             <select value={pris[i]} onChange={e=>{const n=[...pris];n[i]=e.target.value;setPris(n)}}
               className="w-full text-xs px-3 py-2 rounded-lg"
               style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
-              <option value="">--</option>
+              <option value="">—</option>
               {players.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
             </select>
           </div>
         ))}
       </div>
 
-      {/* TACTICS */}
+      {/* ── TACTICS ──────────────────────────────────── */}
       <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>Tactics</h2>
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div>
           <label className="text-xs mb-1 block font-semibold" style={{color:'#6b5f4e'}}>
             Clutch Player
-            <InfoTip text="Gets the ball in the final 2 minutes of a close game (<=5 points difference)." />
+            <InfoTip text="Gets the ball in the final 2 minutes of a close game (≤5 points difference)." />
           </label>
           <select value={clutch} onChange={e=>setClutch(e.target.value)}
             className="w-full text-xs px-3 py-2 rounded-lg"
             style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1512',outline:'none'}}>
-            <option value="">--</option>
+            <option value="">—</option>
             {players.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
           </select>
         </div>
         <div>
           <label className="text-xs mb-1 block font-semibold" style={{color:'#6b5f4e'}}>
-            Pace - {pace}
+            Pace — {pace}
             <InfoTip text="How fast your team plays. High pace = more possessions per game, faster transitions. Low pace = slower, more controlled half-court offense." />
           </label>
           <input type="range" min="50" max="100" value={pace} onChange={e=>setPace(+e.target.value)} className="w-full" />
@@ -304,7 +300,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         </div>
         <div>
           <label className="text-xs mb-1 block font-semibold" style={{color:'#6b5f4e'}}>
-            Three-Point Rate - {threeRate}%
+            Three-Point Rate — {threeRate}%
             <InfoTip text="Percentage of possessions that end in a 3PT attempt. NBA average is ~38%. High = more 3s, more variance. Low = more 2PT and post play." />
           </label>
           <input type="range" min="0" max="80" value={threeRate} onChange={e=>setThreeRate(+e.target.value)} className="w-full" />
@@ -345,23 +341,24 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       {/* TRAINING INTENSITY */}
       <h2 className="text-xs font-semibold uppercase tracking-widest mb-3 mt-6" style={{color:'#506070'}}>
         Training Intensity
-        <InfoTip text="Sets how hard the team trains during recovery days. Intense training = less health recovery. Rest = more recovery but less preparation." />
+        <InfoTip text="Sets how hard the team trains during recovery days (Mon-Thu gap and Thu-Mon gap). Intense training = less health recovery. Rest = more recovery but less preparation." />
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-6">
         {[
-          {value:'rest',        label:'Rest',         desc:'Max recovery. +150% health regen.',    color:'#166534'},
-          {value:'light',       label:'Light',        desc:'+25% health regen. Low risk.',          color:'#a0e040'},
-          {value:'normal',      label:'Normal',       desc:'Standard training. Full regen.',        color:'#1e40af'},
-          {value:'intense',     label:'Intense',      desc:'-50% health regen. Higher performance readiness.', color:'#c2410c'},
-          {value:'very_intense',label:'Max Load',     desc:'-75% health regen. Injury risk.',      color:'#dc2626'},
+          {value:'rest',        label:'🛌 Rest',         desc:'Max recovery. +150% health regen.',    color:'#166534'},
+          {value:'light',       label:'🚶 Light',        desc:'+25% health regen. Low risk.',          color:'#a0e040'},
+          {value:'normal',      label:'🏃 Normal',       desc:'Standard training. Full regen.',        color:'#1e40af'},
+          {value:'intense',     label:'💪 Intense',      desc:'-50% health regen. Higher performance readiness.', color:'#c2410c'},
+          {value:'very_intense',label:'🔥 Max Load',     desc:'-75% health regen. Injury risk.',      color:'#dc2626'},
         ].map(t=>(
           <button key={t.value} onClick={()=>setTrainIntensity(t.value)}
             className="rounded-xl p-3 text-center transition-all"
             style={{background:trainIntensity===t.value?t.color+'22':'#0f1e33',
                     border:'1px solid '+(trainIntensity===t.value?t.color:'#1e3a5f'),
                     opacity:locked?0.5:1}}>
+            <div className="text-sm mb-1">{t.label.split(' ')[0]}</div>
             <div className="text-xs font-semibold" style={{color:trainIntensity===t.value?t.color:'#c0ccd8'}}>
-              {t.label}
+              {t.label.split(' ').slice(1).join(' ')}
             </div>
             <div className="text-xs mt-1" style={{color:'#506070'}}>{t.desc}</div>
           </button>
@@ -372,7 +369,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-colors"
         style={{background:saved?'#0a5a20':locked?'#1a0a0a':'#d4cdc5',
                 color:saved?'#15803d':locked?'#5c554e':'#1d4ed8'}}>
-        {saving?'Saving...':saved?'✔ Orders Saved!':locked?'⚠️ Locked for this week':'Save Weekly Orders'}
+        {saving?'Saving...':saved?'✓ Orders Saved!':locked?'⚠️ Locked for this week':'Save Weekly Orders'}
       </button>
     </div>
   )
