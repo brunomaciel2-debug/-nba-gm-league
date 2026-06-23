@@ -98,7 +98,7 @@ export default function InboxPage() {
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error || 'Unknown error')
-      setActionMsg(`✅ ${msg.metadata.full_name} aprovado! Conta criada automaticamente.`)
+      setActionMsg(`✅ ${msg.metadata.full_name} aprovado! Conta criada e email enviado.`)
       await deleteMsg(msg.id)
     } catch (e: any) {
       setActionMsg(`❌ Erro: ${e.message}`)
@@ -109,11 +109,24 @@ export default function InboxPage() {
   const rejectApp = async (msg: any) => {
     if (!msg.metadata?.application_id) return
     setProcessing(msg.id)
-    await supabase.from('job_applications')
-      .update({ status: 'rejected' })
-      .eq('id', msg.metadata.application_id)
-    await deleteMsg(msg.id)
-    setActionMsg(`❌ Application rejected.`)
+    try {
+      const res = await fetch('/api/admin/approve-gm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'reject',
+          application_id: msg.metadata.application_id,
+          email: msg.metadata.email,
+          full_name: msg.metadata.full_name,
+        }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Unknown error')
+      setActionMsg(`❌ ${msg.metadata.full_name} rejeitado. Email enviado.`)
+      await deleteMsg(msg.id)
+    } catch (e: any) {
+      setActionMsg(`❌ Erro: ${e.message}`)
+    }
     setProcessing(null)
   }
 
@@ -146,7 +159,6 @@ export default function InboxPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
 
-      {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-black mb-0.5" style={{color:'#1a1512'}}>📬 Inbox</h1>
@@ -184,7 +196,6 @@ export default function InboxPage() {
         </div>
       )}
 
-      {/* Message list */}
       {filtered.length === 0 ? (
         <div className="text-center py-12 rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
           <div className="text-4xl mb-3">📭</div>
@@ -198,7 +209,6 @@ export default function InboxPage() {
             <div key={msg.id}>
               {idx > 0 && <div style={{height:1, background:'#ddd8d0'}} />}
 
-              {/* Row */}
               <div
                 onClick={() => toggleExpand(msg)}
                 className="flex items-center gap-3 px-4 py-3 cursor-pointer"
@@ -210,27 +220,19 @@ export default function InboxPage() {
                 onMouseEnter={e => (e.currentTarget.style.background = msg.read ? '#ede8e1' : '#fef6f6')}
                 onMouseLeave={e => (e.currentTarget.style.background = msg.read ? '#f5f2ee' : '#ffffff')}
               >
-                {/* Unread dot */}
                 <div style={{width:8, height:8, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center'}}>
                   {!msg.read && (
                     <div style={{width:8, height:8, borderRadius:'50%', background:'#c8102e', boxShadow:'0 0 0 2px #ffd0d0'}} />
                   )}
                 </div>
 
-                {/* Icon */}
                 <div style={{fontSize:18, flexShrink:0, opacity: msg.read ? 0.45 : 1}}>
                   {TYPE_ICONS[msg.type] || '📨'}
                 </div>
 
-                {/* Subject + preview */}
                 <div className="flex-1 min-w-0">
-                  <span
-                    className="text-sm truncate block"
-                    style={{
-                      color: msg.read ? '#9a9088' : '#1a1512',
-                      fontWeight: msg.read ? 400 : 700,
-                    }}
-                  >
+                  <span className="text-sm truncate block"
+                    style={{color: msg.read ? '#9a9088' : '#1a1512', fontWeight: msg.read ? 400 : 700}}>
                     {msg.subject}
                   </span>
                   {expanded !== msg.id && (
@@ -240,27 +242,21 @@ export default function InboxPage() {
                   )}
                 </div>
 
-                {/* Date + delete */}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-xs"
-                    style={{
-                      color: msg.read ? '#b0a89e' : '#c8102e',
-                      fontWeight: msg.read ? 400 : 700,
-                    }}>
+                    style={{color: msg.read ? '#b0a89e' : '#c8102e', fontWeight: msg.read ? 400 : 700}}>
                     {fmtDate(msg.created_at)}
                   </span>
                   <button
                     onClick={e => { e.stopPropagation(); deleteMsg(msg.id) }}
                     className="text-xs px-2 py-1 rounded"
                     style={{background:'transparent', color:'#c0b8b0'}}
-                    title="Delete"
-                  >
+                    title="Delete">
                     🗑
                   </button>
                 </div>
               </div>
 
-              {/* Expanded body */}
               {expanded === msg.id && (
                 <div style={{background:'#fdfcfb', borderTop:'1px solid #ddd8d0'}}>
                   <div className="px-6 py-4">
@@ -270,7 +266,6 @@ export default function InboxPage() {
                     )}
                   </div>
 
-                  {/* Application actions */}
                   {isCommissioner && msg.type === 'application' && msg.metadata?.application_id && (
                     <div className="px-6 py-3 flex items-center gap-3 flex-wrap"
                          style={{background:'#f0ece5', borderTop:'1px solid #ddd8d0'}}>
@@ -284,14 +279,14 @@ export default function InboxPage() {
                           disabled={processing === msg.id}
                           className="px-4 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
                           style={{background:'#15803d', color:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,0.2)'}}>
-                          {processing === msg.id ? '⏳ A criar conta...' : '✅ Approve'}
+                          {processing === msg.id ? '⏳ A processar...' : '✅ Approve'}
                         </button>
                         <button
                           onClick={() => rejectApp(msg)}
                           disabled={processing === msg.id}
                           className="px-4 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
                           style={{background:'#dc2626', color:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,0.2)'}}>
-                          {processing === msg.id ? '...' : '❌ Reject'}
+                          {processing === msg.id ? '⏳...' : '❌ Reject'}
                         </button>
                       </div>
                     </div>
