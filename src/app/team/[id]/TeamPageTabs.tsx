@@ -5,8 +5,9 @@ import TeamSchedule from './TeamSchedule'
 import ContractsTable from './ContractsTable'
 import CoachingStaff from './CoachingStaff'
 import InjuryReport from './InjuryReport'
+import DraftPicksTable from './DraftPicksTable'
 
-type Tab = 'roster' | 'schedule' | 'contracts'
+type Tab = 'roster' | 'schedule' | 'contracts' | 'draft'
 
 export default function TeamPageTabs({
   players, games, teamId, teamsMap, teamColor, coaches, injuries
@@ -18,8 +19,8 @@ export default function TeamPageTabs({
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '') as Tab
-    if (hash === 'roster' || hash === 'schedule' || hash === 'contracts') {
-      setTab(hash)
+    if (['roster', 'schedule', 'contracts', 'draft'].includes(hash)) {
+      setTab(hash as Tab)
     }
   }, [])
 
@@ -27,9 +28,10 @@ export default function TeamPageTabs({
   const upcoming = games.filter((g:any) => g.status !== 'final').length
 
   const TABS: { key: Tab, label: string, badge: string }[] = [
-    { key: 'roster',    label: 'Roster',    badge: `${players.length} players` },
-    { key: 'schedule',  label: 'Schedule',  badge: `${played} played · ${upcoming} remaining` },
-    { key: 'contracts', label: 'Contracts', badge: 'Multi-year view' },
+    { key: 'roster',    label: 'Roster',       badge: `${players.length} players` },
+    { key: 'schedule',  label: 'Schedule',     badge: `${played} played · ${upcoming} remaining` },
+    { key: 'contracts', label: 'Contracts',    badge: 'Multi-year view' },
+    { key: 'draft',     label: 'Draft Picks',  badge: '5 seasons' },
   ]
 
   return (
@@ -87,6 +89,9 @@ export default function TeamPageTabs({
       )}
       {tab === 'contracts' && (
         <ContractsTable teamId={teamId} teamColor={teamColor} />
+      )}
+      {tab === 'draft' && (
+        <DraftPicksTable teamId={teamId} />
       )}
     </div>
   )
