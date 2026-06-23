@@ -5,36 +5,49 @@ import Link from 'next/link'
 
 export default function InboxButton() {
   const [unread, setUnread] = useState(0)
-  const [myTeamId, setMyTeamId] = useState<string|null>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) return
-      const { data: gm } = await supabase.from('gm_profiles').select('team_id').eq('id', user.id).single()
-      if (!gm?.team_id) return
-      setMyTeamId(gm.team_id)
+    let sub: ReturnType<typeof supabase.channel> | null = null
 
-      // Count unread inbox messages
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: gm } = await supabase
+        .from('gm_profiles')
+        .select('team_id, role')
+        .eq('id', user.id)
+        .single()
+      if (!gm) return
+
+      // Commissioner usa 'commissioner', GMs usam o team_id
+      const toTeamId = gm.role === 'commissioner' ? 'commissioner' : gm.team_id
+      if (!toTeamId) return
+
       const { count } = await supabase
         .from('inbox_messages')
         .select('*', { count: 'exact', head: true })
-        .eq('to_team_id', gm.team_id)
+        .eq('to_team_id', toTeamId)
         .eq('read', false)
       setUnread(count || 0)
 
-      // Realtime subscription for new inbox messages
-      const sub = supabase
-        .channel('inbox:' + gm.team_id)
+      sub = supabase
+        .channel('inbox:' + toTeamId)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'inbox_messages',
-          filter: `to_team_id=eq.${gm.team_id}`,
+          filter: `to_team_id=eq.${toTeamId}`,
         }, () => setUnread(n => n + 1))
         .subscribe()
+    }
 
-      return () => { supabase.removeChannel(sub) }
-    })
+    init()
+
+    // Cleanup correctamente no useEffect
+    return () => {
+      if (sub) supabase.removeChannel(sub)
+    }
   }, [])
 
   return (
