@@ -14,8 +14,9 @@ const NAV = [
   { label: 'Teams',         href: '/teams',           icon: 'ti-users' },
   { label: 'Leaders',       href: '/league-leaders',  icon: 'ti-trophy' },
   { label: 'Transactions',  href: '/transactions',    icon: 'ti-arrows-exchange' },
-  { label: 'Free Agents',    href: '/free-agents',    icon: 'ti-user-plus' },
+  { label: 'Free Agents',   href: '/free-agents',     icon: 'ti-user-plus' },
   { label: 'Trade Center',  href: '/trade-center',    icon: 'ti-switch-horizontal' },
+  { label: 'Draft',         href: '/draft',           icon: 'ti-clipboard-list' },
   { label: 'All-Star',      href: '/all-star',        icon: 'ti-star' },
   { label: 'Awards',        href: '/awards',          icon: 'ti-trophy' },
   { label: 'G-League',      href: '/gleague',         icon: 'ti-ball-basketball' },
@@ -71,7 +72,6 @@ export default function Navbar() {
               <div className="w-8 h-8 rounded-full animate-pulse" style={{ background: 'rgba(255,255,255,0.1)' }} />
             ) : user ? (
               profile?.role === 'commissioner' ? (
-                /* COMMISSIONER DROPDOWN */
                 <div className="relative">
                   <button onClick={() => setCommOpen(!commOpen)}
                     className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg"
@@ -105,7 +105,6 @@ export default function Navbar() {
                   )}
                 </div>
               ) : teamId ? (
-                /* GM DROPDOWN */
                 <div className="relative">
                   <button onClick={() => setGmOpen(!gmOpen)}
                     className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg"
@@ -117,7 +116,6 @@ export default function Navbar() {
                   {gmOpen && (
                     <div className="absolute right-0 top-full mt-1 z-50 rounded-xl overflow-hidden py-1"
                          style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-                      {/* Team name header */}
                       <div className="px-4 py-2.5 text-xs font-black uppercase tracking-widest"
                            style={{ color: '#1d4ed8', borderBottom: '1px solid #d6d0c6', background: '#e8e2d6' }}>
                         <i className="ti ti-building mr-1.5" style={{ fontSize: 13 }}></i>
@@ -145,7 +143,6 @@ export default function Navbar() {
                   )}
                 </div>
               ) : (
-                /* USER SEM EQUIPA */
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold" style={{ color: '#8a8279' }}>
                     {profile?.display_name || user.email?.split('@')[0]}
