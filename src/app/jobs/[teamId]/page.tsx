@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { calcOvr } from '@/lib/ovr'
-import { notFound, redirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import ApplyForm from './ApplyForm'
 export const revalidate = 30
@@ -10,7 +10,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
   const teamId = params.teamId.toUpperCase()
   const [{ data: team }, { data: players }, { data: coaches }, { data: profile }] = await Promise.all([
     supabase.from('teams').select('*').eq('id', teamId).single(),
-    supabase.from('players').select('id,name,pos,usage,three,layup,dunk,mid,ft,siq,blk,stl,idef,pdef,def_reb,off_reb,stamina,durability,ball_hdl,pass_iq,pressure,consistency,crowd_effect, contracts!inner(salary,season)')
+    supabase.from('players').select('id,name,pos,usage,real_ovr,three,layup,dunk,mid,ft,siq,blk,stl,idef,pdef,def_reb,off_reb,stamina,durability,ball_hdl,pass_iq,pressure,consistency,crowd_effect, contracts!inner(salary,season)')
       .eq('team_id', teamId).eq('status','active').eq('contracts.season','2025-26').order('usage',{ascending:false}),
     supabase.from('coaches').select('name,role').eq('team_id', teamId),
     supabase.from('gm_profiles').select('id,display_name').eq('team_id', teamId).single(),
@@ -92,7 +92,7 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
                 <span className="text-xs w-7 flex-shrink-0" style={{color:'#6b5f4e'}}>{p.pos}</span>
                 <span className="text-xs flex-1 font-semibold" style={{color:'#1a1612'}}>{p.name}</span>
                 {(() => {
-                  const ovr = calcOvr(p)
+                  const ovr = p.real_ovr || calcOvr(p)
                   const c = ovr>=85?'#b45309':ovr>=75?'#15803d':ovr>=65?'#1d4ed8':'#5c554e'
                   return <span className="text-xs font-black w-6 text-right" style={{color:c}}>{ovr}</span>
                 })()}
