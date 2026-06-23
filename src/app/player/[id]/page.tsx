@@ -3,6 +3,7 @@ import { readableTeamColor } from '@/lib/color'
 import { calcOvr } from '@/lib/ovr'
 import OfferButton from './OfferButton'
 import CutButton from './CutButton'
+import TradeBlockButton from './TradeBlockButton'
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
@@ -15,7 +16,7 @@ const ATTR_TIPS: Record<string,string> = {
   ft:          "Free Throws — free throw shooting accuracy. Critical in late-game situations and when fouled.",
   siq:         "Shot IQ — decision-making on shot selection. High value = player takes good shots and avoids contested ones.",
   draw_foul:   "Draw Foul — ability to get to the free throw line. High value earns more foul calls on drives and in the post.",
-  blk:         "Block — ability to block opponent shhots. Impacts interior defence and psychological deterrence.",
+  blk:         "Block — ability to block opponent shots. Impacts interior defence and psychological deterrence.",
   stl:         "Steal — ability to strip the ball or intercept passes. Affects transition offence and opponent turnover rate.",
   idef:        "Interior Defense — ability to defend in the paint against post players and drivers. Reduces easy buckets inside.",
   pdef:        "Perimeter Defense — ability to guard on the perimeter. Affects opponent shooting percentage on the wing.",
@@ -86,7 +87,7 @@ const TYPE_LABEL: Record<string,{label:string,color:string,bg:string}> = {
   qualifying_offer: {label:'QO',            color:'#b45309', bg:'#fef3c7'},
 }
 
-function AttrBar({ value, color, attrKey }: { value: number, color: string, attrKey?: string }) {
+function AttrBar({ value, color }: { value: number, color: string }) {
   const pct = Math.min(100, Math.max(0, value))
   const barColor = value>=85?'#b45309':value>=70?color:value>=50?color+'99':'#dc2626'
   return (
@@ -130,11 +131,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   const p = player as any
   const team = p.teams as any
   const tc = readableTeamColor(team?.color || '3a8adf')
-
-  const ovr = calcOvr(p)
+  const ovr = p.real_ovr || calcOvr(p)
 
   const capFmt = (n:number) => n ? '$'+(n/1000000).toFixed(2)+'M' : '—'
-  const pct    = (m:number,a:number) => a>0?(m/a*100).toFixed(1)+'%':'—'
 
   const AWARD_LABELS: Record<string,string> = {
     potw_eastern:'Player of the Week (East)', potw_western:'Player of the Week (West)',
@@ -237,60 +236,64 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       {!player.team_id && (
         <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} />
       )}
+
       <div className="flex flex-col gap-0">
         <div className="md:col-span-2">
 
-      {/* G-League Assignment */}
-      {p.team_id && p.nba_recruitable !== false && (
-        <div className="mb-4">
-          {p.on_gleague_assignment ? (
-            <div className="flex items-center justify-between px-4 py-3 rounded-xl"
-                 style={{background:'#fef9c3',border:'1px solid #b45309'}}>
-              <div className="text-xs font-semibold" style={{color:'#b45309'}}>
-                On G-League Assignment
-              </div>
-              <form action="/api/gleague/recall" method="POST">
-                <input type="hidden" name="playerId" value={p.id}/>
-                <button type="submit" className="text-xs font-bold px-3 py-1.5 rounded-lg"
-                        style={{background:'#1d4ed8',color:'#fff'}}>
-                  Recall to NBA
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between px-4 py-3 rounded-xl"
-                 style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-              <div className="text-xs" style={{color:'#5c554e'}}>
-                Available for G-League assignment
-              </div>
-              <div className="flex items-center gap-2">
-                <form action="/api/gleague/assign" method="POST">
-                  <input type="hidden" name="playerId" value={p.id}/>
-                  <input type="hidden" name="teamId" value={p.team_id}/>
-                  <button type="submit" className="text-xs font-bold px-3 py-1.5 rounded-lg"
-                          style={{background:'#15803d',color:'#fff'}}>
-                    Send to G-League
-                  </button>
-                </form>
-                {/* @ts-ignore */}
-                <CutButton playerId={p.id} playerTeamId={p.team_id ?? null} />
-              </div>
+          {/* G-League Assignment */}
+          {p.team_id && p.nba_recruitable !== false && (
+            <div className="mb-4">
+              {p.on_gleague_assignment ? (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl"
+                     style={{background:'#fef9c3',border:'1px solid #b45309'}}>
+                  <div className="text-xs font-semibold" style={{color:'#b45309'}}>
+                    On G-League Assignment
+                  </div>
+                  <form action="/api/gleague/recall" method="POST">
+                    <input type="hidden" name="playerId" value={p.id}/>
+                    <button type="submit" className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                            style={{background:'#1d4ed8',color:'#fff'}}>
+                      Recall to NBA
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl flex-wrap gap-2"
+                     style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+                  <div className="text-xs" style={{color:'#5c554e'}}>
+                    Available for G-League assignment
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <form action="/api/gleague/assign" method="POST">
+                      <input type="hidden" name="playerId" value={p.id}/>
+                      <input type="hidden" name="teamId" value={p.team_id}/>
+                      <button type="submit" className="text-xs font-bold px-3 py-1.5 rounded-lg"
+                              style={{background:'#15803d',color:'#fff'}}>
+                        Send to G-League
+                      </button>
+                    </form>
+                    {/* @ts-ignore */}
+                    <CutButton playerId={p.id} playerTeamId={p.team_id ?? null} />
+                    {/* @ts-ignore */}
+                    <TradeBlockButton playerId={p.id} playerTeamId={p.team_id ?? null} />
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
-      {/* Non-recruitable notice */}
-      {p.nba_recruitable === false && (
-        <div className="mb-4 px-4 py-3 rounded-xl flex items-center gap-2"
-             style={{background:'#fef9c3',border:'1px solid #b45309'}}>
-          <i className="ti ti-world" style={{fontSize:16,color:'#b45309'}}></i>
-          <span className="text-xs font-semibold" style={{color:'#b45309'}}>
-            International player — not available for NBA contracts. Pre-season friendly only.
-          </span>
-        </div>
-      )}
 
-      {/* ATTRIBUTES */}
+          {/* Non-recruitable notice */}
+          {p.nba_recruitable === false && (
+            <div className="mb-4 px-4 py-3 rounded-xl flex items-center gap-2"
+                 style={{background:'#fef9c3',border:'1px solid #b45309'}}>
+              <i className="ti ti-world" style={{fontSize:16,color:'#b45309'}}></i>
+              <span className="text-xs font-semibold" style={{color:'#b45309'}}>
+                International player — not available for NBA contracts. Pre-season friendly only.
+              </span>
+            </div>
+          )}
+
+          {/* ATTRIBUTES */}
           <div className="sec-hdr mb-4">
             <span className="sec-title">Attributes</span>
           </div>
@@ -387,139 +390,139 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           )}
 
           {/* LAST 5 GAMES */}
-      <div className="mt-6">
-        <div className="sec-hdr mb-4">
-          <span className="sec-title">Last 5 Games</span>
-        </div>
-        {(lastGames||[]).length === 0 ? (
-          <div className="rounded-xl p-4 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-            <p className="text-sm" style={{color:'#8a8279'}}>No games played yet.</p>
-          </div>
-        ) : (
-          <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-            <div className="overflow-x-auto">
-            <table className="w-full text-xs" style={{minWidth:600}}>
-              <thead>
-                <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                  {['Date','Matchup','Result','MIN','PTS','REB','AST','STL','BLK','FG','3P','FT','+/-'].map(h=>(
-                    <th key={h} className="px-2.5 py-2.5 font-bold text-right first:text-left second:text-left"
-                        style={{color:'#5c554e',fontSize:10,letterSpacing:'0.3px',whiteSpace:'nowrap'}}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(lastGames||[]).map((b:any,i:number) => {
-                  const g = b.games
-                  if (!g) return null
-                  const isHome = g.home_team === p.team_id
-                  const opp = isHome ? g.away : g.home
-                  const myScore = isHome ? g.home_score : g.away_score
-                  const oppScore = isHome ? g.away_score : g.home_score
-                  const won = myScore > oppScore
-                  const oppColor = opp ? readableTeamColor(opp.color) : '#5c554e'
-                  return (
-                    <tr key={b.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                      <td className="px-2.5 py-2.5 whitespace-nowrap" style={{color:'#8a8279'}}>
-                        {g.played_at ? new Date(g.played_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}
-                      </td>
-                      <td className="px-2.5 py-2.5 whitespace-nowrap">
-                        <span style={{color:'#8a8279'}}>{isHome?'vs':'@'} </span>
-                        <span style={{color:oppColor,fontWeight:600}}>{opp?.name||'—'}</span>
-                      </td>
-                      <td className="px-2.5 py-2.5 font-bold whitespace-nowrap"
-                          style={{color:won?'#15803d':'#dc2626'}}>
-                        {won?'W':'L'} {myScore}-{oppScore}
-                      </td>
-                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.mins||0}</td>
-                      <td className="px-2.5 py-2.5 text-right font-bold" style={{color:'#b45309'}}>{b.pts||0}</td>
-                      <td className="px-2.5 py-2.5 text-right" style={{color:'#15803d'}}>{b.reb||0}</td>
-                      <td className="px-2.5 py-2.5 text-right" style={{color:'#1d4ed8'}}>{b.ast||0}</td>
-                      <td className="px-2.5 py-2.5 text-right" style={{color:'#6d28d9'}}>{b.stl||0}</td>
-                      <td className="px-2.5 py-2.5 text-right" style={{color:'#c2410c'}}>{b.blk||0}</td>
-                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.fgm||0}/{b.fga||0}</td>
-                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.tpm||0}/{b.tpa||0}</td>
-                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.ftm||0}/{b.fta||0}</td>
-                      <td className="px-2.5 py-2.5 text-right font-semibold"
-                          style={{color:(b.plus_minus||0)>0?'#15803d':(b.plus_minus||0)<0?'#dc2626':'#8a8279'}}>
-                        {(b.plus_minus||0)>0?'+':''}{b.plus_minus||0}
-                      </td>
+          <div className="mt-6">
+            <div className="sec-hdr mb-4">
+              <span className="sec-title">Last 5 Games</span>
+            </div>
+            {(lastGames||[]).length === 0 ? (
+              <div className="rounded-xl p-4 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+                <p className="text-sm" style={{color:'#8a8279'}}>No games played yet.</p>
+              </div>
+            ) : (
+              <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+                <div className="overflow-x-auto">
+                <table className="w-full text-xs" style={{minWidth:600}}>
+                  <thead>
+                    <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
+                      {['Date','Matchup','Result','MIN','PTS','REB','AST','STL','BLK','FG','3P','FT','+/-'].map(h=>(
+                        <th key={h} className="px-2.5 py-2.5 font-bold text-right first:text-left"
+                            style={{color:'#5c554e',fontSize:10,letterSpacing:'0.3px',whiteSpace:'nowrap'}}>{h}</th>
+                      ))}
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* INJURY HISTORY */}
-      <div className="mt-6 mb-6">
-        <div className="sec-hdr mb-4">
-          <span className="sec-title">Injury History</span>
-        </div>
-        <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-          {(injuries||[]).length === 0 ? (
-            <div className="px-4 py-5 text-center" style={{background:'#faf8f5'}}>
-              <p className="text-sm" style={{color:'#8a8279'}}>No injury history — clean bill of health.</p>
-            </div>
-          ) : (injuries||[]).map((inj:any,i:number) => (
-            <div key={inj.id} className="flex items-center gap-4 px-4 py-3"
-                 style={{borderBottom:i<(injuries||[]).length-1?'1px solid #e2dcd5':'none',
-                         background:i%2===0?'#faf8f5':'#f5f1eb'}}>
-              <i className="ti ti-alert-triangle" style={{fontSize:16,color:'#dc2626',flexShrink:0}}></i>
-              <div className="flex-1">
-                <div className="text-sm font-semibold" style={{color:'#dc2626'}}>{inj.injury_type}</div>
-                <div className="text-xs mt-0.5" style={{color:'#8a8279'}}>
-                  {new Date(inj.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
+                  </thead>
+                  <tbody>
+                    {(lastGames||[]).map((b:any,i:number) => {
+                      const g = b.games
+                      if (!g) return null
+                      const isHome = g.home_team === p.team_id
+                      const opp = isHome ? g.away : g.home
+                      const myScore = isHome ? g.home_score : g.away_score
+                      const oppScore = isHome ? g.away_score : g.home_score
+                      const won = myScore > oppScore
+                      const oppColor = opp ? readableTeamColor(opp.color) : '#5c554e'
+                      return (
+                        <tr key={b.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                          <td className="px-2.5 py-2.5 whitespace-nowrap" style={{color:'#8a8279'}}>
+                            {g.played_at ? new Date(g.played_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—'}
+                          </td>
+                          <td className="px-2.5 py-2.5 whitespace-nowrap">
+                            <span style={{color:'#8a8279'}}>{isHome?'vs':'@'} </span>
+                            <span style={{color:oppColor,fontWeight:600}}>{opp?.name||'—'}</span>
+                          </td>
+                          <td className="px-2.5 py-2.5 font-bold whitespace-nowrap"
+                              style={{color:won?'#15803d':'#dc2626'}}>
+                            {won?'W':'L'} {myScore}-{oppScore}
+                          </td>
+                          <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.mins||0}</td>
+                          <td className="px-2.5 py-2.5 text-right font-bold" style={{color:'#b45309'}}>{b.pts||0}</td>
+                          <td className="px-2.5 py-2.5 text-right" style={{color:'#15803d'}}>{b.reb||0}</td>
+                          <td className="px-2.5 py-2.5 text-right" style={{color:'#1d4ed8'}}>{b.ast||0}</td>
+                          <td className="px-2.5 py-2.5 text-right" style={{color:'#6d28d9'}}>{b.stl||0}</td>
+                          <td className="px-2.5 py-2.5 text-right" style={{color:'#c2410c'}}>{b.blk||0}</td>
+                          <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.fgm||0}/{b.fga||0}</td>
+                          <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.tpm||0}/{b.tpa||0}</td>
+                          <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.ftm||0}/{b.fta||0}</td>
+                          <td className="px-2.5 py-2.5 text-right font-semibold"
+                              style={{color:(b.plus_minus||0)>0?'#15803d':(b.plus_minus||0)<0?'#dc2626':'#8a8279'}}>
+                            {(b.plus_minus||0)>0?'+':''}{b.plus_minus||0}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
                 </div>
               </div>
-              <div className="text-sm font-semibold text-right" style={{color:'#5c554e'}}>
-                {inj.games_out} game{inj.games_out!==1?'s':''} out
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+            )}
+          </div>
 
-      </div>
-    </div>
-
-{/* AWARDS */}
-          <div className="mt-2">
+          {/* INJURY HISTORY */}
+          <div className="mt-6 mb-6">
             <div className="sec-hdr mb-4">
-              <span className="sec-title">Awards & Honours</span>
+              <span className="sec-title">Injury History</span>
             </div>
             <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-              {(playerAwards||[]).length === 0 ? (
-                <div className="px-4 py-6 text-center" style={{background:'#faf8f5'}}>
-                  <i className="ti ti-trophy" style={{fontSize:28,color:'#d4cdc5'}}></i>
-                  <p className="text-sm mt-2" style={{color:'#8a8279'}}>No awards yet</p>
+              {(injuries||[]).length === 0 ? (
+                <div className="px-4 py-5 text-center" style={{background:'#faf8f5'}}>
+                  <p className="text-sm" style={{color:'#8a8279'}}>No injury history — clean bill of health.</p>
                 </div>
-              ) : (playerAwards||[]).map((a:any,i:number) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-3"
-                     style={{borderBottom:i<(playerAwards||[]).length-1?'1px solid #e2dcd5':'none',
+              ) : (injuries||[]).map((inj:any,i:number) => (
+                <div key={inj.id} className="flex items-center gap-4 px-4 py-3"
+                     style={{borderBottom:i<(injuries||[]).length-1?'1px solid #e2dcd5':'none',
                              background:i%2===0?'#faf8f5':'#f5f1eb'}}>
-                  <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                  <i className="ti ti-alert-triangle" style={{fontSize:16,color:'#dc2626',flexShrink:0}}></i>
                   <div className="flex-1">
-                    <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
-                      {AWARD_LABELS[a.award_type]||a.award_type}
-                    </div>
-                    <div className="text-xs" style={{color:'#8a8279'}}>
-                      {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
+                    <div className="text-sm font-semibold" style={{color:'#dc2626'}}>{inj.injury_type}</div>
+                    <div className="text-xs mt-0.5" style={{color:'#8a8279'}}>
+                      {new Date(inj.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
                     </div>
                   </div>
-                  {a.stats_context?.ppg && (
-                    <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
-                      {a.stats_context.ppg} PPG
-                      {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
-                      {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
-                    </div>
-                  )}
+                  <div className="text-sm font-semibold text-right" style={{color:'#5c554e'}}>
+                    {inj.games_out} game{inj.games_out!==1?'s':''} out
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+
+        </div>
+      </div>
+
+      {/* AWARDS */}
+      <div className="mt-2">
+        <div className="sec-hdr mb-4">
+          <span className="sec-title">Awards & Honours</span>
+        </div>
+        <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+          {(playerAwards||[]).length === 0 ? (
+            <div className="px-4 py-6 text-center" style={{background:'#faf8f5'}}>
+              <i className="ti ti-trophy" style={{fontSize:28,color:'#d4cdc5'}}></i>
+              <p className="text-sm mt-2" style={{color:'#8a8279'}}>No awards yet</p>
+            </div>
+          ) : (playerAwards||[]).map((a:any,i:number) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3"
+                 style={{borderBottom:i<(playerAwards||[]).length-1?'1px solid #e2dcd5':'none',
+                         background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+              <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+              <div className="flex-1">
+                <div className="text-sm font-semibold" style={{color:'#1a1512'}}>
+                  {AWARD_LABELS[a.award_type]||a.award_type}
+                </div>
+                <div className="text-xs" style={{color:'#8a8279'}}>
+                  {a.season} · {a.period?.replace('week_','Week ').replace('month_','Month ').replace('season','Full Season')}
+                </div>
+              </div>
+              {a.stats_context?.ppg && (
+                <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
+                  {a.stats_context.ppg} PPG
+                  {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
+                  {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* CONTRACT */}
       {(contracts||[]).length > 0 && (
@@ -527,65 +530,65 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           <div className="sec-hdr mb-3">
             <span className="sec-title">Contract</span>
           </div>
-              <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cdc5' }}>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr style={{ background:'#f0ece5', borderBottom:'1px solid #d4cdc5' }}>
-                      <th className="px-4 py-2.5 text-left font-semibold" style={{ color:'#5c554e' }}>Season</th>
-                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Salary</th>
-                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Type</th>
-                      <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(contracts||[]).map((c:any, i:number) => {
-                      const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#5c554e',bg:'#f0ece5'}
-                      const isCurrent = c.season==='2025-26'
-                      const isWaived = c.waived === true
-                      return (
-                        <tr key={c.id}
-                            style={{ background:isCurrent?tc+'11':i%2===0?'#faf8f5':'#f5f1eb',
-                                     borderBottom:'1px solid #e2dcd5' }}>
-                          <td className="px-4 py-2.5">
-                            <span className="font-semibold" style={{ color:isCurrent?tc:'#1a1512' }}>
-                              {c.season}
-                            </span>
-                            {isCurrent && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
-                                               style={{ background:tc+'22', color:tc }}>Current</span>}
-                          </td>
-                          <td className="px-4 py-2.5 text-right font-bold" style={{ color:'#1a1512' }}>
-                            {capFmt(c.salary)}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded"
-                                  style={{ background:typeInfo.bg, color:typeInfo.color }}>
-                              {typeInfo.label}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-right">
-                            {isWaived && (
-                              <span className="text-xs font-semibold px-2 py-0.5 rounded"
-                                    style={{ background:'#fee2e2', color:'#dc2626' }}>
-                                Waived
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    <tr style={{ background:'#f0ece5', borderTop:'2px solid #d4cdc5' }}>
-                      <td className="px-4 py-2.5 font-bold" style={{ color:'#1a1512' }}>Total</td>
-                      <td className="px-4 py-2.5 text-right font-black" style={{ color:'#c8102e' }}>
-                        {capFmt(totalValue)}
+          <div className="rounded-xl overflow-hidden mb-6" style={{ border:'1px solid #d4cdc5' }}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background:'#f0ece5', borderBottom:'1px solid #d4cdc5' }}>
+                  <th className="px-4 py-2.5 text-left font-semibold" style={{ color:'#5c554e' }}>Season</th>
+                  <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Salary</th>
+                  <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Type</th>
+                  <th className="px-4 py-2.5 text-right font-semibold" style={{ color:'#5c554e' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(contracts||[]).map((c:any, i:number) => {
+                  const typeInfo = TYPE_LABEL[c.type]||{label:c.type,color:'#5c554e',bg:'#f0ece5'}
+                  const isCurrent = c.season==='2025-26'
+                  const isWaived = c.waived === true
+                  return (
+                    <tr key={c.id}
+                        style={{ background:isCurrent?tc+'11':i%2===0?'#faf8f5':'#f5f1eb',
+                                 borderBottom:'1px solid #e2dcd5' }}>
+                      <td className="px-4 py-2.5">
+                        <span className="font-semibold" style={{ color:isCurrent?tc:'#1a1512' }}>
+                          {c.season}
+                        </span>
+                        {isCurrent && <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
+                                           style={{ background:tc+'22', color:tc }}>Current</span>}
                       </td>
-                      <td></td>
-                      <td></td>
+                      <td className="px-4 py-2.5 text-right font-bold" style={{ color:'#1a1512' }}>
+                        {capFmt(c.salary)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded"
+                              style={{ background:typeInfo.bg, color:typeInfo.color }}>
+                          {typeInfo.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right">
+                        {isWaived && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded"
+                                style={{ background:'#fee2e2', color:'#dc2626' }}>
+                            Waived
+                          </span>
+                        )}
+                      </td>
                     </tr>
-                  </tbody>
-                </table>
-              </div>
+                  )
+                })}
+                <tr style={{ background:'#f0ece5', borderTop:'2px solid #d4cdc5' }}>
+                  <td className="px-4 py-2.5 font-bold" style={{ color:'#1a1512' }}>Total</td>
+                  <td className="px-4 py-2.5 text-right font-black" style={{ color:'#c8102e' }}>
+                    {capFmt(totalValue)}
+                  </td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        )}
+        </div>
+      )}
 
     </div>
   )
