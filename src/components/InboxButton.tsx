@@ -20,7 +20,6 @@ export default function InboxButton() {
         .single()
       if (!gm) return
 
-      // Commissioner usa 'commissioner', GMs usam o team_id
       const toTeamId = gm.role === 'commissioner' ? 'commissioner' : gm.team_id
       if (!toTeamId) return
 
@@ -39,12 +38,21 @@ export default function InboxButton() {
           table: 'inbox_messages',
           filter: `to_team_id=eq.${toTeamId}`,
         }, () => setUnread(n => n + 1))
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'inbox_messages',
+          filter: `to_team_id=eq.${toTeamId}`,
+        }, (payload) => {
+          if (payload.old.read === false && payload.new.read === true) {
+            setUnread(n => Math.max(0, n - 1))
+          }
+        })
         .subscribe()
     }
 
     init()
 
-    // Cleanup correctamente no useEffect
     return () => {
       if (sub) supabase.removeChannel(sub)
     }
