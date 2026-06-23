@@ -1,13 +1,24 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 
 export default function InboxButton() {
   const [unread, setUnread] = useState(0)
+  const toTeamIdRef = useRef<string|null>(null)
+
+  const fetchUnread = async (toTeamId: string) => {
+    const { count } = await supabase
+      .from('inbox_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('to_team_id', toTeamId)
+      .eq('read', false)
+    setUnread(count || 0)
+  }
 
   useEffect(() => {
     let sub: ReturnType<typeof supabase.channel> | null = null
+    let interval: ReturnType<typeof setInterval> | null = null
 
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -23,13 +34,13 @@ export default function InboxButton() {
       const toTeamId = gm.role === 'commissioner' ? 'commissioner' : gm.team_id
       if (!toTeamId) return
 
-      const { count } = await supabase
-        .from('inbox_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('to_team_id', toTeamId)
-        .eq('read', false)
-      setUnread(count || 0)
+      toTeamIdRef.current = toTeamId
+      await fetchUnread(toTeamId)
 
+      // Refetch a cada 10 segundos
+      interval = setInterval(() => fetchUnread(toTeamId), 10000)
+
+      // Realtime para mensagens novas
       sub = supabase
         .channel('inbox:' + toTeamId)
         .on('postgres_changes', {
@@ -37,17 +48,13 @@ export default function InboxButton() {
           schema: 'public',
           table: 'inbox_messages',
           filter: `to_team_id=eq.${toTeamId}`,
-        }, () => setUnread(n => n + 1))
+        }, () => fetchUnread(toTeamId))
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
           table: 'inbox_messages',
           filter: `to_team_id=eq.${toTeamId}`,
-        }, (payload) => {
-          if (payload.old.read === false && payload.new.read === true) {
-            setUnread(n => Math.max(0, n - 1))
-          }
-        })
+        }, () => fetchUnread(toTeamId))
         .subscribe()
     }
 
@@ -55,6 +62,7 @@ export default function InboxButton() {
 
     return () => {
       if (sub) supabase.removeChannel(sub)
+      if (interval) clearInterval(interval)
     }
   }, [])
 
