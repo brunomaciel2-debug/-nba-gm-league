@@ -95,8 +95,8 @@ export default function ChatButton() {
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
       {hasUnread && (
-        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center font-black"
-              style={{width:14, height:14, borderRadius:'50%', background:'#c8102e', color:'#fff', fontSize:9, border:'2px solid #0f1623'}}>
+        <span className="absolute -top-2 -right-2 flex items-center justify-center font-black"
+              style={{width:18, height:18, borderRadius:'50%', background:'#c8102e', color:'#fff', fontSize:12, border:'2px solid #0f1623', lineHeight:1}}>
           !
         </span>
       )}
