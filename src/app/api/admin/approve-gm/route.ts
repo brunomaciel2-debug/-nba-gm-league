@@ -1,57 +1,53 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
 
-const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)
 
-async function resolveOffers() {
-  const { data: offers } = await admin
-    .from('fa_offers')
-    .select('player_id, team_id, players(name, team_id, on_gleague_assignment)')
-    .order('created_at')
+export async function POST(req: NextRequest) {
+  try {
+    const { application_id, email, password, full_name, team_id } = await req.json()
 
-  if (!offers || offers.length === 0) return { resolved: 0 }
+    if (!application_id || !email || !password || !full_name || !team_id) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
 
-  const byPlayer: Record<number, any[]> = {}
-  for (const o of offers) {
-    const p = o.player_id
-    if (!byPlayer[p]) byPlayer[p] = []
-    byPlayer[p].push(o)
-  }
-
-  let resolved = 0
-
-  for (const [playerIdStr, playerOffers] of Object.entries(byPlayer)) {
-    const playerId = Number(playerIdStr)
-    const player = (playerOffers[0] as any).players
-    if (player.team_id) { await admin.from('fa_offers').delete().eq('player_id', playerId); continue }
-
-    const chosen = playerOffers[Math.floor(Math.random() * playerOffers.length)]
-    const teamId = chosen.team_id
-
-    await admin.from('players').update({
-      team_id: teamId, salary: 650000, gleague_team_id: null, on_gleague_assignment: false
-    }).eq('id', playerId)
-
-    await admin.from('contracts').insert({
-      player_id: playerId, player_name: player.name,
-      season: '2025-26', salary: 650000, type: 'one-year', notes: 'FA signing - 1yr $650k'
+    // 1. Criar utilizador no Supabase Auth
+    const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name },
     })
 
-    await admin.from('fa_offers').delete().eq('player_id', playerId)
-    resolved++
+    if (authErr) {
+      return NextResponse.json({ error: 'Auth error: ' + authErr.message }, { status: 500 })
+    }
+
+    const userId = authData.user.id
+
+    // 2. Criar perfil GM
+    const { error: profileErr } = await supabaseAdmin
+      .from('gm_profiles')
+      .insert({ id: userId, team_id, display_name: full_name, role: 'gm' })
+
+    if (profileErr) {
+      await supabaseAdmin.auth.admin.deleteUser(userId)
+      return NextResponse.json({ error: 'Profile error: ' + profileErr.message }, { status: 500 })
+    }
+
+    // 3. Actualizar status da candidatura
+    await supabaseAdmin
+      .from('job_applications')
+      .update({ status: 'approved' })
+      .eq('id', application_id)
+
+    return NextResponse.json({ success: true, user_id: userId })
+
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
   }
-
-  return { resolved }
-}
-
-// Called by Vercel cron job
-export async function GET(req: NextRequest) {
-  const result = await resolveOffers()
-  return NextResponse.json(result)
-}
-
-// Called manually if needed
-export async function POST(req: NextRequest) {
-  const result = await resolveOffers()
-  return NextResponse.json(result)
 }
