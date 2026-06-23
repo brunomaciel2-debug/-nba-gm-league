@@ -16,7 +16,7 @@ export default function TradeCenterPage() {
     Promise.all([
       supabase.from('teams').select('id,name,color,logo_url,conference,division')
         .not('id','in','(ALL,RVS,ROO,SOP)').order('name'),
-      supabase.from('trade_block').select('*, players(id,name,pos,real_ovr,team_id), teams(id,name,color,logo_url)')
+      supabase.from('trade_block').select('*, players(id,name,pos,real_ovr,photo_url,team_id), teams(id,name,color,logo_url)')
         .eq('status','available').order('created_at',{ascending:false}),
     ]).then(([{data:ts},{data:tb}]) => {
       setTeams(ts||[])
@@ -26,13 +26,6 @@ export default function TradeCenterPage() {
   }, [])
 
   const myTeamId = profile?.team_id
-  const capFmt = (n:number) => n>=1000000?'$'+(n/1000000).toFixed(1)+'M':'$'+n?.toLocaleString()
-
-  // Agrupar trade block por equipa
-  const tradeBlockByTeam = teams.map(t => ({
-    team: t,
-    players: tradeBlock.filter(tb => tb.teams?.id === t.id),
-  })).filter(x => x.players.length > 0)
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -41,7 +34,7 @@ export default function TradeCenterPage() {
         <div>
           <h1 className="text-2xl font-bold" style={{color:'#1a1512'}}>🔄 Trade Center</h1>
           <p className="text-sm" style={{color:'#6b5f4e'}}>
-            {myTeamId ? `Managing: ${(profile as any)?.teams?.name}` : 'Browse trades and staff signings'}
+            {myTeamId ? `Managing: ${(profile as any)?.teams?.name}` : 'Browse trades'}
           </p>
         </div>
         {!user && (
@@ -74,56 +67,27 @@ export default function TradeCenterPage() {
           {tab==='players' && (
             <div>
               <p className="text-xs mb-4" style={{color:'#6b5f4e'}}>
-                Click a team to propose a trade. Players on the trade block are highlighted.
+                Selecciona uma equipa para propor uma troca.
               </p>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {teams.map(t => {
                   const tc = readableTeamColor(t.color)
                   const isMyTeam = myTeamId ? t.id === myTeamId : false
-                  const tbPlayers = tradeBlock.filter(tb => tb.teams?.id === t.id)
                   return (
                     <div key={t.id} className="rounded-xl overflow-hidden"
                          style={{border:'1px solid '+(isMyTeam?tc+'55':'#d4cdc5')}}>
                       <Link href={`/team/${t.id}`} className="no-underline">
-                        <div className="flex items-center gap-2 px-4 py-3 transition-all"
+                        <div className="flex items-center gap-2 px-4 py-3"
                              style={{background:'#ede8de'}}
                              onMouseEnter={e=>(e.currentTarget.style.background='#e2dbd0')}
                              onMouseLeave={e=>(e.currentTarget.style.background='#ede8de')}>
-                          {t.logo_url && <img src={t.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
+                          {t.logo_url && <img src={t.logo_url} alt="" className="w-7 h-7 object-contain flex-shrink-0"/>}
                           <span className="font-bold text-sm flex-1" style={{color:isMyTeam?tc:'#1a1512'}}>{t.name}</span>
-                          {tbPlayers.length > 0 && (
-                            <span className="text-xs px-1.5 py-0.5 rounded font-bold"
-                                  style={{background:'#fef3c7',color:'#b45309'}}>
-                              {tbPlayers.length} on block
-                            </span>
-                          )}
-                          {isMyTeam && <span className="text-xs" style={{color:tc}}>Your Team</span>}
+                          {isMyTeam && <span className="text-xs font-semibold" style={{color:tc}}>Your Team</span>}
                         </div>
                       </Link>
-                      {tbPlayers.length > 0 && (
-                        <div className="px-4 py-2" style={{background:'#f5f0e8',borderTop:'1px solid #e2dcd5'}}>
-                          <div className="text-xs mb-1.5 font-semibold" style={{color:'#b45309'}}>📋 Trade Block</div>
-                          {tbPlayers.map((tb:any)=>(
-                            <Link key={tb.id} href={`/player/${tb.players?.id}`} className="no-underline">
-                              <div className="flex items-center gap-2 py-1.5 rounded px-1"
-                                   style={{borderBottom:'1px solid #e2dcd5'}}
-                                   onMouseEnter={e=>(e.currentTarget.style.background='#ede8de')}
-                                   onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                                <span className="text-xs w-7 flex-shrink-0" style={{color:'#8a8279'}}>{tb.players?.pos}</span>
-                                <span className="text-xs flex-1 font-semibold" style={{color:'#b45309'}}>{tb.players?.name}</span>
-                                {tb.players?.real_ovr && (
-                                  <span className="text-xs font-black w-6 text-right"
-                                        style={{color: tb.players.real_ovr>=85?'#b45309':tb.players.real_ovr>=75?'#15803d':'#1d4ed8'}}>
-                                    {tb.players.real_ovr}
-                                  </span>
-                                )}
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
-                      )}
                       {!isMyTeam && user && (
-                        <div className="px-4 py-2" style={{borderTop:'1px solid #e2dcd5',background:'#faf8f5'}}>
+                        <div className="px-4 py-2" style={{background:'#faf8f5',borderTop:'1px solid #e2dcd5'}}>
                           <Link href={`/trade-center/propose?to=${t.id}`}
                                 className="block text-center text-xs font-semibold py-1.5 rounded-lg no-underline"
                                 style={{background:'#1d4ed8',color:'#fff'}}>
@@ -143,7 +107,7 @@ export default function TradeCenterPage() {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs" style={{color:'#6b5f4e'}}>
-                  All 30 teams — players on the trade block shown below each team.
+                  Jogadores disponíveis para troca, por equipa.
                 </p>
                 {user && myTeamId && (
                   <Link href="/trade-center/manage-block"
@@ -161,14 +125,17 @@ export default function TradeCenterPage() {
                   const isMyTeam = myTeamId === t.id
                   return (
                     <div key={t.id} className="rounded-xl overflow-hidden"
-                         style={{border:'1px solid '+(tbPlayers.length>0?tc+'44':'#e2dcd5'),
-                                 opacity: tbPlayers.length===0 ? 0.5 : 1}}>
+                         style={{
+                           border:'1px solid '+(tbPlayers.length>0?tc+'55':'#e2dcd5'),
+                           opacity: tbPlayers.length===0 ? 0.45 : 1,
+                         }}>
                       {/* Team header */}
                       <div className="flex items-center gap-2 px-4 py-3"
-                           style={{background: tbPlayers.length>0?'#ede8de':'#f5f2ee'}}>
+                           style={{background: tbPlayers.length>0?'#ede8de':'#f5f2ee',
+                                   borderBottom: tbPlayers.length>0?'1px solid #e2dcd5':'none'}}>
                         {t.logo_url
                           ? <img src={t.logo_url} alt="" className="w-7 h-7 object-contain flex-shrink-0"/>
-                          : <div className="w-7 h-7 rounded flex-shrink-0"/>
+                          : <div className="w-7 h-7 flex-shrink-0"/>
                         }
                         <span className="font-bold text-sm flex-1"
                               style={{color: tbPlayers.length>0?'#1a1512':'#9a9088'}}>
@@ -179,36 +146,57 @@ export default function TradeCenterPage() {
                                   style={{background:'#fef3c7',color:'#b45309'}}>
                               {tbPlayers.length} available
                             </span>
-                          : <span className="text-xs" style={{color:'#b0a89e'}}>No players listed</span>
+                          : <span className="text-xs" style={{color:'#b0a89e'}}>—</span>
                         }
                       </div>
 
-                      {/* Players */}
+                      {/* Players com foto */}
                       {tbPlayers.length > 0 && (
-                        <div style={{background:'#faf8f5',borderTop:'1px solid #e2dcd5'}}>
-                          {tbPlayers.map((tb:any) => (
-                            <Link key={tb.id} href={`/player/${tb.players?.id}`} className="no-underline">
-                              <div className="flex items-center gap-3 px-4 py-2.5"
-                                   style={{borderBottom:'1px solid #e8e2d8'}}
-                                   onMouseEnter={e=>(e.currentTarget.style.background='#f0ece5')}
-                                   onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                                <span className="text-xs w-7 flex-shrink-0 font-semibold"
-                                      style={{color:'#8a8279'}}>{tb.players?.pos}</span>
-                                <span className="text-sm font-bold flex-1"
-                                      style={{color:'#b45309'}}>{tb.players?.name}</span>
-                                {tb.players?.real_ovr && (
-                                  <span className="text-xs font-black"
-                                        style={{color: tb.players.real_ovr>=85?'#b45309':tb.players.real_ovr>=75?'#15803d':'#1d4ed8'}}>
-                                    {tb.players.real_ovr}
-                                  </span>
-                                )}
-                                <span className="text-xs" style={{color:'#5c554e'}}>→</span>
-                              </div>
-                            </Link>
-                          ))}
-                          {/* Propose trade button */}
+                        <div style={{background:'#faf8f5'}}>
+                          {tbPlayers.map((tb:any) => {
+                            const ovr = tb.players?.real_ovr
+                            const ovrColor = ovr>=85?'#b45309':ovr>=75?'#15803d':ovr>=65?'#1d4ed8':'#5c554e'
+                            const ovrBg = ovr>=85?'#fef3c7':ovr>=75?'#dcfce7':ovr>=65?'#dbeafe':'#f0ece5'
+                            return (
+                              <Link key={tb.id} href={`/player/${tb.players?.id}`} className="no-underline">
+                                <div className="flex items-center gap-3 px-4 py-3"
+                                     style={{borderBottom:'1px solid #e8e2d8'}}
+                                     onMouseEnter={e=>(e.currentTarget.style.background='#f0ece5')}
+                                     onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                                  {/* Foto */}
+                                  {tb.players?.photo_url
+                                    ? <img src={tb.players.photo_url} alt=""
+                                           className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                                           style={{border:'2px solid '+tc+'44'}}/>
+                                    : <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-black"
+                                           style={{background:tc+'22',color:tc}}>
+                                        {tb.players?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                                      </div>
+                                  }
+                                  {/* Info */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-bold text-sm truncate" style={{color:'#1a1512'}}>
+                                      {tb.players?.name}
+                                    </div>
+                                    <div className="text-xs" style={{color:'#6b5f4e'}}>
+                                      {tb.players?.pos}
+                                    </div>
+                                  </div>
+                                  {/* OVR */}
+                                  {ovr && (
+                                    <div className="flex flex-col items-center justify-center rounded-lg px-2 py-1 flex-shrink-0"
+                                         style={{background:ovrBg,border:'1px solid '+ovrColor+'44'}}>
+                                      <span className="text-sm font-black" style={{color:ovrColor}}>{ovr}</span>
+                                      <span className="text-xs" style={{color:ovrColor,fontSize:8}}>OVR</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </Link>
+                            )
+                          })}
+                          {/* Propose trade */}
                           {user && !isMyTeam && (
-                            <div className="px-4 py-2" style={{borderTop:'1px solid #e2dcd5'}}>
+                            <div className="px-4 py-2" style={{borderTop:'1px solid #e2dcd5',background:'#f5f1eb'}}>
                               <Link href={`/trade-center/propose?to=${t.id}`}
                                     className="block text-center text-xs font-semibold py-1.5 rounded-lg no-underline"
                                     style={{background:'#1d4ed8',color:'#fff'}}>
