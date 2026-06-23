@@ -4,6 +4,7 @@ import type { Article, Game, Team, Transaction } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
 import LeagueLeadersMini from './LeagueLeadersMini'
 import SeasonTimeline from '@/components/SeasonTimeline'
+import DraftSection from './DraftSection'
 export const revalidate = 60
 
 function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#1d4ed8' }
@@ -103,7 +104,7 @@ export default async function HomePage() {
       <div className="grid md:grid-cols-3 gap-5 mb-8">
 
         {/* Performance of the Week */}
-        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #f59e0b',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cdc5',borderTop:'3px solid #f59e0b',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
           <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #ddd8ce'}}>
             <i className="ti ti-award" style={{fontSize:18,color:'#d97706'}}></i>
             <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#92400e',letterSpacing:'1px'}}>Performance of the Week</span>
@@ -153,7 +154,7 @@ export default async function HomePage() {
         </div>
 
         {/* Upset of the Week */}
-        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #dc2626',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cdc5',borderTop:'3px solid #dc2626',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
           <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #ddd8ce'}}>
             <i className="ti ti-bolt" style={{fontSize:18,color:'#dc2626'}}></i>
             <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#991b1b',letterSpacing:'1px'}}>Upset of the Week</span>
@@ -209,7 +210,7 @@ export default async function HomePage() {
         </div>
 
         {/* Hot Streak */}
-        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #c2410c',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
+        <div className="rounded-2xl p-5" style={{background:'#e8e2d6',border:'1px solid #d4cdc5',borderTop:'3px solid #c2410c',boxShadow:'0 1px 3px rgba(0,0,0,0.06)'}}>
           <div className="flex items-center gap-2 mb-4 pb-3" style={{borderBottom:'1px solid #ddd8ce'}}>
             <i className="ti ti-flame" style={{fontSize:18,color:'#c2410c'}}></i>
             <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#9a3412',letterSpacing:'1px'}}>Hot Streak</span>
@@ -284,7 +285,7 @@ export default async function HomePage() {
               return (
                 <Link key={g.id} href={`/game/${g.id}`} className="no-underline">
                   <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                       style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+                       style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
                     <span className="text-xs w-6 font-semibold" style={{color:'#6b5f4e'}}>W{g.week_number}</span>
                     <div className="flex-1 flex items-center gap-3">
                       <span className="text-sm font-semibold" style={{color:winner==='home'?'#e8e2d6':'#5c554e'}}>
@@ -307,6 +308,10 @@ export default async function HomePage() {
           </div>
         </>
       )}
+
+      {/* DRAFT SECTION */}
+      <DraftSection />
+
     </div>
   )
 }
