@@ -84,11 +84,25 @@ export default function InboxPage() {
   const approveApp = async (msg: any) => {
     if (!msg.metadata?.application_id) return
     setProcessing(msg.id)
-    await supabase.from('job_applications')
-      .update({ status: 'approved' })
-      .eq('id', msg.metadata.application_id)
-    setActionMsg(`✅ Approved! Go to Supabase → Auth → Add user: ${msg.metadata?.email} then run the SQL in /admin/applications.`)
-    await deleteMsg(msg.id)
+    try {
+      const res = await fetch('/api/admin/approve-gm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          application_id: msg.metadata.application_id,
+          email: msg.metadata.email,
+          password: msg.metadata.password || 'NBA2025!',
+          full_name: msg.metadata.full_name,
+          team_id: msg.metadata.team_id,
+        }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Unknown error')
+      setActionMsg(`✅ ${msg.metadata.full_name} aprovado! Conta criada automaticamente.`)
+      await deleteMsg(msg.id)
+    } catch (e: any) {
+      setActionMsg(`❌ Erro: ${e.message}`)
+    }
     setProcessing(null)
   }
 
@@ -270,7 +284,7 @@ export default function InboxPage() {
                           disabled={processing === msg.id}
                           className="px-4 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
                           style={{background:'#15803d', color:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,0.2)'}}>
-                          {processing === msg.id ? '...' : '✅ Approve'}
+                          {processing === msg.id ? '⏳ A criar conta...' : '✅ Approve'}
                         </button>
                         <button
                           onClick={() => rejectApp(msg)}
