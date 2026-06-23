@@ -32,7 +32,7 @@ export default function ChatButton() {
           .order('created_at', { ascending: false })
           .limit(200)
 
-        const channels = [...new Set((myMessages || []).map((m: any) => m.channel))]
+        const channels = (myMessages || []).map((m: any) => m.channel).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
         if (channels.length === 0) { setHasUnread(false); return }
 
         // Buscar last_read para cada canal
