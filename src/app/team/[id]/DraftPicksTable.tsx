@@ -2,8 +2,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-// Épocas futuras — formato da BD é '2026', '2027', etc.
-// Excluímos 2026 (época corrente) e mostramos as 5 seguintes
 const SEASONS = ['2027', '2028', '2029', '2030', '2031']
 
 const SEASON_LABEL: Record<string, string> = {
@@ -50,7 +48,6 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
     <div className="p-6 text-center" style={{ color: '#8a8279' }}>Loading draft picks...</div>
   )
 
-  // Agrupar por época
   const bySeason: Record<string, any[]> = {}
   for (const season of SEASONS) bySeason[season] = []
   for (const pick of picks) {
@@ -66,7 +63,6 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
         const label = SEASON_LABEL[season] || season
         return (
           <div key={season}>
-            {/* Season header */}
             <div className="flex items-center gap-3 mb-3">
               <h3 className="text-sm font-black" style={{ color: '#1a1512' }}>{label} Draft</h3>
               <div className="flex-1 h-px" style={{ background: '#d4cdc5' }} />
@@ -140,10 +136,10 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
                           )}
                         </div>
 
-                        {/* Logo da equipa de origem (se pick adquirida) */}
-                        {!isOwnPick && origTeam?.logo_url && (
-                          <div className="flex-shrink-0 opacity-50">
-                            <img src={origTeam.logo_url} alt="" className="w-8 h-8 object-contain" />
+                        {/* Logo — sempre visível */}
+                        {origTeam?.logo_url && (
+                          <div className="flex-shrink-0" style={{ opacity: isOwnPick ? 0.4 : 1 }}>
+                            <img src={origTeam.logo_url} alt="" className="w-10 h-10 object-contain" />
                           </div>
                         )}
 
