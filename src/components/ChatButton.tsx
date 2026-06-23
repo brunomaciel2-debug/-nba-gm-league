@@ -24,7 +24,6 @@ export default function ChatButton() {
       if (!myTeamId) return
 
       const checkUnread = async () => {
-        // Buscar todos os canais relevantes (general + DMs onde participo)
         const { data: myMessages } = await supabase
           .from('chat_messages')
           .select('channel')
@@ -35,7 +34,6 @@ export default function ChatButton() {
         const channels = (myMessages || []).map((m: any) => m.channel).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
         if (channels.length === 0) { setHasUnread(false); return }
 
-        // Buscar last_read para cada canal
         const { data: reads } = await supabase
           .from('chat_reads')
           .select('channel, last_read_at')
@@ -44,7 +42,6 @@ export default function ChatButton() {
         const readsMap: Record<string, string> = {}
         for (const r of (reads || [])) readsMap[r.channel] = r.last_read_at
 
-        // Verificar se há mensagens mais recentes que o last_read
         for (const channel of channels) {
           const lastRead = readsMap[channel]
           const { data: newMsgs } = await supabase
@@ -65,7 +62,6 @@ export default function ChatButton() {
 
       await checkUnread()
 
-      // Realtime — nova mensagem em qualquer canal
       sub = supabase
         .channel('chat_unread_notify')
         .on('postgres_changes', {
@@ -99,8 +95,9 @@ export default function ChatButton() {
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
       {hasUnread && (
-        <span className="absolute -top-1 -right-1 flex items-center justify-center"
-              style={{width:8, height:8, borderRadius:'50%', background:'#1d4ed8', border:'2px solid #0f1623'}}>
+        <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center font-black"
+              style={{width:14, height:14, borderRadius:'50%', background:'#c8102e', color:'#fff', fontSize:9, border:'2px solid #0f1623'}}>
+          !
         </span>
       )}
     </Link>
