@@ -159,7 +159,7 @@ export default function DraftSection() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                        {['Pick','Team','W-L','Prospect','Pos','OVR'].map((h,i) => (
+                        {['Pick','Team','Prospect','Pos','OVR'].map((h,i) => (
                           <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i<=1?'text-left':'text-right'}`}
                               style={{color:'#5c554e'}}>{h}</th>
                         ))}
@@ -174,9 +174,6 @@ export default function DraftSection() {
                               {team.logo_url && <img src={team.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
                               <span className="font-semibold text-xs" style={{color:'#1a1512'}}>{team.name}</span>
                             </div>
-                          </td>
-                          <td className="px-3 py-2.5 text-right text-xs" style={{color:'#6b5f4e'}}>
-                            {team.wins}-{team.losses}
                           </td>
                           <td className="px-3 py-2.5 text-right font-bold text-xs" style={{color:'#1a1512'}}>
                             {prospect?.name || '—'}
