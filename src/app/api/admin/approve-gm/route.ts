@@ -8,17 +8,17 @@ const supabaseAdmin = createClient(
 )
 
 async function sendEmail(to: string, subject: string, html: string) {
-  const res = await fetch('https://api.resend.com/emails', {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      'api-key': process.env.BREVO_API_KEY!,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'NBA GM League <onboarding@resend.dev>',
-      to,
+      sender: { name: 'NBA GM League', email: 'brunomaciel2@gmail.com' },
+      to: [{ email: to }],
       subject,
-      html,
+      htmlContent: html,
     }),
   })
   return res.ok
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
         'Your NBA GM League Application',
         `
         <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
-          <h2 style="color: #1a1512;">NBA GM League</h2>
+          <h2 style="color: #1a1512;">🏀 NBA GM League</h2>
           <p>Hi <strong>${full_name}</strong>,</p>
           <p>Thank you for your interest in managing an NBA franchise.</p>
           <p>After careful consideration, the Commissioner has decided not to move forward with your application at this time.</p>
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     // 5. Enviar email de aprovação
     await sendEmail(
       email,
-      'Welcome to NBA GM League!',
+      'Welcome to NBA GM League! 🏀',
       `
       <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a1512;">🏀 NBA GM League</h2>
