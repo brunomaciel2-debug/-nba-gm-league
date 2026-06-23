@@ -29,12 +29,27 @@ const COMM_LINKS = [
   { href: '/admin/media',         label: 'Media Manager',      icon: 'ti-photo' },
   { href: '/admin/coaches',       label: 'Coaching Staff',     icon: 'ti-whistle' },
   { href: '/admin/applications',  label: 'GM Applications',    icon: 'ti-clipboard-list' },
+  { href: '/admin/gms',           label: 'Manage GMs',         icon: 'ti-users' },
 ]
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [commOpen, setCommOpen] = useState(false)
+  const [gmOpen, setGmOpen] = useState(false)
   const { user, profile, loading, signOut } = useAuth()
+
+  const teamId = (profile as any)?.team_id
+
+  const GM_LINKS = [
+    { href: `/team/${teamId}`,           label: 'My Franchise',        icon: 'ti-building' },
+    { href: `/gm/orders/${teamId}`,      label: 'Weekly Orders',       icon: 'ti-clipboard-check' },
+    { href: `/trade-center`,             label: 'Propose Trade',       icon: 'ti-switch-horizontal' },
+    { href: `/free-agents`,              label: 'Sign Free Agent',     icon: 'ti-user-plus' },
+    { href: `/preseason`,                label: 'Schedule Friendly',   icon: 'ti-calendar-event' },
+    { href: `/team/${teamId}#contracts`, label: 'Contracts',           icon: 'ti-file-dollar' },
+    { href: `/chat`,                     label: 'GM Chat',             icon: 'ti-message-circle' },
+    { href: `/inbox`,                    label: 'Inbox',               icon: 'ti-mail' },
+  ]
 
   return (
     <>
@@ -56,6 +71,7 @@ export default function Navbar() {
               <div className="w-8 h-8 rounded-full animate-pulse" style={{ background: 'rgba(255,255,255,0.1)' }} />
             ) : user ? (
               profile?.role === 'commissioner' ? (
+                /* COMMISSIONER DROPDOWN */
                 <div className="relative">
                   <button onClick={() => setCommOpen(!commOpen)}
                     className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg"
@@ -88,10 +104,51 @@ export default function Navbar() {
                     </div>
                   )}
                 </div>
+              ) : teamId ? (
+                /* GM DROPDOWN */
+                <div className="relative">
+                  <button onClick={() => setGmOpen(!gmOpen)}
+                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg"
+                    style={{ background: '#1d4ed8', color: '#fff' }}>
+                    <i className="ti ti-user-circle" style={{ fontSize: 13 }}></i>
+                    {profile?.display_name || user.email?.split('@')[0]}
+                    <i className="ti ti-chevron-down" style={{ fontSize: 11 }}></i>
+                  </button>
+                  {gmOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-50 rounded-xl overflow-hidden py-1"
+                         style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+                      {/* Team name header */}
+                      <div className="px-4 py-2.5 text-xs font-black uppercase tracking-widest"
+                           style={{ color: '#1d4ed8', borderBottom: '1px solid #d6d0c6', background: '#e8e2d6' }}>
+                        <i className="ti ti-building mr-1.5" style={{ fontSize: 13 }}></i>
+                        {(profile as any)?.teams?.name || teamId}
+                      </div>
+                      {GM_LINKS.map(item => (
+                        <Link key={item.href} href={item.href} onClick={() => setGmOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
+                          style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          <i className={`ti ${item.icon}`} style={{ fontSize: 14, color: '#1d4ed8' }}></i>
+                          {item.label}
+                        </Link>
+                      ))}
+                      <button onClick={() => { signOut(); setGmOpen(false) }}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs"
+                        style={{ color: '#dc2626' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        <i className="ti ti-logout" style={{ fontSize: 14 }}></i>
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
               ) : (
+                /* USER SEM EQUIPA */
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold" style={{ color: '#8a8279' }}>
-                    {profile?.display_name || profile?.teams?.name || user.email?.split('@')[0]}
+                    {profile?.display_name || user.email?.split('@')[0]}
                   </span>
                   <button onClick={signOut} className="text-xs px-3 py-1.5 rounded-lg"
                     style={{ background: 'rgba(255,255,255,0.1)', color: '#1a1512' }}>
