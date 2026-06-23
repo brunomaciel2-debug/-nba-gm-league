@@ -2,11 +2,16 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 
-const SEASONS = ['2026-27', '2027-28', '2028-29', '2029-30', '2030-31']
+// Épocas futuras — formato da BD é '2026', '2027', etc.
+// Excluímos 2026 (época corrente) e mostramos as 5 seguintes
+const SEASONS = ['2027', '2028', '2029', '2030', '2031']
 
-const ROUND_LABEL: Record<number, string> = {
-  1: '1st Round',
-  2: '2nd Round',
+const SEASON_LABEL: Record<string, string> = {
+  '2027': '2026-27',
+  '2028': '2027-28',
+  '2029': '2028-29',
+  '2030': '2029-30',
+  '2031': '2030-31',
 }
 
 const ROUND_COLOR: Record<number, { color: string, bg: string }> = {
@@ -45,13 +50,6 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
     <div className="p-6 text-center" style={{ color: '#8a8279' }}>Loading draft picks...</div>
   )
 
-  if (picks.length === 0) return (
-    <div className="rounded-xl p-8 text-center" style={{ background: '#faf8f5', border: '1px solid #d4cdc5' }}>
-      <div className="text-3xl mb-3">📋</div>
-      <p className="text-sm" style={{ color: '#8a8279' }}>No draft picks for the next 5 seasons.</p>
-    </div>
-  )
-
   // Agrupar por época
   const bySeason: Record<string, any[]> = {}
   for (const season of SEASONS) bySeason[season] = []
@@ -65,11 +63,12 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
     <div className="flex flex-col gap-6">
       {SEASONS.map(season => {
         const seasonPicks = bySeason[season]
+        const label = SEASON_LABEL[season] || season
         return (
           <div key={season}>
             {/* Season header */}
             <div className="flex items-center gap-3 mb-3">
-              <h3 className="text-sm font-black" style={{ color: '#1a1512' }}>{season} Draft</h3>
+              <h3 className="text-sm font-black" style={{ color: '#1a1512' }}>{label} Draft</h3>
               <div className="flex-1 h-px" style={{ background: '#d4cdc5' }} />
               <span className="text-xs font-semibold px-2 py-0.5 rounded"
                     style={{ background: '#e8e2d6', color: '#6b5f4e' }}>
@@ -78,7 +77,8 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
             </div>
 
             {seasonPicks.length === 0 ? (
-              <div className="px-4 py-3 rounded-xl text-xs" style={{ background: '#faf8f5', border: '1px solid #e2dcd5', color: '#b0a89e' }}>
+              <div className="px-4 py-3 rounded-xl text-xs"
+                   style={{ background: '#faf8f5', border: '1px solid #e2dcd5', color: '#b0a89e' }}>
                 No picks this season
               </div>
             ) : (
@@ -94,7 +94,7 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
                            className="flex items-center gap-4 px-4 py-3 rounded-xl"
                            style={{
                              background: '#faf8f5',
-                             border: `1px solid ${isOwnPick ? '#d4cdc5' : '#f0a500' + '55'}`,
+                             border: `1px solid ${isOwnPick ? '#d4cdc5' : '#f0a50055'}`,
                              borderLeft: `4px solid ${isOwnPick ? roundStyle.color : '#f0a500'}`,
                            }}>
 
@@ -104,7 +104,7 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
                           <span className="text-xs font-black" style={{ color: roundStyle.color }}>
                             R{pick.round}
                           </span>
-                          <span className="text-xs" style={{ color: roundStyle.color, fontSize: 8 }}>
+                          <span style={{ color: roundStyle.color, fontSize: 8, fontWeight: 700 }}>
                             {pick.round === 1 ? '1ST' : '2ND'}
                           </span>
                         </div>
@@ -113,7 +113,7 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-sm" style={{ color: '#1a1512' }}>
-                              {ROUND_LABEL[pick.round] || `Round ${pick.round}`}
+                              {pick.round === 1 ? '1st Round Pick' : '2nd Round Pick'}
                             </span>
                             {!isOwnPick && origTeam && (
                               <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
@@ -130,33 +130,31 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
                           </div>
                           {pick.protection && pick.protection !== 'unprotected' && (
                             <div className="text-xs mt-0.5" style={{ color: '#dc2626' }}>
-                              🛡 {pick.protection}
+                              🛡 Protected: {pick.protection}
                             </div>
                           )}
                           {!isOwnPick && origTeam && (
                             <div className="text-xs mt-0.5" style={{ color: '#6b5f4e' }}>
-                              Pick quality determined by {origTeam.name}'s final standing
+                              Quality determined by {origTeam.name}'s final standing
                             </div>
                           )}
                         </div>
 
-                        {/* Team logo (origem) */}
+                        {/* Logo da equipa de origem (se pick adquirida) */}
                         {!isOwnPick && origTeam?.logo_url && (
-                          <div className="flex-shrink-0 opacity-60">
+                          <div className="flex-shrink-0 opacity-50">
                             <img src={origTeam.logo_url} alt="" className="w-8 h-8 object-contain" />
                           </div>
                         )}
 
-                        {/* Status badge */}
-                        <div className="flex-shrink-0">
-                          <span className="text-xs font-semibold px-2 py-1 rounded-lg"
-                                style={{
-                                  background: pick.status === 'owned' ? '#dcfce7' : '#fee2e2',
-                                  color: pick.status === 'owned' ? '#15803d' : '#dc2626',
-                                }}>
-                            {pick.status === 'owned' ? 'Owned' : pick.status}
-                          </span>
-                        </div>
+                        {/* Status */}
+                        <span className="text-xs font-semibold px-2 py-1 rounded-lg flex-shrink-0"
+                              style={{
+                                background: pick.status === 'owned' ? '#dcfce7' : '#fee2e2',
+                                color: pick.status === 'owned' ? '#15803d' : '#dc2626',
+                              }}>
+                          {pick.status === 'owned' ? 'Owned' : pick.status}
+                        </span>
                       </div>
                     )
                   })}
