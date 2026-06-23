@@ -179,39 +179,48 @@ export default function InboxPage() {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+        <div className="rounded-xl overflow-hidden" style={{border:'1px solid #c8c0b8',boxShadow:'0 1px 4px rgba(0,0,0,0.06)'}}>
           {filtered.map((msg, idx) => (
             <div key={msg.id}>
-              {idx > 0 && <div style={{height:1,background:'#e8e2d6'}} />}
+              {idx > 0 && <div style={{height:1, background:'#ddd8d0'}} />}
 
               {/* Row */}
               <div
                 onClick={() => toggleExpand(msg)}
                 className="flex items-center gap-3 px-4 py-3 cursor-pointer"
-                style={{background: msg.read ? '#faf8f5' : '#ffffff'}}
-                onMouseEnter={e => (e.currentTarget.style.background = msg.read ? '#f0ece5' : '#f5f8ff')}
-                onMouseLeave={e => (e.currentTarget.style.background = msg.read ? '#faf8f5' : '#ffffff')}
+                style={{
+                  background: msg.read ? '#f5f2ee' : '#ffffff',
+                  borderLeft: `3px solid ${msg.read ? 'transparent' : '#c8102e'}`,
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = msg.read ? '#ede8e1' : '#fef6f6')}
+                onMouseLeave={e => (e.currentTarget.style.background = msg.read ? '#f5f2ee' : '#ffffff')}
               >
                 {/* Unread dot */}
-                <div style={{width:8,height:8,flexShrink:0}}>
+                <div style={{width:8, height:8, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center'}}>
                   {!msg.read && (
-                    <div style={{width:8,height:8,borderRadius:'50%',background:'#c8102e'}} />
+                    <div style={{width:8, height:8, borderRadius:'50%', background:'#c8102e', boxShadow:'0 0 0 2px #ffd0d0'}} />
                   )}
                 </div>
 
                 {/* Icon */}
-                <div style={{fontSize:18,flexShrink:0}}>{TYPE_ICONS[msg.type] || '📨'}</div>
+                <div style={{fontSize:18, flexShrink:0, opacity: msg.read ? 0.45 : 1}}>
+                  {TYPE_ICONS[msg.type] || '📨'}
+                </div>
 
                 {/* Subject + preview */}
                 <div className="flex-1 min-w-0">
                   <span
                     className="text-sm truncate block"
-                    style={{color:'#1a1512', fontWeight: msg.read ? 400 : 700}}
+                    style={{
+                      color: msg.read ? '#9a9088' : '#1a1512',
+                      fontWeight: msg.read ? 400 : 700,
+                    }}
                   >
                     {msg.subject}
                   </span>
                   {expanded !== msg.id && (
-                    <span className="text-xs truncate block" style={{color:'#8a8279'}}>
+                    <span className="text-xs truncate block" style={{color: msg.read ? '#b0a89e' : '#6b5f52'}}>
                       {msg.body}
                     </span>
                   )}
@@ -220,13 +229,16 @@ export default function InboxPage() {
                 {/* Date + delete */}
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-xs"
-                    style={{color: msg.read ? '#b0a89e' : '#1a1512', fontWeight: msg.read ? 400 : 600}}>
+                    style={{
+                      color: msg.read ? '#b0a89e' : '#c8102e',
+                      fontWeight: msg.read ? 400 : 700,
+                    }}>
                     {fmtDate(msg.created_at)}
                   </span>
                   <button
                     onClick={e => { e.stopPropagation(); deleteMsg(msg.id) }}
                     className="text-xs px-2 py-1 rounded"
-                    style={{background:'transparent',color:'#b0a89e'}}
+                    style={{background:'transparent', color:'#c0b8b0'}}
                     title="Delete"
                   >
                     🗑
@@ -236,9 +248,9 @@ export default function InboxPage() {
 
               {/* Expanded body */}
               {expanded === msg.id && (
-                <div style={{background:'#ffffff',borderTop:'1px solid #e8e2d6'}}>
+                <div style={{background:'#fdfcfb', borderTop:'1px solid #ddd8d0'}}>
                   <div className="px-6 py-4">
-                    <p className="text-sm" style={{color:'#3a342e',lineHeight:1.7}}>{msg.body}</p>
+                    <p className="text-sm" style={{color:'#2a231e', lineHeight:1.8}}>{msg.body}</p>
                     {msg.from_team_id && (
                       <p className="text-xs mt-2" style={{color:'#8a8279'}}>From: {msg.from_team_id}</p>
                     )}
@@ -247,7 +259,7 @@ export default function InboxPage() {
                   {/* Application actions */}
                   {isCommissioner && msg.type === 'application' && msg.metadata?.application_id && (
                     <div className="px-6 py-3 flex items-center gap-3 flex-wrap"
-                         style={{background:'#f5f1eb',borderTop:'1px solid #e2dcd5'}}>
+                         style={{background:'#f0ece5', borderTop:'1px solid #ddd8d0'}}>
                       <span className="text-xs font-semibold" style={{color:'#5c554e'}}>
                         Applicant: <strong style={{color:'#1a1512'}}>{msg.metadata.full_name}</strong>
                         {' · '}{msg.metadata.email}
@@ -256,15 +268,15 @@ export default function InboxPage() {
                         <button
                           onClick={() => approveApp(msg)}
                           disabled={processing === msg.id}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
-                          style={{background:'#15803d',color:'#fff'}}>
+                          className="px-4 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
+                          style={{background:'#15803d', color:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,0.2)'}}>
                           {processing === msg.id ? '...' : '✅ Approve'}
                         </button>
                         <button
                           onClick={() => rejectApp(msg)}
                           disabled={processing === msg.id}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
-                          style={{background:'#dc2626',color:'#fff'}}>
+                          className="px-4 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40"
+                          style={{background:'#dc2626', color:'#fff', boxShadow:'0 1px 3px rgba(0,0,0,0.2)'}}>
                           {processing === msg.id ? '...' : '❌ Reject'}
                         </button>
                       </div>
