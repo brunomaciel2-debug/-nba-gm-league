@@ -155,16 +155,7 @@ export default function DraftSection() {
               <p className="text-xs mb-4" style={{color:'#6b5f4e'}}>
                 Preview baseado na classificação actual. Pior classificado escolhe primeiro. Actualiza automaticamente com os resultados.
               </p>
-              {prospects.length === 0 ? (
-                <div className="rounded-2xl p-12 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-                  <div className="text-5xl mb-4">📊</div>
-                  <h3 className="text-lg font-black mb-2" style={{color:'#1a1512'}}>Mock Draft Not Yet Available</h3>
-                  <p className="text-sm" style={{color:'#6b5f4e'}}>
-                    The mock draft will be generated once the draft class is revealed.
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+              <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
                   <table className="w-full text-sm">
                     <thead>
                       <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
@@ -211,7 +202,6 @@ export default function DraftSection() {
                     </tbody>
                   </table>
                 </div>
-              )}
             </div>
           )}
 
