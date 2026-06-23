@@ -8,13 +8,13 @@ export default function ChatPage() {
   const [myName, setMyName] = useState<string>('')
   const [myRole, setMyRole] = useState<string>('')
   const [teams, setTeams] = useState<any[]>([])
-  const [channels, setChannels] = useState<{id:string,name:string,type:'general'|'dm'}[]>([
-    { id:'general', name:'🏀 General', type:'general' }
-  ])
   const [activeChannel, setActiveChannel] = useState('general')
   const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
+  const [showNewDM, setShowNewDM] = useState(false)
+  const [reads, setReads] = useState<Record<string, string>>({})
+  const [dmList, setDmList] = useState<{id:string, name:string, lastMsg:string, lastTime:string, unread:boolean}[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -43,16 +43,76 @@ export default function ChatPage() {
       })
   }, [])
 
-  // Marcar canal como lido
+  // Carregar DMs com actividade + reads
+  const loadDMs = async (tid: string, uid: string) => {
+    const { data: msgs } = await supabase
+      .from('chat_messages')
+      .select('channel, body, from_team_id, from_name, created_at')
+      .like('channel', `%${tid}%`)
+      .order('created_at', { ascending: false })
+      .limit(500)
+
+    const { data: readsData } = await supabase
+      .from('chat_reads')
+      .select('channel, last_read_at')
+      .eq('user_id', uid)
+
+    const readsMap: Record<string, string> = {}
+    for (const r of (readsData || [])) readsMap[r.channel] = r.last_read_at
+    setReads(readsMap)
+
+    // Agrupar por canal DM
+    const channelMap: Record<string, any> = {}
+    for (const msg of (msgs || [])) {
+      if (msg.channel === 'general') continue
+      if (!channelMap[msg.channel]) channelMap[msg.channel] = msg
+    }
+
+    const list = Object.entries(channelMap).map(([channelId, lastMsg]: [string, any]) => {
+      // Descobrir nome do outro participante
+      const parts = channelId.split('_')
+      const otherId = parts.find((p: string) => p !== tid) || ''
+      const lastRead = readsMap[channelId]
+      const unread = lastMsg.from_team_id !== tid && (!lastRead || new Date(lastMsg.created_at) > new Date(lastRead))
+      return {
+        id: channelId,
+        otherId,
+        lastMsg: lastMsg.body,
+        lastTime: lastMsg.created_at,
+        unread,
+      }
+    })
+
+    list.sort((a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime())
+    setDmList(list as any)
+  }
+
+  useEffect(() => {
+    if (myTeamId && myUserId) loadDMs(myTeamId, myUserId)
+  }, [myTeamId, myUserId])
+
+  // Realtime para novos DMs
+  useEffect(() => {
+    if (!myTeamId || !myUserId) return
+    const sub = supabase
+      .channel('dm_notify')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => {
+        loadDMs(myTeamId, myUserId)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(sub) }
+  }, [myTeamId, myUserId])
+
   const markAsRead = async (channel: string, userId: string) => {
     await supabase.from('chat_reads').upsert({
       user_id: userId,
       channel,
       last_read_at: new Date().toISOString(),
     }, { onConflict: 'user_id,channel' })
+    setReads(prev => ({ ...prev, [channel]: new Date().toISOString() }))
+    setDmList(prev => prev.map(d => d.id === channel ? { ...d, unread: false } : d))
   }
 
-  // Load messages for active channel
   useEffect(() => {
     setMessages([])
     supabase.from('chat_messages')
@@ -65,7 +125,6 @@ export default function ChatPage() {
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
       })
 
-    // Marcar como lido ao abrir
     if (myUserId) markAsRead(activeChannel, myUserId)
 
     const sub = supabase
@@ -78,7 +137,6 @@ export default function ChatPage() {
       }, (payload) => {
         setMessages(prev => [...prev, payload.new])
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-        // Marcar como lido ao receber mensagem no canal activo
         if (myUserId) markAsRead(activeChannel, myUserId)
       })
       .subscribe()
@@ -99,18 +157,34 @@ export default function ChatPage() {
 
   const openDM = (teamId: string) => {
     const channelId = [myTeamId, teamId].sort().join('_')
-    const team = teams.find(t => t.id === teamId)
-    const label = team?.id === 'commissioner' ? '👑 Commissioner' : `💬 ${team?.name || teamId}`
-    if (!channels.find(c => c.id === channelId)) {
-      setChannels(prev => [...prev, { id: channelId, name: label, type: 'dm' }])
-    }
     setActiveChannel(channelId)
+    setShowNewDM(false)
+    if (myUserId) markAsRead(channelId, myUserId)
+  }
+
+  const getTeamName = (id: string) => {
+    if (id === 'commissioner') return 'Commissioner'
+    return teams.find(t => t.id === id)?.name || id
+  }
+
+  const getTeamLogo = (id: string) => {
+    if (id === 'commissioner') return null
+    return teams.find(t => t.id === id)?.logo_url || null
   }
 
   const fmtTime = (iso: string) => {
     const d = new Date(iso)
+    const now = new Date()
+    const diff = now.getTime() - d.getTime()
+    if (diff < 86400000) return d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12: false })
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric' })
+  }
+
+  const fmtMsgTime = (iso: string) => {
+    const d = new Date(iso)
     return d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12: false })
   }
+
   const fmtDate = (iso: string) => {
     const d = new Date(iso)
     return d.toLocaleDateString('en-US', { month:'short', day:'numeric' })
@@ -124,7 +198,14 @@ export default function ChatPage() {
     else groupedMessages.push({ date, msgs: [msg] })
   }
 
-  const activeChannelInfo = channels.find(c => c.id === activeChannel)
+  const activeChannelName = activeChannel === 'general'
+    ? '🏀 General'
+    : (() => {
+        const parts = activeChannel.split('_')
+        const otherId = parts.find(p => p !== myTeamId) || ''
+        return getTeamName(otherId)
+      })()
+
   const contacts = teams.filter(t => t.id !== myTeamId)
 
   if (loading) return (
@@ -138,7 +219,6 @@ export default function ChatPage() {
       <div className="text-center p-8 rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
         <div className="text-4xl mb-4">🔒</div>
         <div className="text-xl font-black mb-2" style={{color:'#1a1512'}}>Login Required</div>
-        <p className="text-sm mb-4" style={{color:'#5c554e'}}>You need to be a GM to access the chat.</p>
         <a href="/login" className="text-sm font-bold px-4 py-2 rounded-lg"
            style={{background:'#1a1512',color:'#fff',textDecoration:'none'}}>Sign In</a>
       </div>
@@ -150,57 +230,108 @@ export default function ChatPage() {
       <div className="flex gap-0 rounded-2xl overflow-hidden" style={{border:'1px solid #d4cdc5',height:'calc(100vh - 160px)',minHeight:500}}>
 
         {/* SIDEBAR */}
-        <div className="w-64 flex-shrink-0 flex flex-col" style={{background:'#1a1512',borderRight:'1px solid #3a3228'}}>
+        <div className="w-72 flex-shrink-0 flex flex-col" style={{background:'#1a1512',borderRight:'1px solid #3a3228'}}>
           <div className="px-4 py-4" style={{borderBottom:'1px solid #3a3228'}}>
             <div className="text-xs font-bold uppercase tracking-widest" style={{color:'#8a8279'}}>NBA GM League</div>
             <div className="text-sm font-bold mt-0.5" style={{color:'#f5f1eb'}}>Chat</div>
           </div>
 
-          <div className="flex-1 overflow-y-auto py-2">
-            <div className="px-3 mb-1">
+          <div className="flex-1 overflow-y-auto">
+            {/* General */}
+            <div className="px-3 pt-3 pb-1">
               <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>Channels</div>
-              {channels.filter(c=>c.type==='general').map(c=>(
-                <button key={c.id} onClick={()=>setActiveChannel(c.id)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold mb-0.5"
-                  style={{background:activeChannel===c.id?'#3a3228':'transparent',color:activeChannel===c.id?'#f5f1eb':'#8a8279'}}>
-                  {c.name}
-                </button>
-              ))}
+              <button onClick={() => setActiveChannel('general')}
+                className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold"
+                style={{background: activeChannel==='general' ? '#3a3228' : 'transparent', color: activeChannel==='general' ? '#f5f1eb' : '#8a8279'}}>
+                🏀 General
+              </button>
             </div>
 
-            {channels.filter(c=>c.type==='dm').length > 0 && (
-              <div className="px-3 mt-3 mb-1">
-                <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>Direct Messages</div>
-                {channels.filter(c=>c.type==='dm').map(c=>(
-                  <button key={c.id} onClick={()=>setActiveChannel(c.id)}
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm mb-0.5"
-                    style={{background:activeChannel===c.id?'#3a3228':'transparent',color:activeChannel===c.id?'#f5f1eb':'#8a8279'}}>
-                    {c.name}
+            {/* DMs com actividade */}
+            <div className="px-3 pt-3">
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>Direct Messages</div>
+              {dmList.length === 0 && (
+                <div className="text-xs px-3 py-2" style={{color:'#5c554e'}}>No conversations yet</div>
+              )}
+              {dmList.map((dm: any) => {
+                const isActive = activeChannel === dm.id
+                const logo = getTeamLogo(dm.otherId)
+                const name = getTeamName(dm.otherId)
+                return (
+                  <button key={dm.id} onClick={() => { setActiveChannel(dm.id); if (myUserId) markAsRead(dm.id, myUserId) }}
+                    className="w-full text-left px-3 py-2.5 rounded-lg mb-0.5 flex items-center gap-3"
+                    style={{background: isActive ? '#3a3228' : 'transparent'}}
+                    onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = '#2a221c' }}
+                    onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}>
+                    {/* Avatar */}
+                    <div className="relative flex-shrink-0">
+                      {dm.otherId === 'commissioner'
+                        ? <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm"
+                               style={{background:'#c8102e'}}>👑</div>
+                        : logo
+                          ? <img src={logo} alt="" className="w-8 h-8 object-contain rounded-full"
+                                 style={{background:'#2a221c'}}/>
+                          : <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black"
+                                 style={{background:'#3a3228',color:'#f5f1eb'}}>{name.substring(0,2)}</div>
+                      }
+                      {dm.unread && (
+                        <span className="absolute -top-1 -right-1 flex items-center justify-center font-black"
+                              style={{width:14,height:14,borderRadius:'50%',background:'#c8102e',color:'#fff',fontSize:9,border:'2px solid #1a1512'}}>
+                          !
+                        </span>
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold truncate"
+                              style={{color: dm.unread ? '#f5f1eb' : '#c0b8ae'}}>{name}</span>
+                        <span className="text-xs flex-shrink-0 ml-1" style={{color:'#5c554e'}}>{fmtTime(dm.lastTime)}</span>
+                      </div>
+                      <div className="text-xs truncate mt-0.5"
+                           style={{color: dm.unread ? '#a09890' : '#5c554e', fontWeight: dm.unread ? 600 : 400}}>
+                        {dm.lastMsg}
+                      </div>
+                    </div>
                   </button>
-                ))}
-              </div>
-            )}
+                )
+              })}
+            </div>
 
-            <div className="px-3 mt-3">
-              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>New Message</div>
-              {contacts.map(t=>(
-                <button key={t.id} onClick={()=>openDM(t.id)}
-                  className="w-full text-left px-3 py-2 rounded-lg text-xs mb-0.5 flex items-center gap-2"
-                  style={{color:'#8a8279'}}
-                  onMouseEnter={e=>(e.currentTarget.style.background='#2a221c')}
-                  onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-                  {t.id === 'commissioner'
-                    ? <span style={{fontSize:14}}>👑</span>
-                    : t.logo_url
-                      ? <img src={t.logo_url} alt="" className="w-4 h-4 object-contain flex-shrink-0"/>
-                      : <span className="w-4 h-4 flex-shrink-0"/>
-                  }
-                  <span className="truncate">{t.id === 'commissioner' ? 'Commissioner' : t.name}</span>
-                </button>
-              ))}
+            {/* Nova conversa */}
+            <div className="px-3 pt-3 pb-3">
+              <button onClick={() => setShowNewDM(!showNewDM)}
+                className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2"
+                style={{background:'#2a221c', color:'#8a8279'}}
+                onMouseEnter={e => (e.currentTarget.style.background = '#3a3228')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#2a221c')}>
+                <span style={{fontSize:14}}>✏️</span>
+                New Message
+                <span style={{marginLeft:'auto', fontSize:10}}>{showNewDM ? '▲' : '▼'}</span>
+              </button>
+              {showNewDM && (
+                <div className="mt-1 rounded-lg overflow-hidden" style={{background:'#0f0d0a',border:'1px solid #3a3228'}}>
+                  {contacts.map(t => (
+                    <button key={t.id} onClick={() => openDM(t.id)}
+                      className="w-full text-left px-3 py-2 text-xs flex items-center gap-2"
+                      style={{color:'#8a8279', borderBottom:'1px solid #1a1512'}}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#2a221c')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                      {t.id === 'commissioner'
+                        ? <span style={{fontSize:12}}>👑</span>
+                        : t.logo_url
+                          ? <img src={t.logo_url} alt="" className="w-4 h-4 object-contain flex-shrink-0"/>
+                          : <span className="w-4 h-4 flex-shrink-0"/>
+                      }
+                      <span className="truncate">{t.id === 'commissioner' ? 'Commissioner' : t.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
+          {/* Identity */}
           <div className="px-4 py-3" style={{borderTop:'1px solid #3a3228'}}>
             <div className="text-xs font-bold" style={{color:'#f5f1eb'}}>{myName}</div>
             <div className="text-xs" style={{color:'#5c554e'}}>{myRole === 'commissioner' ? 'Commissioner' : myTeamId}</div>
@@ -210,10 +341,7 @@ export default function ChatPage() {
         {/* CHAT AREA */}
         <div className="flex-1 flex flex-col" style={{background:'#faf8f5'}}>
           <div className="px-5 py-3 flex items-center gap-3" style={{borderBottom:'1px solid #d4cdc5',background:'#f5f1eb'}}>
-            <div className="font-bold text-sm" style={{color:'#1a1512'}}>{activeChannelInfo?.name||activeChannel}</div>
-            {activeChannelInfo?.type==='general' && (
-              <span className="text-xs" style={{color:'#8a8279'}}>{teams.length} members</span>
-            )}
+            <div className="font-bold text-sm" style={{color:'#1a1512'}}>{activeChannelName}</div>
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -261,7 +389,7 @@ export default function ChatPage() {
                              }}>
                           {msg.body}
                         </div>
-                        <div className="text-xs mt-0.5" style={{color:'#b8ae9e'}}>{fmtTime(msg.created_at)}</div>
+                        <div className="text-xs mt-0.5" style={{color:'#b8ae9e'}}>{fmtMsgTime(msg.created_at)}</div>
                       </div>
                     </div>
                   )
@@ -278,7 +406,7 @@ export default function ChatPage() {
                 value={input}
                 onChange={e=>setInput(e.target.value)}
                 onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()}
-                placeholder={`Message ${activeChannelInfo?.name||'...'}`}
+                placeholder={`Message ${activeChannelName}`}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm"
                 style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}
               />
