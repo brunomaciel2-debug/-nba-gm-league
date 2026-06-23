@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 
 export default function ChatPage() {
   const [myTeamId, setMyTeamId] = useState<string|null>(null)
+  const [myUserId, setMyUserId] = useState<string|null>(null)
   const [myName, setMyName] = useState<string>('')
   const [myRole, setMyRole] = useState<string>('')
   const [teams, setTeams] = useState<any[]>([])
@@ -19,6 +20,7 @@ export default function ChatPage() {
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setLoading(false); return }
+      setMyUserId(user.id)
       const { data: gm } = await supabase
         .from('gm_profiles')
         .select('team_id, display_name, role')
@@ -33,15 +35,22 @@ export default function ChatPage() {
       setLoading(false)
     })
 
-    // Load all teams + commissioner entry
     supabase.from('teams').select('id,name,color,logo_url')
       .not('id','in','(ALL,RVS,ROO,SOP)').order('name')
       .then(({ data }) => {
-        // Adicionar Commissioner como entrada especial
         const commissioner = { id: 'commissioner', name: 'Commissioner', logo_url: null, color: 'c8102e' }
         setTeams([commissioner, ...(data || [])])
       })
   }, [])
+
+  // Marcar canal como lido
+  const markAsRead = async (channel: string, userId: string) => {
+    await supabase.from('chat_reads').upsert({
+      user_id: userId,
+      channel,
+      last_read_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,channel' })
+  }
 
   // Load messages for active channel
   useEffect(() => {
@@ -56,6 +65,9 @@ export default function ChatPage() {
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
       })
 
+    // Marcar como lido ao abrir
+    if (myUserId) markAsRead(activeChannel, myUserId)
+
     const sub = supabase
       .channel(`chat:${activeChannel}`)
       .on('postgres_changes', {
@@ -66,11 +78,13 @@ export default function ChatPage() {
       }, (payload) => {
         setMessages(prev => [...prev, payload.new])
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+        // Marcar como lido ao receber mensagem no canal activo
+        if (myUserId) markAsRead(activeChannel, myUserId)
       })
       .subscribe()
 
     return () => { supabase.removeChannel(sub) }
-  }, [activeChannel])
+  }, [activeChannel, myUserId])
 
   const send = async () => {
     if (!input.trim() || !myTeamId) return
@@ -102,7 +116,6 @@ export default function ChatPage() {
     return d.toLocaleDateString('en-US', { month:'short', day:'numeric' })
   }
 
-  // Group messages by date
   const groupedMessages: { date: string, msgs: any[] }[] = []
   for (const msg of messages) {
     const date = fmtDate(msg.created_at)
@@ -112,6 +125,7 @@ export default function ChatPage() {
   }
 
   const activeChannelInfo = channels.find(c => c.id === activeChannel)
+  const contacts = teams.filter(t => t.id !== myTeamId)
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
@@ -131,9 +145,6 @@ export default function ChatPage() {
     </div>
   )
 
-  // Lista de contactos — excluir o próprio
-  const contacts = teams.filter(t => t.id !== myTeamId)
-
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex gap-0 rounded-2xl overflow-hidden" style={{border:'1px solid #d4cdc5',height:'calc(100vh - 160px)',minHeight:500}}>
@@ -146,7 +157,6 @@ export default function ChatPage() {
           </div>
 
           <div className="flex-1 overflow-y-auto py-2">
-            {/* General channel */}
             <div className="px-3 mb-1">
               <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>Channels</div>
               {channels.filter(c=>c.type==='general').map(c=>(
@@ -158,7 +168,6 @@ export default function ChatPage() {
               ))}
             </div>
 
-            {/* DM channels abertos */}
             {channels.filter(c=>c.type==='dm').length > 0 && (
               <div className="px-3 mt-3 mb-1">
                 <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>Direct Messages</div>
@@ -172,7 +181,6 @@ export default function ChatPage() {
               </div>
             )}
 
-            {/* Contactos disponíveis */}
             <div className="px-3 mt-3">
               <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>New Message</div>
               {contacts.map(t=>(
@@ -193,7 +201,6 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* My identity */}
           <div className="px-4 py-3" style={{borderTop:'1px solid #3a3228'}}>
             <div className="text-xs font-bold" style={{color:'#f5f1eb'}}>{myName}</div>
             <div className="text-xs" style={{color:'#5c554e'}}>{myRole === 'commissioner' ? 'Commissioner' : myTeamId}</div>
@@ -202,7 +209,6 @@ export default function ChatPage() {
 
         {/* CHAT AREA */}
         <div className="flex-1 flex flex-col" style={{background:'#faf8f5'}}>
-          {/* Header */}
           <div className="px-5 py-3 flex items-center gap-3" style={{borderBottom:'1px solid #d4cdc5',background:'#f5f1eb'}}>
             <div className="font-bold text-sm" style={{color:'#1a1512'}}>{activeChannelInfo?.name||activeChannel}</div>
             {activeChannelInfo?.type==='general' && (
@@ -210,7 +216,6 @@ export default function ChatPage() {
             )}
           </div>
 
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto px-5 py-4">
             {groupedMessages.length === 0 && (
               <div className="text-center py-12" style={{color:'#8a8279'}}>
@@ -266,7 +271,6 @@ export default function ChatPage() {
             <div ref={bottomRef}></div>
           </div>
 
-          {/* Input */}
           <div className="px-4 py-3" style={{borderTop:'1px solid #d4cdc5',background:'#f5f1eb'}}>
             <div className="flex gap-2">
               <input

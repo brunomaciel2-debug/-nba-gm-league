@@ -20,19 +20,61 @@ export default function ChatButton() {
         .single()
       if (!gm) return
 
-      // Escuta novas mensagens no canal general
+      const myTeamId = gm.role === 'commissioner' ? 'commissioner' : gm.team_id
+      if (!myTeamId) return
+
+      const checkUnread = async () => {
+        // Buscar todos os canais relevantes (general + DMs onde participo)
+        const { data: myMessages } = await supabase
+          .from('chat_messages')
+          .select('channel')
+          .or(`channel.eq.general,channel.like.%${myTeamId}%`)
+          .order('created_at', { ascending: false })
+          .limit(200)
+
+        const channels = [...new Set((myMessages || []).map((m: any) => m.channel))]
+        if (channels.length === 0) { setHasUnread(false); return }
+
+        // Buscar last_read para cada canal
+        const { data: reads } = await supabase
+          .from('chat_reads')
+          .select('channel, last_read_at')
+          .eq('user_id', user.id)
+
+        const readsMap: Record<string, string> = {}
+        for (const r of (reads || [])) readsMap[r.channel] = r.last_read_at
+
+        // Verificar se há mensagens mais recentes que o last_read
+        for (const channel of channels) {
+          const lastRead = readsMap[channel]
+          const { data: newMsgs } = await supabase
+            .from('chat_messages')
+            .select('id, from_team_id')
+            .eq('channel', channel)
+            .neq('from_team_id', myTeamId)
+            .gt('created_at', lastRead || '2000-01-01')
+            .limit(1)
+
+          if (newMsgs && newMsgs.length > 0) {
+            setHasUnread(true)
+            return
+          }
+        }
+        setHasUnread(false)
+      }
+
+      await checkUnread()
+
+      // Realtime — nova mensagem em qualquer canal
       sub = supabase
-        .channel('chat_notify')
+        .channel('chat_unread_notify')
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'chat_messages',
         }, (payload) => {
-          // Só notifica se não foi o próprio a enviar
-          const fromTeam = payload.new.from_team_id
-          const myTeam = gm.role === 'commissioner' ? null : gm.team_id
-          if (fromTeam !== myTeam) {
-            setHasUnread(true)
+          if (payload.new.from_team_id !== myTeamId) {
+            checkUnread()
           }
         })
         .subscribe()
@@ -58,7 +100,7 @@ export default function ChatButton() {
       </svg>
       {hasUnread && (
         <span className="absolute -top-1 -right-1 flex items-center justify-center"
-              style={{width:8, height:8, borderRadius:'50%', background:'#1d4ed8', border:'2px solid #faf8f5'}}>
+              style={{width:8, height:8, borderRadius:'50%', background:'#1d4ed8', border:'2px solid #0f1623'}}>
         </span>
       )}
     </Link>
