@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import RosterTable from './RosterTable'
 import TeamSchedule from './TeamSchedule'
 import ContractsTable from './ContractsTable'
@@ -15,6 +15,14 @@ export default function TeamPageTabs({
   coaches: any[], injuries: any[]
 }) {
   const [tab, setTab] = useState<Tab>('roster')
+
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '') as Tab
+    if (hash === 'roster' || hash === 'schedule' || hash === 'contracts') {
+      setTab(hash)
+    }
+  }, [])
+
   const played   = games.filter((g:any) => g.status === 'final').length
   const upcoming = games.filter((g:any) => g.status !== 'final').length
 
@@ -66,12 +74,10 @@ export default function TeamPageTabs({
       {tab === 'roster' && (
         <>
           <RosterTable players={players} teamColor={teamColor} />
-          {/* Coaching Staff — only in Roster tab */}
-          <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
             <CoachingStaff staff={coaches} />
           </div>
-          {/* Injury Report — only in Roster tab */}
-          <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
             <InjuryReport injuries={injuries} players={players} />
           </div>
         </>
