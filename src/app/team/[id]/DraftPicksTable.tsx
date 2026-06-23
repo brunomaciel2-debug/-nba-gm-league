@@ -22,7 +22,19 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
   const [teams, setTeams] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
 
+  const fetchPicks = async () => {
+    const { data } = await supabase
+      .from('draft_picks')
+      .select('*')
+      .eq('team_id', teamId)
+      .in('season', SEASONS)
+      .order('season')
+      .order('round')
+    setPicks(data || [])
+  }
+
   useEffect(() => {
+    // Fetch inicial
     Promise.all([
       supabase
         .from('draft_picks')
@@ -42,6 +54,20 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
       setTeams(map)
       setLoading(false)
     })
+
+    // Realtime — actualiza quando picks mudam
+    const sub = supabase
+      .channel(`draft_picks:${teamId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'draft_picks',
+      }, () => {
+        fetchPicks()
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(sub) }
   }, [teamId])
 
   if (loading) return (
