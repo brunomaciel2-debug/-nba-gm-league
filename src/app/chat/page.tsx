@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 export default function ChatPage() {
   const [myTeamId, setMyTeamId] = useState<string|null>(null)
   const [myName, setMyName] = useState<string>('')
+  const [myRole, setMyRole] = useState<string>('')
   const [teams, setTeams] = useState<any[]>([])
   const [channels, setChannels] = useState<{id:string,name:string,type:'general'|'dm'}[]>([
     { id:'general', name:'🏀 General', type:'general' }
@@ -13,7 +14,6 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
-  const [unread, setUnread] = useState<Record<string,number>>({})
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -25,16 +25,22 @@ export default function ChatPage() {
         .eq('id', user.id)
         .single()
       if (gm) {
-        setMyTeamId(gm.team_id || 'commissioner')
-        setMyName(gm.display_name || gm.team_id || 'Commissioner')
+        const tid = gm.role === 'commissioner' ? 'commissioner' : gm.team_id
+        setMyTeamId(tid)
+        setMyName(gm.display_name || tid || 'Unknown')
+        setMyRole(gm.role)
       }
       setLoading(false)
     })
 
-    // Load all teams for DM channels
+    // Load all teams + commissioner entry
     supabase.from('teams').select('id,name,color,logo_url')
       .not('id','in','(ALL,RVS,ROO,SOP)').order('name')
-      .then(({ data }) => setTeams(data || []))
+      .then(({ data }) => {
+        // Adicionar Commissioner como entrada especial
+        const commissioner = { id: 'commissioner', name: 'Commissioner', logo_url: null, color: 'c8102e' }
+        setTeams([commissioner, ...(data || [])])
+      })
   }, [])
 
   // Load messages for active channel
@@ -50,7 +56,6 @@ export default function ChatPage() {
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
       })
 
-    // Realtime subscription
     const sub = supabase
       .channel(`chat:${activeChannel}`)
       .on('postgres_changes', {
@@ -81,8 +86,9 @@ export default function ChatPage() {
   const openDM = (teamId: string) => {
     const channelId = [myTeamId, teamId].sort().join('_')
     const team = teams.find(t => t.id === teamId)
+    const label = team?.id === 'commissioner' ? '👑 Commissioner' : `💬 ${team?.name || teamId}`
     if (!channels.find(c => c.id === channelId)) {
-      setChannels(prev => [...prev, { id: channelId, name: `💬 ${team?.name||teamId}`, type: 'dm' }])
+      setChannels(prev => [...prev, { id: channelId, name: label, type: 'dm' }])
     }
     setActiveChannel(channelId)
   }
@@ -125,6 +131,9 @@ export default function ChatPage() {
     </div>
   )
 
+  // Lista de contactos — excluir o próprio
+  const contacts = teams.filter(t => t.id !== myTeamId)
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex gap-0 rounded-2xl overflow-hidden" style={{border:'1px solid #d4cdc5',height:'calc(100vh - 160px)',minHeight:500}}>
@@ -136,8 +145,8 @@ export default function ChatPage() {
             <div className="text-sm font-bold mt-0.5" style={{color:'#f5f1eb'}}>Chat</div>
           </div>
 
-          {/* Channels */}
           <div className="flex-1 overflow-y-auto py-2">
+            {/* General channel */}
             <div className="px-3 mb-1">
               <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>Channels</div>
               {channels.filter(c=>c.type==='general').map(c=>(
@@ -149,7 +158,7 @@ export default function ChatPage() {
               ))}
             </div>
 
-            {/* DM channels */}
+            {/* DM channels abertos */}
             {channels.filter(c=>c.type==='dm').length > 0 && (
               <div className="px-3 mt-3 mb-1">
                 <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>Direct Messages</div>
@@ -163,15 +172,22 @@ export default function ChatPage() {
               </div>
             )}
 
-            {/* New DM */}
+            {/* Contactos disponíveis */}
             <div className="px-3 mt-3">
-              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>GMs Online</div>
-              {teams.filter(t=>t.id!==myTeamId).map(t=>(
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>New Message</div>
+              {contacts.map(t=>(
                 <button key={t.id} onClick={()=>openDM(t.id)}
                   className="w-full text-left px-3 py-2 rounded-lg text-xs mb-0.5 flex items-center gap-2"
-                  style={{color:'#8a8279'}}>
-                  {t.logo_url && <img src={t.logo_url} alt="" className="w-4 h-4 object-contain"/>}
-                  <span className="truncate">{t.name}</span>
+                  style={{color:'#8a8279'}}
+                  onMouseEnter={e=>(e.currentTarget.style.background='#2a221c')}
+                  onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
+                  {t.id === 'commissioner'
+                    ? <span style={{fontSize:14}}>👑</span>
+                    : t.logo_url
+                      ? <img src={t.logo_url} alt="" className="w-4 h-4 object-contain flex-shrink-0"/>
+                      : <span className="w-4 h-4 flex-shrink-0"/>
+                  }
+                  <span className="truncate">{t.id === 'commissioner' ? 'Commissioner' : t.name}</span>
                 </button>
               ))}
             </div>
@@ -180,7 +196,7 @@ export default function ChatPage() {
           {/* My identity */}
           <div className="px-4 py-3" style={{borderTop:'1px solid #3a3228'}}>
             <div className="text-xs font-bold" style={{color:'#f5f1eb'}}>{myName}</div>
-            <div className="text-xs" style={{color:'#5c554e'}}>{myTeamId}</div>
+            <div className="text-xs" style={{color:'#5c554e'}}>{myRole === 'commissioner' ? 'Commissioner' : myTeamId}</div>
           </div>
         </div>
 
@@ -190,7 +206,7 @@ export default function ChatPage() {
           <div className="px-5 py-3 flex items-center gap-3" style={{borderBottom:'1px solid #d4cdc5',background:'#f5f1eb'}}>
             <div className="font-bold text-sm" style={{color:'#1a1512'}}>{activeChannelInfo?.name||activeChannel}</div>
             {activeChannelInfo?.type==='general' && (
-              <span className="text-xs" style={{color:'#8a8279'}}>{teams.length + 1} members</span>
+              <span className="text-xs" style={{color:'#8a8279'}}>{teams.length} members</span>
             )}
           </div>
 
@@ -213,28 +229,30 @@ export default function ChatPage() {
                   const isMe = msg.from_team_id === myTeamId
                   const prevMsg = msgs[i-1]
                   const sameAuthor = prevMsg && prevMsg.from_team_id === msg.from_team_id
+                  const isComm = msg.from_team_id === 'commissioner'
                   return (
                     <div key={msg.id} className={`flex gap-3 mb-1 ${isMe?'flex-row-reverse':''}`}>
                       {!sameAuthor && !isMe && (
                         <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black"
-                             style={{background:'#e8e2d6',color:'#1a1512',marginTop:4}}>
-                          {msg.from_name?.substring(0,2)?.toUpperCase()}
+                             style={{background: isComm?'#c8102e':'#e8e2d6', color: isComm?'#fff':'#1a1512', marginTop:4}}>
+                          {isComm ? '👑' : msg.from_name?.substring(0,2)?.toUpperCase()}
                         </div>
                       )}
                       {(sameAuthor || isMe) && <div className="w-8 flex-shrink-0"></div>}
                       <div className={`max-w-xs lg:max-w-md ${isMe?'items-end':'items-start'} flex flex-col`}>
                         {!sameAuthor && (
                           <div className={`text-xs font-bold mb-0.5 ${isMe?'text-right':''}`}
-                               style={{color: isMe?'#1d4ed8':'#b45309'}}>
+                               style={{color: isMe?'#1d4ed8': isComm?'#c8102e':'#b45309'}}>
                             {msg.from_name}
                           </div>
                         )}
                         <div className="px-3 py-2 rounded-2xl text-sm"
                              style={{
-                               background: isMe?'#1d4ed8':'#e8e2d6',
+                               background: isMe?'#1d4ed8': isComm?'#c8102e22':'#e8e2d6',
                                color: isMe?'#fff':'#1a1512',
                                borderBottomRightRadius: isMe?4:16,
                                borderBottomLeftRadius: isMe?16:4,
+                               border: isComm && !isMe ? '1px solid #c8102e44' : 'none',
                              }}>
                           {msg.body}
                         </div>
