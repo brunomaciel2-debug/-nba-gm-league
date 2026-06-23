@@ -18,15 +18,16 @@ export default function ManageGMsPage() {
       .eq('role', 'gm')
       .order('created_at', { ascending: false })
 
-    // Equipas sem GM
+    // Todas as equipas reais (excluir especiais)
     const { data: allTeams } = await supabase
       .from('teams')
       .select('id, name, logo_url, color, conference')
-      .not('id', 'in', ['ALL','RVS','ROO','SOP'])
       .order('name')
 
+    const specialIds = ['ALL', 'RVS', 'ROO', 'SOP']
+    const realTeams = (allTeams || []).filter((t: any) => !specialIds.includes(t.id))
     const assignedTeamIds = (profiles || []).map((p: any) => p.team_id)
-    const vacant = (allTeams || []).filter((t: any) => !assignedTeamIds.includes(t.id))
+    const vacant = realTeams.filter((t: any) => !assignedTeamIds.includes(t.id))
 
     setGms(profiles || [])
     setVacancies(vacant)
@@ -92,7 +93,6 @@ export default function ManageGMsPage() {
           {gms.map((gm: any) => (
             <div key={gm.id} className="flex items-center gap-4 px-4 py-3 rounded-xl"
                  style={{background:'#faf8f5', border:'1px solid #d4cdc5', borderLeft:'4px solid #15803d'}}>
-              {/* Team logo */}
               <div className="flex-shrink-0">
                 {gm.teams?.logo_url
                   ? <img src={gm.teams.logo_url} alt="" className="w-10 h-10 object-contain" />
@@ -100,23 +100,17 @@ export default function ManageGMsPage() {
                          style={{background:'#e8e2d6', color:'#1a1512'}}>{gm.teams?.id?.slice(0,3)}</div>
                 }
               </div>
-
-              {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-sm" style={{color:'#1a1512'}}>{gm.display_name}</div>
                 <div className="text-xs" style={{color:'#6b5f4e'}}>
                   {gm.teams?.name} · {gm.teams?.conference} Conference
                 </div>
               </div>
-
-              {/* Last seen */}
               <div className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>
                 {gm.last_seen
                   ? `Last seen ${new Date(gm.last_seen).toLocaleDateString('en-US',{month:'short',day:'numeric'})}`
                   : 'Never logged in'}
               </div>
-
-              {/* Fire button */}
               <button
                 onClick={() => fireGM(gm)}
                 disabled={processing === gm.id}
