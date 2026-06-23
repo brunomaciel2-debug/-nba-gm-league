@@ -7,10 +7,56 @@ const supabaseAdmin = createClient(
   { auth: { autoRefreshToken: false, persistSession: false } }
 )
 
+async function sendEmail(to: string, subject: string, html: string) {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: 'NBA GM League <onboarding@resend.dev>',
+      to,
+      subject,
+      html,
+    }),
+  })
+  return res.ok
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { application_id, email, password, full_name, team_id } = await req.json()
+    const { application_id, email, password, full_name, team_id, action } = await req.json()
 
+    // REJEIÇÃO
+    if (action === 'reject') {
+      if (!application_id || !email || !full_name) {
+        return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+      }
+      await supabaseAdmin
+        .from('job_applications')
+        .update({ status: 'rejected' })
+        .eq('id', application_id)
+
+      await sendEmail(
+        email,
+        'Your NBA GM League Application',
+        `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #1a1512;">NBA GM League</h2>
+          <p>Hi <strong>${full_name}</strong>,</p>
+          <p>Thank you for your interest in managing an NBA franchise.</p>
+          <p>After careful consideration, the Commissioner has decided not to move forward with your application at this time.</p>
+          <p>You are welcome to apply again in the future when new vacancies open up.</p>
+          <br/>
+          <p style="color: #8a8279; font-size: 12px;">NBA GM League · nba-gm-league-mu.vercel.app</p>
+        </div>
+        `
+      )
+      return NextResponse.json({ success: true })
+    }
+
+    // APROVAÇÃO
     if (!application_id || !email || !password || !full_name || !team_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
@@ -44,6 +90,37 @@ export async function POST(req: NextRequest) {
       .from('job_applications')
       .update({ status: 'approved' })
       .eq('id', application_id)
+
+    // 4. Buscar nome da equipa
+    const { data: team } = await supabaseAdmin
+      .from('teams')
+      .select('name')
+      .eq('id', team_id)
+      .single()
+
+    // 5. Enviar email de aprovação
+    await sendEmail(
+      email,
+      'Welcome to NBA GM League!',
+      `
+      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1a1512;">🏀 NBA GM League</h2>
+        <p>Hi <strong>${full_name}</strong>,</p>
+        <p>Congratulations! Your application to manage the <strong>${team?.name || team_id}</strong> has been <strong style="color: #15803d;">approved</strong>!</p>
+        <p>You can now log in to the platform with your credentials:</p>
+        <div style="background: #f5f1eb; padding: 16px; border-radius: 8px; margin: 16px 0;">
+          <p style="margin: 4px 0;"><strong>Email:</strong> ${email}</p>
+          <p style="margin: 4px 0;"><strong>Password:</strong> ${password}</p>
+        </div>
+        <a href="https://nba-gm-league-mu.vercel.app/login"
+           style="display: inline-block; background: #c8102e; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 8px;">
+          Login Now →
+        </a>
+        <br/><br/>
+        <p style="color: #8a8279; font-size: 12px;">NBA GM League · nba-gm-league-mu.vercel.app</p>
+      </div>
+      `
+    )
 
     return NextResponse.json({ success: true, user_id: userId })
 
