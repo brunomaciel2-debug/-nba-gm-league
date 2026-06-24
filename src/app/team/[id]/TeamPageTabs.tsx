@@ -7,7 +7,7 @@ import CoachingStaff from './CoachingStaff'
 import InjuryReport from './InjuryReport'
 import DraftPicksTable from './DraftPicksTable'
 
-type Tab = 'roster' | 'schedule' | 'contracts' | 'draft'
+type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'sponsors'
 
 export default function TeamPageTabs({
   players, games, teamId, teamsMap, teamColor, coaches, injuries
@@ -19,7 +19,7 @@ export default function TeamPageTabs({
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '') as Tab
-    if (['roster', 'schedule', 'contracts', 'draft'].includes(hash)) {
+    if (['roster', 'schedule', 'contracts', 'draft', 'training', 'facilities', 'sponsors'].includes(hash)) {
       setTab(hash as Tab)
     }
   }, [])
@@ -28,11 +28,24 @@ export default function TeamPageTabs({
   const upcoming = games.filter((g:any) => g.status !== 'final').length
 
   const TABS: { key: Tab, label: string, badge: string }[] = [
-    { key: 'roster',    label: 'Roster',       badge: `${players.length} players` },
-    { key: 'schedule',  label: 'Schedule',     badge: `${played} played · ${upcoming} remaining` },
-    { key: 'contracts', label: 'Contracts',    badge: 'Multi-year view' },
-    { key: 'draft',     label: 'Draft Picks',  badge: '5 seasons' },
+    { key: 'roster',     label: 'Roster',      badge: `${players.length} players` },
+    { key: 'schedule',   label: 'Schedule',    badge: `${played} played · ${upcoming} remaining` },
+    { key: 'contracts',  label: 'Contracts',   badge: 'Multi-year view' },
+    { key: 'draft',      label: 'Draft Picks', badge: '5 seasons' },
+    { key: 'training',   label: 'Training',    badge: 'Coming soon' },
+    { key: 'facilities', label: 'Facilities',  badge: 'Coming soon' },
+    { key: 'sponsors',   label: 'Sponsors',    badge: 'Coming soon' },
   ]
+
+  const ComingSoon = ({ label }: { label: string }) => (
+    <div className="rounded-2xl p-16 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+      <div className="text-5xl mb-4">
+        {label === 'Training' ? '🏋️' : label === 'Facilities' ? '🏟️' : '💰'}
+      </div>
+      <h3 className="text-lg font-black mb-2" style={{color:'#1a1512'}}>{label}</h3>
+      <p className="text-sm" style={{color:'#8a8279'}}>This feature is coming soon.</p>
+    </div>
+  )
 
   return (
     <div>
@@ -84,15 +97,12 @@ export default function TeamPageTabs({
           </div>
         </>
       )}
-      {tab === 'schedule' && (
-        <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />
-      )}
-      {tab === 'contracts' && (
-        <ContractsTable teamId={teamId} teamColor={teamColor} />
-      )}
-      {tab === 'draft' && (
-        <DraftPicksTable teamId={teamId} />
-      )}
+      {tab === 'schedule'   && <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />}
+      {tab === 'contracts'  && <ContractsTable teamId={teamId} teamColor={teamColor} />}
+      {tab === 'draft'      && <DraftPicksTable teamId={teamId} />}
+      {tab === 'training'   && <ComingSoon label="Training" />}
+      {tab === 'facilities' && <ComingSoon label="Facilities" />}
+      {tab === 'sponsors'   && <ComingSoon label="Sponsors" />}
     </div>
   )
 }
