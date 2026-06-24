@@ -7,6 +7,7 @@ import CoachingStaff from './CoachingStaff'
 import InjuryReport from './InjuryReport'
 import DraftPicksTable from './DraftPicksTable'
 import ArenaView from './ArenaView'
+import TrainingTab from './TrainingTab'
 
 type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'sponsors'
 
@@ -117,7 +118,9 @@ export default function TeamPageTabs({
         {tab === 'schedule'   && <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />}
         {tab === 'contracts'  && <ContractsTable teamId={teamId} teamColor={teamColor} />}
         {tab === 'draft'      && <DraftPicksTable teamId={teamId} />}
-        {tab === 'training'   && <ComingSoon label="Training" icon="🏋️" />}
+        {tab === 'training'   && (
+          <TrainingTab teamId={teamId} teamColor={teamColor} players={players} />
+        )}
         {tab === 'facilities' && (
           <div className="rounded-xl p-4" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
             <ArenaView
