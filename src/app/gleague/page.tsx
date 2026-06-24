@@ -36,7 +36,7 @@ export default function GLeaguePage() {
       ;(g||[]).forEach((x:any) => { weekSet[x.week_number] = true })
       const allWeeks = Object.keys(weekSet).map(Number).sort((a,b)=>a-b)
       const upcomingGame = (g||[]).find((x:any) => new Date(x.played_at) >= now)
-      const currentWeek = upcomingGame?.week_number || allWeeks[allWeeks.length-1] || 1
+      const currentWeek = upcomingGame?.week_number || allWeeks[0] || 1
       setWeek(currentWeek)
       setLoading(false)
     })
