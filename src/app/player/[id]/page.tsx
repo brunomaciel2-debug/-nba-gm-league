@@ -123,7 +123,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       supabase.from('injury_log').select('*').eq('player_id', params.id).order('created_at', {ascending:false}),
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', {ascending:true}),
       supabase.from('awards').select('award_type,period,season,stats_context,created_at').eq('player_id', params.id).order('created_at', {ascending:false}),
-      supabase.from('box_scores').select('id,pts,reb,ast,stl,blk,mins,fgm,fga,tpm,tpa,ftm,fta,plus_minus,games!inner(id,home_team,away_team,home_score,away_score,played_at)').eq('player_id', params.id).order('created_at', {ascending:false}).limit(5),
+      Promise.resolve({ data: [] }),
     ])
 
   if (!player) return <div className="p-8 text-center" style={{color:'#5c554e'}}>Player not found.</div>
