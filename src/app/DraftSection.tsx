@@ -305,7 +305,8 @@ export default function DraftSection() {
                                         {p.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                                       </div>
                                   }
-                                  <span className="font-semibold" style={{color:'#1a1512'}}>{p.name}</span>
+                                  <a href={`/prospect/${p.id}`} className="font-semibold no-underline hover:underline"
+                                     style={{color:'#1a1512'}}>{p.name}</a>
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-center" style={{borderRight:'1px solid #e2dcd5'}}>
