@@ -123,7 +123,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       supabase.from('injury_log').select('*').eq('player_id', params.id).order('created_at', {ascending:false}),
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', {ascending:true}),
       supabase.from('awards').select('award_type,period,season,stats_context,created_at').eq('player_id', params.id).order('created_at', {ascending:false}),
-      supabase.from('box_scores').select('*,games(id,home_team,away_team,home_score,away_score,played_at,home:teams!games_home_team_fkey(name,color),away:teams!games_away_team_fkey(name,color))').eq('player_id', params.id).order('created_at', {ascending:false}).limit(5),
+      supabase.from('box_scores').select('id,pts,reb,ast,stl,blk,mins,fgm,fga,tpm,tpa,ftm,fta,plus_minus,games!inner(id,home_team,away_team,home_score,away_score,played_at)').eq('player_id', params.id).order('created_at', {ascending:false}).limit(5),
     ])
 
   if (!player) return <div className="p-8 text-center" style={{color:'#5c554e'}}>Player not found.</div>
@@ -386,12 +386,12 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                 <tbody>
                   {validGames.map((b:any,i:number) => {
                     const g = b.games
+                    if (!g) return null
                     const isHome = g.home_team === p.team_id
-                    const opp = isHome ? g.away : g.home
-                    const myScore = isHome ? g.home_score : g.away_score
-                    const oppScore = isHome ? g.away_score : g.home_score
-                    const won = (myScore||0) > (oppScore||0)
-                    const oppColor = opp ? readableTeamColor(opp.color) : '#5c554e'
+                    const myScore = isHome ? (g.home_score||0) : (g.away_score||0)
+                    const oppScore = isHome ? (g.away_score||0) : (g.home_score||0)
+                    const oppTeamId = isHome ? g.away_team : g.home_team
+                    const won = myScore > oppScore
                     return (
                       <tr key={b.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                         <td className="px-2.5 py-2.5 whitespace-nowrap" style={{color:'#8a8279'}}>
@@ -399,7 +399,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
                         </td>
                         <td className="px-2.5 py-2.5 whitespace-nowrap">
                           <span style={{color:'#8a8279'}}>{isHome?'vs':'@'} </span>
-                          <span style={{color:oppColor,fontWeight:600}}>{opp?.name||'—'}</span>
+                          <span style={{color:'#5c554e',fontWeight:600}}>{oppTeamId}</span>
                         </td>
                         <td className="px-2.5 py-2.5 font-bold whitespace-nowrap"
                             style={{color:won?'#15803d':'#dc2626'}}>
