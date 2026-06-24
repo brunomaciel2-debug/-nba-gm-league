@@ -32,7 +32,9 @@ export default function GLeaguePage() {
       setLeaders(l||[])
       // Default to current/next week
       const now = new Date()
-      const allWeeks = [...new Set((g||[]).map((x:any)=>x.week_number))].sort((a,b)=>a-b)
+      const weekSet: Record<number,boolean> = {}
+      ;(g||[]).forEach((x:any) => { weekSet[x.week_number] = true })
+      const allWeeks = Object.keys(weekSet).map(Number).sort((a,b)=>a-b)
       const upcomingGame = (g||[]).find((x:any) => new Date(x.played_at) >= now)
       const currentWeek = upcomingGame?.week_number || allWeeks[allWeeks.length-1] || 1
       setWeek(currentWeek)
@@ -43,7 +45,9 @@ export default function GLeaguePage() {
   const east = teams.filter(t=>t.conference==='Eastern').sort((a:any,b:any)=>b.wins-a.wins||a.losses-b.losses)
   const west = teams.filter(t=>t.conference==='Western').sort((a:any,b:any)=>b.wins-a.wins||a.losses-b.losses)
 
-  const allWeeks = [...new Set(games.map((x:any)=>x.week_number))].sort((a,b)=>a-b)
+  const weekSet: Record<number,boolean> = {}
+  games.forEach((x:any) => { weekSet[x.week_number] = true })
+  const allWeeks = Object.keys(weekSet).map(Number).sort((a,b)=>a-b)
   const minWeek = allWeeks[0] || 1
   const maxWeek = allWeeks[allWeeks.length-1] || 1
 
