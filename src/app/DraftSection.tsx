@@ -1,6 +1,58 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+
+// Wrapper que adiciona scrollbar no topo E em baixo
+function ScrollTable({ children }: { children: React.ReactNode }) {
+  const topRef = useRef<HTMLDivElement>(null)
+  const botRef = useRef<HTMLDivElement>(null)
+  const innerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const top = topRef.current
+    const bot = botRef.current
+    const inner = innerRef.current
+    if (!top || !bot || !inner) return
+
+    // update mirror width
+    const updateWidth = () => {
+      const w = inner.scrollWidth
+      top.firstElementChild && ((top.firstElementChild as HTMLElement).style.width = w + 'px')
+    }
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(inner)
+
+    const onTop  = () => { bot.scrollLeft = top.scrollLeft; inner.scrollLeft = top.scrollLeft }
+    const onBot  = () => { top.scrollLeft = bot.scrollLeft; inner.scrollLeft = bot.scrollLeft }
+    const onInner= () => { top.scrollLeft = inner.scrollLeft; bot.scrollLeft = inner.scrollLeft }
+
+    top.addEventListener('scroll', onTop)
+    bot.addEventListener('scroll', onBot)
+    inner.addEventListener('scroll', onInner)
+    return () => {
+      ro.disconnect()
+      top.removeEventListener('scroll', onTop)
+      bot.removeEventListener('scroll', onBot)
+      inner.removeEventListener('scroll', onInner)
+    }
+  }, [])
+
+  return (
+    <>
+      {/* Scrollbar no topo */}
+      <div ref={topRef} style={{overflowX:'auto',overflowY:'hidden',height:10,background:'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+        <div style={{height:1}}/>
+      </div>
+      {/* Tabela */}
+      <div ref={botRef} style={{overflowX:'auto'}}>
+        <div ref={innerRef} style={{overflowX:'visible'}}>
+          {children}
+        </div>
+      </div>
+    </>
+  )
+}
 
 type DraftTab = 'class' | 'mock' | 'results'
 
@@ -95,8 +147,8 @@ export default function DraftSection() {
   const [isCommissioner, setIsCommissioner] = useState(false)
   const [pos, setPos] = useState('All')
   const [search, setSearch] = useState('')
-  const [sortKey, setSortKey] = useState('three')
-  const [sortDir, setSortDir] = useState<'desc'|'asc'>('desc')
+  const [sortKey, setSortKey] = useState('name')
+  const [sortDir, setSortDir] = useState<'desc'|'asc'>('asc')
   const NEXT_DRAFT = '2027'
 
   useEffect(() => {
@@ -204,9 +256,9 @@ export default function DraftSection() {
                     <span className="text-xs" style={{color:'#8a8279'}}>{filtered.length} prospects</span>
                   </div>
 
-                  {/* Table */}
+                  {/* Table with scroll top+bottom */}
                   <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-                    <div className="overflow-x-auto">
+                    <ScrollTable>
                       <table className="w-full" style={{borderCollapse:'collapse',fontSize:12}}>
                         <thead>
                           <tr style={{background:'#f0ece5'}}>
@@ -285,7 +337,7 @@ export default function DraftSection() {
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </ScrollTable>
                     <div className="px-4 py-2 text-xs"
                          style={{background:'#f5f1eb',borderTop:'1px solid #e2dcd5',color:'#8a8279'}}>
                       Click column headers to sort · Hover i for attribute definitions
