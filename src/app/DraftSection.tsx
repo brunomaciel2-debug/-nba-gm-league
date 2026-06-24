@@ -1,23 +1,71 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
 
 type DraftTab = 'class' | 'mock' | 'results'
 
 const POS_COLOR: Record<string, string> = {
   PG: '#1d4ed8', SG: '#6d28d9', SF: '#15803d', PF: '#b45309', C: '#dc2626',
 }
+const POSITIONS = ['All','PG','SG','SF','PF','C']
+
+const ATTR_COLS = [
+  { key: 'scoring',    label: 'SCR', color: '#b45309',  tip: 'Scoring ability (0-100)' },
+  { key: 'athleticism',label: 'ATH', color: '#dc2626',  tip: 'Athleticism (0-100)' },
+  { key: 'defense',    label: 'DEF', color: '#15803d',  tip: 'Defensive ability (0-100)' },
+  { key: 'playmaking', label: 'PLY', color: '#1d4ed8',  tip: 'Playmaking / passing (0-100)' },
+  { key: 'potential',  label: 'POT', color: '#6d28d9',  tip: 'Long-term potential (0-100)' },
+]
+
+function attrColor(v: number) {
+  if (v >= 90) return '#b45309'
+  if (v >= 80) return '#15803d'
+  if (v >= 70) return '#1d4ed8'
+  if (v >= 60) return '#1a1512'
+  return '#8a8279'
+}
+
+function Tip({ text }: { text: string }) {
+  return (
+    <span className="relative group inline-flex ml-1 cursor-help align-middle">
+      <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',
+                    width:12,height:12,borderRadius:'50%',background:'#d4cdc5',
+                    color:'#5c554e',fontSize:8,fontWeight:700,lineHeight:1}}>i</span>
+      <span className="absolute left-0 top-full mt-1 z-50 px-2 py-1.5 rounded-lg text-xs
+                       opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+            style={{background:'#1a1512',color:'#f5f1eb',width:160,whiteSpace:'normal',
+                    lineHeight:1.4,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
+        {text}
+      </span>
+    </span>
+  )
+}
+
+function SortTh({ label, tip, active, dir, onClick }: {
+  label: string, tip?: string, active: boolean, dir: string, onClick: () => void
+}) {
+  return (
+    <th onClick={onClick} className="px-2 py-2.5 text-center cursor-pointer select-none whitespace-nowrap"
+        style={{background:'#f0ece5',color:active?'#c8102e':'#5c554e',fontSize:11,fontWeight:700,
+                letterSpacing:'0.5px',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5'}}>
+      {label}{tip && <Tip text={tip}/>}
+      {active && <span style={{marginLeft:3}}>{dir==='desc'?'↓':'↑'}</span>}
+    </th>
+  )
+}
 
 export default function DraftSection() {
-  const [isCommissioner, setIsCommissioner] = useState(false)
-
   const [tab, setTab] = useState<DraftTab>('class')
   const [prospects, setProspects] = useState<any[]>([])
   const [standings, setStandings] = useState<any[]>([])
   const [results, setResults] = useState<any[]>([])
   const [teams, setTeams] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
+  const [isCommissioner, setIsCommissioner] = useState(false)
+  const [pos, setPos] = useState('All')
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState('potential')
+  const [sortDir, setSortDir] = useState<'desc'|'asc'>('desc')
   const NEXT_DRAFT = '2027'
 
   useEffect(() => {
@@ -34,7 +82,6 @@ export default function DraftSection() {
       supabase.from('draft_results').select('*, prospects(*), teams(id,name,logo_url,color)').eq('season', NEXT_DRAFT).order('pick_number'),
     ]).then(([{ data: p }, { data: t }, { data: r }]) => {
       setProspects(p || [])
-      // Ordenar por wins (pior primeiro = escolhe primeiro)
       const sorted = [...(t || [])].sort((a, b) => a.wins - b.wins || b.losses - a.losses)
       setStandings(sorted)
       const map: Record<string, any> = {}
@@ -45,21 +92,25 @@ export default function DraftSection() {
     })
   }, [])
 
-  // Mock draft — cruzar standings com prospects
-  const mockDraft = standings.slice(0, 30).map((team, i) => ({
-    pick: i + 1,
-    team,
-    prospect: prospects[i] || null,
-  }))
+  const handleSort = (key: string) => {
+    if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortKey(key); setSortDir('desc') }
+  }
 
-  const OVR_COLOR = (ovr: number) =>
-    ovr >= 85 ? '#b45309' : ovr >= 75 ? '#15803d' : ovr >= 65 ? '#1d4ed8' : '#5c554e'
-  const OVR_BG = (ovr: number) =>
-    ovr >= 85 ? '#fef3c7' : ovr >= 75 ? '#dcfce7' : ovr >= 65 ? '#dbeafe' : '#f0ece5'
+  const filtered = prospects
+    .filter(p => pos === 'All' || p.pos === pos)
+    .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortKey === 'name') return sortDir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+      const av = a[sortKey] ?? 0, bv = b[sortKey] ?? 0
+      return sortDir === 'desc' ? bv - av : av - bv
+    })
+
+  const OVR_COLOR = (ovr: number) => ovr>=85?'#b45309':ovr>=75?'#15803d':ovr>=65?'#1d4ed8':'#5c554e'
+  const OVR_BG    = (ovr: number) => ovr>=85?'#fef3c7':ovr>=75?'#dcfce7':ovr>=65?'#dbeafe':'#f0ece5'
 
   return (
     <div className="mt-8">
-      {/* Header */}
       <div className="section-header mb-5">
         <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
           <i className="ti ti-clipboard-list" style={{fontSize:14,marginRight:6,color:'#b45309'}}></i>
@@ -97,65 +148,133 @@ export default function DraftSection() {
                 <div className="rounded-2xl p-12 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
                   <div className="text-5xl mb-4">🎓</div>
                   <h3 className="text-lg font-black mb-2" style={{color:'#1a1512'}}>Draft Class Not Yet Available</h3>
-                  <p className="text-sm" style={{color:'#6b5f4e'}}>
-                    The 2026-27 draft class will be revealed closer to the draft date.
-                  </p>
+                  <p className="text-sm" style={{color:'#6b5f4e'}}>The 2026-27 draft class will be revealed closer to the draft date.</p>
                 </div>
               ) : (
-                <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                        {['#','Player','Pos','Age','From', ...(isCommissioner?['OVR','Potential']:['Potential']),'Notes'].map((h,i) => (
-                          <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i===0?'text-center':i<=2?'text-left':'text-right'}`}
-                              style={{color:'#5c554e'}}>{h}</th>
+                <>
+                  {/* Filters */}
+                  <div className="rounded-xl p-3 mb-4 flex flex-wrap gap-3 items-end"
+                       style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+                    <div className="flex-1 min-w-36">
+                      <label className="text-xs font-semibold block mb-1" style={{color:'#5c554e'}}>Search</label>
+                      <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Player name..."
+                        className="w-full px-3 py-1.5 rounded-lg text-sm"
+                        style={{background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold block mb-1" style={{color:'#5c554e'}}>Position</label>
+                      <div className="flex gap-1 flex-wrap">
+                        {POSITIONS.map(p => (
+                          <button key={p} onClick={() => setPos(p)}
+                            className="text-xs font-bold px-2 py-1.5 rounded-lg"
+                            style={{background:pos===p?'#1a1512':'#f0ece5',color:pos===p?'#fff':'#5c554e',
+                                    border:'1px solid '+(pos===p?'#1a1512':'#d4cdc5')}}>
+                            {p}
+                          </button>
                         ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {prospects.map((p, i) => (
-                        <tr key={p.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                          <td className="px-3 py-2.5 text-center font-black text-xs" style={{color:'#b45309'}}>{i+1}</td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-2">
-                              {p.photo_url
-                                ? <img src={p.photo_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0"/>
-                                : <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black"
-                                       style={{background:'#e8e2d6',color:'#5c554e'}}>
-                                    {p.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
-                                  </div>
-                              }
-                              <span className="font-bold" style={{color:'#1a1512'}}>{p.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <span className="text-xs font-bold px-1.5 py-0.5 rounded"
-                                  style={{background:(POS_COLOR[p.pos]||'#5c554e')+'22',color:POS_COLOR[p.pos]||'#5c554e'}}>
-                              {p.pos}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-xs text-right" style={{color:'#6b5f4e'}}>{p.age||'—'}</td>
-                          <td className="px-3 py-2.5 text-xs text-right" style={{color:'#6b5f4e'}}>{p.college||p.nationality||'—'}</td>
-                          {isCommissioner && (
-                          <td className="px-3 py-2.5 text-right">
-                            <span className="text-xs font-black px-2 py-0.5 rounded"
-                                  style={{background:OVR_BG(p.overall),color:OVR_COLOR(p.overall)}}>
-                              {p.overall||'?'}
-                            </span>
-                          </td>
-                          )}
-                          <td className="px-3 py-2.5 text-right">
-                            <span className="text-xs font-black px-2 py-0.5 rounded"
-                                  style={{background:OVR_BG(p.potential),color:OVR_COLOR(p.potential)}}>
-                              {p.potential||'?'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-xs text-right" style={{color:'#8a8279'}}>{p.notes||'—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </div>
+                    </div>
+                    <span className="text-xs" style={{color:'#8a8279'}}>{filtered.length} prospects</span>
+                  </div>
+
+                  {/* Table */}
+                  <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+                    <div className="overflow-x-auto">
+                      <table className="w-full" style={{borderCollapse:'collapse',fontSize:12}}>
+                        <thead>
+                          <tr style={{background:'#f0ece5'}}>
+                            <th className="px-3 py-2.5 text-center sticky left-0 z-10"
+                                style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',
+                                        borderRight:'1px solid #e2dcd5',fontWeight:700,fontSize:11,color:'#5c554e',width:32}}>
+                              #
+                            </th>
+                            <th className="px-3 py-2.5 text-left"
+                                style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',
+                                        borderRight:'1px solid #e2dcd5',fontWeight:700,fontSize:11,color:'#5c554e',minWidth:160}}>
+                              PLAYER
+                            </th>
+                            <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
+                                        fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
+                                        borderRight:'1px solid #e2dcd5'}}>POS</th>
+                            <SortTh label="AGE" tip="Player age" active={sortKey==='age'} dir={sortDir} onClick={() => handleSort('age')}/>
+                            <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
+                                        fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
+                                        borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>FROM</th>
+                            <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
+                                        fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
+                                        borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>HT</th>
+                            <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
+                                        fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
+                                        borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>WT</th>
+                            {isCommissioner && (
+                              <SortTh label="OVR" tip="Overall rating (Commissioner only)" active={sortKey==='overall'} dir={sortDir} onClick={() => handleSort('overall')}/>
+                            )}
+                            {ATTR_COLS.map(c => (
+                              <SortTh key={c.key} label={c.label} tip={c.tip} active={sortKey===c.key} dir={sortDir} onClick={() => handleSort(c.key)}/>
+                            ))}
+                            <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
+                                        fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'left',minWidth:200}}>
+                              NOTES
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filtered.map((p, i) => (
+                            <tr key={p.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e8e3db'}}>
+                              <td className="px-3 py-2 text-center font-black text-xs sticky left-0 z-10"
+                                  style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderRight:'1px solid #e2dcd5',color:'#b45309'}}>
+                                {i+1}
+                              </td>
+                              <td className="px-3 py-2" style={{borderRight:'1px solid #e2dcd5'}}>
+                                <div className="flex items-center gap-2">
+                                  {p.photo_url
+                                    ? <img src={p.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0"/>
+                                    : <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black"
+                                           style={{background:'#e8e2d6',color:'#5c554e'}}>
+                                        {p.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                                      </div>
+                                  }
+                                  <span className="font-semibold" style={{color:'#1a1512'}}>{p.name}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-2 text-center" style={{borderRight:'1px solid #e2dcd5'}}>
+                                <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                                      style={{background:(POS_COLOR[p.pos]||'#5c554e')+'22',color:POS_COLOR[p.pos]||'#5c554e'}}>
+                                  {p.pos}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2 text-center text-xs" style={{color:'#5c554e',borderRight:'1px solid #e2dcd5'}}>{p.age||'—'}</td>
+                              <td className="px-2 py-2 text-center text-xs" style={{color:'#5c554e',borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>{p.college||'—'}</td>
+                              <td className="px-2 py-2 text-center text-xs" style={{color:'#5c554e',borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>{p.height||'—'}</td>
+                              <td className="px-2 py-2 text-center text-xs" style={{color:'#5c554e',borderRight:'1px solid #e2dcd5'}}>{p.weight||'—'}</td>
+                              {isCommissioner && (
+                                <td className="px-2 py-2 text-center" style={{borderRight:'1px solid #e2dcd5'}}>
+                                  <span className="text-xs font-black px-2 py-0.5 rounded"
+                                        style={{background:OVR_BG(p.overall),color:OVR_COLOR(p.overall)}}>
+                                    {p.overall}
+                                  </span>
+                                </td>
+                              )}
+                              {ATTR_COLS.map(c => (
+                                <td key={c.key} className="px-2 py-2 text-center" style={{borderRight:'1px solid #e8e3db'}}>
+                                  <span className="text-xs font-bold" style={{color:attrColor(p[c.key]||0)}}>
+                                    {p[c.key]||'—'}
+                                  </span>
+                                </td>
+                              ))}
+                              <td className="px-3 py-2 text-xs" style={{color:'#6b5f4e',maxWidth:220}}>{p.notes||'—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="px-4 py-2 text-xs"
+                         style={{background:'#f5f1eb',borderTop:'1px solid #e2dcd5',color:'#8a8279'}}>
+                      Click column headers to sort · Hover i for definitions
+                      {!isCommissioner && <span className="ml-3" style={{color:'#b45309'}}>⚠ OVR rating hidden — evaluate based on attributes</span>}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -167,19 +286,21 @@ export default function DraftSection() {
                 Preview baseado na classificação actual. Pior classificado escolhe primeiro. Actualiza automaticamente com os resultados.
               </p>
               <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                        {['Pick','Team','Prospect','Pos',...(isCommissioner?['OVR']:[])].map((h,i) => (
-                          <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i<=1?'text-left':'text-right'}`}
-                              style={{color:'#5c554e'}}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mockDraft.map(({ pick, team, prospect }) => (
-                        <tr key={pick} style={{background:pick%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                          <td className="px-3 py-2.5 text-center font-black text-sm" style={{color:'#b45309'}}>{pick}</td>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
+                      {['Pick','Team','Prospect','Pos',...(isCommissioner?['OVR']:[])].map((h,i) => (
+                        <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i<=1?'text-left':'text-right'}`}
+                            style={{color:'#5c554e'}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {standings.slice(0,30).map((team, i) => {
+                      const prospect = prospects[i] || null
+                      return (
+                        <tr key={team.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                          <td className="px-3 py-2.5 text-center font-black text-sm" style={{color:'#b45309'}}>{i+1}</td>
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-2">
                               {team.logo_url && <img src={team.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
@@ -198,20 +319,21 @@ export default function DraftSection() {
                             )}
                           </td>
                           {isCommissioner && (
-                          <td className="px-3 py-2.5 text-right">
-                            {prospect?.overall && (
-                              <span className="text-xs font-black px-2 py-0.5 rounded"
-                                    style={{background:OVR_BG(prospect.overall),color:OVR_COLOR(prospect.overall)}}>
-                                {prospect.overall}
-                              </span>
-                            )}
-                          </td>
+                            <td className="px-3 py-2.5 text-right">
+                              {prospect?.overall && (
+                                <span className="text-xs font-black px-2 py-0.5 rounded"
+                                      style={{background:OVR_BG(prospect.overall),color:OVR_COLOR(prospect.overall)}}>
+                                  {prospect.overall}
+                                </span>
+                              )}
+                            </td>
                           )}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -222,16 +344,14 @@ export default function DraftSection() {
                 <div className="rounded-2xl p-12 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
                   <div className="text-5xl mb-4">🏆</div>
                   <h3 className="text-lg font-black mb-2" style={{color:'#1a1512'}}>Draft Not Yet Completed</h3>
-                  <p className="text-sm" style={{color:'#6b5f4e'}}>
-                    The official draft results will appear here after the draft takes place.
-                  </p>
+                  <p className="text-sm" style={{color:'#6b5f4e'}}>The official draft results will appear here after the draft takes place.</p>
                 </div>
               ) : (
                 <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
                   <table className="w-full text-sm">
                     <thead>
                       <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                        {['Pick','Rnd','Team','Player','Pos','OVR'].map((h,i) => (
+                        {['Pick','Rnd','Team','Player','Pos',...(isCommissioner?['OVR']:[])].map((h,i) => (
                           <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i<=2?'text-left':'text-right'}`}
                               style={{color:'#5c554e'}}>{h}</th>
                         ))}
@@ -253,9 +373,7 @@ export default function DraftSection() {
                               <span className="text-xs font-semibold" style={{color:'#1a1512'}}>{r.teams?.name}</span>
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 font-bold text-right" style={{color:'#1a1512'}}>
-                            {r.prospects?.name || '—'}
-                          </td>
+                          <td className="px-3 py-2.5 font-bold text-right" style={{color:'#1a1512'}}>{r.prospects?.name||'—'}</td>
                           <td className="px-3 py-2.5 text-right">
                             {r.prospects?.pos && (
                               <span className="text-xs font-bold px-1.5 py-0.5 rounded"
@@ -264,14 +382,14 @@ export default function DraftSection() {
                               </span>
                             )}
                           </td>
-                          <td className="px-3 py-2.5 text-right">
-                            {r.prospects?.overall && (
+                          {isCommissioner && r.prospects?.overall && (
+                            <td className="px-3 py-2.5 text-right">
                               <span className="text-xs font-black px-2 py-0.5 rounded"
                                     style={{background:OVR_BG(r.prospects.overall),color:OVR_COLOR(r.prospects.overall)}}>
                                 {r.prospects.overall}
                               </span>
-                            )}
-                          </td>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
