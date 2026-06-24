@@ -143,6 +143,7 @@ export default function DraftSection() {
   const [standings, setStandings] = useState<any[]>([])
   const [results, setResults] = useState<any[]>([])
   const [teams, setTeams] = useState<Record<string, any>>({})
+  const [draftPicks, setDraftPicks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isCommissioner, setIsCommissioner] = useState(false)
   const [pos, setPos] = useState('All')
@@ -162,7 +163,8 @@ export default function DraftSection() {
       supabase.from('prospects').select('*').eq('season', NEXT_DRAFT).order('overall', { ascending: false }),
       supabase.from('teams').select('id,name,logo_url,color,wins,losses').not('id','in','(ALL,RVS,ROO,SOP)'),
       supabase.from('draft_results').select('*, prospects(*), teams(id,name,logo_url,color)').eq('season', NEXT_DRAFT).order('pick_number'),
-    ]).then(([{ data: p }, { data: t }, { data: r }]) => {
+      supabase.from('draft_picks').select('*').eq('season', NEXT_DRAFT).eq('round', 1).eq('status','owned'),
+    ]).then(([{ data: p }, { data: t }, { data: r }, { data: dp }]) => {
       setProspects(p || [])
       const sorted = [...(t || [])].sort((a, b) => a.wins - b.wins || b.losses - a.losses)
       setStandings(sorted)
@@ -170,6 +172,7 @@ export default function DraftSection() {
       for (const team of (t || [])) map[team.id] = team
       setTeams(map)
       setResults(r || [])
+      setDraftPicks(dp || [])
       setLoading(false)
     })
   }, [])
@@ -354,52 +357,81 @@ export default function DraftSection() {
           {tab==='mock' && (
             <div>
               <p className="text-xs mb-4" style={{color:'#6b5f4e'}}>
-                Preview baseado na classificação actual. Pior classificado escolhe primeiro.
+                Preview based on current standings. Worst record picks first. Pick ownership reflects actual trades.
               </p>
               <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
                 <table className="w-full text-sm">
                   <thead>
                     <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                      {['Pick','Team','Prospect','Pos',...(isCommissioner?['OVR']:[])].map((h,i) => (
-                        <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i<=1?'text-left':'text-right'}`}
+                      {['Pick','Owner','Original Team','Prospect','Pos',...(isCommissioner?['OVR']:[])].map((h,i) => (
+                        <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i<=2?'text-left':'text-right'}`}
                             style={{color:'#5c554e'}}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {standings.slice(0,30).map((team, i) => {
-                      const prospect = prospects[i] || null
-                      return (
-                        <tr key={team.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                          <td className="px-3 py-2.5 text-center font-black text-sm" style={{color:'#b45309'}}>{i+1}</td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex items-center gap-2">
-                              {team.logo_url && <img src={team.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
-                              <span className="font-semibold text-xs" style={{color:'#1a1512'}}>{team.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5 text-right font-bold text-xs" style={{color:'#1a1512'}}>{prospect?.name||'—'}</td>
-                          <td className="px-3 py-2.5 text-right">
-                            {prospect?.pos && (
-                              <span className="text-xs font-bold px-1.5 py-0.5 rounded"
-                                    style={{background:(POS_COLOR[prospect.pos]||'#5c554e')+'22',color:POS_COLOR[prospect.pos]||'#5c554e'}}>
-                                {prospect.pos}
-                              </span>
-                            )}
-                          </td>
-                          {isCommissioner && (
+                    {(() => {
+                      // Sort picks by original team's record (worst first)
+                      const sorted = [...draftPicks].sort((a, b) => {
+                        const teamA = teams[a.original_team_id]
+                        const teamB = teams[b.original_team_id]
+                        const winsA = teamA?.wins ?? 0
+                        const winsB = teamB?.wins ?? 0
+                        const lossA = teamA?.losses ?? 0
+                        const lossB = teamB?.losses ?? 0
+                        return winsA - winsB || lossB - lossA
+                      })
+                      // Fallback: if no picks yet, use standings
+                      const rows = sorted.length > 0 ? sorted : standings.slice(0,30).map(t => ({
+                        team_id: t.id, original_team_id: t.id
+                      }))
+                      return rows.map((pick, i) => {
+                        const owner = teams[pick.team_id]
+                        const original = teams[pick.original_team_id]
+                        const isOwn = pick.team_id === pick.original_team_id
+                        const prospect = prospects[i] || null
+                        return (
+                          <tr key={i} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                            <td className="px-3 py-2.5 text-center font-black text-sm" style={{color:'#b45309'}}>{i+1}</td>
+                            <td className="px-3 py-2.5">
+                              <div className="flex items-center gap-2">
+                                {owner?.logo_url && <img src={owner.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
+                                <span className="font-semibold text-xs" style={{color:'#1a1512'}}>{owner?.name||'—'}</span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5">
+                              {!isOwn && original ? (
+                                <div className="flex items-center gap-1.5">
+                                  {original.logo_url && <img src={original.logo_url} alt="" className="w-4 h-4 object-contain flex-shrink-0 opacity-60"/>}
+                                  <span className="text-xs" style={{color:'#b45309'}}>via {original.name}</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs" style={{color:'#b0a89e'}}>—</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5 text-right font-bold text-xs" style={{color:'#1a1512'}}>{prospect?.name||'—'}</td>
                             <td className="px-3 py-2.5 text-right">
-                              {prospect?.overall && (
-                                <span className="text-xs font-black px-2 py-0.5 rounded"
-                                      style={{background:OVR_BG(prospect.overall),color:OVR_COLOR(prospect.overall)}}>
-                                  {prospect.overall}
+                              {prospect?.pos && (
+                                <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                                      style={{background:(POS_COLOR[prospect.pos]||'#5c554e')+'22',color:POS_COLOR[prospect.pos]||'#5c554e'}}>
+                                  {prospect.pos}
                                 </span>
                               )}
                             </td>
-                          )}
-                        </tr>
-                      )
-                    })}
+                            {isCommissioner && (
+                              <td className="px-3 py-2.5 text-right">
+                                {prospect?.overall && (
+                                  <span className="text-xs font-black px-2 py-0.5 rounded"
+                                        style={{background:OVR_BG(prospect.overall),color:OVR_COLOR(prospect.overall)}}>
+                                    {prospect.overall}
+                                  </span>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })
+                    })()}
                   </tbody>
                 </table>
               </div>
