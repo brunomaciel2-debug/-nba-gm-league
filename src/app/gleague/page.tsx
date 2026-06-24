@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
-import { calcOvr, ovrColor } from '@/lib/ovr'
 
 type Tab = 'teams'|'standings'|'schedule'|'leaders'
 
@@ -13,6 +12,8 @@ export default function GLeaguePage() {
   const [games, setGames]     = useState<any[]>([])
   const [leaders, setLeaders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [week, setWeek]       = useState<number|null>(null)
+  const [filterTeam, setFilterTeam] = useState<string>('ALL')
 
   useEffect(() => {
     Promise.all([
@@ -20,8 +21,8 @@ export default function GLeaguePage() {
         .select('*, nba:teams!gleague_teams_nba_affiliate_fkey(id,name,logo_url,color)')
         .order('conference').order('wins',{ascending:false}),
       supabase.from('gleague_games')
-        .select('*, home:gleague_teams!gleague_games_home_team_fkey(id,name,color), away:gleague_teams!gleague_games_away_team_fkey(id,name,color)')
-        .eq('season','2025-26').order('played_at',{ascending:false}),
+        .select('*, home:gleague_teams!gleague_games_home_team_fkey(id,name,color,logo_url), away:gleague_teams!gleague_games_away_team_fkey(id,name,color,logo_url)')
+        .eq('season','2025-26').gt('week_number',0).order('played_at',{ascending:true}),
       supabase.from('gleague_player_stats')
         .select('*, player:players(id,name,pos,age), team:gleague_teams(id,name,color)')
         .eq('season','2025-26').gte('games',5),
@@ -29,12 +30,31 @@ export default function GLeaguePage() {
       setTeams(t||[])
       setGames(g||[])
       setLeaders(l||[])
+      // Default to current/next week
+      const now = new Date()
+      const allWeeks = [...new Set((g||[]).map((x:any)=>x.week_number))].sort((a,b)=>a-b)
+      const upcomingGame = (g||[]).find((x:any) => new Date(x.played_at) >= now)
+      const currentWeek = upcomingGame?.week_number || allWeeks[allWeeks.length-1] || 1
+      setWeek(currentWeek)
       setLoading(false)
     })
   },[])
 
   const east = teams.filter(t=>t.conference==='Eastern').sort((a:any,b:any)=>b.wins-a.wins||a.losses-b.losses)
   const west = teams.filter(t=>t.conference==='Western').sort((a:any,b:any)=>b.wins-a.wins||a.losses-b.losses)
+
+  const allWeeks = [...new Set(games.map((x:any)=>x.week_number))].sort((a,b)=>a-b)
+  const minWeek = allWeeks[0] || 1
+  const maxWeek = allWeeks[allWeeks.length-1] || 1
+
+  const weekGames = games.filter((g:any) => {
+    const matchWeek = week === null || g.week_number === week
+    const matchTeam = filterTeam === 'ALL' || g.home_team === filterTeam || g.away_team === filterTeam
+    return matchWeek && matchTeam
+  })
+
+  const finalGames = weekGames.filter((g:any) => g.status === 'final')
+  const scheduledGames = weekGames.filter((g:any) => g.status === 'scheduled')
 
   const calcGB = (leader:any, team:any) => {
     if (!leader||(leader.wins===team.wins&&leader.losses===team.losses)) return '—'
@@ -49,6 +69,16 @@ export default function GLeaguePage() {
     {key:'leaders',  label:'League Leaders', icon:'ti-trophy'},
   ] as const
 
+  // Week date range label
+  const weekLabel = (w: number) => {
+    const wGames = games.filter((g:any) => g.week_number === w)
+    if (!wGames.length) return `Week ${w}`
+    const dates = wGames.map((g:any) => new Date(g.played_at)).sort((a,b)=>a.getTime()-b.getTime())
+    const first = dates[0].toLocaleDateString('en-US',{month:'short',day:'numeric'})
+    const last  = dates[dates.length-1].toLocaleDateString('en-US',{month:'short',day:'numeric'})
+    return first === last ? `${first}` : `${first} – ${last}`
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="sec-hdr mb-4">
@@ -56,6 +86,7 @@ export default function GLeaguePage() {
           <i className="ti ti-ball-basketball" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
           NBA G League — 2025-26
         </span>
+        <span className="text-xs" style={{color:'#8a8279'}}>Dec 27 – Mar 28 · Playoffs Apr 1-11</span>
       </div>
 
       {/* Tabs */}
@@ -174,31 +205,81 @@ export default function GLeaguePage() {
       {/* SCHEDULE */}
       {tab==='schedule' && (
         <div>
-          {/* Final games */}
-          {games.filter((g:any)=>g.status==='final').length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{color:'#5c554e',letterSpacing:'1.5px'}}>Results</h3>
+          {/* Controls */}
+          <div className="flex flex-wrap gap-3 items-center mb-5 p-3 rounded-xl"
+               style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+
+            {/* Week navigation */}
+            <div className="flex items-center gap-2">
+              <button onClick={()=>setWeek(w=>Math.max(minWeek,(w||minWeek)-1))}
+                disabled={week===minWeek}
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+                style={{background:'#f0ece5',color:week===minWeek?'#d4cdc5':'#1a1512',border:'1px solid #d4cdc5',cursor:week===minWeek?'not-allowed':'pointer'}}>
+                ‹
+              </button>
+              <div className="text-center min-w-[120px]">
+                <div className="text-xs font-bold" style={{color:'#1a1512'}}>Week {week}</div>
+                <div className="text-xs" style={{color:'#8a8279'}}>{week ? weekLabel(week) : ''}</div>
+              </div>
+              <button onClick={()=>setWeek(w=>Math.min(maxWeek,(w||maxWeek)+1))}
+                disabled={week===maxWeek}
+                className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
+                style={{background:'#f0ece5',color:week===maxWeek?'#d4cdc5':'#1a1512',border:'1px solid #d4cdc5',cursor:week===maxWeek?'not-allowed':'pointer'}}>
+                ›
+              </button>
+            </div>
+
+            {/* Team filter */}
+            <select value={filterTeam} onChange={e=>setFilterTeam(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg flex-1 min-w-[160px]"
+              style={{background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}>
+              <option value="ALL">All Teams</option>
+              {teams.map((t:any) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+
+            {/* All weeks button */}
+            <button onClick={()=>setWeek(null)}
+              className="text-xs px-3 py-1.5 rounded-lg font-semibold"
+              style={{background:week===null?'#1a1512':'#f0ece5',color:week===null?'#fff':'#5c554e',border:'1px solid #d4cdc5'}}>
+              All Weeks
+            </button>
+
+            <span className="text-xs" style={{color:'#8a8279'}}>{weekGames.length} games</span>
+          </div>
+
+          {/* Results */}
+          {finalGames.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-3"
+                  style={{color:'#5c554e',letterSpacing:'1.5px'}}>Results</h3>
               <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-                {games.filter((g:any)=>g.status==='final').slice(0,50).map((g:any,i:number)=>{
+                {finalGames.map((g:any,i:number)=>{
                   const hWon=(g.home_score||0)>(g.away_score||0)
                   const htc=readableTeamColor(g.home?.color||'#1d4ed8')
                   const atc=readableTeamColor(g.away?.color||'#c8102e')
                   return (
-                    <div key={g.id} className="flex items-center gap-4 px-4 py-3"
+                    <div key={g.id} className="flex items-center gap-3 px-4 py-3"
                          style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                      <div className="text-xs w-20 flex-shrink-0" style={{color:'#8a8279'}}>
+                      <div className="text-xs w-16 flex-shrink-0" style={{color:'#8a8279'}}>
                         {g.played_at?new Date(g.played_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'—'}
                       </div>
-                      <div className="flex-1 flex items-center justify-between">
-                        <Link href={`/gleague/${g.home_team}`} className="no-underline text-sm font-semibold"
-                              style={{color:hWon?htc:'#5c554e'}}>{g.home?.name}</Link>
-                        <div className="flex items-center gap-3 mx-4">
-                          <span className="text-lg font-black" style={{color:hWon?'#15803d':'#dc2626'}}>{g.home_score}</span>
-                          <span className="text-xs" style={{color:'#d4cdc5'}}>—</span>
-                          <span className="text-lg font-black" style={{color:!hWon?'#15803d':'#dc2626'}}>{g.away_score}</span>
-                        </div>
-                        <Link href={`/gleague/${g.away_team}`} className="no-underline text-sm font-semibold"
-                              style={{color:!hWon?atc:'#5c554e'}}>{g.away?.name}</Link>
+                      {/* Home */}
+                      <div className="flex items-center gap-2 flex-1 justify-end">
+                        <span className="text-sm font-semibold" style={{color:hWon?htc:'#5c554e'}}>{g.home?.name}</span>
+                        {g.home?.logo_url && <img src={g.home.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
+                      </div>
+                      {/* Score */}
+                      <div className="flex items-center gap-2 flex-shrink-0 px-2">
+                        <span className="text-base font-black w-8 text-right" style={{color:hWon?'#15803d':'#dc2626'}}>{g.home_score}</span>
+                        <span className="text-xs" style={{color:'#d4cdc5'}}>–</span>
+                        <span className="text-base font-black w-8" style={{color:!hWon?'#15803d':'#dc2626'}}>{g.away_score}</span>
+                      </div>
+                      {/* Away */}
+                      <div className="flex items-center gap-2 flex-1">
+                        {g.away?.logo_url && <img src={g.away.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
+                        <span className="text-sm font-semibold" style={{color:!hWon?atc:'#5c554e'}}>{g.away?.name}</span>
                       </div>
                     </div>
                   )
@@ -206,37 +287,53 @@ export default function GLeaguePage() {
               </div>
             </div>
           )}
-          {/* Scheduled games */}
-          {games.filter((g:any)=>g.status==='scheduled').length > 0 && (
+
+          {/* Upcoming */}
+          {scheduledGames.length > 0 && (
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-widest mb-3" style={{color:'#5c554e',letterSpacing:'1.5px'}}>Upcoming</h3>
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-3"
+                  style={{color:'#5c554e',letterSpacing:'1.5px'}}>Upcoming</h3>
               <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-                {games.filter((g:any)=>g.status==='scheduled').slice(0,30).map((g:any,i:number)=>{
+                {scheduledGames.map((g:any,i:number)=>{
                   const htc=readableTeamColor(g.home?.color||'#1d4ed8')
                   const atc=readableTeamColor(g.away?.color||'#c8102e')
+                  const dt = g.played_at ? new Date(g.played_at) : null
                   return (
-                    <div key={g.id} className="flex items-center gap-4 px-4 py-3"
+                    <div key={g.id} className="flex items-center gap-3 px-4 py-3"
                          style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                      <div className="text-xs w-20 flex-shrink-0" style={{color:'#8a8279'}}>
-                        {g.played_at?new Date(g.played_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'TBD'}
+                      <div className="text-xs w-16 flex-shrink-0" style={{color:'#8a8279'}}>
+                        {dt ? dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : 'TBD'}
                       </div>
-                      <div className="flex-1 flex items-center justify-between">
-                        <Link href={`/gleague/${g.home_team}`} className="no-underline text-sm font-semibold" style={{color:htc}}>
-                          {g.home?.name}
-                        </Link>
-                        <span className="text-xs font-bold mx-4" style={{color:'#d4cdc5'}}>vs</span>
-                        <Link href={`/gleague/${g.away_team}`} className="no-underline text-sm font-semibold" style={{color:atc}}>
-                          {g.away?.name}
-                        </Link>
+                      {/* Home */}
+                      <div className="flex items-center gap-2 flex-1 justify-end">
+                        <span className="text-sm font-semibold" style={{color:htc}}>{g.home?.name}</span>
+                        {g.home?.logo_url && <img src={g.home.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
                       </div>
-                      <span className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>Wk {g.week_number}</span>
+                      {/* vs */}
+                      <div className="flex items-center justify-center w-12 flex-shrink-0">
+                        <span className="text-xs font-bold px-2 py-1 rounded"
+                              style={{background:'#f0ece5',color:'#8a8279'}}>vs</span>
+                      </div>
+                      {/* Away */}
+                      <div className="flex items-center gap-2 flex-1">
+                        {g.away?.logo_url && <img src={g.away.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}
+                        <span className="text-sm font-semibold" style={{color:atc}}>{g.away?.name}</span>
+                      </div>
+                      <span className="text-xs flex-shrink-0" style={{color:'#b0a89e'}}>
+                        {dt ? dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : ''}
+                      </span>
                     </div>
                   )
                 })}
               </div>
             </div>
           )}
-          {games.length===0&&<div className="text-center py-12" style={{color:'#8a8279'}}>No games scheduled yet.</div>}
+
+          {weekGames.length===0 && (
+            <div className="text-center py-12 rounded-xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5',color:'#8a8279'}}>
+              No games for this selection.
+            </div>
+          )}
         </div>
       )}
 
@@ -255,7 +352,8 @@ export default function GLeaguePage() {
               .sort((a:any,b:any)=>(b[cat.key]/b.games)-(a[cat.key]/a.games))
               .slice(0,10)
             return (
-              <div key={cat.key} className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5',borderTop:`3px solid ${cat.color}`}}>
+              <div key={cat.key} className="rounded-xl overflow-hidden"
+                   style={{border:'1px solid #d4cdc5',borderTop:`3px solid ${cat.color}`}}>
                 <div className="px-4 py-3 flex items-center justify-between"
                      style={{background:'#f5f1eb',borderBottom:'1px solid #d4cdc5'}}>
                   <span className="text-xs font-bold uppercase tracking-widest" style={{color:cat.color,letterSpacing:'1px'}}>{cat.label}</span>
