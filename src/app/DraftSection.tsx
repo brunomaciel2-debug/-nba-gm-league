@@ -10,6 +10,8 @@ const POS_COLOR: Record<string, string> = {
 }
 
 export default function DraftSection() {
+  const [isCommissioner, setIsCommissioner] = useState(false)
+
   const [tab, setTab] = useState<DraftTab>('class')
   const [prospects, setProspects] = useState<any[]>([])
   const [standings, setStandings] = useState<any[]>([])
@@ -19,6 +21,13 @@ export default function DraftSection() {
   const NEXT_DRAFT = '2027'
 
   useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        const { data: gm } = await supabase.from('gm_profiles').select('role').eq('id', user.id).single()
+        if (gm?.role === 'commissioner') setIsCommissioner(true)
+      }
+    })
+
     Promise.all([
       supabase.from('prospects').select('*').eq('season', NEXT_DRAFT).order('overall', { ascending: false }),
       supabase.from('teams').select('id,name,logo_url,color,wins,losses,conference').not('id','in','(ALL,RVS,ROO,SOP)'),
@@ -97,7 +106,7 @@ export default function DraftSection() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                        {['#','Player','Pos','Age','From','OVR','Potential','Notes'].map((h,i) => (
+                        {['#','Player','Pos','Age','From', ...(isCommissioner?['OVR','Potential']:['Potential']),'Notes'].map((h,i) => (
                           <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i===0?'text-center':i<=2?'text-left':'text-right'}`}
                               style={{color:'#5c554e'}}>{h}</th>
                         ))}
@@ -127,12 +136,14 @@ export default function DraftSection() {
                           </td>
                           <td className="px-3 py-2.5 text-xs text-right" style={{color:'#6b5f4e'}}>{p.age||'—'}</td>
                           <td className="px-3 py-2.5 text-xs text-right" style={{color:'#6b5f4e'}}>{p.college||p.nationality||'—'}</td>
+                          {isCommissioner && (
                           <td className="px-3 py-2.5 text-right">
                             <span className="text-xs font-black px-2 py-0.5 rounded"
                                   style={{background:OVR_BG(p.overall),color:OVR_COLOR(p.overall)}}>
                               {p.overall||'?'}
                             </span>
                           </td>
+                          )}
                           <td className="px-3 py-2.5 text-right">
                             <span className="text-xs font-black px-2 py-0.5 rounded"
                                   style={{background:OVR_BG(p.potential),color:OVR_COLOR(p.potential)}}>
@@ -159,7 +170,7 @@ export default function DraftSection() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                        {['Pick','Team','Prospect','Pos','OVR'].map((h,i) => (
+                        {['Pick','Team','Prospect','Pos',...(isCommissioner?['OVR']:[])].map((h,i) => (
                           <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i<=1?'text-left':'text-right'}`}
                               style={{color:'#5c554e'}}>{h}</th>
                         ))}
@@ -186,6 +197,7 @@ export default function DraftSection() {
                               </span>
                             )}
                           </td>
+                          {isCommissioner && (
                           <td className="px-3 py-2.5 text-right">
                             {prospect?.overall && (
                               <span className="text-xs font-black px-2 py-0.5 rounded"
@@ -194,6 +206,7 @@ export default function DraftSection() {
                               </span>
                             )}
                           </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
