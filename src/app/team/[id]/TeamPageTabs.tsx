@@ -9,6 +9,26 @@ import DraftPicksTable from './DraftPicksTable'
 
 type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'sponsors'
 
+const TABS: { key: Tab, label: string, icon: string, badge?: string }[] = [
+  { key: 'roster',     label: 'Roster',      icon: '👥' },
+  { key: 'schedule',   label: 'Schedule',    icon: '📅' },
+  { key: 'contracts',  label: 'Contracts',   icon: '📄' },
+  { key: 'draft',      label: 'Draft Picks', icon: '🎓' },
+  { key: 'training',   label: 'Training',    icon: '🏋️' },
+  { key: 'facilities', label: 'Facilities',  icon: '🏟️' },
+  { key: 'sponsors',   label: 'Sponsors',    icon: '💰' },
+]
+
+function ComingSoon({ label, icon }: { label: string, icon: string }) {
+  return (
+    <div className="rounded-2xl p-16 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+      <div className="text-5xl mb-4">{icon}</div>
+      <h3 className="text-lg font-black mb-2" style={{color:'#1a1512'}}>{label}</h3>
+      <p className="text-sm" style={{color:'#8a8279'}}>This feature is coming soon.</p>
+    </div>
+  )
+}
+
 export default function TeamPageTabs({
   players, games, teamId, teamsMap, teamColor, coaches, injuries
 }: {
@@ -19,90 +39,120 @@ export default function TeamPageTabs({
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '') as Tab
-    if (['roster', 'schedule', 'contracts', 'draft', 'training', 'facilities', 'sponsors'].includes(hash)) {
-      setTab(hash as Tab)
-    }
+    if (TABS.map(t => t.key).includes(hash as Tab)) setTab(hash as Tab)
   }, [])
 
   const played   = games.filter((g:any) => g.status === 'final').length
   const upcoming = games.filter((g:any) => g.status !== 'final').length
 
-  const TABS: { key: Tab, label: string, badge: string }[] = [
-    { key: 'roster',     label: 'Roster',      badge: `${players.length} players` },
-    { key: 'schedule',   label: 'Schedule',    badge: `${played} played · ${upcoming} remaining` },
-    { key: 'contracts',  label: 'Contracts',   badge: 'Multi-year view' },
-    { key: 'draft',      label: 'Draft Picks', badge: '5 seasons' },
-    { key: 'training',   label: 'Training',    badge: 'Coming soon' },
-    { key: 'facilities', label: 'Facilities',  badge: 'Coming soon' },
-    { key: 'sponsors',   label: 'Sponsors',    badge: 'Coming soon' },
-  ]
-
-  const ComingSoon = ({ label }: { label: string }) => (
-    <div className="rounded-2xl p-16 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-      <div className="text-5xl mb-4">
-        {label === 'Training' ? '🏋️' : label === 'Facilities' ? '🏟️' : '💰'}
-      </div>
-      <h3 className="text-lg font-black mb-2" style={{color:'#1a1512'}}>{label}</h3>
-      <p className="text-sm" style={{color:'#8a8279'}}>This feature is coming soon.</p>
-    </div>
-  )
+  const badges: Partial<Record<Tab, string>> = {
+    roster:    `${players.length}`,
+    schedule:  `${played}/${played + upcoming}`,
+    contracts: 'Multi-yr',
+    draft:     '5 yrs',
+  }
 
   return (
-    <div>
-      {/* Tab bar */}
-      <div style={{ display:'flex', gap:8, marginBottom:20, flexWrap:'wrap' }}>
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 16px',
-              borderRadius: 8,
-              fontSize: 14,
-              fontWeight: tab === t.key ? 600 : 500,
-              background: tab === t.key ? '#1a1512' : '#faf8f5',
-              color: tab === t.key ? '#faf8f5' : '#3d3731',
-              border: '1px solid ' + (tab === t.key ? '#1a1512' : '#d4cdc5'),
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
-          >
-            {t.label}
-            <span style={{
-              fontSize: 11,
-              padding: '2px 6px',
-              borderRadius: 4,
-              background: tab === t.key ? '#3d3731' : '#e8e2d8',
-              color: tab === t.key ? '#d4cdc5' : '#5c554e',
-            }}>
-              {t.badge}
-            </span>
-          </button>
-        ))}
+    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+
+      {/* SIDEBAR */}
+      <div style={{
+        width: 180,
+        flexShrink: 0,
+        background: '#faf8f5',
+        border: '1px solid #d4cdc5',
+        borderRadius: 14,
+        padding: '8px 0',
+        position: 'sticky',
+        top: 80,
+      }}>
+        {TABS.map((t, i) => {
+          const active = tab === t.key
+          const isComingSoon = ['training','facilities','sponsors'].includes(t.key)
+          const showDivider = i === 3 // divider before Training
+          return (
+            <div key={t.key}>
+              {showDivider && (
+                <div style={{height: 1, background: '#e2dcd5', margin: '6px 12px'}} />
+              )}
+              <button
+                type="button"
+                onClick={() => setTab(t.key)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  width: '100%',
+                  padding: '9px 14px',
+                  fontSize: 13,
+                  fontWeight: active ? 700 : 500,
+                  color: active ? '#1a1512' : isComingSoon ? '#b0a89e' : '#3d3731',
+                  background: active ? teamColor + '18' : 'transparent',
+                  borderLeft: `3px solid ${active ? teamColor : 'transparent'}`,
+                  border: 'none',
+                  borderLeftStyle: 'solid',
+                  borderLeftWidth: 3,
+                  borderLeftColor: active ? teamColor : 'transparent',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#f0ece5' }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+              >
+                <span style={{ fontSize: 15, flexShrink: 0 }}>{t.icon}</span>
+                <span style={{ flex: 1 }}>{t.label}</span>
+                {badges[t.key] && (
+                  <span style={{
+                    fontSize: 10,
+                    padding: '1px 5px',
+                    borderRadius: 4,
+                    background: active ? teamColor + '33' : '#e8e2d8',
+                    color: active ? teamColor : '#8a8279',
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}>
+                    {badges[t.key]}
+                  </span>
+                )}
+                {isComingSoon && (
+                  <span style={{
+                    fontSize: 9,
+                    padding: '1px 4px',
+                    borderRadius: 3,
+                    background: '#f0ece5',
+                    color: '#b0a89e',
+                    flexShrink: 0,
+                  }}>
+                    soon
+                  </span>
+                )}
+              </button>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Content */}
-      {tab === 'roster' && (
-        <>
-          <RosterTable players={players} teamColor={teamColor} />
-          <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-            <CoachingStaff staff={coaches} />
-          </div>
-          <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-            <InjuryReport injuries={injuries} players={players} />
-          </div>
-        </>
-      )}
-      {tab === 'schedule'   && <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />}
-      {tab === 'contracts'  && <ContractsTable teamId={teamId} teamColor={teamColor} />}
-      {tab === 'draft'      && <DraftPicksTable teamId={teamId} />}
-      {tab === 'training'   && <ComingSoon label="Training" />}
-      {tab === 'facilities' && <ComingSoon label="Facilities" />}
-      {tab === 'sponsors'   && <ComingSoon label="Sponsors" />}
+      {/* CONTENT */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {tab === 'roster' && (
+          <>
+            <RosterTable players={players} teamColor={teamColor} />
+            <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
+              <CoachingStaff staff={coaches} />
+            </div>
+            <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
+              <InjuryReport injuries={injuries} players={players} />
+            </div>
+          </>
+        )}
+        {tab === 'schedule'   && <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />}
+        {tab === 'contracts'  && <ContractsTable teamId={teamId} teamColor={teamColor} />}
+        {tab === 'draft'      && <DraftPicksTable teamId={teamId} />}
+        {tab === 'training'   && <ComingSoon label="Training" icon="🏋️" />}
+        {tab === 'facilities' && <ComingSoon label="Facilities" icon="🏟️" />}
+        {tab === 'sponsors'   && <ComingSoon label="Sponsors" icon="💰" />}
+      </div>
     </div>
   )
 }
