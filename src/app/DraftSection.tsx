@@ -9,12 +9,43 @@ const POS_COLOR: Record<string, string> = {
 }
 const POSITIONS = ['All','PG','SG','SF','PF','C']
 
+const TOOLTIPS: Record<string,string> = {
+  '3PT':'Three-Point Shooting (0-100)', LAY:'Layup (0-100)', DNK:'Dunk (0-100)',
+  MID:'Mid-Range (0-100)', FT:'Free Throw (0-100)', SIQ:'Shot IQ (0-100)',
+  DF:'Draw Foul (0-100)', BLK:'Block (0-100)', STL:'Steal (0-100)',
+  IDEF:'Interior Defense (0-100)', PDEF:'Perimeter Defense (0-100)',
+  DREB:'Def. Rebound (0-100)', OREB:'Off. Rebound (0-100)',
+  STA:'Stamina (0-100)', DUR:'Durability (0-100)',
+  BH:'Ball Handle (0-100)', PV:'Pass Vision (0-100)', PIQ:'Pass IQ (0-100)',
+  AR:'Assist Role (0-100)', CLU:'Clutch (0-100)', CON:'Consistency (0-100)',
+  CE:'Crowd Effect (0-100)', STR:'Streaky (0-100)',
+  OVR:'Overall rating (Commissioner only)', AGE:'Player age',
+}
+
 const ATTR_COLS = [
-  { key: 'scoring',    label: 'SCR', color: '#b45309',  tip: 'Scoring ability (0-100)' },
-  { key: 'athleticism',label: 'ATH', color: '#dc2626',  tip: 'Athleticism (0-100)' },
-  { key: 'defense',    label: 'DEF', color: '#15803d',  tip: 'Defensive ability (0-100)' },
-  { key: 'playmaking', label: 'PLY', color: '#1d4ed8',  tip: 'Playmaking / passing (0-100)' },
-  { key: 'potential',  label: 'POT', color: '#6d28d9',  tip: 'Long-term potential (0-100)' },
+  {key:'three',       label:'3PT',  color:'#b45309'},
+  {key:'layup',       label:'LAY',  color:'#c2410c'},
+  {key:'dunk',        label:'DNK',  color:'#c2410c'},
+  {key:'mid',         label:'MID',  color:'#c2410c'},
+  {key:'ft',          label:'FT',   color:'#0e7490'},
+  {key:'siq',         label:'SIQ',  color:'#c2410c'},
+  {key:'draw_foul',   label:'DF',   color:'#c2410c'},
+  {key:'blk',         label:'BLK',  color:'#c2410c'},
+  {key:'stl',         label:'STL',  color:'#7c3aed'},
+  {key:'idef',        label:'IDEF', color:'#166534'},
+  {key:'pdef',        label:'PDEF', color:'#166534'},
+  {key:'def_reb',     label:'DREB', color:'#1e40af'},
+  {key:'off_reb',     label:'OREB', color:'#1e40af'},
+  {key:'stamina',     label:'STA',  color:'#7c3aed'},
+  {key:'durability',  label:'DUR',  color:'#7c3aed'},
+  {key:'ball_hdl',    label:'BH',   color:'#0e7490'},
+  {key:'pass_vis',    label:'PV',   color:'#0e7490'},
+  {key:'pass_iq',     label:'PIQ',  color:'#0e7490'},
+  {key:'assist_role', label:'AR',   color:'#0e7490'},
+  {key:'pressure',    label:'CLU',  color:'#b45309'},
+  {key:'consistency', label:'CON',  color:'#b45309'},
+  {key:'crowd_effect',label:'CE',   color:'#b45309'},
+  {key:'streaky',     label:'STR',  color:'#b45309'},
 ]
 
 function attrColor(v: number) {
@@ -41,14 +72,14 @@ function Tip({ text }: { text: string }) {
   )
 }
 
-function SortTh({ label, tip, active, dir, onClick }: {
-  label: string, tip?: string, active: boolean, dir: string, onClick: () => void
+function SortTh({ label, active, dir, onClick }: {
+  label: string, active: boolean, dir: string, onClick: () => void
 }) {
   return (
     <th onClick={onClick} className="px-2 py-2.5 text-center cursor-pointer select-none whitespace-nowrap"
         style={{background:'#f0ece5',color:active?'#c8102e':'#5c554e',fontSize:11,fontWeight:700,
                 letterSpacing:'0.5px',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5'}}>
-      {label}{tip && <Tip text={tip}/>}
+      {label}{TOOLTIPS[label] && <Tip text={TOOLTIPS[label]}/>}
       {active && <span style={{marginLeft:3}}>{dir==='desc'?'↓':'↑'}</span>}
     </th>
   )
@@ -64,7 +95,7 @@ export default function DraftSection() {
   const [isCommissioner, setIsCommissioner] = useState(false)
   const [pos, setPos] = useState('All')
   const [search, setSearch] = useState('')
-  const [sortKey, setSortKey] = useState('potential')
+  const [sortKey, setSortKey] = useState('three')
   const [sortDir, setSortDir] = useState<'desc'|'asc'>('desc')
   const NEXT_DRAFT = '2027'
 
@@ -75,10 +106,9 @@ export default function DraftSection() {
         if (gm?.role === 'commissioner') setIsCommissioner(true)
       }
     })
-
     Promise.all([
       supabase.from('prospects').select('*').eq('season', NEXT_DRAFT).order('overall', { ascending: false }),
-      supabase.from('teams').select('id,name,logo_url,color,wins,losses,conference').not('id','in','(ALL,RVS,ROO,SOP)'),
+      supabase.from('teams').select('id,name,logo_url,color,wins,losses').not('id','in','(ALL,RVS,ROO,SOP)'),
       supabase.from('draft_results').select('*, prospects(*), teams(id,name,logo_url,color)').eq('season', NEXT_DRAFT).order('pick_number'),
     ]).then(([{ data: p }, { data: t }, { data: r }]) => {
       setProspects(p || [])
@@ -106,8 +136,8 @@ export default function DraftSection() {
       return sortDir === 'desc' ? bv - av : av - bv
     })
 
-  const OVR_COLOR = (ovr: number) => ovr>=85?'#b45309':ovr>=75?'#15803d':ovr>=65?'#1d4ed8':'#5c554e'
-  const OVR_BG    = (ovr: number) => ovr>=85?'#fef3c7':ovr>=75?'#dcfce7':ovr>=65?'#dbeafe':'#f0ece5'
+  const OVR_COLOR = (v: number) => v>=85?'#b45309':v>=75?'#15803d':v>=65?'#1d4ed8':'#5c554e'
+  const OVR_BG    = (v: number) => v>=85?'#fef3c7':v>=75?'#dcfce7':v>=65?'#dbeafe':'#f0ece5'
 
   return (
     <div className="mt-8">
@@ -121,17 +151,14 @@ export default function DraftSection() {
       {/* Sub-tabs */}
       <div className="flex gap-2 mb-5 flex-wrap">
         {[
-          { key: 'class',   label: '🎓 Draft Class' },
-          { key: 'mock',    label: '📊 Mock Draft' },
-          { key: 'results', label: '🏆 Draft Results' },
-        ].map((t: any) => (
+          {key:'class',   label:'🎓 Draft Class'},
+          {key:'mock',    label:'📊 Mock Draft'},
+          {key:'results', label:'🏆 Draft Results'},
+        ].map((t:any) => (
           <button key={t.key} onClick={() => setTab(t.key)}
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-            style={{
-              background: tab === t.key ? '#1a1512' : '#e8e2d6',
-              color: tab === t.key ? '#f5f1eb' : '#5c554e',
-              border: '1px solid ' + (tab === t.key ? '#1a1512' : '#d4cdc5'),
-            }}>
+            style={{background:tab===t.key?'#1a1512':'#e8e2d6',color:tab===t.key?'#f5f1eb':'#5c554e',
+                    border:'1px solid '+(tab===t.key?'#1a1512':'#d4cdc5')}}>
             {t.label}
           </button>
         ))}
@@ -142,7 +169,7 @@ export default function DraftSection() {
       ) : (
         <>
           {/* ── DRAFT CLASS ── */}
-          {tab === 'class' && (
+          {tab==='class' && (
             <div>
               {prospects.length === 0 ? (
                 <div className="rounded-2xl p-12 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
@@ -183,54 +210,46 @@ export default function DraftSection() {
                       <table className="w-full" style={{borderCollapse:'collapse',fontSize:12}}>
                         <thead>
                           <tr style={{background:'#f0ece5'}}>
-                            <th className="px-3 py-2.5 text-center sticky left-0 z-10"
+                            {/* Fixed columns */}
+                            <th className="px-3 py-2.5 text-left sticky left-0 z-10"
                                 style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',
-                                        borderRight:'1px solid #e2dcd5',fontWeight:700,fontSize:11,color:'#5c554e',width:32}}>
-                              #
-                            </th>
-                            <th className="px-3 py-2.5 text-left"
-                                style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',
-                                        borderRight:'1px solid #e2dcd5',fontWeight:700,fontSize:11,color:'#5c554e',minWidth:160}}>
+                                        borderRight:'1px solid #e2dcd5',fontWeight:700,fontSize:11,
+                                        color:'#5c554e',minWidth:160}}>
                               PLAYER
                             </th>
                             <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
                                         fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
                                         borderRight:'1px solid #e2dcd5'}}>POS</th>
-                            <SortTh label="AGE" tip="Player age" active={sortKey==='age'} dir={sortDir} onClick={() => handleSort('age')}/>
+                            <SortTh label="AGE" active={sortKey==='age'} dir={sortDir} onClick={() => handleSort('age')}/>
                             <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
                                         fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
                                         borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>FROM</th>
                             <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
                                         fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
-                                        borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>HT</th>
+                                        borderRight:'1px solid #e2dcd5'}}>HT</th>
                             <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
                                         fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
-                                        borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>WT</th>
+                                        borderRight:'1px solid #e2dcd5'}}>WT</th>
+                            {/* OVR só commissioner */}
                             {isCommissioner && (
-                              <SortTh label="OVR" tip="Overall rating (Commissioner only)" active={sortKey==='overall'} dir={sortDir} onClick={() => handleSort('overall')}/>
+                              <SortTh label="OVR" active={sortKey==='overall'} dir={sortDir} onClick={() => handleSort('overall')}/>
                             )}
+                            {/* 23 atributos */}
                             {ATTR_COLS.map(c => (
-                              <SortTh key={c.key} label={c.label} tip={c.tip} active={sortKey===c.key} dir={sortDir} onClick={() => handleSort(c.key)}/>
+                              <SortTh key={c.key} label={c.label} active={sortKey===c.key} dir={sortDir} onClick={() => handleSort(c.key)}/>
                             ))}
-                            <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
-                                        fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'left',minWidth:200}}>
-                              NOTES
-                            </th>
                           </tr>
                         </thead>
                         <tbody>
                           {filtered.map((p, i) => (
                             <tr key={p.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e8e3db'}}>
-                              <td className="px-3 py-2 text-center font-black text-xs sticky left-0 z-10"
-                                  style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderRight:'1px solid #e2dcd5',color:'#b45309'}}>
-                                {i+1}
-                              </td>
-                              <td className="px-3 py-2" style={{borderRight:'1px solid #e2dcd5'}}>
+                              <td className="px-3 py-2 sticky left-0 z-10 whitespace-nowrap"
+                                  style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderRight:'1px solid #e2dcd5'}}>
                                 <div className="flex items-center gap-2">
                                   {p.photo_url
-                                    ? <img src={p.photo_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0"/>
-                                    : <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-black"
-                                           style={{background:'#e8e2d6',color:'#5c554e'}}>
+                                    ? <img src={p.photo_url} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0"/>
+                                    : <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                                           style={{background:'#e8e2d6',color:'#5c554e',fontSize:8,fontWeight:900}}>
                                         {p.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                                       </div>
                                   }
@@ -238,7 +257,7 @@ export default function DraftSection() {
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-center" style={{borderRight:'1px solid #e2dcd5'}}>
-                                <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                                <span className="text-xs font-semibold px-1.5 py-0.5 rounded"
                                       style={{background:(POS_COLOR[p.pos]||'#5c554e')+'22',color:POS_COLOR[p.pos]||'#5c554e'}}>
                                   {p.pos}
                                 </span>
@@ -258,11 +277,10 @@ export default function DraftSection() {
                               {ATTR_COLS.map(c => (
                                 <td key={c.key} className="px-2 py-2 text-center" style={{borderRight:'1px solid #e8e3db'}}>
                                   <span className="text-xs font-bold" style={{color:attrColor(p[c.key]||0)}}>
-                                    {p[c.key]||'—'}
+                                    {p[c.key]||0}
                                   </span>
                                 </td>
                               ))}
-                              <td className="px-3 py-2 text-xs" style={{color:'#6b5f4e',maxWidth:220}}>{p.notes||'—'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -270,8 +288,8 @@ export default function DraftSection() {
                     </div>
                     <div className="px-4 py-2 text-xs"
                          style={{background:'#f5f1eb',borderTop:'1px solid #e2dcd5',color:'#8a8279'}}>
-                      Click column headers to sort · Hover i for definitions
-                      {!isCommissioner && <span className="ml-3" style={{color:'#b45309'}}>⚠ OVR rating hidden — evaluate based on attributes</span>}
+                      Click column headers to sort · Hover i for attribute definitions
+                      {!isCommissioner && <span className="ml-3" style={{color:'#b45309'}}>⚠ OVR hidden — evaluate based on attributes</span>}
                     </div>
                   </div>
                 </>
@@ -280,10 +298,10 @@ export default function DraftSection() {
           )}
 
           {/* ── MOCK DRAFT ── */}
-          {tab === 'mock' && (
+          {tab==='mock' && (
             <div>
               <p className="text-xs mb-4" style={{color:'#6b5f4e'}}>
-                Preview baseado na classificação actual. Pior classificado escolhe primeiro. Actualiza automaticamente com os resultados.
+                Preview baseado na classificação actual. Pior classificado escolhe primeiro.
               </p>
               <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
                 <table className="w-full text-sm">
@@ -307,9 +325,7 @@ export default function DraftSection() {
                               <span className="font-semibold text-xs" style={{color:'#1a1512'}}>{team.name}</span>
                             </div>
                           </td>
-                          <td className="px-3 py-2.5 text-right font-bold text-xs" style={{color:'#1a1512'}}>
-                            {prospect?.name || '—'}
-                          </td>
+                          <td className="px-3 py-2.5 text-right font-bold text-xs" style={{color:'#1a1512'}}>{prospect?.name||'—'}</td>
                           <td className="px-3 py-2.5 text-right">
                             {prospect?.pos && (
                               <span className="text-xs font-bold px-1.5 py-0.5 rounded"
@@ -338,7 +354,7 @@ export default function DraftSection() {
           )}
 
           {/* ── DRAFT RESULTS ── */}
-          {tab === 'results' && (
+          {tab==='results' && (
             <div>
               {results.length === 0 ? (
                 <div className="rounded-2xl p-12 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
