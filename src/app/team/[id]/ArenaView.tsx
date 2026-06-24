@@ -22,8 +22,8 @@ const BUILD_WEEKS   = 12
 
 const EXPANSION_RATE = 0.6 // future adds 60% of built section capacity
 
-function fmt(n: number) { return n.toLocaleString() }
-function fmtM(n: number) { return '$' + (n/1e6).toFixed(0) + 'M' }
+function fmt(n: number | null | undefined) { return (n ?? 0).toLocaleString() }
+function fmtM(n: number | null | undefined) { return '$' + ((n ?? 0)/1e6).toFixed(0) + 'M' }
 
 export default function ArenaView({ teamId, teamColor, arenaName, arenaCapacity, cash = 45000000 }: {
   teamId: string
