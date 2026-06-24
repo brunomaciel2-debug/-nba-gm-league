@@ -40,8 +40,8 @@ function LogoRow({ item, table, onSave, saving, saved }: {
 }
 
 function PhotoRow({ item, type, onSave, saving, saved }: {
-  item: any, type: 'player'|'staff',
-  onSave: (id:string, url:string, type:'player'|'staff') => void,
+  item: any, type: 'player'|'staff'|'prospect',
+  onSave: (id:string, url:string, type:'player'|'staff'|'prospect') => void,
   saving: string|null, saved: string|null
 }) {
   const [url, setUrl] = React.useState(item.photo_url||'')
@@ -63,6 +63,12 @@ function PhotoRow({ item, type, onSave, saving, saved }: {
             <span style={{fontSize:10,padding:'2px 6px',borderRadius:4,
                           background:'#d4cdc5',color:'#5c554e'}}>
               {item.pos||item.role?.replace(/_/g,' ')}
+            </span>
+          )}
+          {type==='prospect' && item.college && (
+            <span style={{fontSize:10,padding:'2px 6px',borderRadius:4,
+                          background:'#e8e2d6',color:'#8a8279'}}>
+              {item.college}
             </span>
           )}
         </div>
@@ -93,18 +99,16 @@ export default function AdminMediaPage() {
   const [saving, setSaving]     = useState<string|null>(null)
   const [saved,  setSaved]      = useState<string|null>(null)
 
-  // Logos data
-  const [nbaTeams,   setNbaTeams]   = useState<any[]>([])
-  const [glTeams,    setGlTeams]    = useState<any[]>([])
-  const [worldTeams, setWorldTeams] = useState<any[]>([])
+  const [nbaTeams,    setNbaTeams]    = useState<any[]>([])
+  const [glTeams,     setGlTeams]     = useState<any[]>([])
+  const [worldTeams,  setWorldTeams]  = useState<any[]>([])
 
-  // Photos — sidebar selection
   const [selPlayerTeam, setSelPlayerTeam] = useState<string>('')
   const [selStaffTeam,  setSelStaffTeam]  = useState<string>('')
   const [photoItems,    setPhotoItems]    = useState<any[]>([])
   const [staffItems,    setStaffItems]    = useState<any[]>([])
+  const [prospectItems, setProspectItems] = useState<any[]>([])
 
-  // Load logos data on mount
   useEffect(() => {
     supabase.from('teams').select('id,name,logo_url').order('name')
       .then(({data}) => { if (data) setNbaTeams(data) })
@@ -112,9 +116,12 @@ export default function AdminMediaPage() {
       .then(({data}) => { if (data) setGlTeams(data) })
     supabase.from('world_teams').select('id,name,logo_url,continent').order('continent').order('name')
       .then(({data}) => { if (data) setWorldTeams(data) })
+    // Load all prospects sorted alphabetically
+    supabase.from('prospects').select('id,name,pos,college,photo_url,season')
+      .eq('season','2027').order('name')
+      .then(({data}) => { if (data) setProspectItems(data) })
   }, [])
 
-  // Load players when team selected
   useEffect(() => {
     if (!selPlayerTeam) { setPhotoItems([]); return }
     if (selPlayerTeam === 'FA') {
@@ -134,7 +141,6 @@ export default function AdminMediaPage() {
     }
   }, [selPlayerTeam])
 
-  // Load staff when team selected
   useEffect(() => {
     if (!selStaffTeam) { setStaffItems([]); return }
     if (selStaffTeam === 'FA') {
@@ -163,12 +169,17 @@ export default function AdminMediaPage() {
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }
 
-  const savePhoto = async (id:string, url:string, type:'player'|'staff') => {
+  const savePhoto = async (id:string, url:string, type:'player'|'staff'|'prospect') => {
     setSaving(id)
-    const table = type==='player'?'players':'coaches'
-    await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table,id:type==='player'?Number(id):id,photo_url:url})})
-    if (type==='player') setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
-    else setStaffItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+    if (type === 'prospect') {
+      await supabase.from('prospects').update({ photo_url: url }).eq('id', id)
+      setProspectItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+    } else {
+      const table = type==='player'?'players':'coaches'
+      await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table,id:type==='player'?Number(id):id,photo_url:url})})
+      if (type==='player') setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+      else setStaffItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+    }
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }
 
@@ -186,7 +197,6 @@ export default function AdminMediaPage() {
     color: active ? '#fff' : '#5c554e',
   })
 
-  // Sidebar button style
   const sideBtn = (active:boolean) => ({
     width:'100%', textAlign:'left' as const, padding:'6px 10px', marginBottom:2,
     borderRadius:6, border:'1px solid', cursor:'pointer', fontSize:12,
@@ -196,10 +206,7 @@ export default function AdminMediaPage() {
     fontWeight: active ? 700 : 400,
   })
 
-  // Group world teams by continent
   const continents = worldTeams.map((t:any)=>t.continent).filter((v:any,i:number,a:any[])=>v&&a.indexOf(v)===i)
-
-  // NBA teams without special teams
   const nbaRegular = nbaTeams.filter((t:any)=>!['ALL','RVS','ROO','SOP'].includes(t.id))
   const nbaSpecial = nbaTeams.filter((t:any)=>['ALL','RVS','ROO','SOP'].includes(t.id))
   const specialLabels: Record<string,string> = {ALL:'All-Stars East',RVS:'All-Stars West',ROO:'Rookie Team',SOP:'Sophomore Team'}
@@ -207,7 +214,6 @@ export default function AdminMediaPage() {
   return (
     <div style={{maxWidth:1100,margin:'0 auto',padding:'24px 16px'}}>
 
-      {/* BANNER */}
       <div style={{borderRadius:12,padding:20,marginBottom:24,
                    background:'#e8e2d6',border:'1px solid #d4cec3',borderTop:'3px solid #b45309'}}>
         <h2 style={{fontSize:13,fontWeight:700,color:'#b45309',marginBottom:4}}>🖼 Site Banner</h2>
@@ -220,7 +226,6 @@ export default function AdminMediaPage() {
         Manage logos and photos. Paste any public image URL and click Save.
       </p>
 
-      {/* MAIN TABS */}
       <div style={{display:'flex',gap:8,marginBottom:24,borderBottom:'2px solid #d4cdc5',paddingBottom:0}}>
         {(['logos','photos'] as const).map(t => (
           <button key={t} onClick={()=>setMainTab(t)} style={{
@@ -235,7 +240,6 @@ export default function AdminMediaPage() {
         ))}
       </div>
 
-      {/* ── LOGOS ── */}
       {mainTab === 'logos' && (
         <div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:20}}>
@@ -245,7 +249,6 @@ export default function AdminMediaPage() {
               </button>
             ))}
           </div>
-
           {logoSec==='nba' && (
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {nbaRegular.map((t:any) => (
@@ -253,7 +256,6 @@ export default function AdminMediaPage() {
               ))}
             </div>
           )}
-
           {logoSec==='gleague' && (
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {glTeams.map((t:any) => (
@@ -261,7 +263,6 @@ export default function AdminMediaPage() {
               ))}
             </div>
           )}
-
           {logoSec==='world' && (
             <div>
               {continents.map((cont:any) => (
@@ -277,7 +278,6 @@ export default function AdminMediaPage() {
               ))}
             </div>
           )}
-
           {logoSec==='others' && (
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
               {nbaSpecial.map((t:any) => (
@@ -296,7 +296,6 @@ export default function AdminMediaPage() {
         </div>
       )}
 
-      {/* ── PHOTOS ── */}
       {mainTab === 'photos' && (
         <div>
           <div style={{display:'flex',gap:8,marginBottom:20}}>
@@ -338,7 +337,7 @@ export default function AdminMediaPage() {
                     Free Agents
                   </button>
                   <button style={sideBtn(selPlayerTeam==='DRAFT')} onClick={()=>setSelPlayerTeam('DRAFT')}>
-                    Draft Pool (0)
+                    Draft Pool ({prospectItems.length})
                   </button>
                 </>
               )}
@@ -381,9 +380,15 @@ export default function AdminMediaPage() {
                     </div>
                   )}
                   {selPlayerTeam==='DRAFT' && (
-                    <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,
-                                 background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>
-                      Ainda não há jogadores no Draft Pool.
+                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                      {prospectItems.length === 0 ? (
+                        <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,
+                                     background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>
+                          Nenhum prospect encontrado.
+                        </div>
+                      ) : prospectItems.map((p:any) => (
+                        <PhotoRow key={p.id} item={p} type="prospect" onSave={savePhoto} saving={saving} saved={saved}/>
+                      ))}
                     </div>
                   )}
                   {selPlayerTeam && selPlayerTeam!=='DRAFT' && photoItems.length===0 && (
@@ -392,11 +397,13 @@ export default function AdminMediaPage() {
                       Nenhum jogador encontrado.
                     </div>
                   )}
-                  <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                    {photoItems.map(p => (
-                      <PhotoRow key={p.id} item={p} type="player" onSave={savePhoto} saving={saving} saved={saved}/>
-                    ))}
-                  </div>
+                  {selPlayerTeam && selPlayerTeam!=='DRAFT' && (
+                    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                      {photoItems.map(p => (
+                        <PhotoRow key={p.id} item={p} type="player" onSave={savePhoto} saving={saving} saved={saved}/>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
