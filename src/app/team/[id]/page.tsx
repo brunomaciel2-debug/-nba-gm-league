@@ -88,7 +88,6 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         <GMPanel teamId={teamId} />
       </div>
 
-      {/* TABS: Roster (+ Coaching + Injuries) | Schedule | Contracts */}
       <TeamPageTabs
         players={players||[]}
         games={games||[]}
@@ -97,6 +96,8 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         teamsMap={teamsMap}
         coaches={coaches||[]}
         injuries={teamInjuries}
+        arenaName={t.arena}
+        arenaCapacity={t.arena_capacity}
       />
 
     </div>

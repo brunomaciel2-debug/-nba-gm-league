@@ -6,10 +6,11 @@ import ContractsTable from './ContractsTable'
 import CoachingStaff from './CoachingStaff'
 import InjuryReport from './InjuryReport'
 import DraftPicksTable from './DraftPicksTable'
+import ArenaView from './ArenaView'
 
 type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'sponsors'
 
-const TABS: { key: Tab, label: string, icon: string, badge?: string }[] = [
+const TABS: { key: Tab, label: string, icon: string }[] = [
   { key: 'roster',     label: 'Roster',      icon: '👥' },
   { key: 'schedule',   label: 'Schedule',    icon: '📅' },
   { key: 'contracts',  label: 'Contracts',   icon: '📄' },
@@ -30,10 +31,10 @@ function ComingSoon({ label, icon }: { label: string, icon: string }) {
 }
 
 export default function TeamPageTabs({
-  players, games, teamId, teamsMap, teamColor, coaches, injuries
+  players, games, teamId, teamsMap, teamColor, coaches, injuries, arenaName, arenaCapacity
 }: {
   players: any[], games: any[], teamId: string, teamsMap: any, teamColor: string,
-  coaches: any[], injuries: any[]
+  coaches: any[], injuries: any[], arenaName?: string, arenaCapacity?: number
 }) {
   const [tab, setTab] = useState<Tab>('roster')
 
@@ -54,78 +55,45 @@ export default function TeamPageTabs({
 
   return (
     <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-
       {/* SIDEBAR */}
       <div style={{
-        width: 180,
-        flexShrink: 0,
-        background: '#faf8f5',
-        border: '1px solid #d4cdc5',
-        borderRadius: 14,
-        padding: '8px 0',
-        position: 'sticky',
-        top: 80,
+        width: 180, flexShrink: 0, background: '#faf8f5',
+        border: '1px solid #d4cdc5', borderRadius: 14, padding: '8px 0',
+        position: 'sticky', top: 80,
       }}>
         {TABS.map((t, i) => {
           const active = tab === t.key
-          const isComingSoon = ['training','facilities','sponsors'].includes(t.key)
-          const showDivider = i === 3 // divider before Training
+          const isComingSoon = ['training','sponsors'].includes(t.key)
+          const showDivider = i === 4
           return (
             <div key={t.key}>
-              {showDivider && (
-                <div style={{height: 1, background: '#e2dcd5', margin: '6px 12px'}} />
-              )}
-              <button
-                type="button"
-                onClick={() => setTab(t.key)}
+              {showDivider && <div style={{height:1,background:'#e2dcd5',margin:'6px 12px'}}/>}
+              <button type="button" onClick={() => setTab(t.key)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  width: '100%',
-                  padding: '9px 14px',
-                  fontSize: 13,
+                  display:'flex', alignItems:'center', gap:10, width:'100%',
+                  padding:'9px 14px', fontSize:13,
                   fontWeight: active ? 700 : 500,
                   color: active ? '#1a1512' : isComingSoon ? '#b0a89e' : '#3d3731',
                   background: active ? teamColor + '18' : 'transparent',
                   borderLeft: `3px solid ${active ? teamColor : 'transparent'}`,
-                  border: 'none',
-                  borderLeftStyle: 'solid',
-                  borderLeftWidth: 3,
+                  border:'none', borderLeftStyle:'solid', borderLeftWidth:3,
                   borderLeftColor: active ? teamColor : 'transparent',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.15s',
+                  cursor:'pointer', textAlign:'left', transition:'all 0.15s',
                 }}
                 onMouseEnter={e => { if (!active) e.currentTarget.style.background = '#f0ece5' }}
-                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-              >
-                <span style={{ fontSize: 15, flexShrink: 0 }}>{t.icon}</span>
-                <span style={{ flex: 1 }}>{t.label}</span>
+                onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                <span style={{fontSize:15,flexShrink:0}}>{t.icon}</span>
+                <span style={{flex:1}}>{t.label}</span>
                 {badges[t.key] && (
-                  <span style={{
-                    fontSize: 10,
-                    padding: '1px 5px',
-                    borderRadius: 4,
-                    background: active ? teamColor + '33' : '#e8e2d8',
-                    color: active ? teamColor : '#8a8279',
-                    fontWeight: 600,
-                    flexShrink: 0,
-                  }}>
+                  <span style={{fontSize:10,padding:'1px 5px',borderRadius:4,flexShrink:0,
+                    background: active ? teamColor+'33' : '#e8e2d8',
+                    color: active ? teamColor : '#8a8279', fontWeight:600}}>
                     {badges[t.key]}
                   </span>
                 )}
                 {isComingSoon && (
-                  <span style={{
-                    fontSize: 9,
-                    padding: '1px 4px',
-                    borderRadius: 3,
-                    background: '#f0ece5',
-                    color: '#b0a89e',
-                    flexShrink: 0,
-                  }}>
-                    soon
-                  </span>
+                  <span style={{fontSize:9,padding:'1px 4px',borderRadius:3,
+                    background:'#f0ece5',color:'#b0a89e',flexShrink:0}}>soon</span>
                 )}
               </button>
             </div>
@@ -134,7 +102,7 @@ export default function TeamPageTabs({
       </div>
 
       {/* CONTENT */}
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{flex:1, minWidth:0}}>
         {tab === 'roster' && (
           <>
             <RosterTable players={players} teamColor={teamColor} />
@@ -150,7 +118,16 @@ export default function TeamPageTabs({
         {tab === 'contracts'  && <ContractsTable teamId={teamId} teamColor={teamColor} />}
         {tab === 'draft'      && <DraftPicksTable teamId={teamId} />}
         {tab === 'training'   && <ComingSoon label="Training" icon="🏋️" />}
-        {tab === 'facilities' && <ComingSoon label="Facilities" icon="🏟️" />}
+        {tab === 'facilities' && (
+          <div className="rounded-xl p-4" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+            <ArenaView
+              teamId={teamId}
+              teamColor={teamColor}
+              arenaName={arenaName || 'Arena'}
+              arenaCapacity={arenaCapacity || 20000}
+            />
+          </div>
+        )}
         {tab === 'sponsors'   && <ComingSoon label="Sponsors" icon="💰" />}
       </div>
     </div>
