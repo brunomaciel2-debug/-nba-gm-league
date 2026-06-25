@@ -342,7 +342,7 @@ function Tooltip({ slot, qty, teamColor }: { slot: SlotDef, qty: number, teamCol
 
       {/* Arrow */}
       <div style={{
-        position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)',
+        position:'absolute', bottom:-6, left:'50%',
         width:12, height:12, background:'#1a1512',
         borderRight:`1px solid ${cat.border}44`, borderBottom:`1px solid ${cat.border}44`,
         transform:'translateX(-50%) rotate(45deg)',
