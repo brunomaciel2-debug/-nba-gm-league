@@ -8,11 +8,14 @@ type Section = { id:string, section:string, level:number, capacity:number, under
 type Config = { id:string, ticket_lower:number, ticket_upper:number, ticket_courtside:number, ticket_suite:number }
 type Concessions = {
   id:string
-  food_stall_basic:number, food_stall_premium:number, bar:number,
-  restaurant_vip:number, franchise_store:number, vending_machines:number,
-  corporate_suites:number, club_seats:number, courtside_lounge:number,
-  jumbotron:number, fan_zone:number, mascot:number,
-  monthly_maintenance:number
+  food_stall_basic_north:number, food_stall_basic_south:number,
+  food_stall_basic_east:number, food_stall_basic_west:number,
+  food_stall_premium_north:number, food_stall_premium_south:number,
+  bar_east:number, bar_west:number,
+  vending_north:number, vending_south:number, vending_east:number, vending_west:number,
+  restaurant_vip:number, franchise_store:number, corporate_suites:number,
+  club_seats:number, courtside_lounge:number, jumbotron:number,
+  fan_zone:number, mascot:number, monthly_maintenance:number
 }
 
 const BUILT_SECTIONS = ['N1','N2','N3','S1','S2','S3','W1','E1']
