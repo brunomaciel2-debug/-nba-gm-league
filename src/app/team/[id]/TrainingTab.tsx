@@ -356,10 +356,9 @@ export default function TrainingTab({ teamId, teamColor, players }: {
                             <td key={key} style={{padding:'6px',textAlign:'center'}}>
                               <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:1}}>
                                 <span style={{fontWeight:700,fontSize:12,color:atCap?'#b0a89e':attrColor(val)}}>{val}</span>
-                                {atCap
-                                  ? <span style={{fontSize:8,color:'#b0a89e'}}>cap</span>
-                                  : <span style={{fontSize:8,color:slotColor+'99'}}>/{pot}</span>
-                                }
+                                {atCap && isGM && (
+                                  <span title="Attribute at potential cap" style={{fontSize:9,color:'#b45309'}}>⚠</span>
+                                )}
                               </div>
                             </td>
                           )
