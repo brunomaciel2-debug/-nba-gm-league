@@ -293,7 +293,8 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
         </div>
       </div>
 
-      {/* Revenue estimate bar */}
+      {/* Revenue estimate bar - GM only */}
+      {isGM && (
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:16,padding:12,background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:10}}>
         <div>
           <div style={{fontSize:10,color:'#8a8279'}}>Est. attendance</div>
@@ -312,11 +313,13 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
           <div style={{fontSize:15,fontWeight:700,color:teamColor}}>{fmtD(totalRevPerGame)}</div>
         </div>
       </div>
+      )}
 
       {/* Two columns: ticket prices + concessions */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
 
-        {/* Ticket prices */}
+        {/* Ticket prices - GM only */}
+        {isGM ? (
         <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12,padding:14}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
             <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#8a8279'}}>Ticket Prices</div>
@@ -361,6 +364,11 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
             Higher prices = more revenue but lower attendance. Find the sweet spot.
           </div>
         </div>
+        ) : (
+          <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12,padding:14,display:'flex',alignItems:'center',justifyContent:'center',minHeight:120}}>
+            <p style={{fontSize:12,color:'#b0a89e',textAlign:'center'}}>🔒 Ticket pricing is private to the franchise GM.</p>
+          </div>
+        )}
 
         {/* Concessions */}
         <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12,padding:14}}>
@@ -379,19 +387,27 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
                     <div style={{fontSize:9,color:'#8a8279'}}>
                       {built
                         ? (c.per_capita ? `+$${c.per_capita}/person` : `+${fmtD((c as any).fixed_per_game||0)}/game`)
-                        : `${fmtM(c.cost)} · ${fmtM(c.monthly)}/mo`
+                        : isGM ? `${fmtM(c.cost)} build · ${fmtM(c.monthly)}/mo` : 'Not built'
                       }
                     </div>
                   </div>
                   {built
                     ? <span style={{fontSize:10,color:'#15803d',fontWeight:600,flexShrink:0}}>✓</span>
                     : isGM && (
-                      <button onClick={()=>handleBuildConcession(c.key,c.cost,c.monthly)}
-                        disabled={cash<c.cost}
-                        style={{padding:'3px 8px',fontSize:10,fontWeight:600,borderRadius:6,border:'none',flexShrink:0,
-                          background:cash>=c.cost?teamColor:'#e2dcd5',color:cash>=c.cost?'#fff':'#8a8279',cursor:cash>=c.cost?'pointer':'not-allowed'}}>
-                        Build
-                      </button>
+                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:2,flexShrink:0}}>
+                        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                          <span title="One-time construction cost" style={{fontSize:9,color:'#b45309',cursor:'help',textDecoration:'underline dotted'}}>Build: {fmtM(c.cost)}</span>
+                        </div>
+                        <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                          <span title="Monthly maintenance cost (recurring)" style={{fontSize:9,color:'#dc2626',cursor:'help',textDecoration:'underline dotted'}}>Maint: {fmtM(c.monthly)}/mo</span>
+                        </div>
+                        <button onClick={()=>handleBuildConcession(c.key,c.cost,c.monthly)}
+                          disabled={cash<c.cost}
+                          style={{padding:'3px 8px',fontSize:10,fontWeight:600,borderRadius:6,border:'none',
+                            background:cash>=c.cost?teamColor:'#e2dcd5',color:cash>=c.cost?'#fff':'#8a8279',cursor:cash>=c.cost?'pointer':'not-allowed'}}>
+                          Build
+                        </button>
+                      </div>
                     )
                   }
                 </div>
