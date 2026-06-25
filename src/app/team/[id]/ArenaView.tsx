@@ -513,7 +513,6 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
                 <div style={{display:'flex',flexDirection:'column',gap:4}}>
                   {CONCESSIONS.filter(c=>c.category===cat).map(c=>{
                     const qty = concessions ? (concessions as any)[c.key] || 0 : 0
-                    const slots = Array.from({length:c.max})
                     return (
                       <div key={c.key}
                         onMouseEnter={()=>setHoveredConcession(c.key)}
@@ -526,15 +525,24 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
                         <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
                           <span style={{fontSize:14}}>{c.icon}</span>
                           <span style={{fontSize:11,fontWeight:600,color:'#1a1512',flex:1}}>{c.label}</span>
-                          {isGM && <span style={{fontSize:9,color:'#8a8279'}}>
-                            {(c as any).per_capita ? `$${(c as any).per_capita}/person` : fmtD((c as any).fixed_per_game||0)+'/game'}
-                          </span>}
+                          <span style={{fontSize:10,fontWeight:600,color:qty>0?'#15803d':'#8a8279'}}>{qty}/{c.max}</span>
                         </div>
-                        {/* Slots visual */}
-                        <div style={{display:'flex',gap:3,marginBottom:isGM?4:0}}>
-                          {slots.map((_,i)=>(
+                        {/* Tooltip on hover */}
+                        {hoveredConcession===c.key && isGM && qty < c.max && (
+                          <div style={{marginBottom:6,padding:'5px 8px',borderRadius:6,background:'#1a1512',color:'#fef3c7',fontSize:10,lineHeight:1.5}}>
+                            <strong>+1 {c.label}</strong> adds per game:<br/>
+                            {(c as any).per_capita
+                              ? `+$${(c as any).per_capita} × attendance (~${fmtD(Math.round((c as any).per_capita * attendance))})`
+                              : `+${fmtD((c as any).fixed_per_game||0)} fixed`
+                            }<br/>
+                            <span style={{color:'#e8c96a'}}>📍 {c.zoneLabel}</span>
+                          </div>
+                        )}
+                        {/* Slots visual — nowrap */}
+                        <div style={{display:'flex',gap:3,flexWrap:'nowrap',marginBottom:isGM?4:0}}>
+                          {Array.from({length:c.max}).map((_,i)=>(
                             <div key={i} style={{
-                              flex:1,height:6,borderRadius:3,
+                              flex:1,minWidth:0,height:6,borderRadius:3,
                               background: i<qty ? teamColor : '#e2dcd5',
                               border:`1px solid ${i<qty?teamColor:'#d4cdc5'}`,
                             }}/>
