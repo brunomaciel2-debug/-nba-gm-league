@@ -95,7 +95,8 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
 
   return (
     <div>
-      {/* Summary bar */}
+      {/* Summary - GM only */}
+      {isGM && (
       <div className="flex gap-3 mb-4 flex-wrap">
         {[
           {label:'Active slots',   val:unlockedSlots.length, hi:false},
@@ -109,6 +110,7 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
           </div>
         ))}
       </div>
+      )}
 
       {/* Slots row — compact */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:8}}>
@@ -117,35 +119,37 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
           const pct=Math.min(100,Math.max(0,slot.fill_pct))
           const isFull=pct>=100
           const isSelected=selectedSlot?.id===slot.id
-          const isHovered=hoveredSlot?.id===slot.id
           return (
             <div key={slot.id}
-              onClick={()=>setSelectedSlot(isSelected?null:slot)}
+              onClick={()=>isGM&&setSelectedSlot(isSelected?null:slot)}
               onMouseEnter={()=>setHoveredSlot(slot)}
               onMouseLeave={()=>setHoveredSlot(null)}
               style={{
                 background:isSelected?c.bg:'#faf8f5',
                 border:`1px solid ${isSelected?c.color:'#d4cdc5'}`,
                 borderTop:`3px solid ${isSelected||isFull?c.color:'#d4cdc5'}`,
-                borderRadius:10,padding:'10px 12px',cursor:'pointer',transition:'all 0.15s',
+                borderRadius:10,padding:'10px 12px',cursor:isGM?'pointer':'default',transition:'all 0.15s',
               }}>
-              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:isGM?6:0}}>
                 <span style={{fontSize:16}}>{c.icon}</span>
                 <span style={{fontSize:12,fontWeight:700,color:c.color,flex:1}}>{c.label}</span>
-                {slot.credits_available>0 && (
+                {isGM && slot.credits_available>0 && (
                   <span style={{background:c.color,color:'#fff',fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:10}}>
                     {slot.credits_available}cr
                   </span>
                 )}
               </div>
-              {/* Progress bar */}
-              <div style={{height:6,background:'#e2dcd5',borderRadius:3,overflow:'hidden',marginBottom:4}}>
-                <div style={{height:'100%',width:pct+'%',background:isFull?c.color:c.color+'77',borderRadius:3,transition:'width 0.3s'}}/>
-              </div>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#8a8279'}}>
-                <span>{isFull?'✓ Ready':'Filling...'}</span>
-                <span style={{fontWeight:600,color:isFull?c.color:'#8a8279'}}>{Math.round(pct)}%</span>
-              </div>
+              {isGM && (
+                <>
+                  <div style={{height:6,background:'#e2dcd5',borderRadius:3,overflow:'hidden',marginBottom:4}}>
+                    <div style={{height:'100%',width:pct+'%',background:isFull?c.color:c.color+'77',borderRadius:3,transition:'width 0.3s'}}/>
+                  </div>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#8a8279'}}>
+                    <span>{isFull?'✓ Ready':'Filling...'}</span>
+                    <span style={{fontWeight:600,color:isFull?c.color:'#8a8279'}}>{Math.round(pct)}%</span>
+                  </div>
+                </>
+              )}
             </div>
           )
         })}
@@ -236,8 +240,8 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
           </table>
         </div>
 
-        {/* Spend panel */}
-        <div style={{width:220,flexShrink:0,background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12,padding:14}}>
+        {/* Spend panel - GM only */}
+        {isGM && <div style={{width:220,flexShrink:0,background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12,padding:14}}>
           {!selectedSlot?(
             <p style={{fontSize:12,color:'#8a8279',lineHeight:1.6}}>Select a slot above, then click a player to train.</p>
           ):selectedSlot.credits_available===0?(
@@ -308,7 +312,7 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
               {msg&&<p style={{fontSize:11,color:'#15803d',fontWeight:600,marginTop:6}}>✓ {msg}</p>}
             </>
           )}
-        </div>
+        </div>}
       </div>
 
       <div style={{marginTop:12,padding:'8px 12px',background:'#f0ece5',borderRadius:8,fontSize:10,color:'#6b5f4e',lineHeight:1.5}}>
