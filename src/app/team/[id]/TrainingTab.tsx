@@ -284,7 +284,7 @@ export default function TrainingTab({ teamId, teamColor, players }: {
             </>
           ) : (
             <>
-              <div style={{display:'flex',items:'center',gap:6,marginBottom:4}}>
+              <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
                 <span style={{fontSize:16}}>{cfg?.icon}</span>
                 <span style={{fontSize:13,fontWeight:700,color:cfg?.color}}>{cfg?.label}</span>
               </div>
