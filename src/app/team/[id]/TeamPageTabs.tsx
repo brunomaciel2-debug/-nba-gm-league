@@ -8,6 +8,7 @@ import InjuryReport from './InjuryReport'
 import DraftPicksTable from './DraftPicksTable'
 import ArenaView from './ArenaView'
 import TrainingTab from './TrainingTab'
+import FacilitiesTab from './FacilitiesTab'
 
 type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'sponsors'
 
@@ -122,14 +123,12 @@ export default function TeamPageTabs({
           <TrainingTab teamId={teamId} teamColor={teamColor} players={players} />
         )}
         {tab === 'facilities' && (
-          <div className="rounded-xl p-4" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-            <ArenaView
-              teamId={teamId}
-              teamColor={teamColor}
-              arenaName={arenaName || 'Arena'}
-              arenaCapacity={arenaCapacity || 20000}
-            />
-          </div>
+          <FacilitiesTab
+            teamId={teamId}
+            teamColor={teamColor}
+            arenaName={arenaName}
+            arenaCapacity={arenaCapacity}
+          />
         )}
         {tab === 'sponsors'   && <ComingSoon label="Sponsors" icon="💰" />}
       </div>
