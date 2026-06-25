@@ -154,7 +154,7 @@ export default function FacilitiesTab({teamId,teamColor,arenaName,arenaCapacity,
                   {label:'Recovery',val:cfg.recovery>=0?`+${cfg.recovery}%`:`${cfg.recovery}%`,color:cfg.recovery>=0?'#15803d':'#dc2626'},
                   {label:'Injury risk',val:cfg.risk===0?'—':`${cfg.risk}%`,color:cfg.risk<0?'#15803d':'#5c554e'},
                   {label:'FA bonus',val:cfg.fa>0?`+${cfg.fa}%`:'—',color:cfg.fa>0?'#15803d':'#8a8279'},
-                  {label:'Monthly',val:fmtM(facility.monthly_cost),color:'#dc2626'},
+                  ...(isGM ? [{label:'Monthly',val:fmtM(facility.monthly_cost),color:'#dc2626'}] : []),
                   {label:'Unlocks',val:cfg.unlocks[0]||'—',color:cfg.color},
                 ].map(item=>(
                   <div key={item.label} style={{background:'#f0ece5',borderRadius:6,padding:'6px 8px'}}>
@@ -190,7 +190,7 @@ export default function FacilitiesTab({teamId,teamColor,arenaName,arenaCapacity,
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:12,fontWeight:700,color:'#1a1512'}}>{ef.label}</div>
                       <div style={{fontSize:10,color:built?'#15803d':'#8a8279',marginBottom:2}}>{built?'✓ Built':ef.bonus}</div>
-                      {!built && <div style={{fontSize:10,color:'#8a8279'}}>{fmtM(ef.cost)} · {fmtM(ef.monthly)}/mo</div>}
+                      {!built && isGM && <div style={{fontSize:10,color:'#8a8279'}}><span title="One-time build cost" style={{cursor:'help',textDecoration:'underline dotted'}}>Build: {fmtM(ef.cost)}</span> · <span title="Monthly maintenance cost" style={{cursor:'help',textDecoration:'underline dotted'}}>Maint: {fmtM(ef.monthly)}/mo</span></div>}
                     </div>
                     {!built && isGM && (
                       <button onClick={()=>handleBuild(ef.key,ef.cost,ef.monthly)}
@@ -225,10 +225,10 @@ export default function FacilitiesTab({teamId,teamColor,arenaName,arenaCapacity,
                   </div>
                 </div>
                 {[
-                  {label:'Cost',val:fmtM(upg.cost)},
-                  {label:'Duration',val:`${upg.weeks} wks`},
-                  {label:'Slot speed',val:`+${nextCfg.speed}%/wk`},
+                  {label:'Duration',val:`${upg.weeks} weeks`},
+                  {label:'Slot speed',val:`+${nextCfg.speed}%/week`},
                   {label:'Unlocks',val:nextCfg.unlocks[0]||'—'},
+                  ...(isGM ? [{label:'Cost',val:fmtM(upg.cost)}] : []),
                 ].map(row=>(
                   <div key={row.label} style={{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:'1px solid #e2dcd5',fontSize:11}}>
                     <span style={{color:'#8a8279'}}>{row.label}</span>
