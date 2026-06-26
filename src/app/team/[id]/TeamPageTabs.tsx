@@ -9,8 +9,9 @@ import DraftPicksTable from './DraftPicksTable'
 import ArenaView from './ArenaView'
 import TrainingTab from './TrainingTab'
 import FacilitiesTab from './FacilitiesTab'
+import FinancesTab from './FinancesTab'
 
-type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'sponsors'
+type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors'
 
 const TABS: { key: Tab, label: string, icon: string }[] = [
   { key: 'roster',     label: 'Roster',      icon: '👥' },
@@ -19,6 +20,7 @@ const TABS: { key: Tab, label: string, icon: string }[] = [
   { key: 'draft',      label: 'Draft Picks', icon: '🎓' },
   { key: 'training',   label: 'Training',    icon: '🏋️' },
   { key: 'facilities', label: 'Facilities',  icon: '🏟️' },
+  { key: 'finances',   label: 'Finances',    icon: '💵' },
   { key: 'sponsors',   label: 'Sponsors',    icon: '💰' },
 ]
 
@@ -65,7 +67,7 @@ export default function TeamPageTabs({
       }}>
         {TABS.map((t, i) => {
           const active = tab === t.key
-          const isComingSoon = ['training','sponsors'].includes(t.key)
+          const isComingSoon = ['sponsors'].includes(t.key)
           const showDivider = i === 4
           return (
             <div key={t.key}>
@@ -129,6 +131,9 @@ export default function TeamPageTabs({
             arenaName={arenaName}
             arenaCapacity={arenaCapacity}
           />
+        )}
+        {tab === 'finances'   && (
+          <FinancesTab teamId={teamId} teamColor={teamColor} />
         )}
         {tab === 'sponsors'   && <ComingSoon label="Sponsors" icon="💰" />}
       </div>
