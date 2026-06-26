@@ -18,14 +18,14 @@ type Tracking = {
   current_value: number
   paid: boolean
   achieved_at: string | null
-  objective?: Objective
+  objective?: Objective | Objective[]
 }
 
 type Contract = {
   id: string
   tier: string
   fixed_monthly: number
-  template?: { company_name: string, sector: string }
+  template?: { company_name: string, sector: string } | { company_name: string, sector: string }[]
   trackings?: Tracking[]
 }
 
@@ -66,6 +66,17 @@ function fmt(n: number) {
   if (n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M'
   if (n >= 1000) return '$' + (n/1000).toFixed(0) + 'K'
   return '$' + n
+}
+
+// Supabase returns joined records as arrays or objects depending on relation type
+function getTemplate(c: Contract): { company_name: string, sector: string } | null {
+  if (!c.template) return null
+  return Array.isArray(c.template) ? c.template[0] : c.template
+}
+
+function getObjective(t: Tracking): Objective | null {
+  if (!t.objective) return null
+  return Array.isArray(t.objective) ? t.objective[0] : t.objective
 }
 
 function ProgressBar({ current, threshold, achieved }: { current: number, threshold: number, achieved: boolean }) {
@@ -144,8 +155,8 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
   const totalGoals = allTrackings.length
   const achievedGoals = allTrackings.filter(t => t.achieved).length
   const pendingGoals = totalGoals - achievedGoals
-  const totalPotential = allTrackings.reduce((s, t) => s + (t.objective?.bonus_amount || 0), 0)
-  const earnedBonus = allTrackings.filter(t => t.achieved).reduce((s, t) => s + (t.objective?.bonus_amount || 0), 0)
+  const totalPotential = allTrackings.reduce((s, t) => s + (getObjective(t)?.bonus_amount || 0), 0)
+  const earnedBonus = allTrackings.filter(t => t.achieved).reduce((s, t) => s + (getObjective(t)?.bonus_amount || 0), 0)
   const monthlyFixed = contracts.reduce((s, c) => s + c.fixed_monthly, 0)
 
   return (
@@ -198,7 +209,7 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
               <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:tier.bg+'66',borderBottom:`1px solid ${tier.color}22`}}>
                 <span style={{fontSize:20}}>{tier.icon}</span>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:700,color:'#1a1512'}}>{(contract.template as any)?.company_name || '—'}</div>
+                  <div style={{fontSize:13,fontWeight:700,color:'#1a1512'}}>{getTemplate(contract)?.company_name || '—'}</div>
                   <div style={{fontSize:11,color:'#8a8279'}}>{tier.label} · {fmt(contract.fixed_monthly)}/mo guaranteed</div>
                 </div>
                 <div style={{textAlign:'right'}}>
@@ -212,7 +223,7 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
               {/* Objectives list */}
               <div style={{padding:'10px 16px',display:'flex',flexDirection:'column',gap:8}}>
                 {trackings.map(tracking => {
-                  const obj = tracking.objective
+                  const obj = getObjective(tracking)
                   if (!obj) return null
                   const icon = OBJECTIVE_ICONS[obj.objective_type] || '🎯'
                   const desc = rivalName && obj.objective_type === 'wins_rivalry'
