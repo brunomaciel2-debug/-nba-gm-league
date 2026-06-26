@@ -285,7 +285,6 @@ function SponsorCard({
         )}
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:700,color:'#1a1512'}}>{t.company_name}</div>
-          <div style={{fontSize:11,color:'#8a8279'}}>{t.sector}</div>
         </div>
         {entry.chosen && (
           <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:tier.color,color:'#fff'}}>
