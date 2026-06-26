@@ -183,6 +183,63 @@ function ObjectiveRow({ obj, tracking }: { obj: Objective, tracking?: ObjectiveT
   )
 }
 
+function JerseyPreview({ jerseyUrl, companyName }: { jerseyUrl: string, companyName: string }) {
+  const [zoomed, setZoomed] = useState(false)
+  return (
+    <>
+      {/* Thumbnail */}
+      <div
+        onClick={() => setZoomed(true)}
+        style={{
+          marginBottom:12, borderRadius:8, border:'1px solid #e2dcd5',
+          background:'#f5f1eb', textAlign:'center', padding:8,
+          cursor:'zoom-in', position:'relative',
+        }}>
+        <img src={jerseyUrl} alt="Jersey preview"
+          style={{height:120, objectFit:'contain', display:'block', margin:'0 auto'}}/>
+        <div style={{fontSize:9,color:'#8a8279',marginTop:4}}>
+          🔍 Click to enlarge
+        </div>
+      </div>
+
+      {/* Lightbox */}
+      {zoomed && (
+        <div
+          onClick={() => setZoomed(false)}
+          style={{
+            position:'fixed', inset:0, zIndex:1000,
+            background:'rgba(0,0,0,0.75)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            cursor:'zoom-out',
+          }}>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background:'#faf8f5', borderRadius:16, padding:24,
+              boxShadow:'0 24px 64px rgba(0,0,0,0.4)',
+              display:'flex', flexDirection:'column', alignItems:'center', gap:12,
+              maxWidth:'90vw', maxHeight:'90vh',
+            }}>
+            <img src={jerseyUrl} alt={companyName}
+              style={{maxHeight:'70vh', maxWidth:'80vw', objectFit:'contain', borderRadius:8}}/>
+            <div style={{fontSize:13, fontWeight:600, color:'#1a1512'}}>{companyName}</div>
+            <div style={{fontSize:11, color:'#8a8279'}}>Jersey sponsor patch preview</div>
+            <button
+              onClick={() => setZoomed(false)}
+              style={{
+                padding:'6px 20px', fontSize:12, fontWeight:600,
+                border:'1px solid #d4cdc5', borderRadius:8,
+                background:'#f0ece5', color:'#5c554e', cursor:'pointer',
+              }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function SponsorCard({
   entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl
 }: {
@@ -209,11 +266,7 @@ function SponsorCard({
     }}>
       {/* Jersey preview — only for jersey tier */}
       {entry.tier === 'jersey' && jerseyUrl && (
-        <div style={{marginBottom:12,borderRadius:8,overflow:'hidden',border:'1px solid #e2dcd5',background:'#f5f1eb',textAlign:'center',padding:8}}>
-          <img src={jerseyUrl} alt="Jersey preview"
-            style={{height:120,objectFit:'contain',display:'block',margin:'0 auto'}}/>
-          <div style={{fontSize:9,color:'#8a8279',marginTop:4}}>Jersey preview with sponsor patch</div>
-        </div>
+        <JerseyPreview jerseyUrl={jerseyUrl} companyName={t.company_name} />
       )}
 
       {/* Header */}
