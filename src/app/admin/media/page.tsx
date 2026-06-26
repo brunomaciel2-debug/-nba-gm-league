@@ -88,7 +88,59 @@ function PhotoRow({ item, type, onSave, saving, saved }: {
   )
 }
 
-type MainTab = 'logos'|'photos'
+// ── JERSEY ROW ──
+function JerseyRow({ teamId, teamName, option, existing, onSave, saving, saved }: {
+  teamId: string, teamName: string, option: number,
+  existing: any|null,
+  onSave: (teamId:string, option:number, companyName:string, url:string) => void,
+  saving: string|null, saved: string|null
+}) {
+  const key = `${teamId}_${option}`
+  const [url, setUrl] = React.useState(existing?.jersey_url||'')
+  const [company, setCompany] = React.useState(existing?.company_name||'')
+
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:12,padding:14,
+                 background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12}}>
+      {/* Preview */}
+      <div style={{width:64,height:80,borderRadius:8,flexShrink:0,overflow:'hidden',
+                   background:'#f0ece5',border:'2px solid #d4cdc5',display:'flex',
+                   alignItems:'center',justifyContent:'center'}}>
+        {url
+          ? <img src={url} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}
+                 onError={e=>(e.currentTarget.style.display='none')}/>
+          : <span style={{fontSize:10,color:'#8a8279',textAlign:'center'}}>No jersey</span>}
+      </div>
+      {/* Option badge */}
+      <div style={{width:28,height:28,borderRadius:8,background:'#e8e2d6',flexShrink:0,
+                   display:'flex',alignItems:'center',justifyContent:'center',
+                   fontSize:13,fontWeight:800,color:'#5c554e'}}>
+        {option}
+      </div>
+      {/* Fields */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}>
+        <input value={company} onChange={e=>setCompany(e.target.value)}
+          placeholder="Company name (e.g. KraftHeinz)"
+          style={{fontSize:11,padding:'5px 8px',borderRadius:6,
+                  background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
+        <input value={url} onChange={e=>setUrl(e.target.value)}
+          placeholder="Jersey image URL..."
+          style={{fontSize:11,padding:'5px 8px',borderRadius:6,
+                  background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
+      </div>
+      <button onClick={()=>onSave(teamId, option, company, url)}
+        disabled={saving===key||!url.trim()||!company.trim()}
+        style={{fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:8,flexShrink:0,
+                minWidth:72,border:'none',cursor:url&&company?'pointer':'not-allowed',
+                opacity:saving===key||!url||!company?0.4:1,
+                background:saved===key?'#15803d':'#1d4ed8',color:'#fff'}}>
+        {saving===key?'...':saved===key?'✔':'Save'}
+      </button>
+    </div>
+  )
+}
+
+type MainTab = 'logos'|'photos'|'jerseys'
 type LogoSection = 'nba'|'gleague'|'world'|'others'
 type PhotoSection = 'players'|'staff'
 
@@ -105,9 +157,11 @@ export default function AdminMediaPage() {
 
   const [selPlayerTeam, setSelPlayerTeam] = useState<string>('')
   const [selStaffTeam,  setSelStaffTeam]  = useState<string>('')
+  const [selJerseyTeam, setSelJerseyTeam] = useState<string>('')
   const [photoItems,    setPhotoItems]    = useState<any[]>([])
   const [staffItems,    setStaffItems]    = useState<any[]>([])
   const [prospectItems, setProspectItems] = useState<any[]>([])
+  const [jerseyItems,   setJerseyItems]   = useState<any[]>([])
 
   useEffect(() => {
     supabase.from('teams').select('id,name,logo_url').order('name')
@@ -116,7 +170,6 @@ export default function AdminMediaPage() {
       .then(({data}) => { if (data) setGlTeams(data) })
     supabase.from('world_teams').select('id,name,logo_url,continent').order('continent').order('name')
       .then(({data}) => { if (data) setWorldTeams(data) })
-    // Load all prospects sorted alphabetically
     supabase.from('prospects').select('id,name,pos,college,photo_url,season')
       .eq('season','2027').order('name')
       .then(({data}) => { if (data) setProspectItems(data) })
@@ -159,6 +212,14 @@ export default function AdminMediaPage() {
     }
   }, [selStaffTeam])
 
+  useEffect(() => {
+    if (!selJerseyTeam) { setJerseyItems([]); return }
+    supabase.from('sponsor_jersey_images')
+      .select('*').eq('team_id', selJerseyTeam).eq('season','2025-26')
+      .order('option_number')
+      .then(({data}) => setJerseyItems(data||[]))
+  }, [selJerseyTeam])
+
   const saveLogo = async (id:string, url:string, table:string) => {
     if (!url.trim()) return
     setSaving(id)
@@ -181,6 +242,27 @@ export default function AdminMediaPage() {
       else setStaffItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
     }
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
+  }
+
+  const saveJersey = async (teamId:string, option:number, companyName:string, url:string) => {
+    const key = `${teamId}_${option}`
+    setSaving(key)
+    const existing = jerseyItems.find(j=>j.option_number===option)
+    if (existing) {
+      await supabase.from('sponsor_jersey_images')
+        .update({jersey_url:url, company_name:companyName})
+        .eq('id', existing.id)
+    } else {
+      await supabase.from('sponsor_jersey_images')
+        .insert({team_id:teamId, option_number:option, company_name:companyName, jersey_url:url, season:'2025-26', tier:'jersey'})
+    }
+    setJerseyItems(prev => {
+      const idx = prev.findIndex(j=>j.option_number===option)
+      const updated = {team_id:teamId,option_number:option,company_name:companyName,jersey_url:url}
+      if (idx>=0) return prev.map((j,i)=>i===idx?{...j,...updated}:j)
+      return [...prev, updated]
+    })
+    setSaving(null); setSaved(key); setTimeout(()=>setSaved(null),1500)
   }
 
   const btnStyle = (active:boolean) => ({
@@ -223,11 +305,11 @@ export default function AdminMediaPage() {
 
       <h1 style={{fontSize:22,fontWeight:700,color:'#1a1512',marginBottom:4}}>🖼 Media Manager</h1>
       <p style={{fontSize:12,color:'#6b5f4e',marginBottom:24}}>
-        Manage logos and photos. Paste any public image URL and click Save.
+        Manage logos, photos and sponsor jerseys. Paste any public image URL and click Save.
       </p>
 
       <div style={{display:'flex',gap:8,marginBottom:24,borderBottom:'2px solid #d4cdc5',paddingBottom:0}}>
-        {(['logos','photos'] as const).map(t => (
+        {(['logos','photos','jerseys'] as const).map(t => (
           <button key={t} onClick={()=>setMainTab(t)} style={{
             ...btnStyle(mainTab===t),
             borderBottom: mainTab===t ? '3px solid #c8102e' : '3px solid transparent',
@@ -235,11 +317,12 @@ export default function AdminMediaPage() {
             color: mainTab===t ? '#1a1512' : '#5c554e',
             fontWeight: mainTab===t ? 700 : 500,
           }}>
-            {t==='logos' ? '🏀 Logos' : '👤 Photos'}
+            {t==='logos' ? '🏀 Logos' : t==='photos' ? '👤 Photos' : '👕 Jerseys'}
           </button>
         ))}
       </div>
 
+      {/* LOGOS TAB */}
       {mainTab === 'logos' && (
         <div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:20}}>
@@ -296,6 +379,7 @@ export default function AdminMediaPage() {
         </div>
       )}
 
+      {/* PHOTOS TAB */}
       {mainTab === 'photos' && (
         <div>
           <div style={{display:'flex',gap:8,marginBottom:20}}>
@@ -308,68 +392,52 @@ export default function AdminMediaPage() {
           </div>
 
           <div style={{display:'flex',gap:20}}>
-            {/* SIDEBAR */}
             <div style={{width:200,flexShrink:0,background:'#f5f1eb',borderRadius:10,
                          padding:'12px 8px',maxHeight:'80vh',overflowY:'auto',
                          border:'1px solid #d4cdc5'}}>
-
               {photoSec==='players' && (
                 <>
                   <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,
                                color:'#8a8279',padding:'4px 6px',marginBottom:4}}>NBA</div>
                   {nbaRegular.map((t:any) => (
                     <button key={t.id} style={sideBtn(selPlayerTeam===t.id)}
-                            onClick={()=>setSelPlayerTeam(t.id)}>
-                      {t.name}
-                    </button>
+                            onClick={()=>setSelPlayerTeam(t.id)}>{t.name}</button>
                   ))}
                   <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,
                                color:'#8a8279',padding:'8px 6px 4px',marginTop:4}}>G-League</div>
                   {glTeams.map((t:any) => (
                     <button key={t.id} style={sideBtn(selPlayerTeam===`GL_${t.id}`)}
-                            onClick={()=>setSelPlayerTeam(`GL_${t.id}`)}>
-                      {t.name}
-                    </button>
+                            onClick={()=>setSelPlayerTeam(`GL_${t.id}`)}>{t.name}</button>
                   ))}
                   <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,
                                color:'#8a8279',padding:'8px 6px 4px',marginTop:4}}>Other</div>
-                  <button style={sideBtn(selPlayerTeam==='FA')} onClick={()=>setSelPlayerTeam('FA')}>
-                    Free Agents
-                  </button>
+                  <button style={sideBtn(selPlayerTeam==='FA')} onClick={()=>setSelPlayerTeam('FA')}>Free Agents</button>
                   <button style={sideBtn(selPlayerTeam==='DRAFT')} onClick={()=>setSelPlayerTeam('DRAFT')}>
                     Draft Pool ({prospectItems.length})
                   </button>
                 </>
               )}
-
               {photoSec==='staff' && (
                 <>
                   <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,
                                color:'#8a8279',padding:'4px 6px',marginBottom:4}}>NBA</div>
                   {nbaRegular.map((t:any) => (
                     <button key={t.id} style={sideBtn(selStaffTeam===t.id)}
-                            onClick={()=>setSelStaffTeam(t.id)}>
-                      {t.name}
-                    </button>
+                            onClick={()=>setSelStaffTeam(t.id)}>{t.name}</button>
                   ))}
                   <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,
                                color:'#8a8279',padding:'8px 6px 4px',marginTop:4}}>G-League</div>
                   {glTeams.map((t:any) => (
                     <button key={t.id} style={sideBtn(selStaffTeam===`GL_${t.id}`)}
-                            onClick={()=>setSelStaffTeam(`GL_${t.id}`)}>
-                      {t.name}
-                    </button>
+                            onClick={()=>setSelStaffTeam(`GL_${t.id}`)}>{t.name}</button>
                   ))}
                   <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,
                                color:'#8a8279',padding:'8px 6px 4px',marginTop:4}}>Other</div>
-                  <button style={sideBtn(selStaffTeam==='FA')} onClick={()=>setSelStaffTeam('FA')}>
-                    Staff FA
-                  </button>
+                  <button style={sideBtn(selStaffTeam==='FA')} onClick={()=>setSelStaffTeam('FA')}>Staff FA</button>
                 </>
               )}
             </div>
 
-            {/* CONTENT */}
             <div style={{flex:1}}>
               {photoSec==='players' && (
                 <>
@@ -381,20 +449,9 @@ export default function AdminMediaPage() {
                   )}
                   {selPlayerTeam==='DRAFT' && (
                     <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                      {prospectItems.length === 0 ? (
-                        <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,
-                                     background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>
-                          Nenhum prospect encontrado.
-                        </div>
-                      ) : prospectItems.map((p:any) => (
+                      {prospectItems.map((p:any) => (
                         <PhotoRow key={p.id} item={p} type="prospect" onSave={savePhoto} saving={saving} saved={saved}/>
                       ))}
-                    </div>
-                  )}
-                  {selPlayerTeam && selPlayerTeam!=='DRAFT' && photoItems.length===0 && (
-                    <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,
-                                 background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>
-                      Nenhum jogador encontrado.
                     </div>
                   )}
                   {selPlayerTeam && selPlayerTeam!=='DRAFT' && (
@@ -406,19 +463,12 @@ export default function AdminMediaPage() {
                   )}
                 </>
               )}
-
               {photoSec==='staff' && (
                 <>
                   {!selStaffTeam && (
                     <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,
                                  background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>
                       Selecciona uma equipa na sidebar
-                    </div>
-                  )}
-                  {selStaffTeam && staffItems.length===0 && (
-                    <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,
-                                 background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>
-                      Nenhum staff encontrado.
                     </div>
                   )}
                   <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -429,6 +479,61 @@ export default function AdminMediaPage() {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* JERSEYS TAB */}
+      {mainTab === 'jerseys' && (
+        <div style={{display:'flex',gap:20}}>
+          {/* Sidebar */}
+          <div style={{width:200,flexShrink:0,background:'#f5f1eb',borderRadius:10,
+                       padding:'12px 8px',maxHeight:'80vh',overflowY:'auto',
+                       border:'1px solid #d4cdc5'}}>
+            <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,
+                         color:'#8a8279',padding:'4px 6px',marginBottom:4}}>NBA Teams</div>
+            {nbaRegular.map((t:any) => {
+              const hasJerseys = selJerseyTeam === t.id
+              return (
+                <button key={t.id} style={sideBtn(hasJerseys)}
+                        onClick={()=>setSelJerseyTeam(t.id)}>
+                  {t.name}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Content */}
+          <div style={{flex:1}}>
+            {!selJerseyTeam ? (
+              <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,
+                           background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>
+                Select a team to manage their sponsor jerseys
+              </div>
+            ) : (
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:'#1a1512',marginBottom:4}}>
+                  {nbaRegular.find(t=>t.id===selJerseyTeam)?.name} — Jersey Sponsor Options
+                </div>
+                <div style={{fontSize:11,color:'#8a8279',marginBottom:16}}>
+                  3 options per team · each with a different company logo · GMs choose one at season start
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  {[1,2,3].map(opt => (
+                    <JerseyRow
+                      key={opt}
+                      teamId={selJerseyTeam}
+                      teamName={nbaRegular.find(t=>t.id===selJerseyTeam)?.name||''}
+                      option={opt}
+                      existing={jerseyItems.find(j=>j.option_number===opt)||null}
+                      onSave={saveJersey}
+                      saving={saving}
+                      saved={saved}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
