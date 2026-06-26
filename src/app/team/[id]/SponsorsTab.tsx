@@ -42,6 +42,14 @@ type ObjectiveTracking = {
   objective?: Objective
 }
 
+type JerseyImage = {
+  id: string
+  team_id: string
+  option_number: number
+  company_name: string
+  jersey_url: string
+}
+
 type PoolEntry = {
   id: string
   template_id: string
@@ -176,7 +184,7 @@ function ObjectiveRow({ obj, tracking }: { obj: Objective, tracking?: ObjectiveT
 }
 
 function SponsorCard({
-  entry, objectives, isGM, teamColor, onSign, signing, hasContract
+  entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl
 }: {
   entry: PoolEntry
   objectives: Objective[]
@@ -185,6 +193,7 @@ function SponsorCard({
   onSign: (poolId: string, templateId: string, tier: string, fixedMonthly: number) => void
   signing: boolean
   hasContract: boolean
+  jerseyUrl?: string
 }) {
   const t = entry.template!
   const tier = TIER_CONFIG[entry.tier as keyof typeof TIER_CONFIG]
@@ -198,6 +207,15 @@ function SponsorCard({
       borderRadius:12, padding:16,
       opacity: hasContract && !entry.chosen ? 0.5 : 1,
     }}>
+      {/* Jersey preview — only for jersey tier */}
+      {entry.tier === 'jersey' && jerseyUrl && (
+        <div style={{marginBottom:12,borderRadius:8,overflow:'hidden',border:'1px solid #e2dcd5',background:'#f5f1eb',textAlign:'center',padding:8}}>
+          <img src={jerseyUrl} alt="Jersey preview"
+            style={{height:120,objectFit:'contain',display:'block',margin:'0 auto'}}/>
+          <div style={{fontSize:9,color:'#8a8279',marginTop:4}}>Jersey preview with sponsor patch</div>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
         {t.logo_url ? (
@@ -283,6 +301,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
   const [pool, setPool] = useState<PoolEntry[]>([])
   const [contracts, setContracts] = useState<Contract[]>([])
   const [objectives, setObjectives] = useState<Objective[]>([])
+  const [jerseys, setJerseys] = useState<JerseyImage[]>([])
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
   const [msg, setMsg] = useState('')
@@ -297,10 +316,13 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
         .select('*, template:sponsor_templates(*)')
         .eq('team_id', teamId).eq('season','2025-26').eq('status','active'),
       supabase.from('sponsor_objectives').select('*'),
-    ]).then(([{data:p},{data:c},{data:o}]) => {
+      supabase.from('sponsor_jersey_images')
+        .select('*').eq('team_id', teamId).eq('season','2025-26'),
+    ]).then(([{data:p},{data:c},{data:o},{data:j}]) => {
       setPool(p || [])
       setContracts(c || [])
       setObjectives(o || [])
+      setJerseys(j || [])
       setLoading(false)
     })
   }, [teamId])
@@ -452,9 +474,12 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
         {pool
           .filter(e => e.tier === activeTier)
-          .map(entry => {
+          .map((entry, idx) => {
             const entryObjectives = objectives.filter(o => o.template_id === entry.template_id)
             const hasContract = contracts.some(c => c.tier === activeTier)
+            const jerseyImg = activeTier === 'jersey'
+              ? jerseys.find(j => j.option_number === idx + 1)
+              : undefined
             return (
               <SponsorCard
                 key={entry.id}
@@ -465,6 +490,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
                 onSign={handleSign}
                 signing={signing}
                 hasContract={hasContract}
+                jerseyUrl={jerseyImg?.jersey_url}
               />
             )
           })
