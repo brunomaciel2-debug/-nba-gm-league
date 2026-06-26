@@ -18,6 +18,14 @@ export async function GET(req: NextRequest) {
     const { data: teams } = await supabaseAdmin.from('teams').select('*')
     if (!teams || teams.length < 2) return NextResponse.json({ error: 'Not enough teams' }, { status:500 })
 
+    // Real NBA arena capacities as fallback
+    const arenaCapacityMap: Record<string,number> = {
+      ATL:20000,BOS:19156,BKN:17732,CHA:19077,CHI:20917,CLE:19432,DAL:19200,DEN:19520,
+      DET:20332,GSW:18064,HOU:18055,IND:17923,LAC:19068,LAL:19068,MEM:17794,MIA:19600,
+      MIL:17341,MIN:18978,NOP:16867,NYK:19812,OKC:18203,ORL:18846,PHI:20478,PHX:18422,
+      POR:19393,SAC:17583,SAS:18418,TOR:19800,UTA:18306,WAS:20356,
+    }
+
     const { data: orders } = await supabaseAdmin.from('gm_orders').select('*').eq('week_number', week)
     const orderMap: Record<string, any> = {}
     ;(orders||[]).forEach((o:any) => orderMap[o.team_id] = o)
@@ -40,11 +48,19 @@ export async function GET(req: NextRequest) {
 
       const result = simulateGame(ht, at, hp, ap, orderMap[ht.id], orderMap[at.id])
 
+      // Attendance: capacity × attendance rate (65-95% based on win% and rivalry)
+      const isRivalry = ht.rival_team_id === at.id || at.rival_team_id === ht.id
+      const htWinPct = (ht.wins||0) / Math.max(1, (ht.wins||0)+(ht.losses||0))
+      const baseAttRate = 0.65 + htWinPct * 0.20 + (isRivalry ? 0.08 : 0)
+      const attRate = Math.min(0.98, baseAttRate + (Math.random() * 0.06 - 0.03))
+      const attendance = Math.round((ht.arena_capacity || arenaCapacityMap[ht.id] || 18000) * attRate)
+
       const { data: gameRec } = await supabaseAdmin.from('games').insert({
         week_number: week, game_number: gi+1,
         home_team: ht.id, away_team: at.id,
         home_score: result.homeScore, away_score: result.awayScore,
         status: 'final', played_at: new Date().toISOString(),
+        attendance, is_rivalry: isRivalry,
       }).select().single()
       if (!gameRec) continue
       gamesSimulated++

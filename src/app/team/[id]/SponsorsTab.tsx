@@ -146,10 +146,14 @@ function Tip({ text, children }: TipProps) {
   )
 }
 
-function ObjectiveRow({ obj, tracking }: { obj: Objective, tracking?: ObjectiveTracking }) {
+function ObjectiveRow({ obj, tracking, rivalName }: { obj: Objective, tracking?: ObjectiveTracking, rivalName?: string }) {
   const achieved = tracking?.achieved || false
   const paid = tracking?.paid || false
   const icon = OBJECTIVE_ICONS[obj.objective_type] || '🎯'
+  // Replace generic rival reference with actual rival name
+  const description = rivalName && obj.objective_type === 'wins_rivalry'
+    ? obj.description.replace(/your divisional rival|your rival/gi, rivalName)
+    : obj.description
 
   return (
     <div style={{
@@ -161,7 +165,7 @@ function ObjectiveRow({ obj, tracking }: { obj: Objective, tracking?: ObjectiveT
       <span style={{fontSize:16,flexShrink:0}}>{icon}</span>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:12,color:achieved?'#15803d':'#1a1512',fontWeight:achieved?600:400}}>
-          {obj.description}
+          {description}
         </div>
         {tracking && !achieved && tracking.current_value > 0 && (
           <div style={{fontSize:10,color:'#8a8279',marginTop:2}}>
@@ -241,7 +245,7 @@ function JerseyPreview({ jerseyUrl, companyName }: { jerseyUrl: string, companyN
 }
 
 function SponsorCard({
-  entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl
+  entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl, rivalName
 }: {
   entry: PoolEntry
   objectives: Objective[]
@@ -251,6 +255,7 @@ function SponsorCard({
   signing: boolean
   hasContract: boolean
   jerseyUrl?: string
+  rivalName?: string
 }) {
   const t = entry.template!
   const tier = TIER_CONFIG[entry.tier as keyof typeof TIER_CONFIG]
@@ -325,7 +330,7 @@ function SponsorCard({
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:isGM && !hasContract ? 12 : 0}}>
         {objectives.map(obj => (
-          <ObjectiveRow key={obj.id} obj={obj}/>
+          <ObjectiveRow key={obj.id} obj={obj} rivalName={rivalName}/>
         ))}
       </div>
 
@@ -355,6 +360,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
   const [contracts, setContracts] = useState<Contract[]>([])
   const [objectives, setObjectives] = useState<Objective[]>([])
   const [jerseys, setJerseys] = useState<JerseyImage[]>([])
+  const [rivalName, setRivalName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
   const [msg, setMsg] = useState('')
@@ -378,6 +384,15 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
       setJerseys(j || [])
       setLoading(false)
     })
+
+    // Fetch rival name
+    supabase.from('teams').select('rival_team_id').eq('id', teamId).single()
+      .then(({ data: t }) => {
+        if (t?.rival_team_id) {
+          supabase.from('teams').select('name').eq('id', t.rival_team_id).single()
+            .then(({ data: r }) => { if (r?.name) setRivalName(r.name) })
+        }
+      })
   }, [teamId])
 
   const handleSign = async (poolId: string, templateId: string, tier: string, fixedMonthly: number) => {
@@ -544,6 +559,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
                 signing={signing}
                 hasContract={hasContract}
                 jerseyUrl={jerseyImg?.jersey_url}
+                rivalName={rivalName}
               />
             )
           })
