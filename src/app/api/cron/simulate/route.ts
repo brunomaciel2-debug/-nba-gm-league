@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { checkSponsorObjectives } from '@/lib/check-sponsor-objectives'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -109,22 +110,18 @@ export async function GET(req: NextRequest) {
     const playerMap: Record<string,any> = {}
     ;(allPlayers||[]).forEach((p:any) => playerMap[p.id] = p)
 
-    // Get injury types once
     const { data: injTypes } = await supabaseAdmin.from('injury_types').select('*')
     const SMOD: Record<string,number> = {minor:1.1,moderate:1.25,serious:1.5,severe:1.75,career_threatening:2.0}
     const SWEIGHTS: Record<string,number> = {minor:40,moderate:25,serious:15,severe:8,career_threatening:2}
 
-    // Collect all box scores from this week's games
     const { data: weekBoxes } = await supabaseAdmin
       .from('box_scores').select('player_id,mins,team_id,game_id')
       .in('game_id', gamesCreated)
 
-    // Get orders for pace info
     const { data: weekOrders } = await supabaseAdmin.from('gm_orders').select('team_id,pace,training_intensity').eq('week_number',week)
     const paceMap: Record<string,number> = {}
     ;(weekOrders||[]).forEach((o:any) => paceMap[o.team_id] = o.pace||70)
 
-    // Process each player's boxes
     const healthUpdates: Record<string,{health:number,moral:number,wins:number,losses:number}> = {}
     for (const box of (weekBoxes||[])) {
       const p = playerMap[box.player_id]
@@ -136,20 +133,17 @@ export async function GET(req: NextRequest) {
       healthUpdates[p.id].health = Math.max(0, healthUpdates[p.id].health - healthLoss)
     }
 
-    // Apply health updates and check for injuries
     for (const [pid, upd] of Object.entries(healthUpdates)) {
       const p = playerMap[pid]
       if (!p) continue
       const newHealth = Math.round(Math.max(0, upd.health))
 
-      // Injury probability check
       const durFactor = (p.durability||75) / 100
       const hFactor = newHealth < 70 ? 1.5 : newHealth < 85 ? 1.2 : 1.0
       const pace = paceMap[p.team_id]||70
       const injChance = 0.018 * (1/durFactor) * hFactor * (pace>80?1.3:1.0)
 
       if (Math.random() < injChance && injTypes && injTypes.length > 0) {
-        // Pick weighted random injury
         const weights = (injTypes as any[]).map(t => ({ t, w:(SWEIGHTS[t.severity]||10)*t.game_probability }))
         const totalW = weights.reduce((s,x)=>s+x.w,0)
         let r = Math.random()*totalW, chosen = weights[0].t
@@ -192,23 +186,9 @@ export async function GET(req: NextRequest) {
           })
         }
       } else {
-        // No new injury — just update health
-        const moralDelta = 0  // morale handled separately
         await supabaseAdmin.from('players').update({ health:newHealth }).eq('id',pid)
       }
     }
-
-    // Morale: starters (>20 mins) get +2 for win, -1 for loss
-    for (const box of (weekBoxes||[])) {
-      if (box.mins < 20) continue
-      const p = playerMap[box.player_id]
-      if (!p) continue
-      // Determine if player's team won — find game result
-      // (simplified: we track this via gamesCreated earlier — skip for now, handled per game)
-    }
-
-    // Call recovery API for days between games
-    // (Mon sim = 3 rest days since Thu | handled by separate recovery cron)
 
     await supabaseAdmin.from('season_config').update({ current_week: week }).eq('id',1)
     await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number', week)
@@ -226,7 +206,6 @@ export async function GET(req: NextRequest) {
 
       const { data: coaches3 } = await supabaseAdmin.from('coaches').select('team_id,role,player_dev,offense_iq,defense_iq,specialty,specialty_boost,conditioning')
 
-      // Build coach bonuses per team
       const coachBonus: Record<string,{dev:number,off:number,def:number,conditioning:number,specialties:Record<string,number>}> = {}
       for (const c of (coaches3||[])) {
         if (!c.team_id) continue
@@ -244,7 +223,6 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Training intensity development modifier
       const TRAIN_DEV: Record<string,number> = {rest:-0.5,light:0.5,normal:1.0,intense:1.5,very_intense:1.8}
 
       const ATTRS = ['three','layup','dunk','mid','ft','siq','draw_foul','blk','stl',
@@ -254,7 +232,6 @@ export async function GET(req: NextRequest) {
       const OFF_ATTRS = new Set(['three','layup','dunk','mid','ft','siq','draw_foul'])
       const DEF_ATTRS = new Set(['blk','stl','idef','pdef'])
       const PHYS_ATTRS = new Set(['stamina','durability','def_reb','off_reb'])
-      const PLAY_ATTRS = new Set(['ball_hdl','pass_vis','pass_iq','assist_role'])
 
       const SPECIALTY_MAP: Record<string,string[]> = {
         offense:     ['three','mid','layup','dunk','siq'],
@@ -272,8 +249,8 @@ export async function GET(req: NextRequest) {
         const ord = ordMap3[p.team_id] || {training_intensity:'normal'}
         const coach = coachBonus[p.team_id] || {dev:60,off:60,def:60,conditioning:60,specialties:{}}
         const trainMod = TRAIN_DEV[ord.training_intensity||'normal'] || 1.0
-        const coachDevMod = (coach.dev - 60) / 100  // -0.4 to +0.4
-        const moralMod = ((p.moral||80) - 80) / 200  // -0.4 to +0.1
+        const coachDevMod = (coach.dev - 60) / 100
+        const moralMod = ((p.moral||80) - 80) / 200
         const ageFactor = p.age <= 22 ? 1.5 : p.age <= 25 ? 1.2 : p.age <= 28 ? 1.0 : p.age <= 31 ? 0.7 : p.age <= 34 ? 0.3 : 0.0
         const healthMod = (p.health||100) < 60 ? 0 : (p.health||100) < 80 ? 0.5 : 1.0
         const devRate = (p.dev_rate||1.0) * ageFactor * healthMod
@@ -284,21 +261,17 @@ export async function GET(req: NextRequest) {
         for (const attr of ATTRS) {
           const curr = (p as any)[attr] || 0
           const pot  = (p as any)[`pot_${attr}`] || curr
-          if (curr >= pot) continue  // already at ceiling
+          if (curr >= pot) continue
 
-          // Base growth chance
           let growthChance = 0.15 * trainMod * (1 + coachDevMod) * devRate
 
-          // Coach specialty bonus
           const specialty = Object.entries(coach.specialties).find(([sp]) => SPECIALTY_MAP[sp]?.includes(attr))
           if (specialty) growthChance *= (1 + specialty[1]/100)
 
-          // Coach IQ bonus per category
           if (OFF_ATTRS.has(attr))  growthChance *= (1 + (coach.off-60)/200)
           if (DEF_ATTRS.has(attr))  growthChance *= (1 + (coach.def-60)/200)
           if (PHYS_ATTRS.has(attr)) growthChance *= (1 + (coach.conditioning-60)/200)
 
-          // Morale affects development
           growthChance *= (1 + moralMod)
 
           if (Math.random() < growthChance) {
@@ -310,13 +283,11 @@ export async function GET(req: NextRequest) {
             }
           }
 
-          // Age-related decline for old players
           if (p.age > 34 && Math.random() < 0.08) {
-            const decline = -1
-            const newVal = Math.max(30, curr + decline)
+            const newVal = Math.max(30, curr - 1)
             if (newVal < curr) {
               updates[attr] = newVal
-              devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:attr, old_value:curr, new_value:newVal, change:decline, reason:'age_decline' })
+              devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:attr, old_value:curr, new_value:newVal, change:-1, reason:'age_decline' })
             }
           }
         }
@@ -337,18 +308,12 @@ export async function GET(req: NextRequest) {
         .from('box_scores').select('player_id,game_id,team_id,mins,pts,reb,ast,stl,blk')
         .in('game_id', gamesCreated)
 
-      // Performance of the Week: composite score
-      let potwPlayer = null, potwScore = 0, potwBox: any = null
+      let potwScore = 0, potwBox: any = null
       for (const box of (weekBoxes2||[])) {
         const score = (box.pts||0)*1.0 + (box.reb||0)*1.2 + (box.ast||0)*1.5 + (box.stl||0)*3 + (box.blk||0)*3
         if (score > potwScore && box.mins >= 15) { potwScore = score; potwBox = box }
       }
-      if (potwBox) {
-        const { data: potwP } = await supabaseAdmin.from('players').select('id').eq('id',potwBox.player_id).single()
-        if (potwP) potwPlayer = potwP
-      }
 
-      // Upset of the Week: find game where lower-rated team won
       let uotwGame: any = null, uotwOdds = 0.5
       const { data: weekGames2 } = await supabaseAdmin.from('games').select('*').in('id',gamesCreated)
       for (const g of (weekGames2||[])) {
@@ -358,34 +323,31 @@ export async function GET(req: NextRequest) {
         const awayStr = (awayP||[]).reduce((s:number,p:any)=>s+(p.usage||50),0)/Math.max(1,(awayP||[]).length)
         const homeWin = (g.home_score||0) > (g.away_score||0)
         const favoredHome = homeStr > awayStr
-        // Upset = favorite lost
         if (favoredHome && !homeWin || !favoredHome && homeWin) {
           const upsetOdds = homeWin ? awayStr/(homeStr+awayStr) : homeStr/(homeStr+awayStr)
           if (upsetOdds < uotwOdds) { uotwOdds = upsetOdds; uotwGame = g }
         }
       }
 
-      // Hot Streak: team with most consecutive wins in recent games
       const { data: allRecentGames } = await supabaseAdmin.from('games').select('*').eq('status','final').order('played_at',{ascending:false}).limit(100)
       const streaks: Record<string,{count:number,games:string[]}> = {}
       for (const g of (allRecentGames||[])) {
         const hw = (g.home_score||0)>(g.away_score||0)
-        const wt = hw?g.home_team:g.away_team
+        const wt2 = hw?g.home_team:g.away_team
         const lt = hw?g.away_team:g.home_team
-        if (!streaks[wt]) streaks[wt]={count:0,games:[]}
+        if (!streaks[wt2]) streaks[wt2]={count:0,games:[]}
         if (!streaks[lt]) streaks[lt]={count:0,games:[]}
-        streaks[wt].count++
-        streaks[wt].games.push(g.id)
+        streaks[wt2].count++
+        streaks[wt2].games.push(g.id)
         streaks[lt].count=0
         streaks[lt].games=[]
       }
       const hotTeam = Object.entries(streaks).sort((a,b)=>b[1].count-a[1].count)[0]
 
-      // Save highlights
-      if (potwPlayer || uotwGame || hotTeam) {
+      if (potwBox || uotwGame || hotTeam) {
         await supabaseAdmin.from('weekly_highlights').upsert({
           season:'2025-26', week_number:week,
-          potw_player_id: potwPlayer?.id || null,
+          potw_player_id: potwBox?.player_id || null,
           potw_game_id:   potwBox?.game_id || null,
           potw_pts: potwBox?.pts || 0,
           potw_reb: potwBox?.reb || 0,
@@ -406,7 +368,6 @@ export async function GET(req: NextRequest) {
     } catch(hlErr) { console.warn('Highlights step failed', hlErr) }
 
 
-
     // ── G-LEAGUE SIMULATION ────────────────────────────────
     try {
       const { data: glGames } = await supabaseAdmin
@@ -417,7 +378,6 @@ export async function GET(req: NextRequest) {
         .eq('season', '2025-26')
 
       for (const game of (glGames || [])) {
-        // Simple score simulation based on team records
         const homeAdv = 3
         const base = 105 + Math.round(Math.random() * 20)
         const homeScore = base + homeAdv + Math.round(Math.random() * 15)
@@ -428,7 +388,6 @@ export async function GET(req: NextRequest) {
           home_score: homeScore, away_score: awayScore, status: 'final'
         }).eq('id', game.id)
 
-        // Update G-League team records
         await supabaseAdmin.from('gleague_teams').update({
           wins: (game.home?.wins||0) + (hWon?1:0),
           losses: (game.home?.losses||0) + (hWon?0:1),
@@ -439,7 +398,6 @@ export async function GET(req: NextRequest) {
           losses: (game.away?.losses||0) + (hWon?1:0),
         }).eq('id', game.away_team)
 
-        // Simulate stats for assigned players
         const { data: assignedPlayers } = await supabaseAdmin
           .from('players').select('*')
           .eq('on_gleague_assignment', true)
@@ -470,7 +428,6 @@ export async function GET(req: NextRequest) {
             })
           }
 
-          // G-League boosts development slightly
           const devBoost = Math.random() < 0.15
           if (devBoost) {
             const attrs = ['three','layup','mid','ft','siq','ball_hdl','pass_vis','stamina','durability']
@@ -484,17 +441,13 @@ export async function GET(req: NextRequest) {
       }
     } catch(glErr) { console.warn('G-League sim error:', glErr) }
 
+
     // ── AWARDS ────────────────────────────────────────────
     try {
       const isEndOfMonth = week % 4 === 0
       const isEndOfSeason = week >= 26
 
-      // ── PLAYER OF THE WEEK (every week, both conferences) ──
-      // Algorithm: performance score = pts*1.0 + reb*1.2 + ast*1.5 + stl*3 + blk*3
-      //            + win_bonus (if team won, +20% to score)
-      //            + carry_bonus (if team lost but player scored >35, +10%)
-      // Only players with >=3 games in the week qualify
-      const { data: weekBoxes } = await supabaseAdmin
+      const { data: weekBoxesAw } = await supabaseAdmin
         .from('box_scores')
         .select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
         .in('game_id', gamesCreated)
@@ -503,53 +456,42 @@ export async function GET(req: NextRequest) {
         .from('games').select('id,home_team,away_team,home_score,away_score')
         .in('id', gamesCreated)
 
-      const gameResultMap: Record<string,{winner:string,loser:string,scores:string}> = {}
+      const gameResultMap: Record<string,{winner:string,loser:string}> = {}
       for (const g of (weekGamesData||[])) {
         const hw = (g.home_score||0) > (g.away_score||0)
-        gameResultMap[g.id] = {
-          winner: hw ? g.home_team : g.away_team,
-          loser:  hw ? g.away_team : g.home_team,
-          scores: `${g.home_score}-${g.away_score}`
-        }
+        gameResultMap[g.id] = { winner: hw ? g.home_team : g.away_team, loser: hw ? g.away_team : g.home_team }
       }
 
-      // Get player team+conference
-      const { data: allPlayers } = await supabaseAdmin
+      const { data: allPlayersAw } = await supabaseAdmin
         .from('players').select('id,name,team_id,teams!inner(conference)')
-        .in('id', (weekBoxes||[]).map((b:any)=>b.player_id).filter(Boolean))
+        .in('id', (weekBoxesAw||[]).map((b:any)=>b.player_id).filter(Boolean))
 
       const playerConf: Record<string,string> = {}
       const playerTeam: Record<string,string> = {}
-      for (const p of (allPlayers||[])) {
+      for (const p of (allPlayersAw||[])) {
         playerConf[p.id] = (p.teams as any)?.conference || 'Eastern'
         playerTeam[p.id] = p.team_id
       }
 
-      // Aggregate by player
       const playerWeekStats: Record<string,{pts:number,reb:number,ast:number,stl:number,blk:number,games:number,wins:number,teamId:string}> = {}
-      for (const b of (weekBoxes||[])) {
+      for (const b of (weekBoxesAw||[])) {
         if (!b.player_id || (b.mins||0) < 10) continue
-        if (!playerWeekStats[b.player_id]) {
-          playerWeekStats[b.player_id] = {pts:0,reb:0,ast:0,stl:0,blk:0,games:0,wins:0,teamId:b.team_id}
-        }
+        if (!playerWeekStats[b.player_id]) playerWeekStats[b.player_id] = {pts:0,reb:0,ast:0,stl:0,blk:0,games:0,wins:0,teamId:b.team_id}
         const s = playerWeekStats[b.player_id]
-        s.pts += b.pts||0; s.reb += b.reb||0; s.ast += b.ast||0
-        s.stl += b.stl||0; s.blk += b.blk||0; s.games++
+        s.pts+=b.pts||0; s.reb+=b.reb||0; s.ast+=b.ast||0; s.stl+=b.stl||0; s.blk+=b.blk||0; s.games++
         if (gameResultMap[b.game_id]?.winner === b.team_id) s.wins++
       }
 
-      // Score each player
       const potwCandidates: {id:string,score:number,conf:string,stats:any}[] = []
       for (const [pid, s] of Object.entries(playerWeekStats)) {
         if (s.games < 2) continue
         const g = s.games
         const baseScore = (s.pts/g)*1.0 + (s.reb/g)*1.2 + (s.ast/g)*1.5 + (s.stl/g)*3 + (s.blk/g)*3
         const winPct = s.wins / g
-        const winBonus = winPct >= 0.5 ? 1.2 : (s.pts/g >= 35 ? 1.1 : 1.0) // carry bonus for big games in losses
+        const winBonus = winPct >= 0.5 ? 1.2 : (s.pts/g >= 35 ? 1.1 : 1.0)
         potwCandidates.push({
           id: pid, score: baseScore * winBonus, conf: playerConf[pid] || 'Eastern',
-          stats: {ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),
-                  spg:(s.stl/g).toFixed(1),bpg:(s.blk/g).toFixed(1),games:g,wins:s.wins}
+          stats: {ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g,wins:s.wins}
         })
       }
 
@@ -566,18 +508,15 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // ── PLAYER OF THE MONTH (every 4 weeks) ──
       if (isEndOfMonth) {
         const monthNum = Math.floor(week/4)
+        const { data: monthGameIds } = await supabaseAdmin.from('games').select('id')
+          .eq('season','2025-26')
+          .gte('week_number', (monthNum-1)*4+1)
+          .lte('week_number', monthNum*4)
         const { data: monthBoxes } = await supabaseAdmin
-          .from('box_scores')
-          .select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
-          .in('game_id',
-            (await supabaseAdmin.from('games').select('id')
-              .eq('season','2025-26')
-              .gte('week_number', (monthNum-1)*4+1)
-              .lte('week_number', monthNum*4)).data?.map((g:any)=>g.id)||[]
-          )
+          .from('box_scores').select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
+          .in('game_id', (monthGameIds||[]).map((g:any)=>g.id))
 
         const monthStats: Record<string,{pts:number,reb:number,ast:number,stl:number,blk:number,games:number,wins:number,teamId:string}> = {}
         for (const b of (monthBoxes||[])) {
@@ -595,7 +534,7 @@ export async function GET(req: NextRequest) {
             const score=(s.pts/g)*1.0+(s.reb/g)*1.2+(s.ast/g)*1.5+(s.stl/g)*3+(s.blk/g)*3
             const winBonus=(s.wins/g)>=0.5?1.2:1.0
             return {id:pid,score:score*winBonus,conf:playerConf[pid]||'Eastern',
-              stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g,wins:s.wins}}
+              stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g}}
           })
 
         for (const conf of ['Eastern','Western']) {
@@ -612,17 +551,13 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // ── END OF SEASON AWARDS ──
       if (isEndOfSeason) {
-        // Min 65 games for annual award eligibility
         const MIN_GAMES = 65
-
         const { data: seasonStats } = await supabaseAdmin
           .from('player_stats').select('*,players!inner(id,name,pos,team_id,nba_experience,potential_grade,teams!inner(id,name,conference,wins,pts_allowed))')
           .gte('games', MIN_GAMES)
 
         if (seasonStats && seasonStats.length > 0) {
-          // MVP: pts*1+reb*1.2+ast*1.5+stl*3+blk*3, weighted by team wins, consistency
           const mvpScores = seasonStats.map((s:any) => {
             const g = s.games||1
             const base = (s.pts/g)*1.0+(s.reb/g)*1.2+(s.ast/g)*1.5+(s.stl/g)*3+(s.blk/g)*3
@@ -637,12 +572,9 @@ export async function GET(req: NextRequest) {
             stats_context:mvpScores[0].stats,notes:'Most Valuable Player'
           },{onConflict:'season,award_type,period'})
 
-          // DPOY: blk*4+stl*4, bonus if team is top-10 in points allowed
           const { data: defStats } = await supabaseAdmin
-            .from('player_stats')
-            .select('player_id,blk,stl,games,players!inner(team_id,teams!inner(pts_allowed,wins))')
+            .from('player_stats').select('player_id,blk,stl,games,players!inner(team_id,teams!inner(pts_allowed,wins))')
             .gte('games', MIN_GAMES)
-          // Get league average pts allowed for defensive team bonus
           const { data: teamDef } = await supabaseAdmin
             .from('teams').select('id,pts_allowed').not('id','in','(ALL,RVS)').order('pts_allowed',{ascending:true})
           const topDefTeams = new Set((teamDef||[]).slice(0,10).map((t:any)=>t.id))
@@ -650,9 +582,7 @@ export async function GET(req: NextRequest) {
             const dpoyScores = defStats.map((s:any)=>{
               const g = s.games||1
               const baseScore = ((s.blk||0)/g)*4 + ((s.stl||0)/g)*4
-              const teamId = s.players?.team_id
-              // +15% bonus if player's team is top-10 in defense (proves defensive impact)
-              const defBonus = topDefTeams.has(teamId) ? 1.15 : 1.0
+              const defBonus = topDefTeams.has(s.players?.team_id) ? 1.15 : 1.0
               return { id:s.player_id, score: baseScore * defBonus }
             }).sort((a:any,b:any)=>b.score-a.score)
             if (dpoyScores[0]) await supabaseAdmin.from('awards').upsert({
@@ -662,9 +592,8 @@ export async function GET(req: NextRequest) {
             },{onConflict:'season,award_type,period'})
           }
 
-          // ROY: only players with nba_experience === 0 (true rookies), min 65 games
           const { data: rookies } = await supabaseAdmin
-            .from('player_stats').select('player_id,pts,reb,ast,games,players!inner(nba_experience,potential_grade)')
+            .from('player_stats').select('player_id,pts,reb,ast,games,players!inner(nba_experience)')
             .gte('games', MIN_GAMES)
           const royScores = (rookies||[])
             .filter((s:any) => (s.players?.nba_experience ?? 1) === 0)
@@ -678,43 +607,12 @@ export async function GET(req: NextRequest) {
             notes:'Rookie of the Year'
           },{onConflict:'season,award_type,period'})
 
-          // COY: head coach of team with most wins vs expected
-          const { data: teams } = await supabaseAdmin.from('teams').select('id,wins,losses').not('id','in','(ALL,RVS)')
-          if (teams) {
-            const { data: hcs } = await supabaseAdmin.from('coaches').select('*').eq('role','head_coach').not('team_id','is',null)
-            const coySorted = (hcs||[]).map((c:any)=>{
-              const t = teams.find((tm:any)=>tm.id===c.team_id)
-              const expectedWins = ((c.off_adjustment+c.def_adjustment)/200)*82
-              const overachieve = (t?.wins||0) - expectedWins
-              return {id:c.id,teamId:c.team_id,score:overachieve}
-            }).sort((a:any,b:any)=>b.score-a.score)
-            if (coySorted[0]) await supabaseAdmin.from('awards').upsert({
-              season:'2025-26',award_type:'coy',period:'season',
-              coach_id:coySorted[0].id,team_id:coySorted[0].teamId,
-              score:coySorted[0].score,notes:'Coach of the Year'
-            },{onConflict:'season,award_type,period'})
-          }
-
-          // ALL-NBA TEAMS (top 15 by score)
-          // All-NBA teams - top 15 by MVP score (already filtered by MIN_GAMES above)
           const allNBATeams: [string,number,number][] = [['all_nba_1',0,5],['all_nba_2',5,10],['all_nba_3',10,15]]
           for (const [type,from,to] of allNBATeams) {
-            const members = mvpScores.slice(from,to)
-            for (const m of members) {
+            for (const m of mvpScores.slice(from,to)) {
               await supabaseAdmin.from('awards').upsert({
                 season:'2025-26', award_type:type, period:`season_${m.id}`,
                 player_id:m.id, score:m.score, stats_context:m.stats
-              }, {onConflict:'season,award_type,period'})
-            }
-          }
-          // All-Rookie teams - top 10 rookies by ROY score
-          const allRookieTeams: [string,number,number][] = [['all_rookie_1',0,5],['all_rookie_2',5,10]]
-          for (const [type,from,to] of allRookieTeams) {
-            const members = royScores.slice(from,to)
-            for (const m of members) {
-              await supabaseAdmin.from('awards').upsert({
-                season:'2025-26', award_type:type, period:`season_${m.id}`,
-                player_id:m.id, score:m.score
               }, {onConflict:'season,award_type,period'})
             }
           }
@@ -724,8 +622,6 @@ export async function GET(req: NextRequest) {
 
 
     // ── END OF SEASON AGING ────────────────────────────────────
-    // Runs once when week >= 26. Ages ALL players +1 (NBA, FA, G-League, World teams)
-    // Also increments nba_experience for active NBA players
     if (week >= 26) {
       try {
         const { data: everyPlayer } = await supabaseAdmin
@@ -742,12 +638,11 @@ export async function GET(req: NextRequest) {
               }).eq('id', p.id)
             ))
           }
-          console.log(`[Season End] Aged ${everyPlayer.length} players +1 year`)
         }
       } catch(ageErr) { console.warn('Aging step failed:', ageErr) }
     }
 
-    // Apply health recovery for days since last game
+    // ── HEALTH RECOVERY ────────────────────────────────────
     try {
       const isMonday = new Date().getDay() === 1
       const recDays = isMonday ? 3 : 2
@@ -767,6 +662,14 @@ export async function GET(req: NextRequest) {
           await supabaseAdmin.from('players').update({health:nh,moral:nm}).eq('id',p.id)
       }
     } catch(e) { console.warn('Recovery step failed',e) }
+
+
+    // ── SPONSOR OBJECTIVES ────────────────────────────────
+    try {
+      const sponsorResult = await checkSponsorObjectives()
+      console.log(`Sponsor objectives — checked: ${sponsorResult.checked}, achieved: ${sponsorResult.achieved}`)
+    } catch(sponsorErr) { console.warn('Sponsor objectives check failed:', sponsorErr) }
+
 
     return NextResponse.json({ success: true, week, games_simulated: gamesSimulated })
   } catch (err: any) {
@@ -808,7 +711,6 @@ function simulateGame(ht:any,at:any,hp:any[],ap:any[],hOrd?:any,aOrd?:any){
       const oo=side==="home"?ho:ao,doo=side==="home"?ao:ho
       const ot=side==="home"?ht:at,dt=side==="home"?at:ht
       const os=side as "home"|"away",ds=(side==="home"?"away":"home") as "home"|"away"
-      // TO check
       if((part[ds] as number)>=8&&tol[os].q[q]<2&&tol[os].used<7){tol[os].q[q]++;tol[os].used++;part.home=0;part.away=0;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"timeout",description:`⏱ TIMEOUT — ${ot.name}`,home_score:sc.home,away_score:sc.away})}
       simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp)
       side=side==="home"?"away":"home"
