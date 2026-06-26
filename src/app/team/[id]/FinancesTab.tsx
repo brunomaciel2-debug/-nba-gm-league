@@ -3,39 +3,49 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 
-type FinanceRow = {
-  month: number
-  year: number
-  label: string
-  // Revenues
-  rev_tickets: number
-  rev_concessions: number
-  rev_suites: number
-  rev_sponsors_fixed: number
-  rev_sponsors_incentive: number
-  rev_nba_subsidy: number
-  // Expenses
-  exp_coaching_staff: number
-  exp_gym_maintenance: number
-  exp_arena_maintenance: number
-  exp_operational: number
-  exp_utilities: number
-  exp_insurance: number
-  exp_travel: number
-  exp_construction: number
-  // Computed
-  total_revenue: number
-  total_expenses: number
-  net: number
-  balance_end: number
+type Transaction = {
+  id: string
+  type: 'revenue' | 'expense'
+  category: string
+  amount: number
+  description: string
+  season: string
+  week_number: number
+  created_at: string
 }
 
-type Franchise = {
-  balance: number
+type Franchise = { balance: number }
+
+const CATEGORY_LABELS: Record<string, string> = {
+  tickets:      'Ticket Sales',
+  concessions:  'Concessions',
+  suites:       'Premium & Suites',
+  sponsor:      'Sponsors',
+  nba_subsidy:  'NBA Subsidy',
+  staff:        'Coaching Staff',
+  travel:       'Away Travel',
+  maintenance:  'Facility Maintenance',
+  operational:  'Arena Staff',
+  utilities:    'Utilities',
+  insurance:    'Insurance',
+  construction: 'Construction',
+  other:        'Other',
 }
 
-type CoachingSalary = {
-  total_monthly: number
+const CATEGORY_ICONS: Record<string, string> = {
+  tickets:      '🎟️',
+  concessions:  '🍔',
+  suites:       '⭐',
+  sponsor:      '🤝',
+  nba_subsidy:  '🏀',
+  staff:        '👔',
+  travel:       '✈️',
+  maintenance:  '🔧',
+  operational:  '🏟️',
+  utilities:    '⚡',
+  insurance:    '🛡️',
+  construction: '🏗️',
+  other:        '📋',
 }
 
 const MONTHS = ['Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep']
@@ -46,10 +56,6 @@ function fmt(n: number) {
   if (abs >= 1000000) return sign + '$' + (abs/1000000).toFixed(1) + 'M'
   if (abs >= 1000) return sign + '$' + (abs/1000).toFixed(0) + 'K'
   return sign + '$' + abs.toFixed(0)
-}
-
-function fmtFull(n: number) {
-  return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString()
 }
 
 type TooltipProps = { text: string, children: React.ReactNode }
@@ -75,40 +81,16 @@ function Tip({ text, children }: TooltipProps) {
 }
 
 function NetBadge({ value }: { value: number }) {
-  const positive = value >= 0
+  const pos = value >= 0
   return (
     <span style={{
       display:'inline-flex', alignItems:'center', gap:4,
       padding:'2px 8px', borderRadius:20, fontSize:11, fontWeight:700,
-      background: positive ? '#dcfce7' : '#fee2e2',
-      color: positive ? '#15803d' : '#dc2626',
+      background: pos ? '#dcfce7' : '#fee2e2',
+      color: pos ? '#15803d' : '#dc2626',
     }}>
-      {positive ? '▲' : '▼'} {fmt(Math.abs(value))}
+      {pos ? '▲' : '▼'} {fmt(Math.abs(value))}
     </span>
-  )
-}
-
-function BarChart({ rows }: { rows: FinanceRow[] }) {
-  if (!rows.length) return null
-  const maxVal = Math.max(...rows.map(r => Math.max(r.total_revenue, r.total_expenses)), 1)
-  return (
-    <div style={{display:'flex', alignItems:'flex-end', gap:4, height:80, padding:'0 4px'}}>
-      {rows.map((r, i) => (
-        <div key={i} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:2}}>
-          <div style={{width:'100%', display:'flex', gap:1, alignItems:'flex-end', height:70}}>
-            <div style={{
-              flex:1, background:'#15803d', borderRadius:'2px 2px 0 0', opacity:0.8,
-              height: `${(r.total_revenue/maxVal)*100}%`, minHeight:2,
-            }}/>
-            <div style={{
-              flex:1, background:'#dc2626', borderRadius:'2px 2px 0 0', opacity:0.7,
-              height: `${(r.total_expenses/maxVal)*100}%`, minHeight:2,
-            }}/>
-          </div>
-          <span style={{fontSize:8, color:'#8a8279'}}>{r.label}</span>
-        </div>
-      ))}
-    </div>
   )
 }
 
@@ -117,74 +99,27 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
   const isGM = (profile as any)?.team_id === teamId || profile?.role === 'commissioner'
 
   const [franchise, setFranchise] = useState<Franchise|null>(null)
-  const [rows, setRows] = useState<FinanceRow[]>([])
-  const [coachingSalary, setCoachingSalary] = useState(0)
-  const [gymMaintenance, setGymMaintenance] = useState(50000)
-  const [arenaMaintenance, setArenaMaintenance] = useState(0)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [gymCost, setGymCost] = useState(50000)
+  const [arenaCost, setArenaCost] = useState(0)
+  const [coachingSalary, setCoachingSalary] = useState(500000)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState<'monthly'|'annual'>('monthly')
-  const [selectedMonth, setSelectedMonth] = useState(0)
+  const [view, setView] = useState<'actual'|'projections'>('actual')
 
   useEffect(() => {
     Promise.all([
       supabase.from('franchise_finances').select('*').eq('team_id', teamId).single(),
-      supabase.from('coaches').select('salary').eq('team_id', teamId),
+      supabase.from('franchise_transactions').select('*').eq('team_id', teamId).eq('season','2025-26').order('created_at', {ascending:false}),
       supabase.from('practice_facilities').select('monthly_cost').eq('team_id', teamId).single(),
       supabase.from('arena_concessions').select('monthly_maintenance').eq('team_id', teamId).single(),
-      supabase.from('franchise_transactions').select('*').eq('team_id', teamId).eq('season','2025-26').order('created_at'),
-    ]).then(([{data:ff},{data:coaches},{data:gym},{data:arena},{data:transactions}]) => {
+      supabase.from('coaches').select('salary').eq('team_id', teamId),
+    ]).then(([{data:ff},{data:tx},{data:gym},{data:arena},{data:coaches}])=>{
       setFranchise(ff)
-      const totalCoaching = (coaches||[]).reduce((t:number,c:any)=>t+(c.salary||0)/12, 0)
-      setCoachingSalary(Math.round(totalCoaching))
-      setGymMaintenance(gym?.monthly_cost || 50000)
-      setArenaMaintenance(arena?.monthly_maintenance || 0)
-
-      // Build monthly rows from transactions
-      const monthMap: Record<string, any> = {}
-      for (const t of (transactions||[])) {
-        const key = `${t.week_number}`
-        if (!monthMap[key]) monthMap[key] = { week: t.week_number, items: [] }
-        monthMap[key].items.push(t)
-      }
-
-      // Generate estimated monthly rows for 2025-26 season (Oct 2025 - Jun 2026)
-      const estimatedRows: FinanceRow[] = MONTHS.map((label, i) => {
-        const month = i + 10 > 12 ? i + 10 - 12 : i + 10
-        const year = i < 3 ? 2025 : 2026
-
-        // Base estimates
-        const rev_tickets = 450000
-        const rev_concessions = 0
-        const rev_suites = 0
-        const rev_sponsors_fixed = 0
-        const rev_sponsors_incentive = 0
-        const rev_nba_subsidy = 500000
-
-        const exp_coaching_staff = totalCoaching > 0 ? Math.round(totalCoaching) : 500000
-        const exp_gym_maintenance = gym?.monthly_cost || 50000
-        const exp_arena_maintenance = arena?.monthly_maintenance || 0
-        const exp_operational = 100000
-        const exp_utilities = 80000
-        const exp_insurance = 40000
-        const exp_travel = 200000
-        const exp_construction = 0
-
-        const total_revenue = rev_tickets + rev_concessions + rev_suites + rev_sponsors_fixed + rev_sponsors_incentive + rev_nba_subsidy
-        const total_expenses = exp_coaching_staff + exp_gym_maintenance + exp_arena_maintenance + exp_operational + exp_utilities + exp_insurance + exp_travel + exp_construction
-        const net = total_revenue - total_expenses
-
-        return {
-          month, year, label,
-          rev_tickets, rev_concessions, rev_suites,
-          rev_sponsors_fixed, rev_sponsors_incentive, rev_nba_subsidy,
-          exp_coaching_staff, exp_gym_maintenance, exp_arena_maintenance,
-          exp_operational, exp_utilities, exp_insurance, exp_travel, exp_construction,
-          total_revenue, total_expenses, net,
-          balance_end: (ff?.balance || 25000000) + net * (i + 1),
-        }
-      })
-
-      setRows(estimatedRows)
+      setTransactions(tx || [])
+      setGymCost(gym?.monthly_cost || 50000)
+      setArenaCost(arena?.monthly_maintenance || 0)
+      const totalCoaching = (coaches||[]).reduce((t:number,c:any)=>t+(c.salary||0)/12,0)
+      setCoachingSalary(Math.round(totalCoaching) || 500000)
       setLoading(false)
     })
   }, [teamId])
@@ -197,29 +132,41 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
 
   if (loading) return <div style={{color:'#8a8279',padding:20}}>Loading finances...</div>
 
-  const currentMonth = rows[selectedMonth]
-  const annualNet = rows.reduce((t,r)=>t+r.net, 0)
-  const annualRevenue = rows.reduce((t,r)=>t+r.total_revenue, 0)
-  const annualExpenses = rows.reduce((t,r)=>t+r.total_expenses, 0)
+  // Group transactions by month
+  const txByMonth: Record<string, Transaction[]> = {}
+  for (const tx of transactions) {
+    const d = new Date(tx.created_at)
+    const key = `${d.getFullYear()}-${d.getMonth()+1}`
+    if (!txByMonth[key]) txByMonth[key] = []
+    txByMonth[key].push(tx)
+  }
 
-  const REV_ROWS = [
-    {key:'rev_nba_subsidy',       label:'NBA Subsidy',          tip:'Fixed $500K/month from NBA revenue sharing programme'},
-    {key:'rev_tickets',           label:'Ticket Sales',         tip:'Home games only · depends on attendance, pricing and team performance'},
-    {key:'rev_concessions',       label:'Concessions',          tip:'Food, drink, merchandise · per-person adoption rates apply'},
-    {key:'rev_suites',            label:'Premium & Suites',     tip:'Corporate suites, club seats, courtside lounge · fixed per game'},
-    {key:'rev_sponsors_fixed',    label:'Sponsors (fixed)',     tip:'Monthly fixed contracts with sponsors'},
-    {key:'rev_sponsors_incentive',label:'Sponsors (incentive)', tip:'Bonus payments when performance targets are met'},
+  const totalRevenue = transactions.filter(t=>t.type==='revenue').reduce((s,t)=>s+t.amount,0)
+  const totalExpenses = transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0)
+  const netResult = totalRevenue - totalExpenses
+
+  // Projections
+  const projMonthlyRev = 500000 + 450000 // subsidy + base tickets
+  const projMonthlyExp = coachingSalary + gymCost + arenaCost + 100000 + 80000 + 40000 + 200000
+  const projNet = projMonthlyRev - projMonthlyExp
+  const projAnnual = projNet * 9 // ~9 months of season
+
+  const PROJ_REV = [
+    {label:'NBA Subsidy',       val:500000,   tip:'Fixed $500K/month from NBA programme'},
+    {label:'Ticket Sales',      val:450000,   tip:'~20 home games · 65% attendance · base pricing'},
+    {label:'Concessions',       val:0,        tip:'No concessions built yet — build in Arena tab'},
+    {label:'Sponsors (fixed)',  val:0,        tip:'No active sponsor contracts yet'},
+    {label:'Sponsors (bonus)',  val:0,        tip:'Unlocked by reaching performance targets'},
   ]
 
-  const EXP_ROWS = [
-    {key:'exp_coaching_staff',    label:'Coaching Staff',       tip:'Head coach + assistants + trainers + physios · annual salary ÷ 12'},
-    {key:'exp_gym_maintenance',   label:'Practice Facility',    tip:'Monthly maintenance of gym grade + all extras (pool, sauna, etc.)'},
-    {key:'exp_arena_maintenance', label:'Arena Concessions',    tip:'Monthly maintenance of all built concessions and amenities'},
-    {key:'exp_operational',       label:'Arena Staff',          tip:'Security, cleaning, event staff, hospitality · fixed monthly'},
-    {key:'exp_utilities',         label:'Utilities',            tip:'Energy, water, heating/cooling for arena and practice facility'},
-    {key:'exp_insurance',         label:'Insurance',            tip:'Liability, property, and player accident insurance'},
-    {key:'exp_travel',            label:'Away Travel',          tip:'~20 away games/month · flights, hotel, meals · fixed estimate'},
-    {key:'exp_construction',      label:'Construction',         tip:'One-time costs of builds started this month (deducted at start)'},
+  const PROJ_EXP = [
+    {label:'Coaching Staff',    val:coachingSalary, tip:'Annual salaries ÷ 12 · coaches, trainers, physios'},
+    {label:'Practice Facility', val:gymCost,        tip:`Grade ${gymCost<=50000?'F':gymCost<=150000?'E':gymCost<=300000?'D':gymCost<=600000?'C':'B+'} gym · upgrade in Facilities tab`},
+    {label:'Arena Concessions', val:arenaCost,      tip:'Monthly maintenance of built concessions'},
+    {label:'Arena Staff',       val:100000,         tip:'Security, cleaning, event staff · fixed'},
+    {label:'Utilities',         val:80000,          tip:'Energy, water, heating/cooling'},
+    {label:'Insurance',         val:40000,          tip:'Liability, property and accident insurance'},
+    {label:'Away Travel',       val:200000,         tip:'~20 away games/month · flights, hotel, meals'},
   ]
 
   return (
@@ -228,24 +175,35 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
       <div style={{
         display:'flex', justifyContent:'space-between', alignItems:'center',
         padding:'14px 18px', borderRadius:12, marginBottom:16,
-        background: (franchise?.balance||0) >= 0 ? '#f0fdf4' : '#fef2f2',
-        border: `1px solid ${(franchise?.balance||0) >= 0 ? '#bbf7d0' : '#fecaca'}`,
+        background:(franchise?.balance||0)>=0?'#f0fdf4':'#fef2f2',
+        border:`1px solid ${(franchise?.balance||0)>=0?'#bbf7d0':'#fecaca'}`,
       }}>
         <div>
-          <div style={{fontSize:11,color:'#8a8279',marginBottom:2}}>Current Balance</div>
-          <div style={{fontSize:24,fontWeight:800,color:(franchise?.balance||0)>=0?'#15803d':'#dc2626'}}>
+          <div style={{fontSize:11,color:'#8a8279',marginBottom:2}}>
+            <Tip text="Starting balance + all revenues - all expenses recorded to date">
+              <span style={{cursor:'help',textDecoration:'underline dotted',textDecorationColor:'#c8c0b4'}}>
+                Current Balance
+              </span>
+            </Tip>
+          </div>
+          <div style={{fontSize:26,fontWeight:800,color:(franchise?.balance||0)>=0?'#15803d':'#dc2626'}}>
             {fmt(franchise?.balance||0)}
           </div>
         </div>
-        <div style={{textAlign:'right'}}>
-          <div style={{fontSize:11,color:'#8a8279',marginBottom:2}}>Season projection</div>
-          <NetBadge value={annualNet}/>
-        </div>
+        {transactions.length > 0 && (
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:11,color:'#8a8279',marginBottom:4}}>Season to date</div>
+            <NetBadge value={netResult}/>
+          </div>
+        )}
       </div>
 
-      {/* View toggle */}
+      {/* Tab toggle */}
       <div style={{display:'flex',gap:6,marginBottom:16}}>
-        {[{k:'monthly',l:'Monthly'},{k:'annual',l:'Annual summary'}].map((v:any)=>(
+        {[
+          {k:'actual',      l:'💳 Balance Sheet'},
+          {k:'projections', l:'📊 Projections'},
+        ].map((v:any)=>(
           <button key={v.k} onClick={()=>setView(v.k)}
             style={{padding:'6px 16px',fontSize:12,fontWeight:600,borderRadius:8,cursor:'pointer',
                     border:`1px solid ${view===v.k?teamColor:'#d4cdc5'}`,
@@ -256,191 +214,181 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
         ))}
       </div>
 
-      {/* ── MONTHLY VIEW ── */}
-      {view==='monthly' && (
-        <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
-
-          {/* Month selector */}
-          <div style={{width:120,flexShrink:0}}>
-            <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#8a8279',marginBottom:8}}>Month</div>
-            <div style={{display:'flex',flexDirection:'column',gap:2}}>
-              {rows.map((r,i)=>(
-                <button key={i} onClick={()=>setSelectedMonth(i)}
-                  style={{
-                    padding:'6px 10px', fontSize:11, fontWeight:600,
-                    borderRadius:6, border:'none', textAlign:'left', cursor:'pointer',
-                    background: selectedMonth===i ? teamColor : 'transparent',
-                    color: selectedMonth===i ? '#fff' : '#5c554e',
-                    display:'flex', justifyContent:'space-between', alignItems:'center',
-                  }}>
-                  <span>{r.label} '{r.year.toString().slice(2)}</span>
-                  <span style={{fontSize:9,opacity:0.8}}>{r.net>=0?'▲':'▼'}</span>
-                </button>
-              ))}
+      {/* ── ACTUAL BALANCE SHEET ── */}
+      {view==='actual' && (
+        transactions.length === 0 ? (
+          <div style={{
+            padding:48, textAlign:'center',
+            background:'#faf8f5', border:'1px dashed #d4cdc5', borderRadius:12,
+          }}>
+            <div style={{fontSize:32,marginBottom:12}}>📭</div>
+            <div style={{fontSize:14,fontWeight:700,color:'#1a1512',marginBottom:6}}>No transactions yet</div>
+            <div style={{fontSize:12,color:'#8a8279',lineHeight:1.6,maxWidth:320,margin:'0 auto'}}>
+              Financial records will appear here once the season begins —
+              ticket sales, coaching costs, travel expenses and more.
             </div>
           </div>
-
-          {/* Month detail */}
-          {currentMonth && (
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
-                <div>
-                  <div style={{fontSize:16,fontWeight:700,color:'#1a1512'}}>
-                    {currentMonth.label} {currentMonth.year}
+        ) : (
+          <div>
+            {/* Summary row */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
+              {[
+                {label:'Total Revenue',  val:totalRevenue,  color:'#15803d', tip:'Sum of all revenue transactions this season'},
+                {label:'Total Expenses', val:totalExpenses, color:'#dc2626', tip:'Sum of all expense transactions this season'},
+                {label:'Season Result',  val:netResult,     color:netResult>=0?'#15803d':'#dc2626', tip:'Net result: revenue minus expenses'},
+              ].map(item=>(
+                <Tip key={item.label} text={item.tip}>
+                  <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`3px solid ${item.color}`,borderRadius:10,padding:14,cursor:'help',width:'100%'}}>
+                    <div style={{fontSize:10,color:'#8a8279',marginBottom:4}}>{item.label}</div>
+                    <div style={{fontSize:18,fontWeight:800,color:item.color}}>{fmt(item.val)}</div>
                   </div>
-                  <div style={{fontSize:11,color:'#8a8279'}}>
-                    Balance end of month: <strong style={{color:'#1a1512'}}>{fmt(currentMonth.balance_end)}</strong>
-                  </div>
-                </div>
-                <NetBadge value={currentMonth.net}/>
-              </div>
-
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-
-                {/* REVENUES */}
-                <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`3px solid #15803d`,borderRadius:10,padding:14}}>
-                  <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#15803d',marginBottom:10}}>
-                    Revenues
-                  </div>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8a8279',marginBottom:6,paddingBottom:6,borderBottom:'1px solid #e2dcd5'}}>
-                    <span>Total</span>
-                    <strong style={{color:'#15803d'}}>{fmt(currentMonth.total_revenue)}</strong>
-                  </div>
-                  {REV_ROWS.map(row=>{
-                    const val = (currentMonth as any)[row.key] || 0
-                    return (
-                      <div key={row.key} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid #f0ece5'}}>
-                        <Tip text={row.tip}>
-                          <span style={{fontSize:11,color: val>0?'#1a1512':'#b0a89e',cursor:'help',textDecoration:'underline dotted',textDecorationColor:'#c8c0b4'}}>
-                            {row.label}
-                          </span>
-                        </Tip>
-                        <span style={{fontSize:11,fontWeight:600,color:val>0?'#15803d':'#b0a89e'}}>
-                          {val>0?fmt(val):'—'}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* EXPENSES */}
-                <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`3px solid #dc2626`,borderRadius:10,padding:14}}>
-                  <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#dc2626',marginBottom:10}}>
-                    Expenses
-                  </div>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#8a8279',marginBottom:6,paddingBottom:6,borderBottom:'1px solid #e2dcd5'}}>
-                    <span>Total</span>
-                    <strong style={{color:'#dc2626'}}>{fmt(currentMonth.total_expenses)}</strong>
-                  </div>
-                  {EXP_ROWS.map(row=>{
-                    const val = (currentMonth as any)[row.key] || 0
-                    return (
-                      <div key={row.key} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid #f0ece5'}}>
-                        <Tip text={row.tip}>
-                          <span style={{fontSize:11,color:val>0?'#1a1512':'#b0a89e',cursor:'help',textDecoration:'underline dotted',textDecorationColor:'#c8c0b4'}}>
-                            {row.label}
-                          </span>
-                        </Tip>
-                        <span style={{fontSize:11,fontWeight:600,color:val>0?'#dc2626':'#b0a89e'}}>
-                          {val>0?fmt(val):'—'}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Net result bar */}
-              <div style={{
-                marginTop:12,padding:'10px 14px',borderRadius:8,
-                background: currentMonth.net>=0?'#f0fdf4':'#fef2f2',
-                border:`1px solid ${currentMonth.net>=0?'#bbf7d0':'#fecaca'}`,
-                display:'flex',justifyContent:'space-between',alignItems:'center',
-              }}>
-                <Tip text="Total revenues minus total expenses for this month">
-                  <span style={{fontSize:12,fontWeight:600,color:'#5c554e',cursor:'help'}}>Monthly result</span>
                 </Tip>
-                <span style={{fontSize:14,fontWeight:800,color:currentMonth.net>=0?'#15803d':'#dc2626'}}>
-                  {currentMonth.net>=0?'+':''}{fmt(currentMonth.net)}
-                </span>
-              </div>
+              ))}
             </div>
-          )}
-        </div>
+
+            {/* Transaction list */}
+            <div style={{borderRadius:10,overflow:'hidden',border:'1px solid #d4cdc5'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                <thead>
+                  <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
+                    <th style={{padding:'8px 12px',textAlign:'left',fontWeight:700,color:'#5c554e'}}>Date</th>
+                    <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#5c554e'}}>Category</th>
+                    <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#5c554e'}}>Description</th>
+                    <th style={{padding:'8px 12px',textAlign:'right',fontWeight:700,color:'#5c554e'}}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx,i)=>(
+                    <tr key={tx.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                      <td style={{padding:'7px 12px',color:'#8a8279',whiteSpace:'nowrap'}}>
+                        {new Date(tx.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+                      </td>
+                      <td style={{padding:'7px 10px'}}>
+                        <span style={{display:'flex',alignItems:'center',gap:5}}>
+                          <span>{CATEGORY_ICONS[tx.category]||'📋'}</span>
+                          <span style={{color:'#1a1512'}}>{CATEGORY_LABELS[tx.category]||tx.category}</span>
+                        </span>
+                      </td>
+                      <td style={{padding:'7px 10px',color:'#5c554e'}}>{tx.description||'—'}</td>
+                      <td style={{padding:'7px 12px',textAlign:'right',fontWeight:700,
+                                  color:tx.type==='revenue'?'#15803d':'#dc2626'}}>
+                        {tx.type==='revenue'?'+':'-'}{fmt(tx.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
       )}
 
-      {/* ── ANNUAL VIEW ── */}
-      {view==='annual' && (
+      {/* ── PROJECTIONS ── */}
+      {view==='projections' && (
         <div>
-          {/* Summary cards */}
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
+          <div style={{
+            marginBottom:14,padding:'8px 12px',borderRadius:8,
+            background:'#fef9c3',border:'1px solid #d97706',
+            fontSize:11,color:'#92400e',lineHeight:1.5,
+          }}>
+            ⚠️ These are estimates based on your current setup. Actual values depend on team performance, attendance and sponsor deals.
+          </div>
+
+          {/* Monthly projection summary */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
             {[
-              {label:'Total Revenue',  val:annualRevenue,  color:'#15803d', tip:'Sum of all revenue streams across the full season'},
-              {label:'Total Expenses', val:annualExpenses, color:'#dc2626', tip:'Sum of all costs across the full season'},
-              {label:'Season Result',  val:annualNet,      color:annualNet>=0?'#15803d':'#dc2626', tip:'Net profit or loss for the 2025-26 season'},
+              {label:'Est. monthly revenue',  val:projMonthlyRev,  color:'#15803d', tip:'Base estimate · grows with concessions, sponsors and better attendance'},
+              {label:'Est. monthly expenses',  val:projMonthlyExp,  color:'#dc2626', tip:'Based on current staff salaries + facility maintenance + fixed costs'},
+              {label:'Est. monthly result',    val:projNet,         color:projNet>=0?'#15803d':'#dc2626', tip:'Projected net per month · invest in concessions to improve this'},
             ].map(item=>(
               <Tip key={item.label} text={item.tip}>
-                <div style={{background:'#faf8f5',border:`1px solid #d4cdc5`,borderTop:`3px solid ${item.color}`,borderRadius:10,padding:14,cursor:'help',width:'100%'}}>
+                <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`3px solid ${item.color}`,borderRadius:10,padding:14,cursor:'help',width:'100%'}}>
                   <div style={{fontSize:10,color:'#8a8279',marginBottom:4}}>{item.label}</div>
-                  <div style={{fontSize:20,fontWeight:800,color:item.color}}>{fmt(item.val)}</div>
+                  <div style={{fontSize:18,fontWeight:800,color:item.color}}>{fmt(item.val)}</div>
                 </div>
               </Tip>
             ))}
           </div>
 
-          {/* Bar chart */}
-          <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:10,padding:14,marginBottom:16}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-              <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#8a8279'}}>Revenue vs Expenses</div>
-              <div style={{display:'flex',gap:10,fontSize:10,color:'#8a8279'}}>
-                <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,borderRadius:1,background:'#15803d',display:'inline-block'}}/>Revenue</span>
-                <span style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:8,height:8,borderRadius:1,background:'#dc2626',display:'inline-block'}}/>Expenses</span>
+          {/* Revenue vs Expenses breakdown */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+
+            {/* Revenue */}
+            <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:'3px solid #15803d',borderRadius:10,padding:14}}>
+              <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#15803d',marginBottom:10}}>
+                Revenue streams
+              </div>
+              {PROJ_REV.map(row=>(
+                <div key={row.label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid #f0ece5'}}>
+                  <Tip text={row.tip}>
+                    <span style={{fontSize:11,color:row.val>0?'#1a1512':'#b0a89e',cursor:'help',
+                                  textDecoration:'underline dotted',textDecorationColor:'#c8c0b4'}}>
+                      {row.label}
+                    </span>
+                  </Tip>
+                  <span style={{fontSize:11,fontWeight:600,color:row.val>0?'#15803d':'#b0a89e'}}>
+                    {row.val>0?fmt(row.val):'—'}
+                  </span>
+                </div>
+              ))}
+              <div style={{display:'flex',justifyContent:'space-between',paddingTop:8,marginTop:4,borderTop:'2px solid #d4cdc5'}}>
+                <span style={{fontSize:11,fontWeight:700,color:'#5c554e'}}>Total</span>
+                <span style={{fontSize:12,fontWeight:800,color:'#15803d'}}>{fmt(projMonthlyRev)}</span>
               </div>
             </div>
-            <BarChart rows={rows}/>
+
+            {/* Expenses */}
+            <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:'3px solid #dc2626',borderRadius:10,padding:14}}>
+              <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#dc2626',marginBottom:10}}>
+                Monthly costs
+              </div>
+              {PROJ_EXP.map(row=>(
+                <div key={row.label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid #f0ece5'}}>
+                  <Tip text={row.tip}>
+                    <span style={{fontSize:11,color:row.val>0?'#1a1512':'#b0a89e',cursor:'help',
+                                  textDecoration:'underline dotted',textDecorationColor:'#c8c0b4'}}>
+                      {row.label}
+                    </span>
+                  </Tip>
+                  <span style={{fontSize:11,fontWeight:600,color:row.val>0?'#dc2626':'#b0a89e'}}>
+                    {row.val>0?fmt(row.val):'—'}
+                  </span>
+                </div>
+              ))}
+              <div style={{display:'flex',justifyContent:'space-between',paddingTop:8,marginTop:4,borderTop:'2px solid #d4cdc5'}}>
+                <span style={{fontSize:11,fontWeight:700,color:'#5c554e'}}>Total</span>
+                <span style={{fontSize:12,fontWeight:800,color:'#dc2626'}}>{fmt(projMonthlyExp)}</span>
+              </div>
+            </div>
           </div>
 
-          {/* Annual breakdown table */}
-          <div style={{borderRadius:10,overflow:'hidden',border:'1px solid #d4cdc5'}}>
-            <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-              <thead>
-                <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                  <th style={{padding:'8px 12px',textAlign:'left',fontWeight:700,color:'#5c554e'}}>Month</th>
-                  <th style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#15803d'}}>Revenue</th>
-                  <th style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#dc2626'}}>Expenses</th>
-                  <th style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#5c554e'}}>Net</th>
-                  <th style={{padding:'8px 12px',textAlign:'right',fontWeight:700,color:'#5c554e'}}>Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r,i)=>(
-                  <tr key={i} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5',cursor:'pointer'}}
-                    onClick={()=>{setView('monthly');setSelectedMonth(i)}}>
-                    <td style={{padding:'7px 12px',fontWeight:600,color:'#1a1512'}}>{r.label} '{r.year.toString().slice(2)}</td>
-                    <td style={{padding:'7px 10px',textAlign:'right',color:'#15803d',fontWeight:500}}>{fmt(r.total_revenue)}</td>
-                    <td style={{padding:'7px 10px',textAlign:'right',color:'#dc2626',fontWeight:500}}>{fmt(r.total_expenses)}</td>
-                    <td style={{padding:'7px 10px',textAlign:'right'}}>
-                      <NetBadge value={r.net}/>
-                    </td>
-                    <td style={{padding:'7px 12px',textAlign:'right',fontWeight:600,color:'#1a1512'}}>{fmt(r.balance_end)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr style={{background:'#f0ece5',borderTop:'2px solid #d4cdc5'}}>
-                  <td style={{padding:'8px 12px',fontWeight:700,color:'#1a1512'}}>Season Total</td>
-                  <td style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#15803d'}}>{fmt(annualRevenue)}</td>
-                  <td style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#dc2626'}}>{fmt(annualExpenses)}</td>
-                  <td style={{padding:'8px 10px',textAlign:'right'}}><NetBadge value={annualNet}/></td>
-                  <td style={{padding:'8px 12px',textAlign:'right',fontWeight:700,color:'#1a1512'}}>{fmt((franchise?.balance||0)+annualNet)}</td>
-                </tr>
-              </tfoot>
-            </table>
+          {/* Season projection */}
+          <div style={{
+            padding:'12px 16px', borderRadius:8,
+            background:projAnnual>=0?'#f0fdf4':'#fef2f2',
+            border:`1px solid ${projAnnual>=0?'#bbf7d0':'#fecaca'}`,
+            display:'flex',justifyContent:'space-between',alignItems:'center',
+          }}>
+            <Tip text="Estimated result over 9 months of the 2025-26 season">
+              <span style={{fontSize:12,fontWeight:600,color:'#5c554e',cursor:'help'}}>
+                Full season projection (~9 months)
+              </span>
+            </Tip>
+            <span style={{fontSize:15,fontWeight:800,color:projAnnual>=0?'#15803d':'#dc2626'}}>
+              {projAnnual>=0?'+':''}{fmt(projAnnual)}
+            </span>
           </div>
 
-          <div style={{marginTop:10,fontSize:10,color:'#8a8279'}}>
-            Click any month to see the detailed breakdown.
-          </div>
+          {/* How to improve */}
+          {projNet < 100000 && (
+            <div style={{marginTop:12,padding:'10px 14px',background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:8,fontSize:11,color:'#5c554e',lineHeight:1.7}}>
+              <strong style={{color:'#1a1512'}}>How to improve your projection:</strong><br/>
+              🍔 Build concessions in the Arena tab to increase per-game revenue<br/>
+              🤝 Sign sponsors in the Sponsors tab for monthly fixed income<br/>
+              🎟️ Optimise ticket pricing — find the sweet spot between price and attendance<br/>
+              📺 Jumbotron +5% on all concession adoption rates
+            </div>
+          )}
         </div>
       )}
     </div>
