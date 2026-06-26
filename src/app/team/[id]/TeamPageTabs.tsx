@@ -10,6 +10,7 @@ import ArenaView from './ArenaView'
 import TrainingTab from './TrainingTab'
 import FacilitiesTab from './FacilitiesTab'
 import FinancesTab from './FinancesTab'
+import SponsorsTab from './SponsorsTab'
 
 type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors'
 
@@ -67,7 +68,7 @@ export default function TeamPageTabs({
       }}>
         {TABS.map((t, i) => {
           const active = tab === t.key
-          const isComingSoon = ['sponsors'].includes(t.key)
+          const isComingSoon = false
           const showDivider = i === 4
           return (
             <div key={t.key}>
@@ -135,7 +136,7 @@ export default function TeamPageTabs({
         {tab === 'finances'   && (
           <FinancesTab teamId={teamId} teamColor={teamColor} />
         )}
-        {tab === 'sponsors'   && <ComingSoon label="Sponsors" icon="💰" />}
+        {tab === 'sponsors'   && <SponsorsTab teamId={teamId} teamColor={teamColor}/>}
       </div>
     </div>
   )
