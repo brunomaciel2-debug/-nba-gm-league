@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { checkSponsorObjectives } from '@/lib/check-sponsor-objectives'
+import { generatePowerRankings } from '@/lib/generate-power-rankings'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -685,6 +686,12 @@ export async function GET(req: NextRequest) {
       const sponsorResult = await checkSponsorObjectives()
       console.log(`Sponsor objectives — checked: ${sponsorResult.checked}, achieved: ${sponsorResult.achieved}`)
     } catch(sponsorErr) { console.warn('Sponsor objectives check failed:', sponsorErr) }
+
+    // ── POWER RANKINGS ────────────────────────────────────
+    try {
+      const prResult = await generatePowerRankings(week)
+      console.log(`Power Rankings generated: ${prResult.generated} teams`)
+    } catch(prErr) { console.warn('Power Rankings generation failed:', prErr) }
 
 
     return NextResponse.json({ success: true, week, games_simulated: gamesSimulated })

@@ -11,13 +11,14 @@ const NAV_DROPDOWNS = [
     label: 'League',
     icon: 'ti-ball-basketball',
     items: [
-      { label: 'Free Agents',    href: '/free-agents',    icon: 'ti-user-plus' },
-      { label: 'League Leaders', href: '/league-leaders', icon: 'ti-trophy' },
-      { label: 'Schedule',       href: '/schedule',       icon: 'ti-calendar' },
-      { label: 'Standings',      href: '/standings',      icon: 'ti-list-numbers' },
-      { label: 'Teams',          href: '/teams',          icon: 'ti-users' },
-      { label: 'Trade Center',   href: '/trade-center',   icon: 'ti-switch-horizontal' },
-      { label: 'Transactions',   href: '/transactions',   icon: 'ti-arrows-exchange' },
+      { label: 'Free Agents',     href: '/free-agents',      icon: 'ti-user-plus' },
+      { label: 'League Leaders',  href: '/league-leaders',   icon: 'ti-trophy' },
+      { label: 'Power Rankings',  href: '/power-rankings',   icon: 'ti-trending-up' },
+      { label: 'Schedule',        href: '/schedule',         icon: 'ti-calendar' },
+      { label: 'Standings',       href: '/standings',        icon: 'ti-list-numbers' },
+      { label: 'Teams',           href: '/teams',            icon: 'ti-users' },
+      { label: 'Trade Center',    href: '/trade-center',     icon: 'ti-switch-horizontal' },
+      { label: 'Transactions',    href: '/transactions',     icon: 'ti-arrows-exchange' },
     ],
   },
   {
@@ -118,7 +119,6 @@ export default function Navbar() {
     { href: `/inbox`,                    label: 'Inbox',             icon: 'ti-mail' },
   ]
 
-  // All nav items flat for mobile
   const ALL_MOBILE = [
     ...NAV_DROPDOWNS.flatMap(d => d.items),
     ...NAV_LINKS,
@@ -245,8 +245,6 @@ export default function Navbar() {
       {/* NAV BAR */}
       <nav style={{ background: '#faf8f5', borderBottom: '2px solid #d4cdc5', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         <div className="max-w-7xl mx-auto px-4 hidden lg:flex items-center">
-
-          {/* Home */}
           <Link href="/"
             className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
             style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#2d2722',
@@ -257,12 +255,10 @@ export default function Navbar() {
             Home
           </Link>
 
-          {/* Dropdowns */}
           {NAV_DROPDOWNS.map(d => (
             <NavDropdown key={d.label} label={d.label} icon={d.icon} items={d.items} onNavigate={() => {}} />
           ))}
 
-          {/* Direct links */}
           {NAV_LINKS.map(item => (
             <Link key={item.href} href={item.href}
               className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
