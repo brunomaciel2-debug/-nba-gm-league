@@ -369,6 +369,24 @@ export async function checkSponsorObjectives() {
       await supabase.rpc('increment_balance', { p_team_id: teamId, p_amount: bonusAmount })
       await supabase.from('sponsor_objective_tracking').update({ paid: true }).eq('id', tracking.id)
 
+      // Inbox notification
+      const tierLabel = tracking.contract?.tier === 'jersey' ? 'Jersey Patch'
+        : tracking.contract?.tier === 'court' ? 'Court Logo' : 'Courtside Panels'
+      const companyName = tracking.contract?.template?.company_name || 'Sponsor'
+      await supabase.from('inbox_messages').insert({
+        to_team_id: teamId,
+        type: 'sponsor',
+        subject: `🎯 Sponsor objective achieved — ${fmtM(bonusAmount)} credited!`,
+        body: `Your ${tierLabel} sponsor (${companyName}) has credited a bonus of ${fmtM(bonusAmount)} to your account.\n\nObjective: "${obj.description}"\n\nThe amount has been added to your franchise balance automatically.`,
+        read: false,
+        metadata: {
+          objective_type: obj.objective_type,
+          bonus_amount: bonusAmount,
+          tier: tracking.contract?.tier,
+          company_name: companyName,
+        },
+      })
+
       const { data: gm } = await supabase.from('profiles')
         .select('email,full_name').eq('team_id', teamId).single()
 

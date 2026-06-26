@@ -11,8 +11,9 @@ import TrainingTab from './TrainingTab'
 import FacilitiesTab from './FacilitiesTab'
 import FinancesTab from './FinancesTab'
 import SponsorsTab from './SponsorsTab'
+import GoalsTab from './GoalsTab'
 
-type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors'
+type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors' | 'goals'
 
 const TABS: { key: Tab, label: string, icon: string }[] = [
   { key: 'roster',     label: 'Roster',      icon: '👥' },
@@ -23,6 +24,7 @@ const TABS: { key: Tab, label: string, icon: string }[] = [
   { key: 'facilities', label: 'Facilities',  icon: '🏟️' },
   { key: 'finances',   label: 'Finances',    icon: '💵' },
   { key: 'sponsors',   label: 'Sponsors',    icon: '💰' },
+  { key: 'goals',      label: 'Goals',       icon: '🎯' },
 ]
 
 function ComingSoon({ label, icon }: { label: string, icon: string }) {
@@ -136,6 +138,7 @@ export default function TeamPageTabs({
         {tab === 'finances'   && (
           <FinancesTab teamId={teamId} teamColor={teamColor} />
         )}
+        {tab === 'goals'     && <GoalsTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'sponsors'   && <SponsorsTab teamId={teamId} teamColor={teamColor}/>}
       </div>
     </div>
