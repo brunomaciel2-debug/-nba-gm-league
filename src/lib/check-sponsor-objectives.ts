@@ -253,7 +253,9 @@ export async function checkSponsorObjectives() {
           .eq('games.season','2025-26')
           .eq('team_id', teamId)
         if (boxes?.length) {
-          const gameIds = [...new Set((boxes||[]).map((b:any)=>b.game_id))]
+          const gameIdSet: Record<string,boolean> = {}
+          ;(boxes||[]).forEach((b:any)=>{ if(b.game_id) gameIdSet[b.game_id]=true })
+          const gameIds = Object.keys(gameIdSet)
           const totalPts = (boxes||[]).reduce((t:number,b:any)=>t+(b.pts||0),0)
           currentValue = Math.round(totalPts / Math.max(1,gameIds.length))
           isAchieved = currentValue >= obj.threshold
