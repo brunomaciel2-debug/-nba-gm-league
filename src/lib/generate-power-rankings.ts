@@ -15,6 +15,24 @@ export async function generatePowerRankings(week: number) {
 
   if (!teams?.length) return { generated: 0 }
 
+  // Fetch top 2 players per team by real_ovr
+  const { data: topPlayers } = await supabase
+    .from('players')
+    .select('id,name,pos,team_id,real_ovr')
+    .eq('status', 'active')
+    .not('team_id', 'is', null)
+    .order('real_ovr', { ascending: false })
+
+  // Build top 2 per team map
+  const teamPlayersMap: Record<string, {name:string,pos:string}[]> = {}
+  for (const p of (topPlayers || [])) {
+    if (!p.team_id) continue
+    if (!teamPlayersMap[p.team_id]) teamPlayersMap[p.team_id] = []
+    if (teamPlayersMap[p.team_id].length < 2) {
+      teamPlayersMap[p.team_id].push({ name: p.name, pos: p.pos })
+    }
+  }
+
   // Fetch last 5 games for each team
   const { data: recentGames } = await supabase
     .from('games')
@@ -60,6 +78,8 @@ export async function generatePowerRankings(week: number) {
     division: string
     confRank: number
     prevRank: number | null
+    starPlayer: string
+    secondPlayer: string
   }
 
   const teamContexts: TeamContext[] = teams.map((team: any) => {
@@ -120,6 +140,8 @@ export async function generatePowerRankings(week: number) {
       division: team.division,
       confRank,
       prevRank: prevRankMap[team.id] || null,
+      starPlayer: teamPlayersMap[team.id]?.[0]?.name || '',
+      secondPlayer: teamPlayersMap[team.id]?.[1]?.name || '',
     }
   })
 
@@ -136,7 +158,7 @@ export async function generatePowerRankings(week: number) {
   for (let i = 0; i < teamContexts.length; i += 5) {
     const batch = teamContexts.slice(i, i + 5)
 
-    const prompt = `You are a seasoned NBA journalist writing the weekly Power Rankings column. Write a sharp, accurate, 2-sentence comment for each of these teams. Be critical when needed, optimistic when warranted. Sound human — like a columnist with opinions, not a data report. Reference specific stats, streaks, or injuries when relevant. Do NOT start every sentence the same way.
+    const prompt = `You are a seasoned NBA journalist writing the weekly Power Rankings column. Write a sharp, accurate, 2-sentence comment for each of these teams. Be critical when needed, optimistic when warranted. Sound human — like a columnist with opinions, not a data report. Reference players by name, mention specific recent performances, streaks, or injuries when relevant. Do NOT mention OVR ratings or numerical attributes. Do NOT start every sentence the same way.
 
 Week ${week} data:
 
@@ -145,6 +167,7 @@ TEAM ${i + idx + 1}: ${t.name}
 - Record: ${t.record} (${t.conference}, #${t.confRank} in conference)
 - Last 5: ${t.last5} | Current streak: ${t.streak}
 - Scoring: ${t.ppg} PPG offensively, ${t.oppPpg} PPG allowed
+- Star player: ${t.starPlayer || 'N/A'}${t.secondPlayer ? ` | Second option: ${t.secondPlayer}` : ''}
 - Notable injuries: ${t.injuredPlayers.length ? t.injuredPlayers.join(', ') : 'none'}
 - Previous ranking: ${t.prevRank ? `#${t.prevRank}` : 'first week'}
 `).join('\n')}
@@ -181,7 +204,7 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
         const team = batch[j]
         const rank = i + j + 1
         const commentData = comments.find(c => c.team_id === team.id)
-        const comment = commentData?.comment || `${team.name} sit at ${team.record} and continue their season.`
+        const comment = commentData?.comment || `${team.name} sit at ${team.record}${team.starPlayer ? ` with ${team.starPlayer} leading the charge` : ''} and continue their season.`
 
         const prevRank = team.prevRank
         const trend = !prevRank ? 'new'
