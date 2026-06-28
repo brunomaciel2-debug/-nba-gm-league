@@ -326,7 +326,7 @@ export default function AdminMediaPage() {
             color: mainTab===t ? '#1a1512' : '#5c554e',
             fontWeight: mainTab===t ? 700 : 500,
           }}>
-            {t==='logos' ? '🏀 Logos' : t==='photos' ? '👤 Photos' : '👕 Jerseys'}
+            {t==='logos' ? '🏀 Logos' : t==='photos' ? '👤 Personnel Photos' : '🤝 Sponsors'}
           </button>
         ))}
       </div>
