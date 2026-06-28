@@ -244,6 +244,45 @@ function JerseyPreview({ jerseyUrl, companyName }: { jerseyUrl: string, companyN
   )
 }
 
+function SponsorImagePreview({ jerseyUrl, companyName, label, aspect }: { jerseyUrl: string, companyName: string, label: string, aspect: string }) {
+  const [zoomed, setZoomed] = useState(false)
+  return (
+    <>
+      <div onClick={() => setZoomed(true)} style={{
+        marginBottom:12, borderRadius:8, border:'1px solid #e2dcd5',
+        background:'#f5f1eb', textAlign:'center', padding:8, cursor:'zoom-in',
+      }}>
+        <div style={{aspectRatio:aspect, overflow:'hidden', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center'}}>
+          <img src={jerseyUrl} alt={companyName} style={{maxWidth:'100%', maxHeight:'100%', objectFit:'contain'}}/>
+        </div>
+        <div style={{fontSize:9, color:'#8a8279', marginTop:4}}>🔍 Click to enlarge</div>
+      </div>
+      {zoomed && (
+        <div onClick={() => setZoomed(false)} style={{
+          position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,0.75)',
+          display:'flex', alignItems:'center', justifyContent:'center', cursor:'zoom-out',
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background:'#faf8f5', borderRadius:16, padding:24,
+            boxShadow:'0 24px 64px rgba(0,0,0,0.4)',
+            display:'flex', flexDirection:'column', alignItems:'center', gap:12,
+            maxWidth:'90vw',
+          }}>
+            <img src={jerseyUrl} alt={companyName} style={{maxHeight:'70vh', maxWidth:'80vw', objectFit:'contain', borderRadius:8}}/>
+            <div style={{fontSize:13, fontWeight:600, color:'#1a1512'}}>{companyName}</div>
+            <div style={{fontSize:11, color:'#8a8279'}}>{label}</div>
+            <button onClick={() => setZoomed(false)} style={{
+              padding:'6px 20px', fontSize:12, fontWeight:600,
+              border:'1px solid #d4cdc5', borderRadius:8,
+              background:'#f0ece5', color:'#5c554e', cursor:'pointer',
+            }}>Close</button>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
 function SponsorCard({
   entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl, rivalName
 }: {
@@ -269,9 +308,15 @@ function SponsorCard({
       borderRadius:12, padding:16,
       opacity: hasContract && !entry.chosen ? 0.5 : 1,
     }}>
-      {/* Jersey preview — only for jersey tier */}
-      {entry.tier === 'jersey' && jerseyUrl && (
+      {/* Sponsor image preview — all tiers */}
+      {jerseyUrl && entry.tier === 'jersey' && (
         <JerseyPreview jerseyUrl={jerseyUrl} companyName={t.company_name} />
+      )}
+      {jerseyUrl && entry.tier === 'court' && (
+        <SponsorImagePreview jerseyUrl={jerseyUrl} companyName={t.company_name} label="Court logo preview" aspect="3/2"/>
+      )}
+      {jerseyUrl && entry.tier === 'panels' && (
+        <SponsorImagePreview jerseyUrl={jerseyUrl} companyName={t.company_name} label="Courtside panel preview" aspect="4/1"/>
       )}
 
       {/* Header */}
@@ -544,9 +589,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
           .map((entry, idx) => {
             const entryObjectives = objectives.filter(o => o.template_id === entry.template_id)
             const hasContract = contracts.some(c => c.tier === activeTier)
-            const jerseyImg = activeTier === 'jersey'
-              ? jerseys.find(j => j.option_number === idx + 1)
-              : undefined
+            const sponsorImg = jerseys.find(j => j.option_number === idx + 1 && j.tier === activeTier)
             return (
               <SponsorCard
                 key={entry.id}
@@ -557,7 +600,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
                 onSign={handleSign}
                 signing={signing}
                 hasContract={hasContract}
-                jerseyUrl={jerseyImg?.jersey_url}
+                jerseyUrl={sponsorImg?.jersey_url}
                 rivalName={rivalName}
               />
             )
