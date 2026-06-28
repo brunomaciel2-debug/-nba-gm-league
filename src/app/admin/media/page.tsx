@@ -88,33 +88,41 @@ function PhotoRow({ item, type, onSave, saving, saved }: {
   )
 }
 
-// ── JERSEY ROW ──
-function JerseyRow({ teamId, teamName, option, existing, onSave, saving, saved }: {
-  teamId: string, teamName: string, option: number,
+// ── SPONSOR IMAGE ROW ──
+const SPONSOR_TIER_CONFIG = {
+  jersey: { label: 'Jersey', icon: '👕', color: '#1d4ed8', aspect: '64px / 80px', fit: 'contain' as const },
+  court:  { label: 'Court Logo', icon: '🏀', color: '#b45309', aspect: '80px / 60px', fit: 'contain' as const },
+  panels: { label: 'Courtside Panel', icon: '📺', color: '#15803d', aspect: '80px / 40px', fit: 'contain' as const },
+}
+
+function SponsorImageRow({ teamId, tier, option, existing, onSave, saving, saved }: {
+  teamId: string, tier: string, option: number,
   existing: any|null,
-  onSave: (teamId:string, option:number, companyName:string, url:string) => void,
+  onSave: (teamId:string, tier:string, option:number, companyName:string, url:string) => void,
   saving: string|null, saved: string|null
 }) {
-  const key = `${teamId}_${option}`
+  const key = `${teamId}_${tier}_${option}`
   const [url, setUrl] = React.useState(existing?.jersey_url||'')
   const [company, setCompany] = React.useState(existing?.company_name||'')
+  const cfg = SPONSOR_TIER_CONFIG[tier as keyof typeof SPONSOR_TIER_CONFIG] || SPONSOR_TIER_CONFIG.jersey
 
   return (
     <div style={{display:'flex',alignItems:'center',gap:12,padding:14,
                  background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12}}>
       {/* Preview */}
-      <div style={{width:64,height:80,borderRadius:8,flexShrink:0,overflow:'hidden',
-                   background:'#f0ece5',border:'2px solid #d4cdc5',display:'flex',
-                   alignItems:'center',justifyContent:'center'}}>
+      <div style={{width:80,height:60,borderRadius:8,flexShrink:0,overflow:'hidden',
+                   background:'#f0ece5',border:`2px solid ${url?cfg.color:'#d4cdc5'}`,
+                   display:'flex',alignItems:'center',justifyContent:'center'}}>
         {url
-          ? <img src={url} alt="" style={{width:'100%',height:'100%',objectFit:'contain'}}
+          ? <img src={url} alt="" style={{width:'100%',height:'100%',objectFit:cfg.fit}}
                  onError={e=>(e.currentTarget.style.display='none')}/>
-          : <span style={{fontSize:10,color:'#8a8279',textAlign:'center'}}>No jersey</span>}
+          : <span style={{fontSize:20}}>{cfg.icon}</span>}
       </div>
       {/* Option badge */}
-      <div style={{width:28,height:28,borderRadius:8,background:'#e8e2d6',flexShrink:0,
+      <div style={{width:28,height:28,borderRadius:8,background:cfg.color+'22',flexShrink:0,
+                   border:`1px solid ${cfg.color}44`,
                    display:'flex',alignItems:'center',justifyContent:'center',
-                   fontSize:13,fontWeight:800,color:'#5c554e'}}>
+                   fontSize:13,fontWeight:800,color:cfg.color}}>
         {option}
       </div>
       {/* Fields */}
@@ -124,16 +132,16 @@ function JerseyRow({ teamId, teamName, option, existing, onSave, saving, saved }
           style={{fontSize:11,padding:'5px 8px',borderRadius:6,
                   background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
         <input value={url} onChange={e=>setUrl(e.target.value)}
-          placeholder="Jersey image URL..."
+          placeholder={`${cfg.label} image URL...`}
           style={{fontSize:11,padding:'5px 8px',borderRadius:6,
                   background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
       </div>
-      <button onClick={()=>onSave(teamId, option, company, url)}
+      <button onClick={()=>onSave(teamId, tier, option, company, url)}
         disabled={saving===key||!url.trim()||!company.trim()}
         style={{fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:8,flexShrink:0,
                 minWidth:72,border:'none',cursor:url&&company?'pointer':'not-allowed',
                 opacity:saving===key||!url||!company?0.4:1,
-                background:saved===key?'#15803d':'#1d4ed8',color:'#fff'}}>
+                background:saved===key?'#15803d':cfg.color,color:'#fff'}}>
         {saving===key?'...':saved===key?'✔':'Save'}
       </button>
     </div>
@@ -158,10 +166,11 @@ export default function AdminMediaPage() {
   const [selPlayerTeam, setSelPlayerTeam] = useState<string>('')
   const [selStaffTeam,  setSelStaffTeam]  = useState<string>('')
   const [selJerseyTeam, setSelJerseyTeam] = useState<string>('')
+  const [jerseyTier, setJerseyTier] = useState<'jersey'|'court'|'panels'>('jersey')
   const [photoItems,    setPhotoItems]    = useState<any[]>([])
   const [staffItems,    setStaffItems]    = useState<any[]>([])
   const [prospectItems, setProspectItems] = useState<any[]>([])
-  const [jerseyItems,   setJerseyItems]   = useState<any[]>([])
+  const [sponsorImages, setSponsorImages] = useState<any[]>([])
 
   useEffect(() => {
     supabase.from('teams').select('id,name,logo_url').order('name')
@@ -213,11 +222,11 @@ export default function AdminMediaPage() {
   }, [selStaffTeam])
 
   useEffect(() => {
-    if (!selJerseyTeam) { setJerseyItems([]); return }
+    if (!selJerseyTeam) { setSponsorImages([]); return }
     supabase.from('sponsor_jersey_images')
       .select('*').eq('team_id', selJerseyTeam).eq('season','2025-26')
-      .order('option_number')
-      .then(({data}) => setJerseyItems(data||[]))
+      .order('tier').order('option_number')
+      .then(({data}) => setSponsorImages(data||[]))
   }, [selJerseyTeam])
 
   const saveLogo = async (id:string, url:string, table:string) => {
@@ -244,21 +253,21 @@ export default function AdminMediaPage() {
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }
 
-  const saveJersey = async (teamId:string, option:number, companyName:string, url:string) => {
-    const key = `${teamId}_${option}`
+  const saveSponsorImage = async (teamId:string, tier:string, option:number, companyName:string, url:string) => {
+    const key = `${teamId}_${tier}_${option}`
     setSaving(key)
-    const existing = jerseyItems.find(j=>j.option_number===option)
+    const existing = sponsorImages.find(j=>j.option_number===option && j.tier===tier)
     if (existing) {
       await supabase.from('sponsor_jersey_images')
         .update({jersey_url:url, company_name:companyName})
         .eq('id', existing.id)
     } else {
       await supabase.from('sponsor_jersey_images')
-        .insert({team_id:teamId, option_number:option, company_name:companyName, jersey_url:url, season:'2025-26', tier:'jersey'})
+        .insert({team_id:teamId, option_number:option, company_name:companyName, jersey_url:url, season:'2025-26', tier})
     }
-    setJerseyItems(prev => {
-      const idx = prev.findIndex(j=>j.option_number===option)
-      const updated = {team_id:teamId,option_number:option,company_name:companyName,jersey_url:url}
+    setSponsorImages(prev => {
+      const idx = prev.findIndex(j=>j.option_number===option && j.tier===tier)
+      const updated = {team_id:teamId, option_number:option, company_name:companyName, jersey_url:url, tier}
       if (idx>=0) return prev.map((j,i)=>i===idx?{...j,...updated}:j)
       return [...prev, updated]
     })
@@ -492,15 +501,12 @@ export default function AdminMediaPage() {
                        border:'1px solid #d4cdc5'}}>
             <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,
                          color:'#8a8279',padding:'4px 6px',marginBottom:4}}>NBA Teams</div>
-            {nbaRegular.map((t:any) => {
-              const hasJerseys = selJerseyTeam === t.id
-              return (
-                <button key={t.id} style={sideBtn(hasJerseys)}
-                        onClick={()=>setSelJerseyTeam(t.id)}>
-                  {t.name}
-                </button>
-              )
-            })}
+            {nbaRegular.map((t:any) => (
+              <button key={t.id} style={sideBtn(selJerseyTeam===t.id)}
+                      onClick={()=>setSelJerseyTeam(t.id)}>
+                {t.name}
+              </button>
+            ))}
           </div>
 
           {/* Content */}
@@ -508,25 +514,43 @@ export default function AdminMediaPage() {
             {!selJerseyTeam ? (
               <div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,
                            background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>
-                Select a team to manage their sponsor jerseys
+                Select a team to manage their sponsor images
               </div>
             ) : (
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:'#1a1512',marginBottom:4}}>
-                  {nbaRegular.find(t=>t.id===selJerseyTeam)?.name} — Jersey Sponsor Options
+                  {nbaRegular.find((t:any)=>t.id===selJerseyTeam)?.name} — Sponsor Images
                 </div>
-                <div style={{fontSize:11,color:'#8a8279',marginBottom:16}}>
-                  3 options per team · each with a different company logo · GMs choose one at season start
+                <div style={{fontSize:11,color:'#8a8279',marginBottom:12}}>
+                  3 options per tier · GMs see these before choosing a sponsor
                 </div>
+
+                {/* Tier tabs */}
+                <div style={{display:'flex',gap:6,marginBottom:14,borderBottom:'2px solid #e2dcd5'}}>
+                  {(['jersey','court','panels'] as const).map(tier => {
+                    const cfg = SPONSOR_TIER_CONFIG[tier]
+                    return (
+                      <button key={tier} onClick={()=>setJerseyTier(tier)}
+                        style={{padding:'6px 14px',fontSize:12,fontWeight:600,cursor:'pointer',
+                                border:'none',background:'transparent',marginBottom:-2,
+                                borderBottom:`3px solid ${jerseyTier===tier?cfg.color:'transparent'}`,
+                                color:jerseyTier===tier?cfg.color:'#8a8279'}}>
+                        {cfg.icon} {cfg.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Image slots */}
                 <div style={{display:'flex',flexDirection:'column',gap:10}}>
                   {[1,2,3].map(opt => (
-                    <JerseyRow
+                    <SponsorImageRow
                       key={opt}
                       teamId={selJerseyTeam}
-                      teamName={nbaRegular.find(t=>t.id===selJerseyTeam)?.name||''}
+                      tier={jerseyTier}
                       option={opt}
-                      existing={jerseyItems.find(j=>j.option_number===opt)||null}
-                      onSave={saveJersey}
+                      existing={sponsorImages.find(j=>j.option_number===opt && j.tier===jerseyTier)||null}
+                      onSave={saveSponsorImage}
                       saving={saving}
                       saved={saved}
                     />
