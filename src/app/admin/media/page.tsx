@@ -98,16 +98,17 @@ const SPONSOR_TIER_CONFIG = {
 function SponsorImageRow({ teamId, tier, option, existing, onSave, saving, saved }: {
   teamId: string, tier: string, option: number,
   existing: any|null,
-  onSave: (teamId:string, tier:string, option:number, companyName:string, url:string) => void,
+  onSave: (teamId:string, tier:string, option:number, companyName:string, url:string, description:string) => void,
   saving: string|null, saved: string|null
 }) {
   const key = `${teamId}_${tier}_${option}`
   const [url, setUrl] = React.useState(existing?.jersey_url||'')
   const [company, setCompany] = React.useState(existing?.company_name||'')
+  const [description, setDescription] = React.useState(existing?.company_description||'')
   const cfg = SPONSOR_TIER_CONFIG[tier as keyof typeof SPONSOR_TIER_CONFIG] || SPONSOR_TIER_CONFIG.jersey
 
   return (
-    <div style={{display:'flex',alignItems:'center',gap:12,padding:14,
+    <div style={{display:'flex',alignItems:'flex-start',gap:12,padding:14,
                  background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12}}>
       {/* Preview */}
       <div style={{width:80,height:60,borderRadius:8,flexShrink:0,overflow:'hidden',
@@ -120,7 +121,7 @@ function SponsorImageRow({ teamId, tier, option, existing, onSave, saving, saved
       </div>
       {/* Option badge */}
       <div style={{width:28,height:28,borderRadius:8,background:cfg.color+'22',flexShrink:0,
-                   border:`1px solid ${cfg.color}44`,
+                   border:`1px solid ${cfg.color}44`,marginTop:4,
                    display:'flex',alignItems:'center',justifyContent:'center',
                    fontSize:13,fontWeight:800,color:cfg.color}}>
         {option}
@@ -128,20 +129,25 @@ function SponsorImageRow({ teamId, tier, option, existing, onSave, saving, saved
       {/* Fields */}
       <div style={{flex:1,display:'flex',flexDirection:'column',gap:6}}>
         <input value={company} onChange={e=>setCompany(e.target.value)}
-          placeholder="Company name (e.g. KraftHeinz)"
+          placeholder="Company name (e.g. Adobe)"
           style={{fontSize:11,padding:'5px 8px',borderRadius:6,
                   background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
         <input value={url} onChange={e=>setUrl(e.target.value)}
           placeholder={`${cfg.label} image URL...`}
           style={{fontSize:11,padding:'5px 8px',borderRadius:6,
                   background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
+        <textarea value={description} onChange={e=>setDescription(e.target.value)}
+          placeholder="Brief company description (shown as tooltip to GMs)..."
+          rows={2}
+          style={{fontSize:11,padding:'5px 8px',borderRadius:6,resize:'vertical',
+                  background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
       </div>
-      <button onClick={()=>onSave(teamId, tier, option, company, url)}
+      <button onClick={()=>onSave(teamId, tier, option, company, url, description)}
         disabled={saving===key||!url.trim()||!company.trim()}
         style={{fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:8,flexShrink:0,
                 minWidth:72,border:'none',cursor:url&&company?'pointer':'not-allowed',
                 opacity:saving===key||!url||!company?0.4:1,
-                background:saved===key?'#15803d':cfg.color,color:'#fff'}}>
+                background:saved===key?'#15803d':cfg.color,color:'#fff',marginTop:4}}>
         {saving===key?'...':saved===key?'✔':'Save'}
       </button>
     </div>
@@ -253,21 +259,21 @@ export default function AdminMediaPage() {
     setSaving(null); setSaved(id); setTimeout(()=>setSaved(null),1500)
   }
 
-  const saveSponsorImage = async (teamId:string, tier:string, option:number, companyName:string, url:string) => {
+  const saveSponsorImage = async (teamId:string, tier:string, option:number, companyName:string, url:string, description:string) => {
     const key = `${teamId}_${tier}_${option}`
     setSaving(key)
     const existing = sponsorImages.find(j=>j.option_number===option && j.tier===tier)
     if (existing) {
       await supabase.from('sponsor_jersey_images')
-        .update({jersey_url:url, company_name:companyName})
+        .update({jersey_url:url, company_name:companyName, company_description:description||null})
         .eq('id', existing.id)
     } else {
       await supabase.from('sponsor_jersey_images')
-        .insert({team_id:teamId, option_number:option, company_name:companyName, jersey_url:url, season:'2025-26', tier})
+        .insert({team_id:teamId, option_number:option, company_name:companyName, jersey_url:url, company_description:description||null, season:'2025-26', tier})
     }
     setSponsorImages(prev => {
       const idx = prev.findIndex(j=>j.option_number===option && j.tier===tier)
-      const updated = {team_id:teamId, option_number:option, company_name:companyName, jersey_url:url, tier}
+      const updated = {team_id:teamId, option_number:option, company_name:companyName, jersey_url:url, company_description:description, tier}
       if (idx>=0) return prev.map((j,i)=>i===idx?{...j,...updated}:j)
       return [...prev, updated]
     })

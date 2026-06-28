@@ -49,6 +49,7 @@ type JerseyImage = {
   company_name: string
   jersey_url: string
   tier: string
+  company_description?: string
 }
 
 type PoolEntry = {
@@ -137,7 +138,9 @@ function Tip({ text, children }: TipProps) {
           position:'absolute',bottom:'calc(100% + 6px)',left:'50%',
           transform:'translateX(-50%)',zIndex:200,
           background:'#1a1512',color:'#f5f1eb',fontSize:11,
-          padding:'6px 10px',borderRadius:6,whiteSpace:'nowrap',
+          padding:'10px 12px',borderRadius:8,
+          maxWidth:260,width:'max-content',
+          whiteSpace:'pre-line',lineHeight:1.6,
           boxShadow:'0 4px 12px rgba(0,0,0,0.3)',
           border:'1px solid rgba(255,255,255,0.1)',
           pointerEvents:'none',
@@ -285,7 +288,7 @@ function SponsorImagePreview({ jerseyUrl, companyName, label, aspect }: { jersey
 }
 
 function SponsorCard({
-  entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl, rivalName
+  entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl, rivalName, realCompanyName, companyDescription
 }: {
   entry: PoolEntry
   objectives: Objective[]
@@ -296,6 +299,8 @@ function SponsorCard({
   hasContract: boolean
   jerseyUrl?: string
   rivalName?: string
+  realCompanyName?: string
+  companyDescription?: string
 }) {
   const t = entry.template!
   const tier = TIER_CONFIG[entry.tier as keyof typeof TIER_CONFIG]
@@ -330,7 +335,14 @@ function SponsorCard({
           </div>
         )}
         <div style={{flex:1}}>
-          <div style={{fontSize:14,fontWeight:700,color:'#1a1512'}}>{t.company_name}</div>
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <div style={{fontSize:14,fontWeight:700,color:'#1a1512'}}>{realCompanyName || t.company_name}</div>
+            {companyDescription && (
+              <Tip text={companyDescription}>
+                <span style={{fontSize:11,color:'#8a8279',cursor:'help',border:'1px solid #d4cdc5',borderRadius:'50%',width:16,height:16,display:'inline-flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>ℹ</span>
+              </Tip>
+            )}
+          </div>
         </div>
         {entry.chosen && (
           <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:tier.color,color:'#fff'}}>
@@ -603,6 +615,8 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
                 hasContract={hasContract}
                 jerseyUrl={sponsorImg?.jersey_url}
                 rivalName={rivalName}
+                realCompanyName={sponsorImg?.company_name}
+                companyDescription={sponsorImg?.company_description}
               />
             )
           })
