@@ -227,7 +227,7 @@ export default function AdminMediaPage() {
       .select('*').eq('team_id', selJerseyTeam).eq('season','2025-26')
       .order('tier').order('option_number')
       .then(({data}) => setSponsorImages(data||[]))
-  }, [selJerseyTeam])
+  }, [selJerseyTeam, jerseyTier])
 
   const saveLogo = async (id:string, url:string, table:string) => {
     if (!url.trim()) return
@@ -545,7 +545,7 @@ export default function AdminMediaPage() {
                 <div style={{display:'flex',flexDirection:'column',gap:10}}>
                   {[1,2,3].map(opt => (
                     <SponsorImageRow
-                      key={opt}
+                      key={`${selJerseyTeam}_${jerseyTier}_${opt}`}
                       teamId={selJerseyTeam}
                       tier={jerseyTier}
                       option={opt}
