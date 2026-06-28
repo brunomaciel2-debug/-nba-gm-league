@@ -48,6 +48,7 @@ type JerseyImage = {
   option_number: number
   company_name: string
   jersey_url: string
+  tier: string
 }
 
 type PoolEntry = {
