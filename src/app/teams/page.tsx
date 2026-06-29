@@ -15,6 +15,12 @@ export default async function TeamsPage() {
     if(!byConf[t.conference][t.division]) byConf[t.conference][t.division]=[]
     byConf[t.conference][t.division].push(t)
   })
+  // Sort teams alphabetically within each division
+  Object.values(byConf).forEach(conf =>
+    Object.values(conf).forEach(divTeams =>
+      (divTeams as Team[]).sort((a,b) => a.name.localeCompare(b.name))
+    )
+  )
   const capFmt = (n:number) => '$'+Math.round(n/1000000).toLocaleString()+'M'
   const space = (t:Team) => t.salary_cap - t.cap_used
 
