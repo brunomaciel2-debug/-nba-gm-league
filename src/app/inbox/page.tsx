@@ -152,7 +152,9 @@ export default function InboxPage() {
   }
 
   // Get unique types for filter tabs
-  const types = [...new Set(messages.map(m => m.type))].filter(Boolean)
+  const typeSet: Record<string,boolean> = {}
+  messages.forEach(m => { if(m.type) typeSet[m.type] = true })
+  const types = Object.keys(typeSet)
   const unreadCount = messages.filter(m => !m.read).length
 
   const filtered = filter === 'unread'
