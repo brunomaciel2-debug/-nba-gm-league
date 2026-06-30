@@ -311,7 +311,94 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     )
   }
 
-  // ── 14. GM INACTIVITY ────────────────────────────────
+  // ── 14. NEW AWARDS (All-Star, MVP, DPOY, ROY, etc.) ────
+  const { data: recentAwards } = await supabase
+    .from('awards')
+    .select('player_id,team_id,award_type,players(name,team_id)')
+    .gte('created_at', new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString())
+
+  const AWARD_LABELS: Record<string,string> = {
+    mvp:'Most Valuable Player', dpoy:'Defensive Player of the Year', roy:'Rookie of the Year',
+    coy:'Coach of the Year', mip:'Most Improved Player', finals_mvp:'Finals MVP',
+    all_nba_1:'1st Team All-NBA', all_nba_2:'2nd Team All-NBA', all_nba_3:'3rd Team All-NBA',
+    all_rookie_1:'1st Rookie Team', all_rookie_2:'2nd Rookie Team',
+    all_star_east:'Eastern Conference All-Star', all_star_west:'Western Conference All-Star',
+  }
+
+  for (const award of (recentAwards||[])) {
+    const playerTeamId = (award.players as any)?.team_id || award.team_id
+    const playerName = (award.players as any)?.name || 'A player'
+    if (!playerTeamId) continue
+    const label = AWARD_LABELS[award.award_type] || award.award_type
+    const isAllStar = award.award_type.startsWith('all_star')
+    await notify(
+      playerTeamId,
+      'awards',
+      isAllStar ? `⭐ ${playerName} selected as All-Star!` : `🏆 ${playerName} wins ${label}!`,
+      isAllStar
+        ? `Congratulations! ${playerName} has been selected as a ${label}. A great honour for your franchise.`
+        : `${playerName} has been awarded ${label}. A landmark achievement for your franchise.`,
+      { player_name: playerName, award_type: award.award_type }
+    )
+  }
+
+  // ── 15. DRAFT PICKS MADE ───────────────────────────────
+  const { data: recentPicks } = await supabase
+    .from('draft_results')
+    .select('team_id,pick_number,round,prospects(name)')
+    .gte('created_at', new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString())
+
+  for (const pick of (recentPicks||[])) {
+    const prospectName = (pick.prospects as any)?.name || 'A prospect'
+    await notify(
+      pick.team_id,
+      'fa',
+      `🎓 Draft Pick #${pick.pick_number}: ${prospectName}`,
+      `With the #${pick.pick_number} pick (Round ${pick.round}), your team has selected ${prospectName}. They've been added to your roster — check their full attribute breakdown on their player page.`,
+      { pick_number: pick.pick_number, round: pick.round, prospect_name: prospectName }
+    )
+  }
+
+  // ── 16. CAP SPACE WARNINGS ──────────────────────────────
+  const CAP_LIMIT = 180_000_000
+  const MIN_ROSTER = 12
+  for (const team of (teams||[])) {
+    const capUsed = team.cap_used || 0
+    const capSpace = CAP_LIMIT - capUsed
+    const pctUsed = capUsed / CAP_LIMIT
+
+    if (pctUsed >= 0.97) {
+      await notify(
+        team.id,
+        'contract',
+        `⚠️ Cap space critically low`,
+        `Your team has only $${(capSpace / 1_000_000).toFixed(1)}M in cap space remaining (${(pctUsed * 100).toFixed(0)}% of the $${(CAP_LIMIT / 1_000_000).toFixed(0)}M cap used). Be careful with further signings — you may need to make a roster move to stay compliant.`,
+        { cap_used: capUsed, remaining: capSpace }
+      )
+    }
+
+    const { count: rosterCount } = await supabase
+      .from('players')
+      .select('id', { count: 'exact', head: true })
+      .eq('team_id', team.id)
+      .eq('status', 'active')
+
+    if ((rosterCount ?? 0) < MIN_ROSTER) {
+      const spotsNeeded = MIN_ROSTER - (rosterCount ?? 0)
+      const maxAffordable = Math.floor(capSpace / 1_000_000)
+      if (capSpace < spotsNeeded * 1_000_000) {
+        await notify(
+          team.id,
+          'contract',
+          `⚠️ Risk of falling below roster minimum`,
+          `Your team has ${rosterCount} players and only $${(capSpace / 1_000_000).toFixed(1)}M in cap space. You need ${spotsNeeded} more player${spotsNeeded !== 1 ? 's' : ''} to reach the ${MIN_ROSTER}-player minimum, and your remaining cap space may not be enough to sign them all at minimum salary.`,
+          { roster_size: rosterCount, cap_space: capSpace }
+        )
+      }
+    }
+  }
+
+  // ── 17. GM INACTIVITY ────────────────────────────────
   const { data: allProfiles } = await supabase
     .from('profiles')
     .select('team_id,display_name,last_seen')
@@ -334,4 +421,213 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   }
 
   return { notificationsSent: true }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADDITIONAL NOTIFICATION HELPERS (called from other routes)
+// ═══════════════════════════════════════════════════════════
+}
+
+// ═══════════════════════════════════════════════════════════
+// FREE AGENCY — notify teams that lost the FA race
+// ═══════════════════════════════════════════════════════════
+export async function notifyFALosers(
+  playerId: number,
+  playerName: string,
+  winningTeamId: string,
+  losingTeamIds: string[]
+) {
+  for (const teamId of losingTeamIds) {
+    if (teamId === winningTeamId) continue
+    await notify(
+      teamId,
+      'fa',
+      `❌ Missed out on ${playerName}`,
+      `${playerName} has signed elsewhere. Your offer was not selected this time — keep an eye on the free agent pool for other opportunities.`,
+      { player_id: playerId, winning_team_id: winningTeamId }
+    )
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// TRADES — accepted / rejected / player arrival
+// ═══════════════════════════════════════════════════════════
+export async function notifyTradeAccepted(
+  proposalId: string,
+  initiatorTeamId: string,
+  respondingTeamId: string,
+  respondingTeamName: string
+) {
+  await notify(
+    initiatorTeamId,
+    'trade',
+    `✅ Trade accepted by ${respondingTeamName}`,
+    `Your trade proposal has been accepted by ${respondingTeamName}. The trade has been processed — check your roster for the updated players.`,
+    { proposal_id: proposalId }
+  )
+}
+
+export async function notifyTradeRejected(
+  proposalId: string,
+  initiatorTeamId: string,
+  respondingTeamId: string,
+  respondingTeamName: string,
+  reason?: string
+) {
+  await notify(
+    initiatorTeamId,
+    'trade',
+    `❌ Trade rejected by ${respondingTeamName}`,
+    `Your trade proposal has been rejected by ${respondingTeamName}.${reason ? `\n\nReason: ${reason}` : ''}\n\nYou can submit a revised offer or look for other trade partners.`,
+    { proposal_id: proposalId }
+  )
+}
+
+export async function notifyPlayerArrival(
+  teamId: string,
+  playerName: string,
+  fromTeamName: string
+) {
+  await notify(
+    teamId,
+    'trade',
+    `🤝 ${playerName} has joined your team!`,
+    `${playerName} has arrived via trade from ${fromTeamName}. They're now on your active roster — review your depth chart to integrate them into your rotation.`,
+    { player_name: playerName }
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// AWARDS & ALL-STAR
+// ═══════════════════════════════════════════════════════════
+export async function notifyAllStarSelection(
+  teamId: string,
+  playerName: string,
+  conference: 'eastern' | 'western'
+) {
+  await notify(
+    teamId,
+    'awards',
+    `⭐ ${playerName} selected as All-Star!`,
+    `Congratulations! ${playerName} has been selected for the ${conference === 'eastern' ? 'Eastern' : 'Western'} Conference All-Star team. A great honour for your franchise.`,
+    { player_name: playerName, conference }
+  )
+}
+
+const AWARD_LABELS: Record<string, string> = {
+  mvp: 'Most Valuable Player',
+  dpoy: 'Defensive Player of the Year',
+  roy: 'Rookie of the Year',
+  coy: 'Coach of the Year',
+  mip: 'Most Improved Player',
+  finals_mvp: 'Finals MVP',
+  all_nba_1: '1st Team All-NBA',
+  all_nba_2: '2nd Team All-NBA',
+  all_nba_3: '3rd Team All-NBA',
+  all_rookie_1: '1st Rookie Team',
+  all_rookie_2: '2nd Rookie Team',
+}
+
+export async function notifySeasonAward(
+  teamId: string,
+  playerName: string,
+  awardType: string
+) {
+  const label = AWARD_LABELS[awardType] || awardType
+  await notify(
+    teamId,
+    'awards',
+    `🏆 ${playerName} wins ${label}!`,
+    `${playerName} has been awarded ${label} for the 2025-26 season. A landmark achievement for your franchise.`,
+    { player_name: playerName, award_type: awardType }
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// PLAYOFFS & SEASON END
+// ═══════════════════════════════════════════════════════════
+export async function notifyPlayoffElimination(
+  teamId: string,
+  eliminatedBy: string,
+  round: string
+) {
+  await notify(
+    teamId,
+    'standings',
+    `🏁 Eliminated from the playoffs`,
+    `Your season has come to an end — eliminated by ${eliminatedBy} in the ${round}. Time to regroup and start planning for next season: free agency, the draft, and roster moves are ahead.`,
+    { eliminated_by: eliminatedBy, round }
+  )
+}
+
+export async function notifyChampionship(teamId: string, opponentName: string) {
+  await notify(
+    teamId,
+    'standings',
+    `🏆 CHAMPIONS! 🏆`,
+    `Congratulations — your team has won the championship, defeating ${opponentName}! A historic achievement for the franchise.`,
+    { opponent: opponentName }
+  )
+}
+
+export async function notifyRunnerUp(teamId: string, championName: string) {
+  await notify(
+    teamId,
+    'standings',
+    `🥈 Runner-Up`,
+    `Your team made it to the Finals but fell short, losing to ${championName}. A strong season overall — building blocks are in place for another run.`,
+    { champion: championName }
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// DRAFT
+// ═══════════════════════════════════════════════════════════
+export async function notifyDraftPickMade(
+  teamId: string,
+  pickNumber: number,
+  round: number,
+  prospectName: string
+) {
+  await notify(
+    teamId,
+    'fa',
+    `🎓 Draft Pick #${pickNumber}: ${prospectName}`,
+    `With the #${pickNumber} pick (Round ${round}), your team has selected ${prospectName}. They've been added to your roster — check their full attribute breakdown on their player page.`,
+    { pick_number: pickNumber, round, prospect_name: prospectName }
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// CAP SPACE WARNINGS
+// ═══════════════════════════════════════════════════════════
+export async function notifyCapSpaceCritical(
+  teamId: string,
+  capUsed: number,
+  capLimit: number
+) {
+  const remaining = capLimit - capUsed
+  await notify(
+    teamId,
+    'contract',
+    `⚠️ Cap space critically low`,
+    `Your team has only $${(remaining / 1_000_000).toFixed(1)}M in cap space remaining (${((capUsed / capLimit) * 100).toFixed(0)}% of the $${(capLimit / 1_000_000).toFixed(0)}M cap used). Be careful with further signings — you may need to make a roster move to stay compliant.`,
+    { cap_used: capUsed, cap_limit: capLimit, remaining }
+  )
+}
+
+export async function notifyCapSpaceForRosterMinimum(
+  teamId: string,
+  rosterSize: number,
+  capSpace: number,
+  minRoster: number
+) {
+  const spotsNeeded = minRoster - rosterSize
+  await notify(
+    teamId,
+    'contract',
+    `⚠️ Risk of falling below roster minimum`,
+    `Your team has ${rosterSize} players and only $${(capSpace / 1_000_000).toFixed(1)}M in cap space. You need ${spotsNeeded} more player${spotsNeeded !== 1 ? 's' : ''} to reach the ${minRoster}-player minimum, and your remaining cap space may not be enough to sign them all at minimum salary.`,
+    { roster_size: rosterSize, cap_space: capSpace }
+  )
 }

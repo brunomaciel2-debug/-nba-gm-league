@@ -106,6 +106,19 @@ async function resolveOffers() {
       metadata: { player_id: playerId },
     })
 
+    // Notify losing teams (valid offers that weren't chosen)
+    const losingTeamIds = validOffers.map((o: any) => o.team_id).filter((id: string) => id !== teamId)
+    for (const losingTeamId of losingTeamIds) {
+      await admin.from('inbox_messages').insert({
+        to_team_id: losingTeamId,
+        type: 'fa',
+        subject: `❌ Missed out on ${player.name}`,
+        body: `${player.name} has signed elsewhere. Your offer was not selected this time — keep an eye on the free agent pool for other opportunities.`,
+        read: false,
+        metadata: { player_id: playerId, winning_team_id: teamId },
+      })
+    }
+
     await admin.from('fa_offers').delete().eq('player_id', playerId)
     resolved++
   }
