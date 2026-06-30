@@ -1,12 +1,13 @@
 'use client'
 import Link from 'next/link'
 
-const ROLE_ORDER = ['head_coach','assistant_coach','trainer','physio']
+const ROLE_ORDER = ['head_coach','assistant_coach','trainer','physio','scout']
 const ROLE_INFO: Record<string,{label:string,color:string,icon:string}> = {
   head_coach:      {label:'Head Coach',      color:'#b45309',icon:'🏆'},
   assistant_coach: {label:'Assistant Coach', color:'#1d4ed8',icon:'📋'},
   trainer:         {label:'Trainer',         color:'#15803d',icon:'💪'},
   physio:          {label:'Physio',          color:'#6d28d9',icon:'🏥'},
+  scout:           {label:'Scout',           color:'#0e7490',icon:'🔍'},
 }
 const ATK_LABELS: Record<string,string> = {
   motion:'Motion',pickroll:'Pick & Roll',transition:'Fast Break',iso:'Isolation',post:'Post-Up'
@@ -135,6 +136,13 @@ export default function CoachingStaff({ staff }: { staff: any[] }) {
                 )}
                 {c.role==='physio' && (
                   <StatBar label="Rehab Speed" value={c.rehab_speed} color="#6d28d9" />
+                )}
+                {c.role==='scout' && (
+                  <>
+                    <StatBar label="Evaluation" value={c.scouting_evaluation} color="#0e7490" />
+                    <StatBar label="Network"    value={c.scouting_network}    color="#1d4ed8" />
+                    <StatBar label="Experience" value={c.scouting_experience} color="#6d28d9" />
+                  </>
                 )}
               </div>
             </Link>

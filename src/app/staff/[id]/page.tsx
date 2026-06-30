@@ -21,6 +21,9 @@ const TIPS: Record<string,string> = {
   rehab_speed:     "Rehab Speed — reduces the recovery time of injured players. A physio rated 80+ can cut injury absence by up to 30%, keeping key players on the court.",
   style_boost:     "Style Match Boost — this percentage bonus is applied when the GM weekly tactical orders match this coach preferred style. For example, if the GM sets Pick & Roll and the coach prefers Pick & Roll, the team gets this performance boost. Set your weekly orders to align with your coach for maximum effect.",
   personality:     "Coach Personality — affects player development and team chemistry. Calm coaches (1-4) benefit low-ego players with consistency below 60. Intense coaches (7-10) motivate high-ego players with consistency above 75. A Head Coach and Assistant Coach with complementary personalities (one calm, one intense) give a +5% development bonus across the squad.",
+  scouting_evaluation: "Evaluation — the scout's raw talent-judging ability. Directly drives how many scouting points your team earns each week, which determines how quickly you unlock higher scouting tiers.",
+  scouting_network:    "Network — the scout's contacts across college programs, agents and international leagues. Reduces the effective cost and improves the speed of higher-tier scouting sessions.",
+  scouting_experience: "Experience — years spent evaluating talent. Experienced scouts generate more consistent weekly scouting points and accelerate tier progression.",
 }
 
 function Tooltip({ text }: { text: string }) {
@@ -43,6 +46,7 @@ const ROLE_INFO: Record<string,{label:string,color:string,icon:string}> = {
   assistant_coach: {label:'Assistant Coach', color:'#1d4ed8',icon:'ti-clipboard-list'},
   trainer:         {label:'Trainer',         color:'#15803d',icon:'ti-activity'},
   physio:          {label:'Physio',          color:'#6d28d9',icon:'ti-heart-rate-monitor'},
+  scout:           {label:'Scout',           color:'#0e7490',icon:'ti-search'},
 }
 
 const ATK: Record<string,string> = {motion:'Motion',pickroll:'Pick & Roll',transition:'Fast Break',iso:'Isolation',post:'Post-Up'}
@@ -75,6 +79,7 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
   const info = ROLE_INFO[coach.role] || { label: coach.role, color: '#5c554e', icon: 'ti-user' }
   const tc = team ? readableTeamColor((team as any).color) : '#5c554e'
   const isCoach = coach.role === 'head_coach' || coach.role === 'assistant_coach'
+  const isScout = coach.role === 'scout'
 
   const contractYears = Array.from({ length: coach.contract_years || 1 }, (_, i) => {
     const yr = 2025 + i
@@ -224,6 +229,26 @@ export default async function StaffPage({ params }: { params: { id: string } }) 
                 A rehab speed of <strong style={{color:'#1a1512'}}>{coach.rehab_speed}</strong> reduces injury recovery time by approximately{' '}
                 <strong style={{color:'#6d28d9'}}>{Math.round((coach.rehab_speed-50)/50*30)}%</strong>.
               </div>
+            </div>
+          )}
+
+          {isScout && (
+            <div className="rounded-xl p-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+              <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e'}}>Scouting Attributes</div>
+              <StatRow label="Evaluation" value={coach.scouting_evaluation} tipKey="scouting_evaluation" color="#0e7490" />
+              <StatRow label="Network"    value={coach.scouting_network}    tipKey="scouting_network" color="#1d4ed8" />
+              <StatRow label="Experience" value={coach.scouting_experience} tipKey="scouting_experience" color="#6d28d9" />
+              <div className="mt-4 p-3 rounded-lg text-sm" style={{background:'#eee8df',color:'#5c554e',lineHeight:1.5}}>
+                Estimated weekly scouting points: <strong style={{color:'#0e7490'}}>
+                  {Math.round((coach.scouting_evaluation||0)*0.5 + (coach.scouting_experience||0)*0.3 + (coach.scouting_network||0)*0.2)}
+                </strong>. Higher Evaluation accelerates tier progression; Network reduces the effective cost of advanced scouting sessions.
+              </div>
+              {team && (
+                <Link href="/scouting" className="inline-block mt-3 text-xs font-bold px-3 py-1.5 rounded-lg no-underline"
+                      style={{background:'#0e7490',color:'#fff'}}>
+                  Go to Scouting →
+                </Link>
+              )}
             </div>
           )}
         </div>
