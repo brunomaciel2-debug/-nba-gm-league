@@ -15,7 +15,6 @@ const NAV_DROPDOWNS = [
       { label: 'Free Agents',     href: '/free-agents',      icon: 'ti-user-plus' },
       { label: 'League Leaders',  href: '/league-leaders',   icon: 'ti-trophy' },
       { label: 'Power Rankings',  href: '/power-rankings',   icon: 'ti-trending-up' },
-      { label: 'Cap Space',       href: '/cap-space',        icon: 'ti-coin' },
       { label: 'Schedule',        href: '/schedule',         icon: 'ti-calendar' },
       { label: 'Standings',       href: '/standings',        icon: 'ti-list-numbers' },
       { label: 'Teams',           href: '/teams',            icon: 'ti-users' },
