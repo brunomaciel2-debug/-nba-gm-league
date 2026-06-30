@@ -6,29 +6,34 @@ const supabase = createClient(
 )
 
 // ── TIER CONFIGURATION ──────────────────────────────────
+// Credit cost per reveal IMPROVES at higher tiers (better ratio),
+// rewarding patience. Maintenance is a recurring weekly cost that
+// increases the longer a team holds a higher tier — representing
+// the overhead of a larger scouting operation (extra staff, travel,
+// equipment), independent of whether sessions are actually used.
 export const SCOUT_TIERS = {
   1: {
     label: 'Tier 1',
     pointsRequired: 100,
     revealCount: 6,
-    creditCost: 10,
-    moneyCost: 0,
+    creditCost: 10,           // ~1.7 credits per attribute
+    weeklyMaintenance: 0,
     description: 'Local scouting network — college games, combine reports',
   },
   2: {
     label: 'Tier 2',
     pointsRequired: 250,
     revealCount: 14,
-    creditCost: 35,
-    moneyCost: 150_000,
+    creditCost: 15,           // ~1.1 credits per attribute — better ratio than Tier 1
+    weeklyMaintenance: 15_000,
     description: 'Regional travel — in-person workouts, deeper film study',
   },
   3: {
     label: 'Tier 3',
     pointsRequired: 400,
     revealCount: 24,
-    creditCost: 80,
-    moneyCost: 400_000,
+    creditCost: 20,           // ~0.8 credits per attribute — best ratio
+    weeklyMaintenance: 40_000,
     description: 'International scouting — private workouts, full team of evaluators',
   },
 }
@@ -52,8 +57,9 @@ function getCurrentTier(points: number): number {
   return 0
 }
 
-// ── WEEKLY POINTS GENERATION ────────────────────────────
-// Called by the weekly cron — adds scouting points based on scout quality
+// ── WEEKLY POINTS GENERATION + MAINTENANCE BILLING ──────
+// Called by the weekly cron — adds scouting points based on scout quality,
+// and bills weekly maintenance cost for whatever tier the team currently holds.
 export async function generateWeeklyScoutPoints() {
   const { data: scouts } = await supabase
     .from('coaches')
@@ -70,12 +76,9 @@ export async function generateWeeklyScoutPoints() {
     const experience = scout.scouting_experience ?? 50
     const network = scout.scouting_network ?? 50
 
-    // Weekly points formula: evaluation is the primary driver, experience accelerates,
-    // network gives a smaller secondary boost
     const basePoints = Math.round(
       (evaluation * 0.5) + (experience * 0.3) + (network * 0.2)
     )
-    // Add small randomness for realism (±15%)
     const variance = basePoints * (0.85 + Math.random() * 0.3)
     const weeklyPoints = Math.max(5, Math.round(variance))
 
@@ -114,10 +117,50 @@ export async function generateWeeklyScoutPoints() {
         to_team_id: scout.team_id,
         type: 'scouting',
         subject: `🔍 Scouting Tier ${newTier} unlocked!`,
-        body: `${scout.name} has reached Tier ${newTier} scouting capability!\n\nYou can now reveal up to ${tierInfo.revealCount} attributes per session for ${tierInfo.creditCost} credits${tierInfo.moneyCost > 0 ? ` + $${(tierInfo.moneyCost/1000).toFixed(0)}K` : ''}.\n\nVisit the Scouting tab to start evaluating draft prospects.`,
+        body: `${scout.name} has reached Tier ${newTier} scouting capability!\n\nYou can now reveal up to ${tierInfo.revealCount} attributes per session for ${tierInfo.creditCost} credits (a better credits-per-attribute ratio than lower tiers).${tierInfo.weeklyMaintenance > 0 ? `\n\nHolding this tier costs $${(tierInfo.weeklyMaintenance/1000).toFixed(0)}K/week in scouting operation overhead, billed automatically from your balance.` : ''}\n\nVisit the Scouting tab to start evaluating draft prospects.`,
         read: false,
         metadata: { new_tier: newTier, points: newPoints },
       })
+    }
+
+    // ── Weekly maintenance billing for current tier ──────
+    if (newTier > 0) {
+      const tierInfo = SCOUT_TIERS[newTier as 1|2|3]
+      if (tierInfo.weeklyMaintenance > 0) {
+        const { data: finances } = await supabase
+          .from('franchise_finances')
+          .select('balance')
+          .eq('team_id', scout.team_id)
+          .single()
+
+        if (finances) {
+          const newBalance = (finances.balance || 0) - tierInfo.weeklyMaintenance
+          await supabase.from('franchise_finances').update({
+            balance: newBalance,
+          }).eq('team_id', scout.team_id)
+
+          await supabase.from('franchise_transactions').insert({
+            team_id: scout.team_id,
+            type: 'expense',
+            category: 'scouting_maintenance',
+            amount: tierInfo.weeklyMaintenance,
+            description: `Weekly scouting operation overhead — Tier ${newTier}`,
+            season: '2025-26',
+          })
+
+          // Warn if maintenance pushed balance negative or low
+          if (newBalance < 0) {
+            await supabase.from('inbox_messages').insert({
+              to_team_id: scout.team_id,
+              type: 'scouting',
+              subject: `⚠️ Scouting maintenance pushed your balance negative`,
+              body: `Your Tier ${newTier} scouting operation costs $${(tierInfo.weeklyMaintenance/1000).toFixed(0)}K/week to maintain. This week's charge has brought your balance to $${(newBalance/1_000_000).toFixed(2)}M. Consider your financial situation before further spending.`,
+              read: false,
+              metadata: { tier: newTier, balance: newBalance },
+            })
+          }
+        }
+      }
     }
 
     updated++
@@ -127,6 +170,8 @@ export async function generateWeeklyScoutPoints() {
 }
 
 // ── REVEAL ATTRIBUTES (spend a session) ─────────────────
+// Note: creditCost is the ONLY per-session cost. There is no additional
+// money cost per session — money is billed separately as weekly maintenance.
 export async function revealAttributes(
   teamId: string,
   tier: 1 | 2 | 3,
@@ -158,15 +203,7 @@ export async function revealAttributes(
     return { success: false, error: `Not enough scouting credits — this session costs ${tierConfig.creditCost} credits, you have ${progress.points ?? 0}` }
   }
 
-  // Check money if tier 2/3
-  if (tierConfig.moneyCost > 0) {
-    const { data: finances } = await supabase.from('franchise_finances').select('balance').eq('team_id', teamId).single()
-    if (!finances || (finances.balance ?? 0) < tierConfig.moneyCost) {
-      return { success: false, error: `Insufficient funds — this session costs $${(tierConfig.moneyCost/1000).toFixed(0)}K` }
-    }
-  }
-
-  // Deduct credits balance
+  // Deduct credits balance (only cost — no per-session money charge)
   await supabase.from('scout_progress').update({
     points: (progress.points ?? 0) - tierConfig.creditCost,
     updated_at: new Date().toISOString(),
@@ -185,17 +222,6 @@ export async function revealAttributes(
     .upsert(insertRows, { onConflict: 'team_id,prospect_id,attribute_name,season', ignoreDuplicates: true })
 
   if (insertError) return { success: false, error: insertError.message }
-
-  // Deduct money cost
-  if (tierConfig.moneyCost > 0) {
-    await supabase.rpc('increment_balance', { p_team_id: teamId, p_amount: -tierConfig.moneyCost })
-    await supabase.from('franchise_transactions').insert({
-      team_id: teamId, type: 'expense', category: 'scouting',
-      amount: tierConfig.moneyCost,
-      description: `Tier ${tier} scouting session — ${reveals.length} attributes revealed`,
-      season: '2025-26',
-    })
-  }
 
   return { success: true }
 }

@@ -4,9 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 
 const TIERS = {
-  1: { label: 'Tier 1', pointsRequired: 100, revealCount: 6, creditCost: 10, moneyCost: 0, desc: 'Local scouting network — college games, combine reports' },
-  2: { label: 'Tier 2', pointsRequired: 250, revealCount: 14, creditCost: 35, moneyCost: 150_000, desc: 'Regional travel — in-person workouts, deeper film study' },
-  3: { label: 'Tier 3', pointsRequired: 400, revealCount: 24, creditCost: 80, moneyCost: 400_000, desc: 'International scouting — private workouts, full team of evaluators' },
+  1: { label: 'Tier 1', pointsRequired: 100, revealCount: 6, creditCost: 10, weeklyMaintenance: 0, desc: 'Local scouting network — college games, combine reports' },
+  2: { label: 'Tier 2', pointsRequired: 250, revealCount: 14, creditCost: 15, weeklyMaintenance: 15_000, desc: 'Regional travel — in-person workouts, deeper film study' },
+  3: { label: 'Tier 3', pointsRequired: 400, revealCount: 24, creditCost: 20, weeklyMaintenance: 40_000, desc: 'International scouting — private workouts, full team of evaluators' },
 }
 
 const POS_COLOR: Record<string,string> = { PG:'#1d4ed8', SG:'#6d28d9', SF:'#15803d', PF:'#b45309', C:'#dc2626' }
@@ -190,6 +190,9 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
       {/* Tier selector */}
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#8a8279',marginBottom:8}}>How Scouting Works</div>
+        <div style={{marginBottom:10,padding:'10px 12px',borderRadius:8,background:'#fef3c7',border:'1px solid #fcd34d',fontSize:11,color:'#b45309',lineHeight:1.5}}>
+          💡 Higher tiers cost less per attribute revealed — it often pays to save credits and wait for a higher tier rather than spending early. But holding Tier 2/3 comes with a recurring weekly maintenance cost, billed automatically from your balance.
+        </div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
           {([1,2,3] as const).map(t => {
             const info = TIERS[t]
@@ -211,8 +214,13 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
                 <div style={{fontSize:11,color:'#5c554e',marginBottom:8,lineHeight:1.4}}>{info.desc}</div>
                 <div style={{fontSize:11,color:'#5c554e'}}>Reveals up to <strong>{info.revealCount}</strong> attributes</div>
                 <div style={{fontSize:11,color:'#5c554e',marginTop:2}}>
-                  Cost: <strong>{info.creditCost} credits</strong>{info.moneyCost > 0 && <> + <strong>{fmt(info.moneyCost)}</strong></>}
+                  Cost: <strong>{info.creditCost} credits</strong> <span style={{color:'#8a8279'}}>({(info.creditCost/info.revealCount).toFixed(1)}/attr)</span>
                 </div>
+                {info.weeklyMaintenance > 0 && (
+                  <div style={{fontSize:11,color:'#b45309',marginTop:4,fontWeight:600}}>
+                    🏷️ {fmt(info.weeklyMaintenance)}/week upkeep
+                  </div>
+                )}
               </button>
             )
           })}
