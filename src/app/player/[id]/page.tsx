@@ -232,6 +232,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       {/* CONTRACT EXTENSION — only shows if eligible (≤2 years left) and on a roster */}
       {p.team_id && <ContractExtensionPanel playerId={p.id}/>}
 
+      {/* CUT / WAIVE — only visible to the player's own GM or commissioner */}
+      {p.team_id && <CutButton playerId={p.id} playerTeamId={p.team_id}/>}
+
       {p.team_id && p.nba_recruitable !== false && (
         <div className="mb-4">
           {p.on_gleague_assignment ? (
