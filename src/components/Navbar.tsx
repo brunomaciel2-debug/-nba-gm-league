@@ -12,7 +12,6 @@ const NAV_DROPDOWNS = [
     icon: 'ti-ball-basketball',
     items: [
       { label: 'Cap Space',       href: '/cap-space',        icon: 'ti-cash' },
-      { label: 'Contract Rules',  href: '/rules/contracts',  icon: 'ti-file-text' },
       { label: 'Free Agents',     href: '/free-agents',      icon: 'ti-user-plus' },
       { label: 'League Leaders',  href: '/league-leaders',   icon: 'ti-trophy' },
       { label: 'Power Rankings',  href: '/power-rankings',   icon: 'ti-trending-up' },
@@ -31,6 +30,19 @@ const NAV_DROPDOWNS = [
       { label: 'Awards',    href: '/awards',   icon: 'ti-award' },
       { label: 'Draft',     href: '/draft',    icon: 'ti-clipboard-list' },
       { label: 'Playoffs',  href: '/playoffs', icon: 'ti-tournament' },
+    ],
+  },
+  {
+    label: 'Rules & Info',
+    icon: 'ti-book',
+    items: [
+      { label: 'Salary Cap Rules',    href: '/rules/cap',       icon: 'ti-cash' },
+      { label: 'Contract Rules',      href: '/rules/contracts', icon: 'ti-file-text' },
+      { label: 'Trade Rules',         href: '/rules/trades',    icon: 'ti-switch-horizontal' },
+      { label: 'Training Rules',      href: '/rules/training',  icon: 'ti-barbell' },
+      { label: 'Weekly Orders Guide', href: '/rules/orders',    icon: 'ti-clipboard-list' },
+      { label: 'Scouting Guide',      href: '/rules/scouting',  icon: 'ti-search' },
+      { label: 'Sponsor Objectives',  href: '/rules/sponsors',  icon: 'ti-target-arrow' },
     ],
   },
 ]
