@@ -18,15 +18,18 @@ export async function POST(req: NextRequest) {
   const { data: gm } = await supabaseAdmin.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
   if (!gm) return NextResponse.json({ error: 'No GM profile found' }, { status: 403 })
 
-  const { tier, reveals } = await req.json()
+  const { tier, reveals, teamId: bodyTeamId } = await req.json()
 
-  if (!gm.team_id) return NextResponse.json({ error: 'No team associated with this account' }, { status: 403 })
+  const isCommissioner = gm.role === 'commissioner'
+  const actingTeamId = isCommissioner ? bodyTeamId : gm.team_id
+
+  if (!actingTeamId) return NextResponse.json({ error: 'No team specified' }, { status: 403 })
   if (![1,2,3].includes(tier)) return NextResponse.json({ error: 'Invalid tier' }, { status: 400 })
   if (!Array.isArray(reveals) || reveals.length === 0) {
     return NextResponse.json({ error: 'No attributes selected' }, { status: 400 })
   }
 
-  const result = await revealAttributes(gm.team_id, tier, reveals)
+  const result = await revealAttributes(actingTeamId, tier, reveals)
 
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: 400 })

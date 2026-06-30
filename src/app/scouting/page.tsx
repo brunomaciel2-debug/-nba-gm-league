@@ -24,6 +24,9 @@ function fmt(n: number) { return n >= 1_000_000 ? '$'+(n/1_000_000).toFixed(1)+'
 export default function ScoutingPage() {
   const [loading, setLoading] = useState(true)
   const [teamId, setTeamId] = useState<string|null>(null)
+  const [isCommissioner, setIsCommissioner] = useState(false)
+  const [allTeams, setAllTeams] = useState<any[]>([])
+  const [commTeamId, setCommTeamId] = useState<string>('')
   const [scout, setScout] = useState<any>(null)
   const [progress, setProgress] = useState<any>(null)
   const [prospects, setProspects] = useState<any[]>([])
@@ -35,20 +38,37 @@ export default function ScoutingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState('')
 
+  const effectiveTeamId = teamId || commTeamId
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { setLoading(false); return }
-      const { data: gm } = await supabase.from('gm_profiles').select('team_id').eq('id', user.id).single()
-      if (!gm?.team_id) { setLoading(false); return }
+      const { data: gm } = await supabase.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
+      if (!gm) { setLoading(false); return }
+
+      if (gm.role === 'commissioner') {
+        setIsCommissioner(true)
+        const { data: teams } = await supabase.from('teams').select('id,name').not('id','in','(ALL,RVS,ROO,SOP)').order('name')
+        setAllTeams(teams || [])
+        setLoading(false)
+        return
+      }
+
+      if (!gm.team_id) { setLoading(false); return }
       setTeamId(gm.team_id)
+      setLoading(false)
+    })
+  }, [])
 
-      const [{ data: sc }, { data: pr }, { data: prospects }, { data: reveals }] = await Promise.all([
-        supabase.from('coaches').select('*').eq('team_id', gm.team_id).eq('role','scout').maybeSingle(),
-        supabase.from('scout_progress').select('*').eq('team_id', gm.team_id).eq('season','2025-26').maybeSingle(),
-        supabase.from('prospects').select('id,name,pos,college,photo_url,overall').eq('season','2027').order('name'),
-        supabase.from('scouting_reveals').select('prospect_id,attribute_name').eq('team_id', gm.team_id).eq('season','2025-26'),
-      ])
-
+  useEffect(() => {
+    if (!effectiveTeamId) return
+    setLoading(true)
+    Promise.all([
+      supabase.from('coaches').select('*').eq('team_id', effectiveTeamId).eq('role','scout').maybeSingle(),
+      supabase.from('scout_progress').select('*').eq('team_id', effectiveTeamId).eq('season','2025-26').maybeSingle(),
+      supabase.from('prospects').select('id,name,pos,college,photo_url,overall').eq('season','2027').order('name'),
+      supabase.from('scouting_reveals').select('prospect_id,attribute_name').eq('team_id', effectiveTeamId).eq('season','2025-26'),
+    ]).then(([{ data: sc }, { data: pr }, { data: prospects }, { data: reveals }]) => {
       setScout(sc)
       setProgress(pr || { points: 0, lifetime_points: 0 })
       setProspects(prospects || [])
@@ -61,10 +81,11 @@ export default function ScoutingPage() {
       setRevealedMap(map)
       setLoading(false)
     })
-  }, [])
+  }, [effectiveTeamId])
 
-  if (loading) return <div className="p-8 text-center" style={{color:'#5c554e'}}>Loading...</div>
-  if (!teamId) return (
+  if (loading && !effectiveTeamId) return <div className="p-8 text-center" style={{color:'#5c554e'}}>Loading...</div>
+
+  if (!teamId && !isCommissioner) return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center p-8 rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
         <div className="text-4xl mb-4">🔒</div>
@@ -72,6 +93,20 @@ export default function ScoutingPage() {
       </div>
     </div>
   )
+
+  if (isCommissioner && !commTeamId) return (
+    <div className="max-w-md mx-auto px-4 py-12">
+      <h2 className="text-lg font-bold mb-4" style={{color:'#1a1612'}}>Commissioner — Select Team to View Scouting</h2>
+      <select onChange={e => setCommTeamId(e.target.value)} defaultValue=""
+        className="w-full text-sm px-3 py-3 rounded-xl outline-none"
+        style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1612'}}>
+        <option value="">— Choose a team —</option>
+        {allTeams.map((t:any) => <option key={t.id} value={t.id}>{t.name}</option>)}
+      </select>
+    </div>
+  )
+
+  if (loading) return <div className="p-8 text-center" style={{color:'#5c554e'}}>Loading...</div>
 
   const lifetimePoints = progress?.lifetime_points || 0
   const spendablePoints = progress?.points || 0
@@ -108,7 +143,7 @@ export default function ScoutingPage() {
     const res = await fetch('/api/scouting/reveal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-      body: JSON.stringify({ tier: selectedTier, reveals: cart }),
+      body: JSON.stringify({ tier: selectedTier, reveals: cart, teamId: effectiveTeamId }),
     })
     const json = await res.json()
     if (res.ok) {
@@ -135,6 +170,12 @@ export default function ScoutingPage() {
         <p className="text-sm" style={{color:'#8a8279'}}>
           Evaluate the 2026-27 draft class. Reveal hidden attributes to make informed draft decisions.
         </p>
+        {isCommissioner && (
+          <button onClick={() => setCommTeamId('')}
+            style={{marginTop:8,fontSize:11,fontWeight:600,color:'#1d4ed8',background:'none',border:'none',cursor:'pointer',padding:0}}>
+            ← Switch team ({allTeams.find(t=>t.id===commTeamId)?.name})
+          </button>
+        )}
       </div>
 
       {/* Scout card */}
