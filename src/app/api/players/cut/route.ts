@@ -36,27 +36,24 @@ export async function POST(req: NextRequest) {
   }
 
   // Release player — becomes a free agent
+  // NOTE: salary remains on the releasing team's cap (dead cap) until another
+  // team signs the player as a free agent. It does NOT free up cap space here.
   await supabaseAdmin.from('players').update({
     team_id: null,
-    salary: 0,
     contract_years: 0,
   }).eq('id', playerId)
 
-  // Update team cap_used — remove this player's salary
-  const { data: team } = await supabaseAdmin.from('teams').select('cap_used').eq('id', player.team_id).single()
-  if (team) {
-    const newCapUsed = Math.max(0, (team.cap_used || 0) - (player.salary || 0))
-    await supabaseAdmin.from('teams').update({ cap_used: newCapUsed }).eq('id', player.team_id)
-  }
+  // cap_used is intentionally left unchanged — dead cap hit remains
+  // until the player is signed by a new team via free agency
 
   // Notify the team
   await supabaseAdmin.from('inbox_messages').insert({
     to_team_id: player.team_id,
     type: 'contract',
     subject: `✂️ ${player.name} released to free agency`,
-    body: `${player.name} has been waived and is now an unrestricted free agent. Their salary of $${((player.salary||0)/1_000_000).toFixed(1)}M has been removed from your cap.`,
+    body: `${player.name} has been waived and is now an unrestricted free agent.\n\nNote: their salary of $${((player.salary||0)/1_000_000).toFixed(1)}M remains on your salary cap as dead money until another team signs them. Your cap space will not increase from this move.`,
     read: false,
-    metadata: { player_id: playerId, salary_freed: player.salary },
+    metadata: { player_id: playerId, dead_cap: player.salary },
   })
 
   return NextResponse.json({ success: true })
