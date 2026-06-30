@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { checkSponsorObjectives } from '@/lib/check-sponsor-objectives'
 import { generatePowerRankings } from '@/lib/generate-power-rankings'
 import { runPostSimNotifications } from '@/lib/notifications'
+import { generateWeeklyScoutPoints } from '@/lib/scouting'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -699,6 +700,12 @@ export async function GET(req: NextRequest) {
       await runPostSimNotifications(week, gamesCreated)
       console.log('Post-sim notifications sent')
     } catch(notifErr) { console.warn('Notifications failed:', notifErr) }
+
+    // ── WEEKLY SCOUTING POINTS ─────────────────────────────
+    try {
+      const scoutResult = await generateWeeklyScoutPoints()
+      console.log(`Scouting points generated for ${scoutResult.updated} teams`)
+    } catch(scoutErr) { console.warn('Scouting points generation failed:', scoutErr) }
 
 
     return NextResponse.json({ success: true, week, games_simulated: gamesSimulated })
