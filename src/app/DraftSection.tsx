@@ -14,7 +14,6 @@ function ScrollTable({ children }: { children: React.ReactNode }) {
     const inner = innerRef.current
     if (!top || !bot || !inner) return
 
-    // update mirror width
     const updateWidth = () => {
       const w = inner.scrollWidth
       top.firstElementChild && ((top.firstElementChild as HTMLElement).style.width = w + 'px')
@@ -40,11 +39,9 @@ function ScrollTable({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* Scrollbar no topo */}
       <div ref={topRef} style={{overflowX:'auto',overflowY:'hidden',height:10,background:'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
         <div style={{height:1}}/>
       </div>
-      {/* Tabela */}
       <div ref={botRef} style={{overflowX:'auto'}}>
         <div ref={innerRef} style={{overflowX:'visible'}}>
           {children}
@@ -71,9 +68,12 @@ const TOOLTIPS: Record<string,string> = {
   BH:'Ball Handle (0-100)', PV:'Pass Vision (0-100)', PIQ:'Pass IQ (0-100)',
   AR:'Assist Role (0-100)', CLU:'Clutch (0-100)', CON:'Consistency (0-100)',
   CE:'Crowd Effect (0-100)', STR:'Streaky (0-100)',
+  SPD:'Speed (0-100)', AGI:'Agility (0-100)', STR2:'Strength (0-100)',
+  CS:'Close Shot (0-100)', SDNK:'Standing Dunk (0-100)', TT:'Trash Talk (0-100)', USG:'Usage Rate (0-100)',
   OVR:'Overall rating (Commissioner only)', AGE:'Player age',
 }
 
+// All 30 attributes, matching players table exactly
 const ATTR_COLS = [
   {key:'three',       label:'3PT',  color:'#b45309'},
   {key:'layup',       label:'LAY',  color:'#c2410c'},
@@ -82,6 +82,7 @@ const ATTR_COLS = [
   {key:'ft',          label:'FT',   color:'#0e7490'},
   {key:'siq',         label:'SIQ',  color:'#c2410c'},
   {key:'draw_foul',   label:'DF',   color:'#c2410c'},
+  {key:'usage',       label:'USG',  color:'#c2410c'},
   {key:'blk',         label:'BLK',  color:'#c2410c'},
   {key:'stl',         label:'STL',  color:'#7c3aed'},
   {key:'idef',        label:'IDEF', color:'#166534'},
@@ -90,6 +91,11 @@ const ATTR_COLS = [
   {key:'off_reb',     label:'OREB', color:'#1e40af'},
   {key:'stamina',     label:'STA',  color:'#7c3aed'},
   {key:'durability',  label:'DUR',  color:'#7c3aed'},
+  {key:'speed',       label:'SPD',  color:'#7c3aed'},
+  {key:'agility',     label:'AGI',  color:'#7c3aed'},
+  {key:'strength',    label:'STR2', color:'#7c3aed'},
+  {key:'close_shot',  label:'CS',   color:'#c2410c'},
+  {key:'standing_dunk',label:'SDNK',color:'#c2410c'},
   {key:'ball_hdl',    label:'BH',   color:'#0e7490'},
   {key:'pass_vis',    label:'PV',   color:'#0e7490'},
   {key:'pass_iq',     label:'PIQ',  color:'#0e7490'},
@@ -98,6 +104,7 @@ const ATTR_COLS = [
   {key:'consistency', label:'CON',  color:'#b45309'},
   {key:'crowd_effect',label:'CE',   color:'#b45309'},
   {key:'streaky',     label:'STR',  color:'#b45309'},
+  {key:'trash_talk',  label:'TT',   color:'#b45309'},
 ]
 
 function attrColor(v: number) {
@@ -146,6 +153,8 @@ export default function DraftSection() {
   const [draftPicks, setDraftPicks] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isCommissioner, setIsCommissioner] = useState(false)
+  const [myTeamId, setMyTeamId] = useState<string | null>(null)
+  const [revealedSet, setRevealedSet] = useState<Set<string>>(new Set()) // "prospectId:attribute"
   const [pos, setPos] = useState('All')
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState('name')
@@ -154,9 +163,19 @@ export default function DraftSection() {
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        const { data: gm } = await supabase.from('gm_profiles').select('role').eq('id', user.id).single()
-        if (gm?.role === 'commissioner') setIsCommissioner(true)
+      if (!user) return
+      const { data: gm } = await supabase.from('gm_profiles').select('role,team_id').eq('id', user.id).single()
+      if (!gm) return
+      if (gm.role === 'commissioner') { setIsCommissioner(true); return }
+      setMyTeamId(gm.team_id)
+      if (gm.team_id) {
+        const { data: reveals } = await supabase
+          .from('scouting_reveals')
+          .select('prospect_id,attribute_name')
+          .eq('team_id', gm.team_id)
+          .eq('season', '2025-26')
+        const set = new Set((reveals||[]).map((r:any) => `${r.prospect_id}:${r.attribute_name}`))
+        setRevealedSet(set)
       }
     })
     Promise.all([
@@ -177,6 +196,8 @@ export default function DraftSection() {
     })
   }, [])
 
+  const isRevealed = (prospectId: string, attr: string) => isCommissioner || revealedSet.has(`${prospectId}:${attr}`)
+
   const handleSort = (key: string) => {
     if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setSortKey(key); setSortDir('desc') }
@@ -187,7 +208,9 @@ export default function DraftSection() {
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       if (sortKey === 'name') return sortDir === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
-      const av = a[sortKey] ?? 0, bv = b[sortKey] ?? 0
+      // Can't sort by hidden attributes meaningfully for non-commissioners, but allow it — values default to 0 when hidden
+      const av = isRevealed(a.id, sortKey) ? (a[sortKey] ?? 0) : -1
+      const bv = isRevealed(b.id, sortKey) ? (b[sortKey] ?? 0) : -1
       return sortDir === 'desc' ? bv - av : av - bv
     })
 
@@ -202,6 +225,22 @@ export default function DraftSection() {
           Draft 2026-27
         </span>
       </div>
+
+      {/* Scouting CTA banner */}
+      {!isCommissioner && (
+        <div style={{
+          marginBottom:16, padding:'12px 16px', borderRadius:10,
+          background:'#ede9fe', border:'1px solid #c4b5fd',
+          display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, flexWrap:'wrap',
+        }}>
+          <div style={{fontSize:12,color:'#5b21b6'}}>
+            🔍 Attributes shown as <strong>???</strong> haven't been scouted yet. Use your team's Scout to reveal them.
+          </div>
+          <a href="/scouting" style={{fontSize:12,fontWeight:700,color:'#fff',background:'#6d28d9',padding:'6px 14px',borderRadius:8,textDecoration:'none'}}>
+            Go to Scouting →
+          </a>
+        </div>
+      )}
 
       {/* Sub-tabs */}
       <div className="flex gap-2 mb-5 flex-wrap">
@@ -265,7 +304,6 @@ export default function DraftSection() {
                       <table className="w-full" style={{borderCollapse:'collapse',fontSize:12}}>
                         <thead>
                           <tr style={{background:'#f0ece5'}}>
-                            {/* Fixed columns */}
                             <th className="px-3 py-2.5 text-left sticky left-0 z-10"
                                 style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',
                                         borderRight:'1px solid #e2dcd5',fontWeight:700,fontSize:11,
@@ -285,11 +323,9 @@ export default function DraftSection() {
                             <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',
                                         fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',
                                         borderRight:'1px solid #e2dcd5'}}>WT</th>
-                            {/* OVR só commissioner */}
                             {isCommissioner && (
                               <SortTh label="OVR" active={sortKey==='overall'} dir={sortDir} onClick={() => handleSort('overall')}/>
                             )}
-                            {/* 23 atributos */}
                             {ATTR_COLS.map(c => (
                               <SortTh key={c.key} label={c.label} active={sortKey===c.key} dir={sortDir} onClick={() => handleSort(c.key)}/>
                             ))}
@@ -330,13 +366,20 @@ export default function DraftSection() {
                                   </span>
                                 </td>
                               )}
-                              {ATTR_COLS.map(c => (
-                                <td key={c.key} className="px-2 py-2 text-center" style={{borderRight:'1px solid #e8e3db'}}>
-                                  <span className="text-xs font-bold" style={{color:attrColor(p[c.key]||0)}}>
-                                    {p[c.key]||0}
-                                  </span>
-                                </td>
-                              ))}
+                              {ATTR_COLS.map(c => {
+                                const revealed = isRevealed(p.id, c.key)
+                                return (
+                                  <td key={c.key} className="px-2 py-2 text-center" style={{borderRight:'1px solid #e8e3db'}}>
+                                    {revealed ? (
+                                      <span className="text-xs font-bold" style={{color:attrColor(p[c.key]||0)}}>
+                                        {p[c.key]||0}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs font-bold" style={{color:'#c8c0b4'}} title="Not yet scouted">???</span>
+                                    )}
+                                  </td>
+                                )
+                              })}
                             </tr>
                           ))}
                         </tbody>
@@ -345,7 +388,7 @@ export default function DraftSection() {
                     <div className="px-4 py-2 text-xs"
                          style={{background:'#f5f1eb',borderTop:'1px solid #e2dcd5',color:'#8a8279'}}>
                       Click column headers to sort · Hover i for attribute definitions
-                      {!isCommissioner && <span className="ml-3" style={{color:'#b45309'}}>⚠ OVR hidden — evaluate based on attributes</span>}
+                      {!isCommissioner && <span className="ml-3" style={{color:'#b45309'}}>⚠ OVR hidden — evaluate based on scouted attributes</span>}
                     </div>
                   </div>
                 </>
@@ -371,7 +414,6 @@ export default function DraftSection() {
                   </thead>
                   <tbody>
                     {(() => {
-                      // Sort picks by original team's record (worst first)
                       const sorted = [...draftPicks].sort((a, b) => {
                         const teamA = teams[a.original_team_id]
                         const teamB = teams[b.original_team_id]
@@ -381,7 +423,6 @@ export default function DraftSection() {
                         const lossB = teamB?.losses ?? 0
                         return winsA - winsB || lossB - lossA
                       })
-                      // Fallback: if no picks yet, use standings
                       const rows = sorted.length > 0 ? sorted : standings.slice(0,30).map(t => ({
                         team_id: t.id, original_team_id: t.id
                       }))
