@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifPlayoffBubble, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk } from './notifications-helpers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -80,6 +81,9 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   const teamMap: Record<string,any> = {}
   ;(teams||[]).forEach((t:any) => teamMap[t.id] = t)
 
+  // Clear language cache at start of each simulation run
+  clearLangCache()
+
   // ── 1. WEEKLY RESULTS SUMMARY ─────────────────────────
   for (const team of (teams||[])) {
     const teamGames = (games||[]).filter((g:any) =>
@@ -98,14 +102,20 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
 
     const wins = results.filter(r => r.startsWith('✓')).length
     const losses = results.filter(r => r.startsWith('✗')).length
+    const lang = await getTeamLang(team.id)
 
-    await notify(
-      team.id,
-      'results',
-      `📊 Week ${week} Results — ${wins}W ${losses}L`,
-      `Your week ${week} results:\n\n${results.join('\n')}\n\nSeason record: ${team.wins}W-${team.losses}L`,
-      { week, wins, losses }
-    )
+    const lastGame = teamGames[teamGames.length - 1]
+    const isHome = lastGame.home_team === team.id
+    const opp = isHome ? lastGame.away?.name : lastGame.home?.name
+    const ts = isHome ? lastGame.home_score : lastGame.away_score
+    const os = isHome ? lastGame.away_score : lastGame.home_score
+
+    const notif = notifWeeklyResults(lang, team.name, team.wins, team.losses, { opp, score: `${ts}-${os}`, won: ts > os })
+    const allResults = lang === 'pt'
+      ? `Resultados da semana ${week}:\n\n${results.join('\n')}\n\nRegisto da época: ${team.wins}V-${team.losses}D`
+      : `Your week ${week} results:\n\n${results.join('\n')}\n\nSeason record: ${team.wins}W-${team.losses}L`
+
+    await notify(team.id, 'results', notif.subject, allResults, { week, wins, losses })
   }
 
   // ── 2. INJURIES ────────────────────────────────────────
@@ -118,16 +128,14 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   }
 
   for (const [teamId, teamInjuries] of Object.entries(injuriesByTeam)) {
+    const lang = await getTeamLang(teamId)
     for (const inj of teamInjuries) {
       const severity = inj.severity
       const emoji = severity === 'career_threatening' ? '🚨' : severity === 'severe' ? '🔴' : severity === 'serious' ? '🟠' : '🟡'
-      await notify(
-        teamId,
-        'injury',
-        `${emoji} Injury Alert — ${inj.players?.name}`,
-        `${inj.players?.name} has suffered a ${inj.injury_type} (${severity}).\n\nBody part: ${inj.body_part}\nEstimated recovery: ${inj.games_out} games (approx. ${Math.ceil(inj.games_out/4)} weeks)\n${inj.is_recurring ? '⚠️ This is a recurring injury.' : ''}`,
-        { player_id: inj.player_id, injury_type: inj.injury_type, severity, games_out: inj.games_out }
-      )
+      const notif = notifInjury(lang, inj.players?.name, inj.injury_type, inj.games_out)
+      const recurring = inj.is_recurring ? (lang === 'pt' ? '\n⚠️ Esta é uma lesão recorrente.' : '\n⚠️ This is a recurring injury.') : ''
+      const bodyPart = lang === 'pt' ? `Zona afetada: ${inj.body_part}\nRecuperação estimada: ${inj.games_out} jogos (aprox. ${Math.ceil(inj.games_out/4)} semanas)${recurring}` : `Body part: ${inj.body_part}\nEstimated recovery: ${inj.games_out} games (approx. ${Math.ceil(inj.games_out/4)} weeks)${recurring}`
+      await notify(teamId, 'injury', `${emoji} ${notif.subject.replace('🏥 Injury — ', '').replace('🏥 Lesão — ', '')}`, `${notif.body}\n\n${bodyPart}`, { player_id: inj.player_id, injury_type: inj.injury_type, severity, games_out: inj.games_out })
     }
   }
 
@@ -137,13 +145,17 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       .filter((t:any) => t.conference === team.conference)
       .sort((a:any,b:any) => b.wins - a.wins)
     const rank = confTeams.findIndex((t:any) => t.id === team.id) + 1
+    const lang = await getTeamLang(team.id)
 
     if (rank === 8) {
-      await notify(team.id, 'standings', '⚠️ You are on the playoff bubble', `You are currently #8 in the ${team.conference} Conference — the last playoff spot. One bad week could drop you to the play-in.`, { rank })
+      const notif = notifPlayoffBubble(lang, team.conference, rank)
+      await notify(team.id, 'standings', notif.subject, notif.body, { rank })
     } else if (rank === 9) {
-      await notify(team.id, 'standings', '📉 You dropped out of the playoffs', `You are currently #9 in the ${team.conference} Conference. You need to win games urgently to get back into playoff position.`, { rank })
+      const notif = notifDroppedOutPlayoffs(lang, team.conference)
+      await notify(team.id, 'standings', notif.subject, notif.body, { rank })
     } else if (rank === 1) {
-      await notify(team.id, 'standings', '🥇 You lead your conference!', `You are #1 in the ${team.conference} Conference with a ${team.wins}-${team.losses} record. Keep it up.`, { rank })
+      const notif = notifLeadingConference(lang, team.conference, team.wins, team.losses)
+      await notify(team.id, 'standings', notif.subject, notif.body, { rank })
     }
   }
 
@@ -163,13 +175,16 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       else break
     }
 
+    const lang = await getTeamLang(team.id)
+
     if (streak >= 5 && streakType === 'W') {
-      await notify(team.id, 'streak', `🔥 ${streak}-game winning streak!`, `The ${team.name} are on fire with ${streak} consecutive wins. Your team is building momentum — this is the time to stay aggressive.`, { streak, type: 'win' })
+      const notif = notifWinStreak(lang, team.name, streak)
+      await notify(team.id, 'streak', notif.subject, notif.body, { streak, type: 'win' })
     } else if (streak >= 5 && streakType === 'L') {
-      await notify(team.id, 'streak', `❄️ ${streak}-game losing streak`, `The ${team.name} have lost ${streak} games in a row. Consider adjusting your weekly orders, rotation or making a move to shake things up.`, { streak, type: 'loss' })
+      const notif = notifLossStreak(lang, team.name, streak)
+      await notify(team.id, 'streak', notif.subject, notif.body, { streak, type: 'loss' })
     }
 
-    // Rival defeated notification
     if (team.rival_team_id) {
       const rivalGame = teamGames.find((g:any) =>
         (g.home_team===team.id&&g.away_team===team.rival_team_id)||(g.away_team===team.id&&g.home_team===team.rival_team_id)
@@ -178,7 +193,8 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
         const won = (rivalGame.home_team===team.id&&rivalGame.home_score>rivalGame.away_score)||(rivalGame.away_team===team.id&&rivalGame.away_score>rivalGame.home_score)
         const rival = teamMap[team.rival_team_id]
         if (won) {
-          await notify(team.id, 'rivalry', `⚔️ Rivalry win vs ${rival?.name}!`, `You defeated your rival ${rival?.name} this week. Check your sponsor objectives — this may have triggered a bonus!`, { rival_id: team.rival_team_id })
+          const notif = notifRivalWin(lang, rival?.name)
+          await notify(team.id, 'rivalry', notif.subject, notif.body, { rival_id: team.rival_team_id })
         }
       }
     }
@@ -200,8 +216,12 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     devByTeam[teamId].push(log)
   }
   for (const [teamId, logs] of Object.entries(devByTeam)) {
+    const lang = await getTeamLang(teamId)
     const summary = logs.map((l:any) => `${l.players?.name}: +${l.change} ${l.attribute}`).join('\n')
-    await notify(teamId, 'development', `📈 Player development this week`, `Notable improvements from your roster this week:\n\n${summary}`, { logs })
+    const notif = notifDevelopment(lang, logs[0].players?.name, logs.map((l:any) => l.attribute))
+    const title = lang === 'pt' ? `📈 Desenvolvimento de jogadores esta semana` : `📈 Player development this week`
+    const body = lang === 'pt' ? `Melhorias notáveis do teu plantel esta semana:\n\n${summary}` : `Notable improvements from your roster this week:\n\n${summary}`
+    await notify(teamId, 'development', title, body, { logs })
   }
 
   // ── 6. LOW MORALE ALERTS ──────────────────────────────
@@ -234,11 +254,13 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     const endDate = new Date(section.construction_ends_at)
     const today = new Date()
     const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000*60*60*24))
+    const lang = await getTeamLang(section.team_id)
+    const notif = notifArenaConstruction(lang, section.section, daysLeft <= 0)
     if (daysLeft <= 0) {
-      await notify(section.team_id, 'construction', `🏗️ Construction completed — Section ${section.section}`, `Section ${section.section} construction has been completed. Your arena capacity has increased!`, { section: section.section })
+      await notify(section.team_id, 'construction', notif.subject, notif.body, { section: section.section })
       await supabase.from('arena_sections').update({ under_construction: false }).eq('team_id', section.team_id).eq('section', section.section)
     } else if (daysLeft <= 7) {
-      await notify(section.team_id, 'construction', `🏗️ Construction almost done — Section ${section.section}`, `Section ${section.section} will be ready in ${daysLeft} days.`, { section: section.section, days_left: daysLeft })
+      await notify(section.team_id, 'construction', notif.subject, notif.body, { section: section.section, days_left: daysLeft })
     }
   }
 
@@ -247,22 +269,31 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     if (!award.award_type?.startsWith('potw_')) continue
     const teamId = award.players?.team_id
     if (!teamId) continue
+    const lang = await getTeamLang(teamId)
     const conf = award.award_type.includes('eastern') ? 'Eastern' : 'Western'
-    await notify(teamId, 'award', `🌟 Player of the Week — ${award.players?.name}!`, `${award.players?.name} has been named ${conf} Conference Player of the Week for Week ${week}.\n\nStats: ${award.stats_context?.ppg} PPG · ${award.stats_context?.rpg} RPG · ${award.stats_context?.apg} APG in ${award.stats_context?.games} games.`, { player_id: award.player_id, award_type: award.award_type })
+    const stats = `${award.stats_context?.ppg} PPG · ${award.stats_context?.rpg} RPG · ${award.stats_context?.apg} APG`
+    const subject = lang === 'pt' ? `🌟 Jogador da Semana — ${award.players?.name}!` : `🌟 Player of the Week — ${award.players?.name}!`
+    const body = lang === 'pt'
+      ? `O ${award.players?.name} foi nomeado Jogador da Semana ${week} da Conferência ${conf === 'Eastern' ? 'Este' : 'Oeste'}.\n\nEstatísticas: ${stats} em ${award.stats_context?.games} jogos.`
+      : `${award.players?.name} has been named ${conf} Conference Player of the Week for Week ${week}.\n\nStats: ${stats} in ${award.stats_context?.games} games.`
+    await notify(teamId, 'award', subject, body, { player_id: award.player_id, award_type: award.award_type })
   }
 
   // ── 10. WEEKLY ORDERS DEADLINE REMINDER ───────────────
-  // Notify every week — orders for next week close in 3 days
   for (const team of (teams||[])) {
-    if (week % 2 === 0) { // Every other week to avoid spam
-      await notify(team.id, 'reminder', `⏰ Weekly orders due — Week ${week + 1}`, `Don't forget to submit your weekly orders for Week ${week + 1}. Set your rotation, training intensity and pace before the deadline.`, { week: week + 1 })
+    if (week % 2 === 0) {
+      const lang = await getTeamLang(team.id)
+      const notif = notifOrdersReminder(lang)
+      await notify(team.id, 'reminder', notif.subject, notif.body, { week: week + 1 })
     }
   }
 
   // ── 11. SPONSOR MONTHLY PAYMENT ───────────────────────
-  if (week % 4 === 0) { // Monthly
+  if (week % 4 === 0) {
     for (const contract of (sponsorContracts||[])) {
-      await notify(contract.team_id, 'sponsor', `💰 Monthly sponsor payment received`, `Your ${(contract.template as any)?.company_name} ${(contract.template as any)?.tier} sponsor has paid ${fmt(contract.fixed_monthly)} this month. Amount credited to your balance.`, { amount: contract.fixed_monthly, company: (contract.template as any)?.company_name })
+      const lang = await getTeamLang(contract.team_id)
+      const notif = notifSponsorPayment(lang, contract.fixed_monthly)
+      await notify(contract.team_id, 'sponsor', notif.subject, notif.body, { amount: contract.fixed_monthly, company: (contract.template as any)?.company_name })
       await supabase.rpc('increment_balance', { p_team_id: contract.team_id, p_amount: contract.fixed_monthly })
       await supabase.from('franchise_transactions').insert({
         team_id: contract.team_id, type: 'revenue', category: 'sponsor',
@@ -276,19 +307,19 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   // ── 12. SEASON END APPROACHING ────────────────────────
   if (week === 22) {
     for (const team of (teams||[])) {
-      await notify(team.id, 'reminder', `🏁 4 weeks left in the regular season`, `The regular season ends in 4 weeks. Make your final push for the playoffs — or position yourself for the best draft pick. Check your sponsor objectives and expiring contracts.`, { weeks_left: 4 })
+      const lang = await getTeamLang(team.id)
+      const notif = notifSeasonEnd(lang, 4)
+      await notify(team.id, 'reminder', notif.subject, notif.body, { weeks_left: 4 })
     }
   }
 
   // ── 13. TRAINING CREDITS FULL ────────────────────────
-  // Notify when any slot has credits available (= slot was full and earned credits)
   const { data: trainingSlots } = await supabase
     .from('training_slots')
     .select('team_id,slot_type,credits_available')
     .eq('locked', false)
     .gt('credits_available', 0)
 
-  // Group by team
   const trainingByTeam: Record<string, any[]> = {}
   for (const slot of (trainingSlots||[])) {
     if (!trainingByTeam[slot.team_id]) trainingByTeam[slot.team_id] = []
@@ -296,19 +327,14 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   }
 
   for (const [teamId, readySlots] of Object.entries(trainingByTeam)) {
+    const lang = await getTeamLang(teamId)
     const totalCredits = readySlots.reduce((s: number, sl: any) => s + sl.credits_available, 0)
-    const slotNames = readySlots.map((sl: any) => {
-      const labels: Record<string,string> = { offense:'Offense', defense:'Defense', physical:'Physical', playmaking:'Playmaking', mental:'Mental', recovery:'Recovery', shooting:'Shooting Lab', analytics:'Analytics' }
-      return `${labels[sl.slot_type]||sl.slot_type} (${sl.credits_available}cr)`
-    }).join(', ')
-
-    await notify(
-      teamId,
-      'training',
-      `🏋️ Training credits ready — ${totalCredits} credits to spend!`,
-      `You have ${totalCredits} training credits available across ${readySlots.length} slot${readySlots.length > 1 ? 's' : ''}:\n\n${slotNames}\n\nSpend them in the Training tab to develop your players. Slots won't fill further until you spend — don't waste the capacity!`,
-      { total_credits: totalCredits, slots: readySlots.length }
-    )
+    const labelsEN: Record<string,string> = { offense:'Offense', defense:'Defense', physical:'Physical', playmaking:'Playmaking', mental:'Mental', recovery:'Recovery', shooting:'Shooting Lab', analytics:'Analytics' }
+    const labelsPT: Record<string,string> = { offense:'Ataque', defense:'Defesa', physical:'Físico', playmaking:'Jogo de Equipa', mental:'Mental', recovery:'Recuperação', shooting:'Treino de Lançamento', analytics:'Análise' }
+    const labels = lang === 'pt' ? labelsPT : labelsEN
+    const slotNames = readySlots.map((sl: any) => `${labels[sl.slot_type]||sl.slot_type} (${sl.credits_available}cr)`).join(', ')
+    const notif = notifTrainingCredits(lang, totalCredits, readySlots.length, slotNames)
+    await notify(teamId, 'training', notif.subject, notif.body, { total_credits: totalCredits, slots: readySlots.length })
   }
 
   // ── 14. NEW AWARDS (All-Star, MVP, DPOY, ROY, etc.) ────
@@ -317,29 +343,30 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     .select('player_id,team_id,award_type,players(name,team_id)')
     .gte('created_at', new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString())
 
-  const AWARD_LABELS: Record<string,string> = {
+  const AWARD_LABELS_EN: Record<string,string> = {
     mvp:'Most Valuable Player', dpoy:'Defensive Player of the Year', roy:'Rookie of the Year',
     coy:'Coach of the Year', mip:'Most Improved Player', finals_mvp:'Finals MVP',
     all_nba_1:'1st Team All-NBA', all_nba_2:'2nd Team All-NBA', all_nba_3:'3rd Team All-NBA',
     all_rookie_1:'1st Rookie Team', all_rookie_2:'2nd Rookie Team',
     all_star_east:'Eastern Conference All-Star', all_star_west:'Western Conference All-Star',
   }
+  const AWARD_LABELS_PT: Record<string,string> = {
+    mvp:'MVP', dpoy:'Melhor Defesa da Liga', roy:'Melhor Rookiee da Época',
+    coy:'Melhor Treinador', mip:'Jogador Mais Melhorado', finals_mvp:'MVP das Finais',
+    all_nba_1:'1º Quinteto All-NBA', all_nba_2:'2º Quinteto All-NBA', all_nba_3:'3º Quinteto All-NBA',
+    all_rookie_1:'1º Quinteto de Rookies', all_rookie_2:'2º Quinteto de Rookies',
+    all_star_east:'All-Star da Conferência Este', all_star_west:'All-Star da Conferência Oeste',
+  }
 
   for (const award of (recentAwards||[])) {
     const playerTeamId = (award.players as any)?.team_id || award.team_id
     const playerName = (award.players as any)?.name || 'A player'
     if (!playerTeamId) continue
-    const label = AWARD_LABELS[award.award_type] || award.award_type
+    const lang = await getTeamLang(playerTeamId)
+    const label = lang === 'pt' ? (AWARD_LABELS_PT[award.award_type] || award.award_type) : (AWARD_LABELS_EN[award.award_type] || award.award_type)
     const isAllStar = award.award_type.startsWith('all_star')
-    await notify(
-      playerTeamId,
-      'awards',
-      isAllStar ? `⭐ ${playerName} selected as All-Star!` : `🏆 ${playerName} wins ${label}!`,
-      isAllStar
-        ? `Congratulations! ${playerName} has been selected as a ${label}. A great honour for your franchise.`
-        : `${playerName} has been awarded ${label}. A landmark achievement for your franchise.`,
-      { player_name: playerName, award_type: award.award_type }
-    )
+    const notif = notifAward(lang, playerName, label, isAllStar)
+    await notify(playerTeamId, 'awards', notif.subject, notif.body, { player_name: playerName, award_type: award.award_type })
   }
 
   // ── 15. DRAFT PICKS MADE ───────────────────────────────
@@ -350,13 +377,12 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
 
   for (const pick of (recentPicks||[])) {
     const prospectName = (pick.prospects as any)?.name || 'A prospect'
-    await notify(
-      pick.team_id,
-      'fa',
-      `🎓 Draft Pick #${pick.pick_number}: ${prospectName}`,
-      `With the #${pick.pick_number} pick (Round ${pick.round}), your team has selected ${prospectName}. They've been added to your roster — check their full attribute breakdown on their player page.`,
-      { pick_number: pick.pick_number, round: pick.round, prospect_name: prospectName }
-    )
+    const lang = await getTeamLang(pick.team_id)
+    const subject = lang === 'pt' ? `🎓 Escolha do Draft #${pick.pick_number}: ${prospectName}` : `🎓 Draft Pick #${pick.pick_number}: ${prospectName}`
+    const body = lang === 'pt'
+      ? `Com a escolha #${pick.pick_number} (Ronda ${pick.round}), a tua equipa selecionou o ${prospectName}. Já foi adicionado ao teu plantel — verifica a sua página de jogador para veres os atributos completos.`
+      : `With the #${pick.pick_number} pick (Round ${pick.round}), your team has selected ${prospectName}. They've been added to your roster — check their full attribute breakdown on their player page.`
+    await notify(pick.team_id, 'fa', subject, body, { pick_number: pick.pick_number, round: pick.round, prospect_name: prospectName })
   }
 
   // ── 16. CAP SPACE WARNINGS ──────────────────────────────
@@ -366,15 +392,11 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     const capUsed = team.cap_used || 0
     const capSpace = CAP_LIMIT - capUsed
     const pctUsed = capUsed / CAP_LIMIT
+    const lang = await getTeamLang(team.id)
 
     if (pctUsed >= 0.97) {
-      await notify(
-        team.id,
-        'contract',
-        `⚠️ Cap space critically low`,
-        `Your team has only $${(capSpace / 1_000_000).toFixed(1)}M in cap space remaining (${(pctUsed * 100).toFixed(0)}% of the $${(CAP_LIMIT / 1_000_000).toFixed(0)}M cap used). Be careful with further signings — you may need to make a roster move to stay compliant.`,
-        { cap_used: capUsed, remaining: capSpace }
-      )
+      const notif = notifCapCritical(lang, capSpace, pctUsed * 100)
+      await notify(team.id, 'contract', notif.subject, notif.body, { cap_used: capUsed, remaining: capSpace })
     }
 
     const { count: rosterCount } = await supabase
@@ -385,15 +407,9 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
 
     if ((rosterCount ?? 0) < MIN_ROSTER) {
       const spotsNeeded = MIN_ROSTER - (rosterCount ?? 0)
-      const maxAffordable = Math.floor(capSpace / 1_000_000)
       if (capSpace < spotsNeeded * 1_000_000) {
-        await notify(
-          team.id,
-          'contract',
-          `⚠️ Risk of falling below roster minimum`,
-          `Your team has ${rosterCount} players and only $${(capSpace / 1_000_000).toFixed(1)}M in cap space. You need ${spotsNeeded} more player${spotsNeeded !== 1 ? 's' : ''} to reach the ${MIN_ROSTER}-player minimum, and your remaining cap space may not be enough to sign them all at minimum salary.`,
-          { roster_size: rosterCount, cap_space: capSpace }
-        )
+        const notif = notifRosterMinimumRisk(lang, rosterCount ?? 0, spotsNeeded, capSpace, MIN_ROSTER)
+        await notify(team.id, 'contract', notif.subject, notif.body, { roster_size: rosterCount, cap_space: capSpace })
       }
     }
   }
@@ -410,13 +426,9 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     const lastSeen = new Date(profile.last_seen)
     const daysSinceActive = Math.floor((now.getTime() - lastSeen.getTime()) / (1000*60*60*24))
     if (daysSinceActive >= 7) {
-      await notify(
-        profile.team_id,
-        'reminder',
-        `⚠️ You haven't been active for ${daysSinceActive} days`,
-        `Hi ${profile.display_name || 'GM'} — you haven't logged in for ${daysSinceActive} days.\n\nYour team needs attention:\n• Weekly orders may be missing\n• Training credits may be full\n• Sponsor opportunities may be waiting\n\nLog in and check your franchise!`,
-        { days_inactive: daysSinceActive }
-      )
+      const lang = await getTeamLang(profile.team_id)
+      const notif = notifGMInactivity(lang, profile.display_name || 'GM', daysSinceActive)
+      await notify(profile.team_id, 'reminder', notif.subject, notif.body, { days_inactive: daysSinceActive })
     }
   }
 

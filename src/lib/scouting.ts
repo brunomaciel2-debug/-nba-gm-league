@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getTeamLang, notifScoutTier, notifScoutMaintenanceNegative } from './notifications-helpers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -113,12 +114,11 @@ export async function generateWeeklyScoutPoints() {
     // Notify if tier increased
     if (newTier > oldTier) {
       const tierInfo = SCOUT_TIERS[newTier as 1|2|3]
+      const lang = await getTeamLang(scout.team_id)
+      const notif = notifScoutTier(lang, scout.name, newTier, tierInfo.revealCount, tierInfo.creditCost, tierInfo.weeklyMaintenance)
       await supabase.from('inbox_messages').insert({
-        to_team_id: scout.team_id,
-        type: 'scouting',
-        subject: `🔍 Scouting Tier ${newTier} unlocked!`,
-        body: `${scout.name} has reached Tier ${newTier} scouting capability!\n\nYou can now reveal up to ${tierInfo.revealCount} attributes per session for ${tierInfo.creditCost} credits (a better credits-per-attribute ratio than lower tiers).${tierInfo.weeklyMaintenance > 0 ? `\n\nHolding this tier costs $${(tierInfo.weeklyMaintenance/1000).toFixed(0)}K/week in scouting operation overhead, billed automatically from your balance.` : ''}\n\nVisit the Scouting tab to start evaluating draft prospects.`,
-        read: false,
+        to_team_id: scout.team_id, type: 'scouting',
+        subject: notif.subject, body: notif.body, read: false,
         metadata: { new_tier: newTier, points: newPoints },
       })
     }
@@ -128,34 +128,24 @@ export async function generateWeeklyScoutPoints() {
       const tierInfo = SCOUT_TIERS[newTier as 1|2|3]
       if (tierInfo.weeklyMaintenance > 0) {
         const { data: finances } = await supabase
-          .from('franchise_finances')
-          .select('balance')
-          .eq('team_id', scout.team_id)
-          .single()
+          .from('franchise_finances').select('balance').eq('team_id', scout.team_id).single()
 
         if (finances) {
           const newBalance = (finances.balance || 0) - tierInfo.weeklyMaintenance
-          await supabase.from('franchise_finances').update({
-            balance: newBalance,
-          }).eq('team_id', scout.team_id)
-
+          await supabase.from('franchise_finances').update({ balance: newBalance }).eq('team_id', scout.team_id)
           await supabase.from('franchise_transactions').insert({
-            team_id: scout.team_id,
-            type: 'expense',
-            category: 'scouting_maintenance',
+            team_id: scout.team_id, type: 'expense', category: 'scouting_maintenance',
             amount: tierInfo.weeklyMaintenance,
             description: `Weekly scouting operation overhead — Tier ${newTier}`,
             season: '2025-26',
           })
 
-          // Warn if maintenance pushed balance negative or low
           if (newBalance < 0) {
+            const lang = await getTeamLang(scout.team_id)
+            const notif = notifScoutMaintenanceNegative(lang, newTier, tierInfo.weeklyMaintenance, newBalance)
             await supabase.from('inbox_messages').insert({
-              to_team_id: scout.team_id,
-              type: 'scouting',
-              subject: `⚠️ Scouting maintenance pushed your balance negative`,
-              body: `Your Tier ${newTier} scouting operation costs $${(tierInfo.weeklyMaintenance/1000).toFixed(0)}K/week to maintain. This week's charge has brought your balance to $${(newBalance/1_000_000).toFixed(2)}M. Consider your financial situation before further spending.`,
-              read: false,
+              to_team_id: scout.team_id, type: 'scouting',
+              subject: notif.subject, body: notif.body, read: false,
               metadata: { tier: newTier, balance: newBalance },
             })
           }

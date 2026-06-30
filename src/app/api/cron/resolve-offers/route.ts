@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getTeamLang, notifFAWon, notifFALost, notifDeadCapCleared } from '@/lib/notifications-helpers'
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 const CAP_LIMIT = 180_000_000
@@ -84,38 +85,34 @@ async function resolveOffers() {
         await admin.from('teams').update({
           cap_used: Math.max(0, (oldTeam.cap_used || 0) - deadCapAmount),
         }).eq('id', oldTeamId)
-
+        const oldLang = await getTeamLang(oldTeamId)
+        const deadNotif = notifDeadCapCleared(oldLang, player.name, deadCapAmount)
         await admin.from('inbox_messages').insert({
-          to_team_id: oldTeamId,
-          type: 'contract',
-          subject: `💰 Dead cap cleared — ${player.name} signed elsewhere`,
-          body: `${player.name} has signed with another team. The $${(deadCapAmount/1_000_000).toFixed(1)}M dead cap charge has been removed from your salary cap.`,
-          read: false,
-          metadata: { player_id: playerId, cap_freed: deadCapAmount },
+          to_team_id: oldTeamId, type: 'contract',
+          subject: deadNotif.subject, body: deadNotif.body,
+          read: false, metadata: { player_id: playerId, cap_freed: deadCapAmount },
         })
       }
     }
 
     // Notify new team
+    const winnerLang = await getTeamLang(teamId)
+    const wonNotif = notifFAWon(winnerLang, player.name)
     await admin.from('inbox_messages').insert({
-      to_team_id: teamId,
-      type: 'fa',
-      subject: `✅ Signed ${player.name}!`,
-      body: `${player.name} has accepted your offer and signed a 1-year, $650K contract.`,
-      read: false,
-      metadata: { player_id: playerId },
+      to_team_id: teamId, type: 'fa',
+      subject: wonNotif.subject, body: wonNotif.body,
+      read: false, metadata: { player_id: playerId },
     })
 
     // Notify losing teams (valid offers that weren't chosen)
     const losingTeamIds = validOffers.map((o: any) => o.team_id).filter((id: string) => id !== teamId)
     for (const losingTeamId of losingTeamIds) {
+      const loserLang = await getTeamLang(losingTeamId)
+      const lostNotif = notifFALost(loserLang, player.name)
       await admin.from('inbox_messages').insert({
-        to_team_id: losingTeamId,
-        type: 'fa',
-        subject: `❌ Missed out on ${player.name}`,
-        body: `${player.name} has signed elsewhere. Your offer was not selected this time — keep an eye on the free agent pool for other opportunities.`,
-        read: false,
-        metadata: { player_id: playerId, winning_team_id: teamId },
+        to_team_id: losingTeamId, type: 'fa',
+        subject: lostNotif.subject, body: lostNotif.body,
+        read: false, metadata: { player_id: playerId, winning_team_id: teamId },
       })
     }
 

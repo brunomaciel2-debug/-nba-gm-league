@@ -2,64 +2,69 @@
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from './AuthProvider'
+import { useTranslation } from './I18nProvider'
 import InboxButton from './InboxButton'
 import ChatButton from './ChatButton'
 import SimulatorBanner from './SimulatorBanner'
+import LanguageSwitcher from './LanguageSwitcher'
 
-const NAV_DROPDOWNS = [
-  {
-    label: 'League',
-    icon: 'ti-ball-basketball',
-    items: [
-      { label: 'Cap Space',       href: '/cap-space',        icon: 'ti-cash' },
-      { label: 'Free Agents',     href: '/free-agents',      icon: 'ti-user-plus' },
-      { label: 'League Leaders',  href: '/league-leaders',   icon: 'ti-trophy' },
-      { label: 'Power Rankings',  href: '/power-rankings',   icon: 'ti-trending-up' },
-      { label: 'Schedule',        href: '/schedule',         icon: 'ti-calendar' },
-      { label: 'Standings',       href: '/standings',        icon: 'ti-list-numbers' },
-      { label: 'Teams',           href: '/teams',            icon: 'ti-users' },
-      { label: 'Trade Center',    href: '/trade-center',     icon: 'ti-switch-horizontal' },
-      { label: 'Transactions',    href: '/transactions',     icon: 'ti-arrows-exchange' },
-    ],
-  },
-  {
-    label: 'Events',
-    icon: 'ti-star',
-    items: [
-      { label: 'All-Star',  href: '/all-star', icon: 'ti-star' },
-      { label: 'Awards',    href: '/awards',   icon: 'ti-award' },
-      { label: 'Draft',     href: '/draft',    icon: 'ti-clipboard-list' },
-      { label: 'Playoffs',  href: '/playoffs', icon: 'ti-tournament' },
-    ],
-  },
-  {
-    label: 'Rules & Info',
-    icon: 'ti-book',
-    items: [
-      { label: 'Salary Cap Rules',    href: '/rules/cap',       icon: 'ti-cash' },
-      { label: 'Contract Rules',      href: '/rules/contracts', icon: 'ti-file-text' },
-      { label: 'Trade Rules',         href: '/rules/trades',    icon: 'ti-switch-horizontal' },
-      { label: 'Training Rules',      href: '/rules/training',  icon: 'ti-barbell' },
-      { label: 'Weekly Orders Guide', href: '/rules/orders',    icon: 'ti-clipboard-list' },
-      { label: 'Scouting Guide',      href: '/rules/scouting',  icon: 'ti-search' },
-      { label: 'Sponsor Objectives',  href: '/rules/sponsors',  icon: 'ti-target-arrow' },
-    ],
-  },
-]
+function useNavDropdowns() {
+  const { t } = useTranslation()
+  return [
+    {
+      label: t('nav.league'),
+      icon: 'ti-ball-basketball',
+      items: [
+        { label: t('nav.capSpace'),      href: '/cap-space',        icon: 'ti-cash' },
+        { label: t('nav.freeAgents'),    href: '/free-agents',      icon: 'ti-user-plus' },
+        { label: t('nav.leagueLeaders'), href: '/league-leaders',   icon: 'ti-trophy' },
+        { label: t('nav.powerRankings'), href: '/power-rankings',   icon: 'ti-trending-up' },
+        { label: t('nav.schedule'),      href: '/schedule',         icon: 'ti-calendar' },
+        { label: t('nav.standings'),     href: '/standings',        icon: 'ti-list-numbers' },
+        { label: t('nav.teams'),         href: '/teams',            icon: 'ti-users' },
+        { label: t('nav.tradeCenter'),   href: '/trade-center',     icon: 'ti-switch-horizontal' },
+        { label: t('nav.transactions'),  href: '/transactions',     icon: 'ti-arrows-exchange' },
+      ],
+    },
+    {
+      label: t('nav.events'),
+      icon: 'ti-star',
+      items: [
+        { label: t('nav.allStar'),  href: '/all-star', icon: 'ti-star' },
+        { label: t('nav.awards'),   href: '/awards',   icon: 'ti-award' },
+        { label: t('nav.draft'),    href: '/draft',    icon: 'ti-clipboard-list' },
+        { label: t('nav.playoffs'), href: '/playoffs', icon: 'ti-tournament' },
+      ],
+    },
+    {
+      label: t('nav.rulesInfo'),
+      icon: 'ti-book',
+      items: [
+        { label: t('nav.capRules'),          href: '/rules/cap',       icon: 'ti-cash' },
+        { label: t('nav.contractRules'),     href: '/rules/contracts', icon: 'ti-file-text' },
+        { label: t('nav.tradeRules'),        href: '/rules/trades',    icon: 'ti-switch-horizontal' },
+        { label: t('nav.trainingRules'),     href: '/rules/training',  icon: 'ti-barbell' },
+        { label: t('nav.ordersGuide'),       href: '/rules/orders',    icon: 'ti-clipboard-list' },
+        { label: t('nav.scoutingGuide'),     href: '/rules/scouting',  icon: 'ti-search' },
+        { label: t('nav.sponsorObjectives'), href: '/rules/sponsors',  icon: 'ti-target-arrow' },
+      ],
+    },
+  ]
+}
 
-const NAV_LINKS = [
-  { label: 'Job Openings', href: '/jobs',     icon: 'ti-briefcase' },
-  { label: 'G-League',     href: '/gleague',  icon: 'ti-ball-basketball' },
+const NAV_LINKS_STATIC = [
+  { labelKey: 'Job Openings', href: '/jobs',    icon: 'ti-briefcase' },
+  { labelKey: 'G-League',     href: '/gleague', icon: 'ti-ball-basketball' },
 ]
 
 const COMM_LINKS = [
-  { href: '/admin',               label: 'Commissioner Panel', icon: 'ti-settings' },
-  { href: '/admin/article/new',   label: 'Write Article',      icon: 'ti-pencil' },
-  { href: '/admin/articles',      label: 'Manage Articles',    icon: 'ti-news' },
-  { href: '/admin/media',         label: 'Media Manager',      icon: 'ti-photo' },
-  { href: '/admin/coaches',       label: 'Coaching Staff',     icon: 'ti-whistle' },
-  { href: '/admin/applications',  label: 'GM Applications',    icon: 'ti-clipboard-list' },
-  { href: '/admin/gms',           label: 'Manage GMs',         icon: 'ti-users' },
+  { href: '/admin',              label: 'Commissioner Panel', icon: 'ti-settings' },
+  { href: '/admin/article/new',  label: 'Write Article',      icon: 'ti-pencil' },
+  { href: '/admin/articles',     label: 'Manage Articles',    icon: 'ti-news' },
+  { href: '/admin/media',        label: 'Media Manager',      icon: 'ti-photo' },
+  { href: '/admin/coaches',      label: 'Coaching Staff',     icon: 'ti-whistle' },
+  { href: '/admin/applications', label: 'GM Applications',    icon: 'ti-clipboard-list' },
+  { href: '/admin/gms',          label: 'Manage GMs',         icon: 'ti-users' },
 ]
 
 function NavDropdown({ label, icon, items, onNavigate }: {
@@ -81,12 +86,14 @@ function NavDropdown({ label, icon, items, onNavigate }: {
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
-        style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: open ? '#c8102e' : '#2d2722',
-                 borderBottom: open ? '3px solid #c8102e' : '3px solid transparent',
-                 marginBottom: -2, background: 'transparent', border: 'none',
-                 borderBottomStyle: 'solid', borderBottomWidth: 3,
-                 borderBottomColor: open ? '#c8102e' : 'transparent',
-                 cursor: 'pointer' }}
+        style={{
+          padding: '14px 16px', fontSize: 14, fontWeight: 600, color: open ? '#c8102e' : '#2d2722',
+          borderBottom: open ? '3px solid #c8102e' : '3px solid transparent',
+          marginBottom: -2, background: 'transparent', border: 'none',
+          borderBottomStyle: 'solid', borderBottomWidth: 3,
+          borderBottomColor: open ? '#c8102e' : 'transparent',
+          cursor: 'pointer',
+        }}
         onMouseEnter={e => { if (!open) { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}}
         onMouseLeave={e => { if (!open) { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}}>
         <i className={`ti ${icon}`} style={{ fontSize: 15 }}></i>
@@ -97,7 +104,7 @@ function NavDropdown({ label, icon, items, onNavigate }: {
         <div className="absolute left-0 top-full z-50 rounded-xl overflow-hidden py-1"
              style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 200,
                       boxShadow: '0 8px 32px rgba(0,0,0,0.12)', marginTop: 2 }}>
-          {items.map(item => (
+          {items.map((item: any) => (
             <Link key={item.href} href={item.href}
               onClick={() => { setOpen(false); onNavigate() }}
               className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
@@ -119,23 +126,25 @@ export default function Navbar() {
   const [commOpen, setCommOpen] = useState(false)
   const [gmOpen, setGmOpen] = useState(false)
   const { user, profile, loading, signOut } = useAuth()
+  const { t } = useTranslation()
+  const NAV_DROPDOWNS = useNavDropdowns()
 
   const teamId = (profile as any)?.team_id
 
   const GM_LINKS = [
-    { href: `/team/${teamId}`,           label: 'My Franchise',      icon: 'ti-building' },
-    { href: `/gm/orders/${teamId}`,      label: 'Weekly Orders',     icon: 'ti-clipboard-check' },
-    { href: `/trade-center`,             label: 'Propose Trade',     icon: 'ti-switch-horizontal' },
-    { href: `/free-agents`,              label: 'Sign Free Agent',   icon: 'ti-user-plus' },
-    { href: `/preseason`,                label: 'Schedule Friendly', icon: 'ti-calendar-event' },
-    { href: `/team/${teamId}#contracts`, label: 'Contracts',         icon: 'ti-file-dollar' },
-    { href: `/chat`,                     label: 'GM Chat',           icon: 'ti-message-circle' },
-    { href: `/inbox`,                    label: 'Inbox',             icon: 'ti-mail' },
+    { href: `/team/${teamId}`,           label: t('nav.league') === 'Liga' ? 'A Minha Franquia' : 'My Franchise',  icon: 'ti-building' },
+    { href: `/gm/orders/${teamId}`,      label: t('nav.ordersGuide') === 'Guia das Ordens Semanais' ? 'Ordens Semanais' : 'Weekly Orders', icon: 'ti-clipboard-check' },
+    { href: `/trade-center`,             label: t('nav.tradeCenter'),     icon: 'ti-switch-horizontal' },
+    { href: `/free-agents`,              label: t('nav.freeAgents'),      icon: 'ti-user-plus' },
+    { href: `/preseason`,                label: t('nav.league') === 'Liga' ? 'Agendar Amigável' : 'Schedule Friendly', icon: 'ti-calendar-event' },
+    { href: `/team/${teamId}#contracts`, label: t('nav.contractRules') === 'Regras de Contratos' ? 'Contratos' : 'Contracts', icon: 'ti-file-dollar' },
+    { href: `/chat`,                     label: 'GM Chat',                icon: 'ti-message-circle' },
+    { href: `/inbox`,                    label: t('nav.inbox'),           icon: 'ti-mail' },
   ]
 
   const ALL_MOBILE = [
     ...NAV_DROPDOWNS.flatMap(d => d.items),
-    ...NAV_LINKS,
+    ...NAV_LINKS_STATIC.map(l => ({ ...l, label: l.labelKey })),
   ].sort((a, b) => a.label.localeCompare(b.label))
 
   return (
@@ -152,6 +161,8 @@ export default function Navbar() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
+            {/* Language Switcher */}
+            <LanguageSwitcher />
             <ChatButton />
             <InboxButton />
             {loading ? (
@@ -163,7 +174,7 @@ export default function Navbar() {
                     className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg"
                     style={{ background: '#c8102e', color: '#fff' }}>
                     <i className="ti ti-crown" style={{ fontSize: 13 }}></i>
-                    Commissioner
+                    {t('nav.commissioner')}
                     <i className="ti ti-chevron-down" style={{ fontSize: 11 }}></i>
                   </button>
                   {commOpen && (
@@ -185,7 +196,7 @@ export default function Navbar() {
                         onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         <i className="ti ti-logout" style={{ fontSize: 14 }}></i>
-                        Sign Out
+                        {t('nav.league') === 'Liga' ? 'Terminar Sessão' : 'Sign Out'}
                       </button>
                     </div>
                   )}
@@ -223,7 +234,7 @@ export default function Navbar() {
                         onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         <i className="ti ti-logout" style={{ fontSize: 14 }}></i>
-                        Sign Out
+                        {t('nav.league') === 'Liga' ? 'Terminar Sessão' : 'Sign Out'}
                       </button>
                     </div>
                   )}
@@ -235,14 +246,14 @@ export default function Navbar() {
                   </span>
                   <button onClick={signOut} className="text-xs px-3 py-1.5 rounded-lg"
                     style={{ background: 'rgba(255,255,255,0.1)', color: '#1a1512' }}>
-                    Sign Out
+                    {t('nav.league') === 'Liga' ? 'Terminar Sessão' : 'Sign Out'}
                   </button>
                 </div>
               )
             ) : (
               <Link href="/login" className="text-xs font-bold px-3 py-1.5 rounded-lg no-underline"
                 style={{ background: '#c8102e', color: '#fff' }}>
-                Sign In
+                {t('nav.league') === 'Liga' ? 'Entrar' : 'Sign In'}
               </Link>
             )}
             <button onClick={() => setOpen(!open)} className="lg:hidden p-1.5 rounded"
@@ -273,7 +284,7 @@ export default function Navbar() {
             <NavDropdown key={d.label} label={d.label} icon={d.icon} items={d.items} onNavigate={() => {}} />
           ))}
 
-          {NAV_LINKS.map(item => (
+          {NAV_LINKS_STATIC.map(item => (
             <Link key={item.href} href={item.href}
               className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
               style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#2d2722',
@@ -281,7 +292,7 @@ export default function Navbar() {
               onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
               onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
               <i className={`ti ${item.icon}`} style={{ fontSize: 15 }}></i>
-              {item.label}
+              {item.labelKey}
             </Link>
           ))}
         </div>
@@ -305,6 +316,9 @@ export default function Navbar() {
                 {item.label}
               </Link>
             ))}
+            <div className="px-3 py-2">
+              <LanguageSwitcher />
+            </div>
           </div>
         )}
       </nav>
