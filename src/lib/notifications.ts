@@ -426,7 +426,6 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
 // ═══════════════════════════════════════════════════════════
 // ADDITIONAL NOTIFICATION HELPERS (called from other routes)
 // ═══════════════════════════════════════════════════════════
-}
 
 // ═══════════════════════════════════════════════════════════
 // FREE AGENCY — notify teams that lost the FA race
