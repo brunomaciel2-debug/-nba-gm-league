@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 const CAP_LIMIT = 180_000_000
 const MAX_SALARY = 50_000_000
 const MAX_INCREASE_PCT = 0.40
-const MIN_YEARS = 2
+const MIN_YEARS = 1
 const MAX_YEARS = 5
 const ELIGIBLE_YEARS_LEFT = 2
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const { data: player } = await supabaseAdmin
     .from('players')
-    .select('id,name,team_id,age,real_ovr,salary,contract_years,moral')
+    .select('id,name,team_id,age,real_ovr,salary,contract_years,moral,ambition,greediness,loyalty')
     .eq('id', playerId)
     .single()
 
@@ -89,34 +89,58 @@ export async function POST(req: NextRequest) {
   const fairValue = fairValueForOvr(player.real_ovr)
   const fairnessRatio = offeredSalary / fairValue // >1 = generous, <1 = lowball
 
+  const moral = player.moral ?? 70
+  const ambition = player.ambition ?? 50
+  const greediness = player.greediness ?? 50
+  const loyalty = player.loyalty ?? 50
+
   // Base acceptance probability factors
   let acceptScore = 0
 
-  // Fairness — heavily weighted
-  if (fairnessRatio >= 1.0) acceptScore += 50
-  else if (fairnessRatio >= 0.85) acceptScore += 35
-  else if (fairnessRatio >= 0.70) acceptScore += 15
-  else acceptScore += 0 // lowball offers rarely accepted
+  // Fairness — heavily weighted, more so for greedy players
+  const greedFactor = 1 + (greediness - 50) / 100 // 0.5 to 1.5
+  if (fairnessRatio >= 1.0) acceptScore += 45 * greedFactor
+  else if (fairnessRatio >= 0.85) acceptScore += 32 * greedFactor
+  else if (fairnessRatio >= 0.70) acceptScore += 14 * greedFactor
+  else acceptScore -= 5 * greedFactor // greedy players actively penalise lowball offers harder
 
   // Moral — happier players are easier to re-sign
-  const moral = player.moral ?? 70
-  acceptScore += (moral / 100) * 25
+  acceptScore += (moral / 100) * 18
+
+  // Loyalty — loyal players give a "hometown discount" tolerance, accepting fairer offers more readily
+  acceptScore += (loyalty / 100) * 15
+  if (loyalty >= 70 && fairnessRatio >= 0.80) acceptScore += 8 // loyal players forgive slightly below-market offers
+
+  // Ambition — ambitious players want to test free agency unless the offer is excellent
+  if (ambition >= 70) {
+    if (fairnessRatio >= 1.05) acceptScore += 5 // only a great offer overcomes ambition
+    else acceptScore -= 15
+  } else if (ambition <= 30) {
+    acceptScore += 10 // low-ambition players are easier to satisfy and re-sign
+  }
 
   // Age — veterans value security more than young stars testing the market
-  if (player.age >= 32) acceptScore += 20
-  else if (player.age >= 28) acceptScore += 12
-  else if (player.age <= 24 && player.real_ovr >= 85) acceptScore -= 10 // young stars want to test FA
-  else acceptScore += 5
+  if (player.age >= 32) acceptScore += 15
+  else if (player.age >= 28) acceptScore += 8
+  else if (player.age <= 24 && player.real_ovr >= 85) acceptScore -= 8 // young stars want to test FA
 
-  // Contract length bonus — longer security slightly favoured by vets, slightly disfavoured by young risers
-  if (offeredYears >= 4 && player.age >= 30) acceptScore += 5
-  if (offeredYears <= 2 && player.age <= 24) acceptScore += 5
+  // Contract length — interacts with ambition and loyalty
+  if (offeredYears === 1) {
+    // Prove-it deals: ambitious players like the quick re-entry to FA, loyal players are lukewarm
+    if (ambition >= 60) acceptScore += 6
+    if (loyalty >= 60) acceptScore -= 4
+  } else if (offeredYears >= 4) {
+    // Long-term security: loyal and older players love it, ambitious young players resist
+    if (loyalty >= 60 || player.age >= 30) acceptScore += 6
+    if (ambition >= 70 && player.age <= 26) acceptScore -= 8
+  }
 
   const accepted = acceptScore >= 55
 
   let rejectionReason = ''
   if (!accepted) {
     if (fairnessRatio < 0.70) rejectionReason = `"That's well below my market value. I expect closer to $${(fairValue/1_000_000).toFixed(0)}M."`
+    else if (ambition >= 70 && fairnessRatio < 1.05) rejectionReason = `"I appreciate it, but I want to see what I'm worth on the open market."`
     else if (moral < 50) rejectionReason = `"I'm not happy here right now — I need more than money to commit long-term."`
     else if (player.age <= 24 && player.real_ovr >= 85) rejectionReason = `"I want to see what's out there before I commit my prime years."`
     else rejectionReason = `"It's close, but not quite enough for me to sign right now."`

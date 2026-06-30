@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 
 const MAX_SALARY = 50_000_000
 const MAX_INCREASE_PCT = 0.40
-const MIN_YEARS = 2
+const MIN_YEARS = 1
 const MAX_YEARS = 5
 const ELIGIBLE_YEARS_LEFT = 2
 
@@ -27,6 +27,8 @@ export default function ContractExtensionPanel({ playerId }: { playerId: number 
   const [loading, setLoading]   = useState(false)
   const [msg, setMsg]           = useState('')
   const [expanded, setExpanded] = useState(false)
+  const [advisor, setAdvisor]   = useState<any>(null)
+  const [advisorLoading, setAdvisorLoading] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -98,6 +100,25 @@ export default function ContractExtensionPanel({ playerId }: { playerId: number 
   const maxAllowed = Math.min(MAX_SALARY, capMaxRaise, capSpace)
   const fairValue = fairValueForOvr(player.real_ovr)
 
+  const fetchAdvisor = async () => {
+    setAdvisorLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setAdvisorLoading(false); return }
+    const res = await fetch('/api/contracts/advisor', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ playerId }),
+    })
+    const json = await res.json()
+    if (res.ok) setAdvisor(json)
+    setAdvisorLoading(false)
+  }
+
+  const applySuggestion = (s: any) => {
+    setOfferSalary(s.salary)
+    setYears(s.years)
+  }
+
   const submitOffer = async () => {
     setLoading(true); setMsg('')
     const { data: { session } } = await supabase.auth.getSession()
@@ -168,6 +189,64 @@ export default function ContractExtensionPanel({ playerId }: { playerId: number 
             Estimated fair value for a {player.real_ovr} OVR player: <strong style={{color:'#5c554e'}}>{fmt(fairValue)}</strong>/yr — offers far below this risk rejection.
           </div>
 
+          {/* Agent Advisor */}
+          {!advisor ? (
+            <button onClick={fetchAdvisor} disabled={advisorLoading}
+              style={{
+                width:'100%', marginBottom:14, padding:'9px 0', borderRadius:8, fontSize:12, fontWeight:700,
+                background:'#ede9fe', color:'#6d28d9', border:'1px solid #c4b5fd',
+                cursor: advisorLoading ? 'wait' : 'pointer',
+              }}>
+              {advisorLoading ? 'Consulting agent...' : '🧠 Consult Agent Advisor'}
+            </button>
+          ) : (
+            <div style={{marginBottom:16,padding:'12px 14px',borderRadius:10,background:'#f5f3ff',border:'1px solid #c4b5fd'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#6d28d9',marginBottom:6}}>
+                🧠 Agent Advisor — {player.name}
+              </div>
+              <div style={{fontSize:11,color:'#5b21b6',marginBottom:10,lineHeight:1.5,fontStyle:'italic'}}>
+                {advisor.personalitySummary}
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {advisor.suggestions.map((s:any) => {
+                  const riskColor = s.risk === 'Low Risk' ? '#15803d' : s.risk === 'Moderate Risk' ? '#b45309' : '#dc2626'
+                  return (
+                    <div key={s.label} style={{
+                      padding:'10px 12px', borderRadius:8, background:'#fff',
+                      border:'1px solid #e2dcd5', display:'flex', alignItems:'center', gap:10,
+                    }}>
+                      <div style={{flex:1}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2}}>
+                          <span style={{fontSize:12,fontWeight:700,color:'#1a1512'}}>{s.label}</span>
+                          <span style={{fontSize:10,fontWeight:700,color:riskColor}}>{s.risk}</span>
+                        </div>
+                        <div style={{fontSize:13,fontWeight:800,color:'#1a1512'}}>
+                          {fmt(s.salary)}/yr × {s.years}yr
+                        </div>
+                        <div style={{fontSize:10,color:'#8a8279',marginTop:2,lineHeight:1.4}}>
+                          {s.riskNote}
+                        </div>
+                        <div style={{fontSize:10,color:'#5c554e',marginTop:3}}>
+                          Estimated acceptance: <strong>{s.acceptChance}%</strong>
+                        </div>
+                      </div>
+                      <button onClick={() => applySuggestion(s)}
+                        style={{
+                          fontSize:11, fontWeight:700, padding:'6px 12px', borderRadius:6,
+                          background:'#6d28d9', color:'#fff', border:'none', cursor:'pointer', flexShrink:0,
+                        }}>
+                        Use
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{fontSize:9,color:'#8a8279',marginTop:8,fontStyle:'italic'}}>
+                Estimates only — no outcome is guaranteed.
+              </div>
+            </div>
+          )}
+
           {/* Salary input */}
           <div style={{marginBottom:12}}>
             <label style={{fontSize:11,fontWeight:600,color:'#5c554e',display:'block',marginBottom:4}}>
@@ -195,7 +274,7 @@ export default function ContractExtensionPanel({ playerId }: { playerId: number 
               Contract Length
             </label>
             <div style={{display:'flex',gap:6}}>
-              {[2,3,4,5].map(y => (
+              {[1,2,3,4,5].map(y => (
                 <button key={y} onClick={() => setYears(y)}
                   style={{
                     flex:1, padding:'8px 0', borderRadius:8, fontSize:13, fontWeight:700, cursor:'pointer',
