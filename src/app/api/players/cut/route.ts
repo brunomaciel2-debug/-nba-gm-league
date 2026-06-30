@@ -41,10 +41,12 @@ export async function POST(req: NextRequest) {
   await supabaseAdmin.from('players').update({
     team_id: null,
     contract_years: 0,
+    previous_team_id: player.team_id,
+    dead_cap_amount: player.salary || 0,
   }).eq('id', playerId)
 
   // cap_used is intentionally left unchanged — dead cap hit remains
-  // until the player is signed by a new team via free agency
+  // on the releasing team's cap_used until the player signs with a new team
 
   // Notify the team
   await supabaseAdmin.from('inbox_messages').insert({
