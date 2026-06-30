@@ -115,7 +115,7 @@ function OVR({ value }: { value: number }) {
 export default async function PlayerPage({ params }: { params: { id: string } }) {
   const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }, { data: lastGames }] =
     await Promise.all([
-      supabase.from('players').select('*, nba_experience, nba_recruitable, world_team_id, world_teams:world_team_id(id,name,country), teams(name,color,id,logo_url)').eq('id', params.id).single(),
+      supabase.from('players').select('*, nba_experience, nba_recruitable, world_team_id, world_teams:world_team_id(id,name,country), teams!players_team_id_fkey(name,color,id,logo_url)').eq('id', params.id).single(),
       supabase.from('player_stats').select('*,triple_doubles').eq('player_id', params.id).order('season', {ascending:false}),
       supabase.from('injury_log').select('*').eq('player_id', params.id).order('created_at', {ascending:false}),
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', {ascending:true}),
