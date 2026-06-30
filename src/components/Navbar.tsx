@@ -12,6 +12,7 @@ const NAV_DROPDOWNS = [
     icon: 'ti-ball-basketball',
     items: [
       { label: 'Cap Space',       href: '/cap-space',        icon: 'ti-cash' },
+      { label: 'Contract Rules',  href: '/rules/contracts',  icon: 'ti-file-text' },
       { label: 'Free Agents',     href: '/free-agents',      icon: 'ti-user-plus' },
       { label: 'League Leaders',  href: '/league-leaders',   icon: 'ti-trophy' },
       { label: 'Power Rankings',  href: '/power-rankings',   icon: 'ti-trending-up' },

@@ -17,7 +17,8 @@ function fairValueForOvr(ovr: number) {
 }
 
 export default function ContractExtensionPanel({ playerId }: { playerId: number }) {
-  const [gmTeamId, setGmTeamId] = useState<string | null>(null)
+  const [gmTeamId, setGmTeamId]   = useState<string | null>(null)
+  const [isCommissioner, setIsCommissioner] = useState(false)
   const [player, setPlayer]     = useState<any>(null)
   const [team, setTeam]         = useState<any>(null)
   const [existingOffer, setExistingOffer] = useState<any>(null)
@@ -29,24 +30,32 @@ export default function ContractExtensionPanel({ playerId }: { playerId: number 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
-      const { data: gm } = await supabase.from('gm_profiles').select('team_id').eq('id', user.id).single()
-      if (!gm?.team_id) return
+      const { data: gm } = await supabase.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
+      if (!gm) return
       setGmTeamId(gm.team_id)
+      setIsCommissioner(gm.role === 'commissioner')
 
-      const [{ data: p }, { data: t }, { data: offer }] = await Promise.all([
+      const [{ data: p }, { data: offer }] = await Promise.all([
         supabase.from('players').select('id,name,team_id,age,real_ovr,salary,contract_years').eq('id', playerId).single(),
-        supabase.from('teams').select('id,cap_used').eq('id', gm.team_id).single(),
         supabase.from('contract_extension_offers').select('*').eq('player_id', playerId).eq('season', '2025-26').maybeSingle(),
       ])
 
       setPlayer(p)
-      setTeam(t)
       setExistingOffer(offer)
       if (p) setOfferSalary(p.salary)
+
+      // Load cap info for the player's actual team (not necessarily the GM's)
+      if (p?.team_id) {
+        const { data: t } = await supabase.from('teams').select('id,cap_used').eq('id', p.team_id).single()
+        setTeam(t)
+      }
     })
   }, [playerId])
 
-  if (!gmTeamId || !player || player.team_id !== gmTeamId) return null
+  if (!player) return null
+  const isOwner = gmTeamId === player.team_id
+  const authorized = isOwner || isCommissioner
+  if (!authorized) return null
 
   const isEligible = player.contract_years <= ELIGIBLE_YEARS_LEFT
   if (!isEligible) {
@@ -108,7 +117,12 @@ export default function ContractExtensionPanel({ playerId }: { playerId: number 
 
   return (
     <div style={{marginTop:16,padding:'16px',background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:10}}>
-      <div style={{fontSize:13,fontWeight:700,color:'#1a1512',marginBottom:10}}>📝 Contract Extension</div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+        <div style={{fontSize:13,fontWeight:700,color:'#1a1512'}}>📝 Contract Extension</div>
+        <a href="/rules/contracts" target="_blank" style={{fontSize:11,color:'#1d4ed8',textDecoration:'none',fontWeight:600}}>
+          View rules →
+        </a>
+      </div>
 
       {/* Max salary info — the key requested feature */}
       <div style={{

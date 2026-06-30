@@ -25,8 +25,8 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabaseAdmin.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
 
-  const { data: gm } = await supabaseAdmin.from('gm_profiles').select('team_id').eq('id', user.id).single()
-  if (!gm?.team_id) return NextResponse.json({ error: 'No team found' }, { status: 403 })
+  const { data: gm } = await supabaseAdmin.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
+  if (!gm) return NextResponse.json({ error: 'No GM profile found' }, { status: 403 })
 
   const { playerId, offeredSalary, offeredYears } = await req.json()
 
@@ -44,7 +44,15 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (!player) return NextResponse.json({ error: 'Player not found' }, { status: 404 })
-  if (player.team_id !== gm.team_id) return NextResponse.json({ error: 'Player is not on your team' }, { status: 403 })
+
+  const isOwner = gm.team_id === player.team_id
+  const isCommissioner = gm.role === 'commissioner'
+  if (!isOwner && !isCommissioner) {
+    return NextResponse.json({ error: 'Not authorized to extend this player' }, { status: 403 })
+  }
+
+  // The acting team is always the player's actual team (handles commissioner case)
+  const actingTeamId = player.team_id
   if (player.contract_years > ELIGIBLE_YEARS_LEFT) {
     return NextResponse.json({ error: `Player has ${player.contract_years} years left — not eligible for extension yet` }, { status: 400 })
   }
@@ -60,7 +68,7 @@ export async function POST(req: NextRequest) {
 
   // Validate salary against max allowed
   const capMaxRaise = Math.round(player.salary * (1 + MAX_INCREASE_PCT))
-  const { data: team } = await supabaseAdmin.from('teams').select('cap_used').eq('id', gm.team_id).single()
+  const { data: team } = await supabaseAdmin.from('teams').select('cap_used').eq('id', actingTeamId).single()
   const capSpace = (CAP_LIMIT - (team?.cap_used || 0)) + player.salary
   const maxAllowed = Math.min(MAX_SALARY, capMaxRaise, capSpace)
 
@@ -117,7 +125,7 @@ export async function POST(req: NextRequest) {
   // ── Save offer ──────────────────────────────────────────
   const { data: offer } = await supabaseAdmin.from('contract_extension_offers').insert({
     player_id: playerId,
-    team_id: gm.team_id,
+    team_id: actingTeamId,
     season: '2025-26',
     offered_salary: offeredSalary,
     offered_years: offeredYears,
@@ -137,11 +145,11 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin.from('teams').update({
       cap_used: newCapUsed,
-    }).eq('id', gm.team_id)
+    }).eq('id', actingTeamId)
 
     // Notify
     await supabaseAdmin.from('inbox_messages').insert({
-      to_team_id: gm.team_id,
+      to_team_id: actingTeamId,
       type: 'contract',
       subject: `✅ ${player.name} signed an extension!`,
       body: `${player.name} has agreed to a ${offeredYears}-year extension worth $${(offeredSalary/1_000_000).toFixed(1)}M per year.\n\nNew contract: $${(offeredSalary/1_000_000).toFixed(1)}M/yr × ${offeredYears} years.`,
@@ -150,7 +158,7 @@ export async function POST(req: NextRequest) {
     })
   } else {
     await supabaseAdmin.from('inbox_messages').insert({
-      to_team_id: gm.team_id,
+      to_team_id: actingTeamId,
       type: 'contract',
       subject: `❌ ${player.name} rejected your extension offer`,
       body: `${player.name} turned down your offer of $${(offeredSalary/1_000_000).toFixed(1)}M/yr × ${offeredYears} years.\n\n${rejectionReason}\n\nYou won't be able to make another offer this season — they'll be a free agent if not re-signed before their contract expires.`,
