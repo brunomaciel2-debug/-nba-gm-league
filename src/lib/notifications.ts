@@ -62,7 +62,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     { data: sponsorContracts },
     { data: constructions },
   ] = await Promise.all([
-    supabase.from('teams').select('id,name,wins,losses,conference,rival_team_id').not('id','in','(ALL,RVS,ROO,SOP)'),
+    supabase.from('teams').select('id,name,wins,losses,conference,rival_team_id,cap_used').not('id','in','(ALL,RVS,ROO,SOP)'),
     supabase.from('profiles').select('team_id,email,full_name').not('team_id','is',null),
     supabase.from('games').select('*,home:teams!games_home_team_fkey(name),away:teams!games_away_team_fkey(name)').in('id', gamesCreated),
     supabase.from('injury_log').select('*,players!inner(name,team_id)').eq('season','2025-26').eq('status','active').in('game_id', gamesCreated),
