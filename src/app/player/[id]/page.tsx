@@ -3,6 +3,7 @@ import { readableTeamColor } from '@/lib/color'
 import { calcOvr } from '@/lib/ovr'
 import OfferButton from './OfferButton'
 import CutButton from './CutButton'
+import ContractExtensionPanel from './ContractExtensionPanel'
 export const dynamic = "force-dynamic"
 
 const ATTR_TIPS: Record<string,string> = {
@@ -227,6 +228,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         </div>
       )}
       {!p.team_id && <OfferButton playerId={p.id} isAssigned={!!p.on_gleague_assignment}/>}
+
+      {/* CONTRACT EXTENSION — only shows if eligible (≤2 years left) and on a roster */}
+      {p.team_id && <ContractExtensionPanel playerId={p.id}/>}
 
       {p.team_id && p.nba_recruitable !== false && (
         <div className="mb-4">
