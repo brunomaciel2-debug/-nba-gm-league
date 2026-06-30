@@ -12,14 +12,16 @@ import FacilitiesTab from './FacilitiesTab'
 import FinancesTab from './FinancesTab'
 import SponsorsTab from './SponsorsTab'
 import GoalsTab from './GoalsTab'
+import ScoutingTab from './ScoutingTab'
 
-type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors' | 'goals'
+type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors' | 'goals' | 'scouting'
 
 const TABS: { key: Tab, label: string, icon: string }[] = [
   { key: 'roster',     label: 'Roster',      icon: '👥' },
   { key: 'schedule',   label: 'Schedule',    icon: '📅' },
   { key: 'contracts',  label: 'Contracts',   icon: '📄' },
   { key: 'draft',      label: 'Draft Picks', icon: '🎓' },
+  { key: 'scouting',   label: 'Scouting',    icon: '🔍' },
   { key: 'training',   label: 'Training',    icon: '🏋️' },
   { key: 'facilities', label: 'Facilities',  icon: '🏟️' },
   { key: 'finances',   label: 'Finances',    icon: '💵' },
@@ -138,6 +140,7 @@ export default function TeamPageTabs({
         {tab === 'finances'   && (
           <FinancesTab teamId={teamId} teamColor={teamColor} />
         )}
+        {tab === 'scouting'  && <ScoutingTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'goals'     && <GoalsTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'sponsors'   && <SponsorsTab teamId={teamId} teamColor={teamColor}/>}
       </div>
