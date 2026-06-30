@@ -63,27 +63,30 @@ export default function CutButton({ playerId, playerTeamId }: { playerId: number
   }
 
   return (
-    <div style={{ marginTop: 12 }}>
+    <div style={{ marginTop: 16 }}>
       {!confirming ? (
-        <button
-          onClick={() => setConfirming(true)}
-          style={{
-            padding: '8px 16px', fontSize: 12, fontWeight: 700, borderRadius: 8,
-            background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5',
-            cursor: 'pointer',
-          }}>
-          ✂️ Cut / Waive Player{isCommissioner ? ' (Commissioner)' : ''}
-        </button>
+        <div className="flex items-center justify-between px-4 py-3 rounded-xl"
+             style={{ background: '#faf8f5', border: '1px solid #d4cdc5' }}>
+          <div className="text-xs" style={{ color: '#5c554e' }}>
+            <i className="ti ti-scissors" style={{ marginRight: 4 }}></i>
+            Release this player to free agency
+          </div>
+          <button onClick={() => setConfirming(true)}
+            className="text-xs font-bold px-3 py-1.5 rounded-lg"
+            style={{ background: '#dc2626', color: '#fff', border: 'none', cursor: 'pointer' }}>
+            ✂️ Cut / Waive{isCommissioner ? ' (Commissioner)' : ''}
+          </button>
+        </div>
       ) : (
         <div style={{
-          padding: '14px 16px', borderRadius: 10,
+          padding: '14px 16px', borderRadius: 12,
           background: '#fef2f2', border: '1px solid #fca5a5',
         }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626', marginBottom: 6 }}>
             Confirm release?
           </div>
           <div style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 10, lineHeight: 1.5 }}>
-            This player will become an unrestricted free agent immediately. Their salary will be removed from your cap.
+            This player will become an unrestricted free agent immediately. Their salary will remain on your cap as dead money until another team signs them.
           </div>
 
           {wouldGoBelowMin && (
