@@ -2,11 +2,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
+import { useTranslation } from '@/components/I18nProvider'
 
 type Slot = { id:string, slot_type:string, fill_pct:number, credits_available:number, locked:boolean }
 type Player = { id:number, name:string, pos:string, photo_url?:string, [key:string]:any }
 
-const SLOT_CONFIG: Record<string,{label:string,icon:string,color:string,bg:string,attrs:{key:string,label:string,potKey:string}[]}> = {
+const SLOT_CONFIG_EN: Record<string,{label:string,icon:string,color:string,bg:string,attrs:{key:string,label:string,potKey:string}[]}> = {
   offense:    {label:'Offense',     icon:'🏀',color:'#b45309',bg:'#fef3c7',attrs:[{key:'three',label:'3PT',potKey:'pot_three'},{key:'layup',label:'Layup',potKey:'pot_layup'},{key:'dunk',label:'Dunk',potKey:'pot_dunk'},{key:'mid',label:'Mid',potKey:'pot_mid'},{key:'ft',label:'FT',potKey:'pot_ft'},{key:'siq',label:'SIQ',potKey:'pot_siq'},{key:'draw_foul',label:'DF',potKey:'pot_draw_foul'}]},
   defense:    {label:'Defense',     icon:'🛡️',color:'#15803d',bg:'#dcfce7',attrs:[{key:'blk',label:'BLK',potKey:'pot_blk'},{key:'stl',label:'STL',potKey:'pot_stl'},{key:'idef',label:'IDEF',potKey:'pot_idef'},{key:'pdef',label:'PDEF',potKey:'pot_pdef'}]},
   physical:   {label:'Physical',    icon:'💪',color:'#6d28d9',bg:'#ede9fe',attrs:[{key:'stamina',label:'STA',potKey:'pot_stamina'},{key:'durability',label:'DUR',potKey:'pot_durability'},{key:'def_reb',label:'DREB',potKey:'pot_def_reb'},{key:'off_reb',label:'OREB',potKey:'pot_off_reb'}]},
@@ -16,9 +17,22 @@ const SLOT_CONFIG: Record<string,{label:string,icon:string,color:string,bg:strin
   shooting:   {label:'Shooting Lab',icon:'🎯',color:'#c2410c',bg:'#ffedd5',attrs:[{key:'three',label:'3PT',potKey:'pot_three'},{key:'ft',label:'FT',potKey:'pot_ft'},{key:'mid',label:'MID',potKey:'pot_mid'}]},
   analytics:  {label:'Analytics',  icon:'📊',color:'#4338ca',bg:'#e0e7ff',attrs:[{key:'siq',label:'SIQ',potKey:'pot_siq'},{key:'pass_iq',label:'PIQ',potKey:'pot_pass_iq'},{key:'pressure',label:'CLU',potKey:'pot_pressure'},{key:'consistency',label:'CON',potKey:'pot_consistency'}]},
 }
+const SLOT_CONFIG_PT: Record<string,{label:string,icon:string,color:string,bg:string,attrs:{key:string,label:string,potKey:string}[]}> = {
+  offense:    {label:'Ataque',      icon:'🏀',color:'#b45309',bg:'#fef3c7',attrs:SLOT_CONFIG_EN.offense.attrs},
+  defense:    {label:'Defesa',      icon:'🛡️',color:'#15803d',bg:'#dcfce7',attrs:SLOT_CONFIG_EN.defense.attrs},
+  physical:   {label:'Físico',      icon:'💪',color:'#6d28d9',bg:'#ede9fe',attrs:SLOT_CONFIG_EN.physical.attrs},
+  playmaking: {label:'Criação de Jogo',icon:'🎯',color:'#1d4ed8',bg:'#dbeafe',attrs:SLOT_CONFIG_EN.playmaking.attrs},
+  mental:     {label:'Mental',      icon:'🧠',color:'#0e7490',bg:'#cffafe',attrs:SLOT_CONFIG_EN.mental.attrs},
+  recovery:   {label:'Recuperação', icon:'🏊',color:'#dc2626',bg:'#fee2e2',attrs:SLOT_CONFIG_EN.recovery.attrs},
+  shooting:   {label:'Lab Lançamento',icon:'🎯',color:'#c2410c',bg:'#ffedd5',attrs:SLOT_CONFIG_EN.shooting.attrs},
+  analytics:  {label:'Análise',     icon:'📊',color:'#4338ca',bg:'#e0e7ff',attrs:SLOT_CONFIG_EN.analytics.attrs},
+}
 
-const UNLOCK_REQ: Record<string,string> = {
+const UNLOCK_REQ_EN: Record<string,string> = {
   playmaking:'Grade D Gym', mental:'Mental Coach', recovery:'Pool or Sauna', shooting:'Shooting Machine', analytics:'Grade A Gym',
+}
+const UNLOCK_REQ_PT: Record<string,string> = {
+  playmaking:'Ginásio Grau D', mental:'Coach Mental', recovery:'Piscina ou Sauna', shooting:'Máquina de Lançamento', analytics:'Ginásio Grau A',
 }
 
 function costForOnePoint(v:number):number { if(v<=60)return 0.5; if(v<=75)return 1; if(v<=90)return 2; return 3 }
@@ -26,6 +40,10 @@ function attrColor(v:number):string { if(v>=85)return'#b45309'; if(v>=75)return'
 
 export default function TrainingTab({teamId,teamColor,players}:{teamId:string,teamColor:string,players:Player[]}) {
   const {profile} = useAuth()
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
+  const SLOT_CONFIG = isPT ? SLOT_CONFIG_PT : SLOT_CONFIG_EN
+  const UNLOCK_REQ = isPT ? UNLOCK_REQ_PT : UNLOCK_REQ_EN
   const isGM = (profile as any)?.team_id===teamId || profile?.role==='commissioner'
 
   const [slots,setSlots]             = useState<Slot[]>([])
@@ -83,10 +101,12 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
     if(logs.length)await supabase.from('training_log').insert(logs)
     setSlots(p=>p.map(s=>s.id===selectedSlot.id?{...s,credits_available:newCr,fill_pct:reset?0:s.fill_pct}:s))
     setSelectedSlot(p=>p?{...p,credits_available:newCr,fill_pct:reset?0:p.fill_pct}:null)
-    setAllocation({}); setSelectedPlayer(null); setMsg('Training applied!'); setSaving(false)
+    setAllocation({}); setSelectedPlayer(null)
+    setMsg(isPT ? 'Treino aplicado!' : 'Training applied!')
+    setSaving(false)
   }
 
-  if(loading)return <div className="text-center py-8" style={{color:'#8a8279'}}>Loading...</div>
+  if(loading)return <div className="text-center py-8" style={{color:'#8a8279'}}>{t('common.loading')}</div>
 
   const unlockedSlots=slots.filter(s=>!s.locked)
   const lockedSlots=slots.filter(s=>s.locked)
@@ -95,14 +115,13 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
 
   return (
     <div>
-      {/* Summary - GM only */}
       {isGM && (
       <div className="flex gap-3 mb-4 flex-wrap">
         {[
-          {label:'Active slots',   val:unlockedSlots.length, hi:false},
-          {label:'Ready to spend', val:readySlots.length,    hi:readySlots.length>0},
-          {label:'Total credits',  val:totalCredits,          hi:totalCredits>0},
-          {label:'Locked slots',   val:lockedSlots.length,   hi:false},
+          {label:isPT?'Slots ativos':'Active slots',   val:unlockedSlots.length, hi:false},
+          {label:isPT?'Prontos a gastar':'Ready to spend', val:readySlots.length, hi:readySlots.length>0},
+          {label:isPT?'Total créditos':'Total credits', val:totalCredits, hi:totalCredits>0},
+          {label:isPT?'Slots bloqueados':'Locked slots', val:lockedSlots.length, hi:false},
         ].map(item=>(
           <div key={item.label} style={{background:item.hi?teamColor+'18':'#f0ece5',border:`1px solid ${item.hi?teamColor:'#d4cdc5'}`,borderRadius:8,padding:'6px 12px'}}>
             <div style={{fontSize:10,color:'#8a8279'}}>{item.label}</div>
@@ -112,7 +131,6 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
       </div>
       )}
 
-      {/* Slots row — compact */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:8}}>
         {unlockedSlots.map(slot=>{
           const c=SLOT_CONFIG[slot.slot_type]
@@ -124,19 +142,12 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
               onClick={()=>isGM&&setSelectedSlot(isSelected?null:slot)}
               onMouseEnter={()=>setHoveredSlot(slot)}
               onMouseLeave={()=>setHoveredSlot(null)}
-              style={{
-                background:isSelected?c.bg:'#faf8f5',
-                border:`1px solid ${isSelected?c.color:'#d4cdc5'}`,
-                borderTop:`3px solid ${isSelected||isFull?c.color:'#d4cdc5'}`,
-                borderRadius:10,padding:'10px 12px',cursor:isGM?'pointer':'default',transition:'all 0.15s',
-              }}>
+              style={{background:isSelected?c.bg:'#faf8f5',border:`1px solid ${isSelected?c.color:'#d4cdc5'}`,borderTop:`3px solid ${isSelected||isFull?c.color:'#d4cdc5'}`,borderRadius:10,padding:'10px 12px',cursor:isGM?'pointer':'default',transition:'all 0.15s'}}>
               <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:isGM?6:0}}>
                 <span style={{fontSize:16}}>{c.icon}</span>
                 <span style={{fontSize:12,fontWeight:700,color:c.color,flex:1}}>{c.label}</span>
                 {isGM && slot.credits_available>0 && (
-                  <span style={{background:c.color,color:'#fff',fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:10}}>
-                    {slot.credits_available}cr
-                  </span>
+                  <span style={{background:c.color,color:'#fff',fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:10}}>{slot.credits_available}cr</span>
                 )}
               </div>
               {isGM && (
@@ -145,7 +156,7 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
                     <div style={{height:'100%',width:pct+'%',background:isFull?c.color:c.color+'77',borderRadius:3,transition:'width 0.3s'}}/>
                   </div>
                   <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:'#8a8279'}}>
-                    <span>{isFull?'✓ Ready':'Filling...'}</span>
+                    <span>{isFull?(isPT?'✓ Pronto':'✓ Ready'):(isPT?'A encher...':'Filling...')}</span>
                     <span style={{fontWeight:600,color:isFull?c.color:'#8a8279'}}>{Math.round(pct)}%</span>
                   </div>
                 </>
@@ -167,32 +178,28 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
         })}
       </div>
 
-      {/* Attr tags hint */}
       {activeCfg && (
         <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:12,padding:'6px 10px',background:activeCfg.bg,borderRadius:8,border:`1px solid ${activeCfg.color}33`}}>
-          <span style={{fontSize:11,fontWeight:600,color:activeCfg.color}}>{activeCfg.icon} {activeCfg.label} trains:</span>
+          <span style={{fontSize:11,fontWeight:600,color:activeCfg.color}}>{activeCfg.icon} {activeCfg.label} {isPT?'treina:':'trains:'}</span>
           {activeCfg.attrs.map(a=>(
             <span key={a.key} style={{fontSize:10,padding:'1px 6px',borderRadius:4,background:activeCfg.color+'22',color:activeCfg.color,fontWeight:600}}>{a.label}</span>
           ))}
         </div>
       )}
 
-      {/* Main area: roster + spend panel */}
       <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
-
-        {/* Roster table */}
         <div style={{flex:1,minWidth:0,borderRadius:12,overflow:'hidden',border:'1px solid #d4cdc5'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
             <thead>
               <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                <th style={{padding:'8px 12px',textAlign:'left',fontWeight:700,color:'#5c554e'}}>Player</th>
+                <th style={{padding:'8px 12px',textAlign:'left',fontWeight:700,color:'#5c554e'}}>{isPT?'Jogador':'Player'}</th>
                 <th style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:'#5c554e',fontSize:10}}>POS</th>
                 {activeAttrs.length>0
                   ? activeAttrs.map(key=>{
                       const a=activeCfg?.attrs.find(x=>x.key===key)
                       return <th key={key} style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:activeCfg?.color,fontSize:10,whiteSpace:'nowrap'}}>{a?.label||key}</th>
                     })
-                  : <th style={{padding:'8px 6px',textAlign:'center',fontWeight:400,color:'#b0a89e',fontSize:10}}>← Select a slot</th>
+                  : <th style={{padding:'8px 6px',textAlign:'center',fontWeight:400,color:'#b0a89e',fontSize:10}}>← {isPT?'Seleciona um slot':'Select a slot'}</th>
                 }
               </tr>
             </thead>
@@ -200,18 +207,11 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
               {players.map((p,i)=>(
                 <tr key={p.id}
                   onClick={()=>selectedSlot&&selectedSlot.credits_available>0&&(setSelectedPlayer(prev=>prev?.id===p.id?null:p),setAllocation({}))}
-                  style={{
-                    background:selectedPlayer?.id===p.id?teamColor+'0d':i%2===0?'#faf8f5':'#f5f1eb',
-                    borderBottom:'1px solid #e2dcd5',
-                    cursor:selectedSlot&&selectedSlot.credits_available>0?'pointer':'default',
-                    outline:selectedPlayer?.id===p.id?`2px solid ${teamColor}`:'none',
-                  }}>
+                  style={{background:selectedPlayer?.id===p.id?teamColor+'0d':i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5',cursor:selectedSlot&&selectedSlot.credits_available>0?'pointer':'default',outline:selectedPlayer?.id===p.id?`2px solid ${teamColor}`:'none'}}>
                   <td style={{padding:'8px 12px'}}>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <div style={{width:26,height:26,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:'#e8e2d6',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                        {p.photo_url
-                          ?<img src={p.photo_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                          :<span style={{fontSize:8,fontWeight:700,color:'#5c554e'}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</span>}
+                        {p.photo_url?<img src={p.photo_url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<span style={{fontSize:8,fontWeight:700,color:'#5c554e'}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</span>}
                       </div>
                       <span style={{fontWeight:600,color:'#1a1512',fontSize:12}}>{p.name}</span>
                     </div>
@@ -222,13 +222,11 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
                   {activeAttrs.length>0
                     ? activeAttrs.map(key=>{
                         const a=activeCfg?.attrs.find(x=>x.key===key)
-                        const val=p[key]||0
-                        const pot=a?p[a.potKey]||99:99
-                        const atCap=val>=pot
+                        const val=p[key]||0; const pot=a?p[a.potKey]||99:99; const atCap=val>=pot
                         return (
                           <td key={key} style={{padding:'6px',textAlign:'center'}}>
                             <span style={{fontWeight:700,fontSize:12,color:atCap?'#b0a89e':attrColor(val)}}>{val}</span>
-                            {atCap && isGM && <span title="At potential cap" style={{marginLeft:2,fontSize:10,color:'#b45309'}}>⚠</span>}
+                            {atCap && isGM && <span title={isPT?'No limite do potencial':'At potential cap'} style={{marginLeft:2,fontSize:10,color:'#b45309'}}>⚠</span>}
                           </td>
                         )
                       })
@@ -240,53 +238,48 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
           </table>
         </div>
 
-        {/* Spend panel - GM only */}
         {isGM && <div style={{width:220,flexShrink:0,background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12,padding:14}}>
           {!selectedSlot?(
-            <p style={{fontSize:12,color:'#8a8279',lineHeight:1.6}}>Select a slot above, then click a player to train.</p>
+            <p style={{fontSize:12,color:'#8a8279',lineHeight:1.6}}>{isPT?'Seleciona um slot acima, depois clica num jogador para treinar.':'Select a slot above, then click a player to train.'}</p>
           ):selectedSlot.credits_available===0?(
             <>
               <div style={{fontSize:13,fontWeight:700,color:activeCfg?.color,marginBottom:6}}>{activeCfg?.icon} {activeCfg?.label}</div>
               <div style={{height:6,background:'#e2dcd5',borderRadius:3,overflow:'hidden',marginBottom:6}}>
                 <div style={{height:'100%',width:selectedSlot.fill_pct+'%',background:activeCfg?.color+'88',borderRadius:3}}/>
               </div>
-              <p style={{fontSize:11,color:'#8a8279',lineHeight:1.5}}>{Math.round(selectedSlot.fill_pct)}% — needs 100% to earn 10 credits.</p>
+              <p style={{fontSize:11,color:'#8a8279',lineHeight:1.5}}>{Math.round(selectedSlot.fill_pct)}% — {isPT?'precisa de 100% para ganhar 10 créditos.':'needs 100% to earn 10 credits.'}</p>
             </>
           ):!selectedPlayer?(
             <>
               <div style={{fontSize:13,fontWeight:700,color:activeCfg?.color,marginBottom:6}}>{activeCfg?.icon} {activeCfg?.label}</div>
-              <div style={{fontSize:11,color:'#8a8279',marginBottom:8}}>{selectedSlot.credits_available} credits · max 3/player</div>
+              <div style={{fontSize:11,color:'#8a8279',marginBottom:8}}>{selectedSlot.credits_available} {isPT?'créditos · máx 3/jogador':'credits · max 3/player'}</div>
               <div style={{background:'#f0ece5',borderRadius:6,padding:'5px 8px',fontSize:10,color:'#5c554e',lineHeight:1.6}}>
-                0-60: 0.5cr/pt · 61-75: 1cr/pt<br/>76-90: 2cr/pt · 91-99: 3cr/pt
+                {isPT?'0-60: 0.5cr/pt · 61-75: 1cr/pt\n76-90: 2cr/pt · 91-99: 3cr/pt':'0-60: 0.5cr/pt · 61-75: 1cr/pt\n76-90: 2cr/pt · 91-99: 3cr/pt'}
               </div>
-              <p style={{fontSize:11,color:'#8a8279',marginTop:8}}>Click a player in the roster to train.</p>
+              <p style={{fontSize:11,color:'#8a8279',marginTop:8}}>{isPT?'Clica num jogador no plantel para treinar.':'Click a player in the roster to train.'}</p>
             </>
           ):(
             <>
               <div style={{fontSize:13,fontWeight:700,color:activeCfg?.color,marginBottom:2}}>{activeCfg?.icon} {activeCfg?.label}</div>
               <div style={{fontSize:11,color:'#8a8279',marginBottom:8}}>
-                {selectedSlot.credits_available}cr available ·
-                <span style={{color:creditsLeft>0?activeCfg?.color:'#dc2626',fontWeight:700}}> {creditsLeft.toFixed(1)} left</span>
+                {selectedSlot.credits_available}cr {isPT?'disponíveis':'available'} ·
+                <span style={{color:creditsLeft>0?activeCfg?.color:'#dc2626',fontWeight:700}}> {creditsLeft.toFixed(1)} {isPT?'rest.':'left'}</span>
               </div>
               <div style={{fontSize:12,fontWeight:600,color:'#1a1512',marginBottom:8,padding:'4px 8px',background:teamColor+'18',borderRadius:6}}>
                 {selectedPlayer.name}
               </div>
-              {playerAtMax && <div style={{fontSize:10,color:'#dc2626',marginBottom:6}}>Max 3 credits reached for this player</div>}
+              {playerAtMax && <div style={{fontSize:10,color:'#dc2626',marginBottom:6}}>{isPT?'Máximo de 3 créditos atingido para este jogador':'Max 3 credits reached for this player'}</div>}
               <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:10}}>
                 {activeCfg?.attrs.map(attr=>{
-                  const cur=selectedPlayer[attr.key]||0
-                  const pot=selectedPlayer[attr.potKey]||99
-                  const added=allocation[attr.key]||0
-                  const curWithAdded=cur+added
-                  const atCap=curWithAdded>=pot
-                  const cost=costForOnePoint(cur)
-                  const canAdd=!atCap&&creditsLeft>=cost&&!playerAtMax&&curWithAdded<99
+                  const cur=selectedPlayer[attr.key]||0; const pot=selectedPlayer[attr.potKey]||99
+                  const added=allocation[attr.key]||0; const curWithAdded=cur+added; const atCap=curWithAdded>=pot
+                  const cost=costForOnePoint(cur); const canAdd=!atCap&&creditsLeft>=cost&&!playerAtMax&&curWithAdded<99
                   return (
                     <div key={attr.key} style={{display:'flex',alignItems:'center',gap:4}}>
                       <span style={{flex:1,fontSize:11,color:atCap&&!added?'#b0a89e':'#5c554e'}}>{attr.label}</span>
                       <span style={{fontSize:10,color:'#8a8279',minWidth:18,textAlign:'right'}}>{cur}</span>
                       {atCap&&!added
-                        ? <span style={{fontSize:9,color:'#b0a89e',padding:'1px 4px',background:'#f0ece5',borderRadius:3}}>cap</span>
+                        ? <span style={{fontSize:9,color:'#b0a89e',padding:'1px 4px',background:'#f0ece5',borderRadius:3}}>{isPT?'limite':'cap'}</span>
                         : <div style={{display:'flex',alignItems:'center',gap:2}}>
                             <button onClick={()=>handleRemove(attr.key)} disabled={!added}
                               style={{width:18,height:18,borderRadius:3,border:'1px solid #d4cdc5',background:'#f0ece5',cursor:added?'pointer':'not-allowed',fontSize:12,color:'#5c554e',lineHeight:1}}>−</button>
@@ -305,10 +298,9 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
                 <button onClick={handleSpend} disabled={!totalPts||saving}
                   style={{width:'100%',padding:'8px',fontSize:12,fontWeight:600,border:'none',borderRadius:8,
                           background:totalPts?activeCfg?.color:'#e2dcd5',color:totalPts?'#fff':'#8a8279',cursor:totalPts?'pointer':'not-allowed'}}>
-                  {saving?'Applying...':`Apply (${creditsSpent.toFixed(1)}cr)`}
+                  {saving?(isPT?'A aplicar...':'Applying...'):`${isPT?'Aplicar':'Apply'} (${creditsSpent.toFixed(1)}cr)`}
                 </button>
               )}
-              {!isGM&&<p style={{fontSize:11,color:'#8a8279',marginTop:6}}>Only the GM can spend credits.</p>}
               {msg&&<p style={{fontSize:11,color:'#15803d',fontWeight:600,marginTop:6}}>✓ {msg}</p>}
             </>
           )}
@@ -316,7 +308,9 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
       </div>
 
       <div style={{marginTop:12,padding:'8px 12px',background:'#f0ece5',borderRadius:8,fontSize:10,color:'#6b5f4e',lineHeight:1.5}}>
-        Slots fill automatically each week · Full slot = 10 credits · Max 3 credits per player per cycle · Attributes capped at individual potential
+        {isPT
+          ? 'Slots enchem automaticamente por semana · Slot cheio = 10 créditos · Máx 3 créditos por jogador por ciclo · Atributos limitados pelo potencial individual'
+          : 'Slots fill automatically each week · Full slot = 10 credits · Max 3 credits per player per cycle · Attributes capped at individual potential'}
       </div>
     </div>
   )
