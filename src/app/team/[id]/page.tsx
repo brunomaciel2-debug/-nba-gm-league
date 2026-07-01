@@ -24,19 +24,20 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
 
   const t = team as any
   const color = readableTeamColor(t.color)
-  const cap=t.salary_cap, used=t.cap_used, space=cap-used
-  const capFmt = (n:number) => '$'+Math.round(n/1000000).toFixed(1)+'M'
-  const teamsMap = Object.fromEntries((allTeams||[]).map((x:any)=>[x.id,x]))
+  const cap = t.salary_cap
+  const used = t.cap_used
+  const space = cap - used
+  const teamsMap = Object.fromEntries((allTeams||[]).map((x:any) => [x.id, x]))
 
-  const teamPlayerIds = new Set((players||[]).map((p:any)=>p.id))
-  const teamInjuries = (injuries||[]).filter((i:any)=>teamPlayerIds.has(i.player_id))
+  const teamPlayerIds = new Set((players||[]).map((p:any) => p.id))
+  const teamInjuries = (injuries||[]).filter((i:any) => teamPlayerIds.has(i.player_id))
 
-  const played = (games||[]).filter((g:any)=>g.status==='final')
-  const wins   = played.filter((g:any)=>
-    (g.home_team===teamId?g.home_score:g.away_score) > (g.home_team===teamId?g.away_score:g.home_score)
+  const played = (games||[]).filter((g:any) => g.status === 'final')
+  const wins = played.filter((g:any) =>
+    (g.home_team===teamId ? g.home_score : g.away_score) > (g.home_team===teamId ? g.away_score : g.home_score)
   ).length
   const losses = played.length - wins
-  const pct    = played.length>0?(wins/played.length).toFixed(3):'-'
+  const pct = played.length > 0 ? (wins/played.length).toFixed(3) : '-'
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -48,8 +49,8 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
           <div className="w-28 h-28 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden"
                style={{background:color+'22',border:'2px solid '+color+'44'}}>
             {t.logo_url
-              ?<img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1"/>
-              :<span className="text-3xl font-black" style={{color}}>{t.id}</span>}
+              ? <img src={t.logo_url} alt={t.name} className="w-full h-full object-contain p-1"/>
+              : <span className="text-3xl font-black" style={{color}}>{t.id}</span>}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold mb-1" style={{color}}>{t.conference} · {t.division}</div>
@@ -57,7 +58,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
             <div className="text-sm" style={{color:'#6b5f4e'}}>{t.arena} · {t.city}</div>
           </div>
           <div className="flex gap-6">
-            {[{v:wins,l:'W',c:'#15803d'},{v:losses,l:'L',c:'#dc2626'},{v:pct,l:'PCT',c:'#1a1512'}].map(x=>(
+            {[{v:wins,l:'W',c:'#15803d'},{v:losses,l:'L',c:'#dc2626'},{v:pct,l:'PCT',c:'#1a1512'}].map(x => (
               <div key={x.l} className="text-center">
                 <div className="text-3xl font-black" style={{color:x.c}}>{x.v}</div>
                 <div className="text-xs" style={{color:'#6b5f4e'}}>{x.l}</div>
@@ -69,7 +70,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
 
       {/* CAP ROOM + GM PANEL */}
       <div className="grid sm:grid-cols-2 gap-4 mb-4">
-        <TeamCapRoom used={used} cap={cap} space={space} capFmt={capFmt} color={color} />
+        <TeamCapRoom used={used} cap={cap} space={space} color={color} />
         <GMPanel teamId={teamId} />
       </div>
 

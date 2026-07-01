@@ -1,9 +1,10 @@
 'use client'
 import { useTranslation } from '@/components/I18nProvider'
 
-export default function TeamCapRoom({ used, cap, space, capFmt, color }: {
-  used: number, cap: number, space: number,
-  capFmt: (n: number) => string, color: string
+function fmt(n: number) { return '$' + Math.round(n / 1_000_000).toFixed(1) + 'M' }
+
+export default function TeamCapRoom({ used, cap, space, color }: {
+  used: number, cap: number, space: number, color: string
 }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
@@ -15,20 +16,20 @@ export default function TeamCapRoom({ used, cap, space, capFmt, color }: {
       </h3>
       <div className="flex justify-between text-xs mb-1">
         <span style={{color:'#6b5f4e'}}>{isPT ? 'Utilizado' : 'Used'}</span>
-        <span className="font-bold" style={{color:'#1a1612'}}>{capFmt(used)}</span>
+        <span className="font-bold" style={{color:'#1a1612'}}>{fmt(used)}</span>
       </div>
       <div className="h-2 rounded-full overflow-hidden mb-1" style={{background:'#cec7bc'}}>
         <div className="h-full rounded-full" style={{
-          width: Math.min(100, used/cap*100) + '%',
+          width: Math.min(100, used / cap * 100) + '%',
           background: space > 0 ? '#1d4ed8' : '#dc2626',
         }}/>
       </div>
       <div className="flex justify-between text-xs">
-        <span style={{color:'#6b5f4e'}}>{isPT ? 'Tecto' : 'Cap'}: {capFmt(cap)}</span>
+        <span style={{color:'#6b5f4e'}}>{isPT ? 'Tecto' : 'Cap'}: {fmt(cap)}</span>
         <span className="font-bold" style={{color: space > 0 ? '#15803d' : '#dc2626'}}>
           {space > 0
-            ? `${isPT ? 'Margem' : 'Space'}: +${capFmt(space)}`
-            : `${isPT ? 'Excesso' : 'Over'}: ${capFmt(Math.abs(space))}`}
+            ? `${isPT ? 'Margem' : 'Space'}: +${fmt(space)}`
+            : `${isPT ? 'Excesso' : 'Over'}: ${fmt(Math.abs(space))}`}
         </span>
       </div>
     </div>
