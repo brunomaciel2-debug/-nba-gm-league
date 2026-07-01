@@ -13,28 +13,16 @@ import FinancesTab from './FinancesTab'
 import SponsorsTab from './SponsorsTab'
 import GoalsTab from './GoalsTab'
 import ScoutingTab from './ScoutingTab'
+import { useTranslation } from '@/components/I18nProvider'
 
 type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors' | 'goals' | 'scouting'
 
-const TABS: { key: Tab, label: string, icon: string }[] = [
-  { key: 'roster',     label: 'Roster',      icon: '👥' },
-  { key: 'schedule',   label: 'Schedule',    icon: '📅' },
-  { key: 'contracts',  label: 'Contracts',   icon: '📄' },
-  { key: 'draft',      label: 'Draft Picks', icon: '🎓' },
-  { key: 'scouting',   label: 'Scouting',    icon: '🔍' },
-  { key: 'training',   label: 'Training',    icon: '🏋️' },
-  { key: 'facilities', label: 'Facilities',  icon: '🏟️' },
-  { key: 'finances',   label: 'Finances',    icon: '💵' },
-  { key: 'sponsors',   label: 'Sponsors',    icon: '💰' },
-  { key: 'goals',      label: 'Goals',       icon: '🎯' },
-]
-
-function ComingSoon({ label, icon }: { label: string, icon: string }) {
+function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: boolean }) {
   return (
     <div className="rounded-2xl p-16 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
       <div className="text-5xl mb-4">{icon}</div>
       <h3 className="text-lg font-black mb-2" style={{color:'#1a1512'}}>{label}</h3>
-      <p className="text-sm" style={{color:'#8a8279'}}>This feature is coming soon.</p>
+      <p className="text-sm" style={{color:'#8a8279'}}>{isPT ? 'Esta funcionalidade estará disponível em breve.' : 'This feature is coming soon.'}</p>
     </div>
   )
 }
@@ -45,7 +33,22 @@ export default function TeamPageTabs({
   players: any[], games: any[], teamId: string, teamsMap: any, teamColor: string,
   coaches: any[], injuries: any[], arenaName?: string, arenaCapacity?: number
 }) {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const [tab, setTab] = useState<Tab>('roster')
+
+  const TABS: { key: Tab, label: string, icon: string }[] = [
+    { key: 'roster',     label: isPT ? 'Plantel'         : 'Roster',      icon: '👥' },
+    { key: 'schedule',   label: isPT ? 'Calendário'      : 'Schedule',    icon: '📅' },
+    { key: 'contracts',  label: isPT ? 'Contratos'       : 'Contracts',   icon: '📄' },
+    { key: 'draft',      label: isPT ? 'Escolhas Draft'  : 'Draft Picks', icon: '🎓' },
+    { key: 'scouting',   label: 'Scouting',                               icon: '🔍' },
+    { key: 'training',   label: isPT ? 'Treino'          : 'Training',    icon: '🏋️' },
+    { key: 'facilities', label: isPT ? 'Instalações'     : 'Facilities',  icon: '🏟️' },
+    { key: 'finances',   label: isPT ? 'Finanças'        : 'Finances',    icon: '💵' },
+    { key: 'sponsors',   label: isPT ? 'Patrocinadores'  : 'Sponsors',    icon: '💰' },
+    { key: 'goals',      label: isPT ? 'Objetivos'       : 'Goals',       icon: '🎯' },
+  ]
 
   useEffect(() => {
     const hash = window.location.hash.replace('#', '') as Tab
@@ -58,7 +61,7 @@ export default function TeamPageTabs({
   const badges: Partial<Record<Tab, string>> = {
     roster:    `${players.length}`,
     schedule:  `${played}/${played + upcoming}`,
-    contracts: 'Multi-yr',
+    contracts: isPT ? 'Multi-ano' : 'Multi-yr',
     draft:     '5 yrs',
   }
 
@@ -72,7 +75,6 @@ export default function TeamPageTabs({
       }}>
         {TABS.map((t, i) => {
           const active = tab === t.key
-          const isComingSoon = false
           const showDivider = i === 4
           return (
             <div key={t.key}>
@@ -82,7 +84,7 @@ export default function TeamPageTabs({
                   display:'flex', alignItems:'center', gap:10, width:'100%',
                   padding:'9px 14px', fontSize:13,
                   fontWeight: active ? 700 : 500,
-                  color: active ? '#1a1512' : isComingSoon ? '#b0a89e' : '#3d3731',
+                  color: active ? '#1a1512' : '#3d3731',
                   background: active ? teamColor + '18' : 'transparent',
                   borderLeft: `3px solid ${active ? teamColor : 'transparent'}`,
                   border:'none', borderLeftStyle:'solid', borderLeftWidth:3,
@@ -99,10 +101,6 @@ export default function TeamPageTabs({
                     color: active ? teamColor : '#8a8279', fontWeight:600}}>
                     {badges[t.key]}
                   </span>
-                )}
-                {isComingSoon && (
-                  <span style={{fontSize:9,padding:'1px 4px',borderRadius:3,
-                    background:'#f0ece5',color:'#b0a89e',flexShrink:0}}>soon</span>
                 )}
               </button>
             </div>
@@ -126,22 +124,11 @@ export default function TeamPageTabs({
         {tab === 'schedule'   && <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />}
         {tab === 'contracts'  && <ContractsTable teamId={teamId} teamColor={teamColor} />}
         {tab === 'draft'      && <DraftPicksTable teamId={teamId} />}
-        {tab === 'training'   && (
-          <TrainingTab teamId={teamId} teamColor={teamColor} players={players} />
-        )}
-        {tab === 'facilities' && (
-          <FacilitiesTab
-            teamId={teamId}
-            teamColor={teamColor}
-            arenaName={arenaName}
-            arenaCapacity={arenaCapacity}
-          />
-        )}
-        {tab === 'finances'   && (
-          <FinancesTab teamId={teamId} teamColor={teamColor} />
-        )}
-        {tab === 'scouting'  && <ScoutingTab teamId={teamId} teamColor={teamColor}/>}
-        {tab === 'goals'     && <GoalsTab teamId={teamId} teamColor={teamColor}/>}
+        {tab === 'training'   && <TrainingTab teamId={teamId} teamColor={teamColor} players={players} />}
+        {tab === 'facilities' && <FacilitiesTab teamId={teamId} teamColor={teamColor} arenaName={arenaName} arenaCapacity={arenaCapacity} />}
+        {tab === 'finances'   && <FinancesTab teamId={teamId} teamColor={teamColor} />}
+        {tab === 'scouting'   && <ScoutingTab teamId={teamId} teamColor={teamColor}/>}
+        {tab === 'goals'      && <GoalsTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'sponsors'   && <SponsorsTab teamId={teamId} teamColor={teamColor}/>}
       </div>
     </div>

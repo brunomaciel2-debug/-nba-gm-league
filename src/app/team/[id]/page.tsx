@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import GMPanel from './GMPanel'
 import TeamPageTabs from './TeamPageTabs'
+import TeamCapRoom from './TeamCapRoom'
 import { readableTeamColor } from '@/lib/color'
 export const dynamic = "force-dynamic"
 
@@ -68,23 +69,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
 
       {/* CAP ROOM + GM PANEL */}
       <div className="grid sm:grid-cols-2 gap-4 mb-4">
-        <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>💰 Cap Room</h3>
-          <div className="flex justify-between text-xs mb-1">
-            <span style={{color:'#6b5f4e'}}>Used</span>
-            <span className="font-bold" style={{color:'#1a1612'}}>{capFmt(used)}</span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden mb-1" style={{background:'#cec7bc'}}>
-            <div className="h-full rounded-full" style={{width:Math.min(100,used/cap*100)+'%',
-              background:space>0?'#1d4ed8':'#dc2626'}}></div>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span style={{color:'#6b5f4e'}}>Cap: {capFmt(cap)}</span>
-            <span className="font-bold" style={{color:space>0?'#15803d':'#dc2626'}}>
-              {space>0?'Space: +'+capFmt(space):'Over: '+capFmt(Math.abs(space))}
-            </span>
-          </div>
-        </div>
+        <TeamCapRoom used={used} cap={cap} space={space} capFmt={capFmt} color={color} />
         <GMPanel teamId={teamId} />
       </div>
 
