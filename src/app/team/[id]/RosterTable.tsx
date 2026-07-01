@@ -5,7 +5,7 @@ import { useTranslation } from '@/components/I18nProvider'
 
 type Mode = 'stats' | 'attributes'
 
-const TOOLTIPS: Record<string, string> = {
+const TOOLTIPS_EN: Record<string, string> = {
   PPG:'Points Per Game', RPG:'Total Rebounds Per Game', OREB:'Offensive Rebounds Per Game',
   DREB:'Defensive Rebounds Per Game', APG:'Assists Per Game', SPG:'Steals Per Game',
   BPG:'Blocks Per Game', 'FG%':'Field Goal %', '3P%':'Three-Point %', 'FT%':'Free Throw %',
@@ -21,11 +21,29 @@ const TOOLTIPS: Record<string, string> = {
   CLU:'Clutch (0-100)', CON:'Consistency (0-100)', CE:'Crowd Effect (0-100)', STR:'Streaky (0-100)',
 }
 
-function TH({ col, sortKey, sortDir, onSort }: {
+const TOOLTIPS_PT: Record<string, string> = {
+  PPG:'Pontos Por Jogo', RPG:'Total de Ressaltos Por Jogo', OREB:'Ressaltos Ofensivos Por Jogo',
+  DREB:'Ressaltos Defensivos Por Jogo', APG:'Assistências Por Jogo', SPG:'Roubos de Bola Por Jogo',
+  BPG:'Bloqueios Por Jogo', 'FG%':'% de Lançamentos de Campo', '3P%':'% de Lançamentos de 3 Pontos', 'FT%':'% de Lances Livres',
+  TO:'Perdas de Bola Por Jogo', PF:'Faltas Pessoais Por Jogo', TF:'Faltas Técnicas (total da época)',
+  Salary:'Salário da época actual',
+  '3PT':'Lançamento de 3 Pontos (0-100)', LAY:'Layup (0-100)', DNK:'Dunk (0-100)',
+  MID:'Médio Alcance (0-100)', FT:'Lances Livres (0-100)', SIQ:'Shot IQ (0-100)',
+  DF:'Provoca Falta (0-100)', BLK:'Bloqueio (0-100)', STL:'Roubo de Bola (0-100)',
+  IDEF:'Defesa Interior (0-100)', PDEF:'Defesa de Perímetro (0-100)',
+  DREB_A:'Ressalto Defensivo (0-100)', OREB_A:'Ressalto Ofensivo (0-100)',
+  STA:'Resistência/Stamina (0-100)', DUR:'Durabilidade (0-100)', BH:'Condução de Bola (0-100)',
+  PV:'Visão de Jogo (0-100)', PIQ:'Pass IQ (0-100)', AR:'Função de Assistência (0-100)',
+  CLU:'Clutch/Pressão (0-100)', CON:'Consistência (0-100)', CE:'Efeito do Público (0-100)', STR:'Irregular (0-100)',
+}
+
+function TH({ col, sortKey, sortDir, onSort, tooltips }: {
   col: { key: string, label: string, color: string, numeric: boolean },
-  sortKey: string, sortDir: string, onSort: (k: string, n: boolean) => void
+  sortKey: string, sortDir: string,
+  onSort: (k: string, n: boolean) => void,
+  tooltips: Record<string, string>
 }) {
-  const tip = TOOLTIPS[col.label]
+  const tip = tooltips[col.label]
   const isActive = sortKey === col.key
   return (
     <th onClick={() => onSort(col.key, col.numeric)}
@@ -38,7 +56,7 @@ function TH({ col, sortKey, sortDir, onSort }: {
             <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full ml-0.5 flex-shrink-0"
                   style={{ background:'#d4cdc5', color:'#1e40af', fontSize:8, lineHeight:1 }}>i</span>
             <span className="absolute top-full left-0 mt-1 px-2.5 py-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50"
-                  style={{ background:'#1a1512', color:'#f5f1eb', width:180, whiteSpace:'normal', lineHeight:1.5, fontWeight:400 }}>
+                  style={{ background:'#1a1512', color:'#f5f1eb', width:200, whiteSpace:'normal', lineHeight:1.5, fontWeight:400 }}>
               {tip}
             </span>
           </>
@@ -106,6 +124,8 @@ const ATTR_COLS = [
 export default function RosterTable({ players, teamColor }: { players: any[], teamColor: string }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
+  const TOOLTIPS = isPT ? TOOLTIPS_PT : TOOLTIPS_EN
+
   const [mode, setMode] = useState<Mode>('stats')
   const [sortKey, setSortKey] = useState('ppg')
   const [sortDir, setSortDir] = useState<'desc'|'asc'>('desc')
@@ -145,7 +165,15 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
     return 0
   })
 
-  const cols = mode==='stats' ? STAT_COLS : ATTR_COLS
+  // Patch 'Player' label and 'Salary' label based on language
+  const getColsWithLabels = (cols: typeof STAT_COLS) => cols.map(col => {
+    if (col.key === 'name') return { ...col, label: isPT ? 'Jogador' : 'Player' }
+    if (col.key === 'salary') return { ...col, label: isPT ? 'Salário' : 'Salary' }
+    return col
+  })
+
+  const cols = getColsWithLabels(mode === 'stats' ? STAT_COLS : ATTR_COLS)
+
   const capFmt = (n:number) => n>=1000000?'$'+(n/1000000).toFixed(1)+'M':'$'+n.toLocaleString()
   const fmtVal = (key:string, val:any) => {
     if (key==='salary') return capFmt(val)
@@ -175,12 +203,9 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
         <table className="w-full text-xs" style={{minWidth:mode==='attributes'?900:640,borderCollapse:'collapse'}}>
           <thead>
             <tr style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
-              {cols.map(col => {
-                const displayCol = col.key === 'name'
-                  ? { ...col, label: isPT ? 'Jogador' : 'Player' }
-                  : col
-                return <TH key={col.key} col={displayCol} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-              })}
+              {cols.map(col => (
+                <TH key={col.key} col={col} sortKey={sortKey} sortDir={sortDir} onSort={handleSort} tooltips={TOOLTIPS} />
+              ))}
             </tr>
           </thead>
           <tbody>
