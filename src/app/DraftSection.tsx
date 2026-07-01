@@ -29,7 +29,7 @@ function ScrollTable({ children }: { children: React.ReactNode }) {
 type DraftTab = 'class'|'mock'|'results'
 const POS_COLOR: Record<string,string> = {PG:'#1d4ed8',SG:'#6d28d9',SF:'#15803d',PF:'#b45309',C:'#dc2626'}
 const POSITIONS = ['All','PG','SG','SF','PF','C']
-const TOOLTIPS: Record<string,string> = {
+const TOOLTIPS_EN: Record<string,string> = {
   '3PT':'Three-Point Shooting (0-100)',LAY:'Layup (0-100)',DNK:'Dunk (0-100)',MID:'Mid-Range (0-100)',
   FT:'Free Throw (0-100)',SIQ:'Shot IQ (0-100)',DF:'Draw Foul (0-100)',BLK:'Block (0-100)',
   STL:'Steal (0-100)',IDEF:'Interior Defense (0-100)',PDEF:'Perimeter Defense (0-100)',
@@ -39,6 +39,17 @@ const TOOLTIPS: Record<string,string> = {
   SPD:'Speed (0-100)',AGI:'Agility (0-100)',STR2:'Strength (0-100)',CS:'Close Shot (0-100)',
   SDNK:'Standing Dunk (0-100)',TT:'Trash Talk (0-100)',USG:'Usage Rate (0-100)',
   OVR:'Overall rating (Commissioner only)',AGE:'Player age',
+}
+const TOOLTIPS_PT: Record<string,string> = {
+  '3PT':'Lançamento de 3 Pontos (0-100)',LAY:'Layup (0-100)',DNK:'Dunk (0-100)',MID:'Médio Alcance (0-100)',
+  FT:'Lances Livres (0-100)',SIQ:'Shot IQ (0-100)',DF:'Provoca Falta (0-100)',BLK:'Bloqueio (0-100)',
+  STL:'Roubo de Bola (0-100)',IDEF:'Defesa Interior (0-100)',PDEF:'Defesa de Perímetro (0-100)',
+  DREB:'Ressalto Defensivo (0-100)',OREB:'Ressalto Ofensivo (0-100)',STA:'Resistência (0-100)',DUR:'Durabilidade (0-100)',
+  BH:'Condução de Bola (0-100)',PV:'Visão de Jogo (0-100)',PIQ:'Pass IQ (0-100)',AR:'Função de Assistência (0-100)',
+  CLU:'Clutch/Pressão (0-100)',CON:'Consistência (0-100)',CE:'Efeito do Público (0-100)',STR:'Irregular (0-100)',
+  SPD:'Velocidade (0-100)',AGI:'Agilidade (0-100)',STR2:'Força (0-100)',CS:'Lançamento Perto (0-100)',
+  SDNK:'Dunk Parado (0-100)',TT:'Trash Talk (0-100)',USG:'Taxa de Uso (0-100)',
+  OVR:'Avaliação global (só Comissário)',AGE:'Idade do jogador',
 }
 const ATTR_COLS = [
   {key:'three',label:'3PT'},{key:'layup',label:'LAY'},{key:'dunk',label:'DNK'},{key:'mid',label:'MID'},
@@ -52,11 +63,12 @@ const ATTR_COLS = [
 ]
 function attrColor(v:number){if(v>=90)return'#b45309';if(v>=80)return'#15803d';if(v>=70)return'#1d4ed8';if(v>=60)return'#1a1512';return'#8a8279'}
 function Tip({text}:{text:string}){return(<span className="relative group inline-flex ml-1 cursor-help align-middle"><span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:12,height:12,borderRadius:'50%',background:'#d4cdc5',color:'#5c554e',fontSize:8,fontWeight:700,lineHeight:1}}>i</span><span className="absolute left-0 top-full mt-1 z-50 px-2 py-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{background:'#1a1512',color:'#f5f1eb',width:160,whiteSpace:'normal',lineHeight:1.4,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>{text}</span></span>)}
-function SortTh({label,active,dir,onClick}:{label:string,active:boolean,dir:string,onClick:()=>void}){return(<th onClick={onClick} className="px-2 py-2.5 text-center cursor-pointer select-none whitespace-nowrap" style={{background:'#f0ece5',color:active?'#c8102e':'#5c554e',fontSize:11,fontWeight:700,letterSpacing:'0.5px',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5'}}>{label}{TOOLTIPS[label]&&<Tip text={TOOLTIPS[label]}/>}{active&&<span style={{marginLeft:3}}>{dir==='desc'?'↓':'↑'}</span>}</th>)}
+function SortTh({label,active,dir,onClick,tooltips}:{label:string,active:boolean,dir:string,onClick:()=>void,tooltips?:Record<string,string>}){return(<th onClick={onClick} className="px-2 py-2.5 text-center cursor-pointer select-none whitespace-nowrap" style={{background:'#f0ece5',color:active?'#c8102e':'#5c554e',fontSize:11,fontWeight:700,letterSpacing:'0.5px',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5'}}>{label}{tooltips?.[label]&&<Tip text={tooltips[label]}/>}{active&&<span style={{marginLeft:3}}>{dir==='desc'?'↓':'↑'}</span>}</th>)}
 
 export default function DraftSection() {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
+  const TOOLTIPS = isPT ? TOOLTIPS_PT : TOOLTIPS_EN
   const [tab,setTab]=useState<DraftTab>('class')
   const [prospects,setProspects]=useState<any[]>([])
   const [standings,setStandings]=useState<any[]>([])
@@ -185,12 +197,12 @@ export default function DraftSection() {
                               {isPT?'JOGADOR':'PLAYER'}
                             </th>
                             <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',borderRight:'1px solid #e2dcd5'}}>POS</th>
-                            <SortTh label="AGE" active={sortKey==='age'} dir={sortDir} onClick={()=>handleSort('age')}/>
+                            <SortTh label="AGE" active={sortKey==='age'} dir={sortDir} onClick={()=>handleSort('age')} tooltips={TOOLTIPS}/>
                             <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',borderRight:'1px solid #e2dcd5',whiteSpace:'nowrap'}}>{isPT?'ESCOLA':'FROM'}</th>
                             <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',borderRight:'1px solid #e2dcd5'}}>HT</th>
                             <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',borderRight:'1px solid #e2dcd5'}}>WT</th>
-                            {isCommissioner&&<SortTh label="OVR" active={sortKey==='overall'} dir={sortDir} onClick={()=>handleSort('overall')}/>}
-                            {ATTR_COLS.map(c=><SortTh key={c.key} label={c.label} active={sortKey===c.key} dir={sortDir} onClick={()=>handleSort(c.key)}/>)}
+                            {isCommissioner&&<SortTh label="OVR" active={sortKey==='overall'} dir={sortDir} onClick={()=>handleSort('overall')} tooltips={TOOLTIPS}/>}
+                            {ATTR_COLS.map(c=><SortTh key={c.key} label={c.label} active={sortKey===c.key} dir={sortDir} onClick={()=>handleSort(c.key)} tooltips={TOOLTIPS}/>)}
                           </tr>
                         </thead>
                         <tbody>

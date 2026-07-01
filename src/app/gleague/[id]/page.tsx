@@ -22,22 +22,27 @@ const ATTR_LABEL: Record<string,string> = {
   stamina:'STA',durability:'DUR',def_reb:'DREB',off_reb:'OREB',
   pressure:'CLU',consistency:'CON',crowd_effect:'CE',
 }
-const ATTR_TIP: Record<string,string> = {
+const ATTR_TIP_EN: Record<string,string> = {
   USG:'Usage Rate',OVR:'Overall rating',AGE:'Player age',EXP:'NBA seasons played',
   PPG:'Points Per Game (G-League)',RPG:'Rebounds Per Game (G-League)',APG:'Assists Per Game (G-League)',
+}
+const ATTR_TIP_PT: Record<string,string> = {
+  USG:'Taxa de Uso',OVR:'Avaliação global',AGE:'Idade do jogador',EXP:'Épocas NBA jogadas',
+  PPG:'Pontos Por Jogo (G-League)',RPG:'Ressaltos Por Jogo (G-League)',APG:'Assistências Por Jogo (G-League)',
 }
 
 function attrColor(v:number){if(v>=85)return'#b45309';if(v>=75)return'#15803d';if(v>=65)return'#1d4ed8';return'#8a8279'}
 
 function Tip({text}:{text:string}){return(<span className="relative group inline-flex ml-0.5 cursor-help align-middle"><span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:11,height:11,borderRadius:'50%',background:'#d4cdc5',color:'#5c554e',fontSize:7,fontWeight:700,lineHeight:1}}>i</span><span className="absolute left-0 top-full mt-1 z-50 px-2 py-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{background:'#1a1512',color:'#f5f1eb',width:180,whiteSpace:'normal',lineHeight:1.4,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.3)',position:'absolute'}}>{text}</span></span>)}
 
-function ColTh({label,color,active,dir,onClick}:{label:string,color:string,active?:boolean,dir?:string,onClick?:()=>void}){
-  return(<th onClick={onClick} style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5',padding:'8px 4px',textAlign:'center',whiteSpace:'nowrap',color:active?'#c8102e':color,fontSize:10,fontWeight:700,letterSpacing:'0.3px',cursor:onClick?'pointer':'default',userSelect:'none'}}><span style={{display:'inline-flex',alignItems:'center',gap:1}}>{label}{ATTR_TIP[label]&&<Tip text={ATTR_TIP[label]}/>}{active&&<span style={{marginLeft:2}}>{dir==='desc'?'↓':'↑'}</span>}</span></th>)
+function ColTh({label,color,active,dir,onClick,attrTip}:{label:string,color:string,active?:boolean,dir?:string,onClick?:()=>void,attrTip?:Record<string,string>}){
+  return(<th onClick={onClick} style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5',padding:'8px 4px',textAlign:'center',whiteSpace:'nowrap',color:active?'#c8102e':color,fontSize:10,fontWeight:700,letterSpacing:'0.3px',cursor:onClick?'pointer':'default',userSelect:'none'}}><span style={{display:'inline-flex',alignItems:'center',gap:1}}>{label}{attrTip?.[label]&&<Tip text={attrTip[label]}/>}{active&&<span style={{marginLeft:2}}>{dir==='desc'?'↓':'↑'}</span>}</span></th>)
 }
 
 export default function GLeagueTeamPage({params}:{params:{id:string}}) {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
+  const ATTR_TIP = isPT ? ATTR_TIP_PT : ATTR_TIP_EN
   const [tab,setTab]=useState<Tab>('roster')
   const [team,setTeam]=useState<any>(null)
   const [players,setPlayers]=useState<any[]>([])
@@ -123,13 +128,13 @@ export default function GLeagueTeamPage({params}:{params:{id:string}}) {
                 <tr style={{background:'#f0ece5'}}>
                   <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5',padding:'10px 12px',textAlign:'left',fontWeight:700,fontSize:11,color:'#5c554e',position:'sticky',left:0,zIndex:10,minWidth:150}}>{isPT?'Jogador':'Player'}</th>
                   <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5',padding:'8px',textAlign:'center',fontWeight:700,fontSize:11,color:'#5c554e'}}>POS</th>
-                  <ColTh label="OVR" color="#1a1512" active={sortKey==='ovr'} dir={sortDir} onClick={()=>handleSort('ovr')}/>
-                  <ColTh label="AGE" color="#5c554e" active={sortKey==='age'} dir={sortDir} onClick={()=>handleSort('age')}/>
-                  <ColTh label="EXP" color="#5c554e" active={sortKey==='nba_experience'} dir={sortDir} onClick={()=>handleSort('nba_experience')}/>
-                  {ATTR_GROUPS.map(g=>g.attrs.map(a=><ColTh key={a} label={ATTR_LABEL[a]} color={g.color} active={sortKey===a} dir={sortDir} onClick={()=>handleSort(a)}/>))}
-                  <ColTh label="PPG" color="#b45309" active={sortKey==='ppg'} dir={sortDir} onClick={()=>handleSort('ppg')}/>
-                  <ColTh label="RPG" color="#15803d" active={sortKey==='rpg'} dir={sortDir} onClick={()=>handleSort('rpg')}/>
-                  <ColTh label="APG" color="#1d4ed8" active={sortKey==='apg'} dir={sortDir} onClick={()=>handleSort('apg')}/>
+                  <ColTh label="OVR" color="#1a1512" active={sortKey==='ovr'} dir={sortDir} onClick={()=>handleSort('ovr')} attrTip={ATTR_TIP}/>
+                  <ColTh label="AGE" color="#5c554e" active={sortKey==='age'} dir={sortDir} onClick={()=>handleSort('age')} attrTip={ATTR_TIP}/>
+                  <ColTh label="EXP" color="#5c554e" active={sortKey==='nba_experience'} dir={sortDir} onClick={()=>handleSort('nba_experience')} attrTip={ATTR_TIP}/>
+                  {ATTR_GROUPS.map(g=>g.attrs.map(a=><ColTh key={a} label={ATTR_LABEL[a]} color={g.color} active={sortKey===a} dir={sortDir} onClick={()=>handleSort(a)} attrTip={ATTR_TIP}/>))}
+                  <ColTh label="PPG" color="#b45309" active={sortKey==='ppg'} dir={sortDir} onClick={()=>handleSort('ppg')} attrTip={ATTR_TIP}/>
+                  <ColTh label="RPG" color="#15803d" active={sortKey==='rpg'} dir={sortDir} onClick={()=>handleSort('rpg')} attrTip={ATTR_TIP}/>
+                  <ColTh label="APG" color="#1d4ed8" active={sortKey==='apg'} dir={sortDir} onClick={()=>handleSort('apg')} attrTip={ATTR_TIP}/>
                 </tr>
               </thead>
               <tbody>
