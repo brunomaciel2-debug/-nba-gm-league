@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
+import { countryName } from '@/lib/country-pt'
 
 export default function TeamsPage() {
   const {t} = useTranslation()
@@ -94,7 +95,7 @@ export default function TeamsPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-bold text-sm truncate" style={{color:'#1a1512'}}>{t.name}</div>
-                          <div className="text-xs" style={{color:'#8a8279'}}>{t.country}</div>
+                          <div className="text-xs" style={{color:'#8a8279'}}>{countryName(t.country, isPT)}</div>
                         </div>
                       </div>
                     </div>

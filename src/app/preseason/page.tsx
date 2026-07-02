@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
+import { countryName } from '@/lib/country-pt'
 
 const PRESEASON_START = new Date('2025-10-02')
 const PRESEASON_END   = new Date('2025-10-17')
@@ -282,7 +283,7 @@ export default function PreseasonPage() {
                       {opponents.map(opp=>(
                         <button key={opp.id} onClick={()=>setSelectedOpponent(opp.id)} className="px-3 py-2 rounded-lg text-xs font-semibold text-left transition-all"
                           style={{background:selectedOpponent===opp.id?'#1a1512':'#e8e2d6',color:selectedOpponent===opp.id?'#f5f1eb':'#1a1512',border:'1px solid #d4cdc5'}}>
-                          {opp.name}{opponentType==='world'&&<span className="block text-xs opacity-60">{opp.country}</span>}
+                          {opp.name}{opponentType==='world'&&<span className="block text-xs opacity-60">{countryName(opp.country, isPT)}</span>}
                         </button>
                       ))}
                     </div>

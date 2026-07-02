@@ -1,5 +1,6 @@
 'use client'
 import { useTranslation } from '@/components/I18nProvider'
+import { countryName } from '@/lib/country-pt'
 import { readableTeamColor } from '@/lib/color'
 import Link from 'next/link'
 
@@ -161,7 +162,7 @@ export default function PlayerPageClient({ player, stats, injuries, contracts, p
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
                 <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{color:tc,letterSpacing:'1px'}}>
-                  {p.world_team_id && p.world_teams ? `${p.world_teams.name} · ${p.world_teams.country}` : p.teams?.name} · {p.pos}
+                  {p.world_team_id && p.world_teams ? `${p.world_teams.name} · ${countryName(p.world_teams.country, isPT)}` : p.teams?.name} · {p.pos}
                 </div>
                 <h1 className="text-3xl font-black mb-2" style={{color:'#1a1512'}}>{p.name}</h1>
                 <div className="flex gap-3 text-sm flex-wrap items-center">
