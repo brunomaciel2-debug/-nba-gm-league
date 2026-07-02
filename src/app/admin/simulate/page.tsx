@@ -18,9 +18,24 @@ export default function AdminSimulatePage() {
 
     setLoading(true)
     setResult(null)
-    setLog(prev => [...prev, isPT ? '⏳ A simular...' : '⏳ Simulating...'])
+    setLog(prev => [...prev, isPT ? '⚙️ A gerar ordens automáticas para equipas sem GM...' : '⚙️ Generating auto orders for teams without GM...'])
 
     try {
+      // Step 1: Generate auto orders for teams without GM
+      const ordRes = await fetch('/api/admin/auto-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: 'nba-admin-2025' }),
+      })
+      const ordData = await ordRes.json()
+      if (ordData.generated !== undefined) {
+        setLog(prev => [...prev, isPT
+          ? `✓ Ordens automáticas geradas para ${ordData.generated} equipas`
+          : `✓ Auto orders generated for ${ordData.generated} teams`])
+      }
+
+      // Step 2: Simulate
+      setLog(prev => [...prev, isPT ? '⏳ A simular...' : '⏳ Simulating...'])
       const res = await fetch('/api/admin/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
