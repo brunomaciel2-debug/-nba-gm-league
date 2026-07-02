@@ -38,9 +38,11 @@ export default function TeamSchedule({
   const [worldTeams, setWorldTeams] = useState<any[]>([])
   const [allPreseasonGames, setAllPreseasonGames] = useState<any[]>([])
   const [seasonStatus, setSeasonStatus] = useState<string>('pre-season')
+  const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
+
+  const isPreseasonPeriod = seasonStatus === 'pre-season'
 
   useEffect(() => {
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       const { data: gm } = await supabase.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
       if (gm?.team_id === teamId || gm?.role === 'commissioner') setMyTeamId(teamId)
@@ -73,6 +75,7 @@ export default function TeamSchedule({
     {key:'away',     label:isPT?'Fora':'Away'},
   ]
   const filtered = games.filter(g => {
+    if (cancelledIds.has(g.id)) return false
     if (filter==='played')   return g.status==='final'
     if (filter==='upcoming') return g.status!=='final'
     if (filter==='home')     return g.home_team===teamId
@@ -302,8 +305,9 @@ export default function TeamSchedule({
                               onClick={async () => {
                                 if (!confirm(isPT?'Cancelar este jogo amigável?':'Cancel this friendly game?')) return
                                 await supabase.from('preseason_games').update({status:'cancelled'}).eq('id',g.id)
-                                // Refresh page
-                                window.location.reload()
+                                setCancelledIds(prev => new Set([...prev, g.id]))
+                                setPreseasonGames(prev => prev.filter((pg:any) => pg.id !== g.id))
+                                setAllPreseasonGames(prev => prev.map((pg:any) => pg.id===g.id ? {...pg,status:'cancelled'} : pg))
                               }}
                               className="text-xs px-2 py-0.5 rounded font-semibold"
                               style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5'}}>
