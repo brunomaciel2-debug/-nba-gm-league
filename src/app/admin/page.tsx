@@ -43,6 +43,7 @@ export default function AdminPage() {
   )
 
   const items_EN = [
+    {icon:'⚡',label:'Simulate Week',     desc:'Manually trigger next week simulation',         href:'/admin/simulate',    color:'#15803d'},
     {icon:'✍️',label:'Write Article',     desc:'Publish news, recaps, analysis',               href:'/admin/article/new', color:'#1d4ed8'},
     {icon:'📋',label:'Manage Articles',   desc:'Edit, publish, delete articles',                href:'/admin/articles',    color:'#1e40af'},
     {icon:'🖼️',label:'Media Manager',     desc:'Upload team logos & player photos',             href:'/admin/media',       color:'#0e7490'},
@@ -54,6 +55,7 @@ export default function AdminPage() {
     {icon:'🎯',label:'Coaching Staff',    desc:'View all coaches, free agents',                 href:'/admin/coaches',     color:'#b45309'},
   ]
   const items_PT = [
+    {icon:'⚡',label:'Simular Semana',     desc:'Disparar simulação da próxima semana',          href:'/admin/simulate',    color:'#15803d'},
     {icon:'✍️',label:'Escrever Artigo',    desc:'Publicar notícias, resumos, análises',         href:'/admin/article/new', color:'#1d4ed8'},
     {icon:'📋',label:'Gerir Artigos',      desc:'Editar, publicar, eliminar artigos',            href:'/admin/articles',    color:'#1e40af'},
     {icon:'🖼️',label:'Gestor de Media',    desc:'Carregar logos de equipas e fotos',            href:'/admin/media',       color:'#0e7490'},
