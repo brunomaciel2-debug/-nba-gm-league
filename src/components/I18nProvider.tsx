@@ -1,5 +1,5 @@
 'use client'
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import en from './messages/en'
 import pt from './messages/pt'
@@ -33,23 +33,24 @@ function interpolate(str: string, vars?: Record<string, string | number>): strin
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  // Initialise directly from localStorage — no flicker, no async race
-  const [locale, setLocaleState] = useState<Locale>(() => {
-    if (typeof window === 'undefined') return 'en'
-    const cached = localStorage.getItem('nba_gm_locale')
-    return (cached === 'en' || cached === 'pt') ? cached : 'en'
-  })
+  const [locale, setLocaleState] = useState<Locale>('en')
+  // Track whether the user manually changed the locale this session
+  const userChose = useRef(false)
 
   useEffect(() => {
-    // Only sync FROM DB if localStorage has no preference yet
-    const cached = localStorage.getItem('nba_gm_locale')
-    if (cached === 'en' || cached === 'pt') return   // ← user already has a preference, don't overwrite
+    // Read localStorage first — instant, no network
+    const cached = localStorage.getItem('nba_gm_locale') as Locale | null
+    if (cached === 'en' || cached === 'pt') {
+      setLocaleState(cached)
+    }
 
+    // Then sync from DB — but ONLY if the user hasn't manually chosen yet
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       const { data: profile } = await supabase
         .from('gm_profiles').select('language').eq('id', user.id).single()
-      if (profile?.language === 'en' || profile?.language === 'pt') {
+      // Only apply DB value if user hasn't clicked a language button this session
+      if (!userChose.current && (profile?.language === 'en' || profile?.language === 'pt')) {
         setLocaleState(profile.language)
         localStorage.setItem('nba_gm_locale', profile.language)
       }
@@ -57,10 +58,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setLocale = async (newLocale: Locale) => {
-    // Update state and localStorage immediately — instant UI change
-    setLocaleState(newLocale)
+    userChose.current = true          // Mark that the user made an explicit choice
+    setLocaleState(newLocale)         // Instant UI update
     localStorage.setItem('nba_gm_locale', newLocale)
-    // Then persist to DB in background
+    // Persist to DB in background
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         await supabase.from('gm_profiles').update({ language: newLocale }).eq('id', user.id)
