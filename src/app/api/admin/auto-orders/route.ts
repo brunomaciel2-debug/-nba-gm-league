@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
       const top3 = [...players].sort((a, b) => b.usage - a.usage).slice(0, 3)
 
       // Determine style based on roster strengths
-      const avg3PT = players.reduce((s, p) => s + (p.three || 50), 0) / players.length
+      const avg3PT = players.reduce((s: number, p: any) => s + (p.three || 50), 0) / players.length
       const avgSize = players.filter(p => ['PF','C'].includes(p.pos)).length
       const three_rate = avg3PT > 65 ? 45 : avg3PT > 55 ? 40 : 35
       const atk_style = avgSize >= 3 ? 'post' : avg3PT > 60 ? 'motion' : 'pickroll'
