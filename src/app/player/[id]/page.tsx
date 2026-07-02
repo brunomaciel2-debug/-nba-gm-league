@@ -40,12 +40,14 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         ovr={ovr}
         currentContract={currentContract}
         totalValue={totalValue}
+        actionButtons={
+          <>
+            {!p.team_id && <OfferButton playerId={p.id} isAssigned={!!p.on_gleague_assignment}/>}
+            {p.team_id && <ContractExtensionPanel playerId={p.id}/>}
+            {p.team_id && <CutButton playerId={p.id} playerTeamId={p.team_id}/>}
+          </>
+        }
       />
-
-      {/* Action buttons — stay server-side */}
-      {!p.team_id && <OfferButton playerId={p.id} isAssigned={!!p.on_gleague_assignment}/>}
-      {p.team_id && <ContractExtensionPanel playerId={p.id}/>}
-      {p.team_id && <CutButton playerId={p.id} playerTeamId={p.team_id}/>}
     </div>
   )
 }

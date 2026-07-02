@@ -84,9 +84,10 @@ function AttrTooltip({ tip }: { tip: string }) {
   )
 }
 
-export default function PlayerPageClient({ player, stats, injuries, contracts, playerAwards, lastGames, teamColor, ovr, currentContract, totalValue }: {
+export default function PlayerPageClient({ player, stats, injuries, contracts, playerAwards, lastGames, teamColor, ovr, currentContract, totalValue, actionButtons }: {
   player: any, stats: any[], injuries: any[], contracts: any[], playerAwards: any[],
-  lastGames: any[], teamColor: string, ovr: number, currentContract: any, totalValue: number
+  lastGames: any[], teamColor: string, ovr: number, currentContract: any, totalValue: number,
+  actionButtons?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
@@ -266,6 +267,9 @@ export default function PlayerPageClient({ player, stats, injuries, contracts, p
           </span>
         </div>
       )}
+
+      {/* Action buttons: ContractExtensionPanel + CutButton — injected from page.tsx */}
+      {actionButtons}
 
       {/* ATTRIBUTES */}
       <div className="sec-hdr mb-4"><span className="sec-title">{isPT?'Atributos':'Attributes'}</span></div>
