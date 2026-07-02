@@ -54,4 +54,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = (path: string, vars?: Record<string, string | number>): string => {
     const dict = MESSAGES[locale]
-    const value =
+    const value = getNested(dict, path) ?? getNested(MESSAGES.en, path) ?? path
+    return interpolate(value, vars)
+  }
+
+  return (
+    <I18nContext.Provider value={{ locale, setLocale, t }}>
+      {children}
+    </I18nContext.Provider>
+  )
+}
