@@ -283,7 +283,7 @@ export default function TeamSchedule({
                         {oppTeam?.name||opp}
                       </Link>
                     </div>
-                    <div className="flex-shrink-0 text-right">
+                    <div className="flex-shrink-0 text-right flex items-center gap-2">
                       {isPlayed?(
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-black px-2 py-0.5 rounded"
@@ -293,9 +293,24 @@ export default function TeamSchedule({
                           <span className="text-sm font-bold" style={{color:'#1a1512'}}>{myScore}-{oppScore}</span>
                         </div>
                       ):(
-                        <span className="text-xs px-2 py-0.5 rounded" style={{background:'#f0ece5',color:'#8a8279'}}>
-                          {isPT?'Agendado':'Scheduled'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs px-2 py-0.5 rounded" style={{background:'#f0ece5',color:'#8a8279'}}>
+                            {isPT?'Agendado':'Scheduled'}
+                          </span>
+                          {g.game_type==='preseason' && myTeamId && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm(isPT?'Cancelar este jogo amigável?':'Cancel this friendly game?')) return
+                                await supabase.from('preseason_games').update({status:'cancelled'}).eq('id',g.id)
+                                // Refresh page
+                                window.location.reload()
+                              }}
+                              className="text-xs px-2 py-0.5 rounded font-semibold"
+                              style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5'}}>
+                              {isPT?'✕ Cancelar':'✕ Cancel'}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
