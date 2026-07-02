@@ -28,8 +28,15 @@ export default function SimulatorBanner() {
 
   if (!config) return null
 
-  const SEASON_START = new Date('2025-10-21T00:00:00')
   const week = config.current_week || 0
+
+  const SEASON_START = new Date('2025-10-21T00:00:00')
+  const PRESEASON_START = new Date('2025-10-01T00:00:00')
+
+  // Current SIM date
+  const simDate = week > 0
+    ? (() => { const d = new Date(SEASON_START); d.setDate(d.getDate() + (week - 1) * 7); return d })()
+    : new Date(PRESEASON_START)
 
   const weekStart = new Date(SEASON_START)
   weekStart.setDate(weekStart.getDate() + (week * 7))
@@ -103,9 +110,9 @@ export default function SimulatorBanner() {
             </span>
           ) : (
             <span className="text-xs" style={{ color: '#8a8279' }}>
-              {isPT ? 'Época começa a ' : 'Season starts '}
+              {isPT ? 'Data SIM: ' : 'SIM date: '}
               <span style={{ color: '#d4cdc5' }}>
-                {isPT ? '21 Out 2025' : 'Oct 21, 2025'}
+                {simDate.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}
               </span>
             </span>
           )}
