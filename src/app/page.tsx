@@ -4,7 +4,6 @@ import type { Article, Game, Team, Transaction } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
 import LeagueLeadersMini from './LeagueLeadersMini'
 import SeasonTimeline from '@/components/SeasonTimeline'
-import DraftSection from './DraftSection'
 export const revalidate = 60
 
 function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#1d4ed8' }
@@ -308,9 +307,6 @@ export default async function HomePage() {
           </div>
         </>
       )}
-
-      {/* DRAFT SECTION */}
-      <DraftSection />
 
     </div>
   )
