@@ -303,7 +303,7 @@ export default function TeamSchedule({
                               onClick={async () => {
                                 if (!confirm(isPT?'Cancelar este jogo amigável?':'Cancel this friendly game?')) return
                                 await supabase.from('preseason_games').update({status:'cancelled'}).eq('id',g.id)
-                                setCancelledIds(prev => new Set([...prev, g.id]))
+                                setCancelledIds(prev => { const s = new Set(prev); s.add(g.id); return s })
                                 setPreseasonGames(prev => prev.filter((pg:any) => pg.id !== g.id))
                                 setAllPreseasonGames(prev => prev.map((pg:any) => pg.id===g.id ? {...pg,status:'cancelled'} : pg))
                               }}
