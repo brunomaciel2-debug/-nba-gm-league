@@ -25,8 +25,6 @@ export default function AdminSimulatePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ secret: 'nba-admin-2025' }),
-          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || 'dev-simulate'}`,
-        },
       })
       const data = await res.json()
 
