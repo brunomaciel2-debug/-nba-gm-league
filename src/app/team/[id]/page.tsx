@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic"
 
 export default async function TeamPage({ params }: { params: { id: string } }) {
   const teamId = params.id.toUpperCase()
-  const [{ data: team }, { data: players }, { data: games }, { data: allTeams }, { data: injuries }, { data: coaches }] =
+  const [{ data: team }, { data: players }, { data: games }, { data: allTeams }, { data: injuries }, { data: coaches }, { data: preseasonGames }] =
     await Promise.all([
       supabase.from('teams').select('*').eq('id', teamId).single(),
       supabase.from('players').select('*, player_stats(*)')
@@ -18,6 +18,10 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
       supabase.from('teams').select('id,name,color,logo_url,arena'),
       supabase.from('injury_log').select('*').eq('status','active').limit(100),
       supabase.from('coaches').select('*').eq('team_id', teamId),
+      supabase.from('preseason_games').select('*')
+        .eq('season','2025-26')
+        .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
+        .order('scheduled_date'),
     ])
 
   if (!team) return <div className="p-8 text-center" style={{color:'#6b5f4e'}}>Team not found.</div>
@@ -28,6 +32,35 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const used = t.cap_used
   const space = cap - used
   const teamsMap = Object.fromEntries((allTeams||[]).map((x:any) => [x.id, x]))
+
+  // Merge preseason games into games array with normalized shape
+  const normalizedPreseason = (preseasonGames||[])
+    .filter((g:any) => ['scheduled','accepted','final'].includes(g.status))
+    .map((g:any) => ({
+      id: g.id,
+      week_number: 0,
+      game_number: 0,
+      home_team: g.home_team,
+      away_team: g.away_team,
+      home_score: g.home_score || null,
+      away_score: g.away_score || null,
+      status: g.status === 'final' ? 'final' : 'scheduled',
+      played_at: g.scheduled_date ? g.scheduled_date + 'T12:00:00' : null,
+      game_type: 'preseason',
+      // Flatten team info for teamsMap lookup
+      _preseason: true,
+    }))
+
+  // Fetch world teams that appear in preseason games but aren't in teamsMap
+  const worldTeamIds = (preseasonGames||[])
+    .flatMap((g:any) => [g.home_team, g.away_team])
+    .filter((id:string) => id && !teamsMap[id])
+  if (worldTeamIds.length > 0) {
+    const { data: worldTeams } = await supabase.from('world_teams').select('id,name,color,logo_url').in('id', worldTeamIds)
+    ;(worldTeams||[]).forEach((wt:any) => { teamsMap[wt.id] = wt })
+  }
+
+  const allGames = [...normalizedPreseason, ...(games||[])]
 
   const teamPlayerIds = new Set((players||[]).map((p:any) => p.id))
   const teamInjuries = (injuries||[]).filter((i:any) => teamPlayerIds.has(i.player_id))
@@ -76,7 +109,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
 
       <TeamPageTabs
         players={players||[]}
-        games={games||[]}
+        games={allGames}
         teamId={teamId}
         teamColor={color}
         teamsMap={teamsMap}
