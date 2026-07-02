@@ -24,17 +24,17 @@ const TOOLTIPS_EN: Record<string, string> = {
 const TOOLTIPS_PT: Record<string, string> = {
   PPG:'Pontos Por Jogo', RPG:'Total de Ressaltos Por Jogo', OREB:'Ressaltos Ofensivos Por Jogo',
   DREB:'Ressaltos Defensivos Por Jogo', APG:'Assistências Por Jogo', SPG:'Roubos de Bola Por Jogo',
-  BPG:'Bloqueios Por Jogo', 'FG%':'% de Lançamentos de Campo', '3P%':'% de Lançamentos de 3 Pontos', 'FT%':'% de Lances Livres',
+  BPG:'Desarmes de Lançamento Por Jogo', 'FG%':'% de Lançamentos de Campo', '3P%':'% de Lançamentos de 3 Pontos', 'FT%':'% de Lances Livres',
   TO:'Perdas de Bola Por Jogo', PF:'Faltas Pessoais Por Jogo', TF:'Faltas Técnicas (total da época)',
   Salary:'Salário da época actual',
   '3PT':'Lançamento de 3 Pontos (0-100)', LAY:'Layup (0-100)', DNK:'Dunk (0-100)',
-  MID:'Médio Alcance (0-100)', FT:'Lances Livres (0-100)', SIQ:'Shot IQ (0-100)',
-  DF:'Provoca Falta (0-100)', BLK:'Bloqueio (0-100)', STL:'Roubo de Bola (0-100)',
+  MID:'Meia Distância (0-100)', FT:'Lances Livres (0-100)', SIQ:'Shot IQ (0-100)',
+  DF:'Provoca Falta (0-100)', BLK:'Desarme de Lançamento (0-100)', STL:'Roubo de Bola (0-100)',
   IDEF:'Defesa Interior (0-100)', PDEF:'Defesa de Perímetro (0-100)',
   DREB_A:'Ressalto Defensivo (0-100)', OREB_A:'Ressalto Ofensivo (0-100)',
-  STA:'Resistência/Stamina (0-100)', DUR:'Durabilidade (0-100)', BH:'Condução de Bola (0-100)',
-  PV:'Visão de Jogo (0-100)', PIQ:'Pass IQ (0-100)', AR:'Função de Assistência (0-100)',
-  CLU:'Clutch/Pressão (0-100)', CON:'Consistência (0-100)', CE:'Efeito do Público (0-100)', STR:'Irregular (0-100)',
+  STA:'Resistência/Stamina (0-100)', DUR:'Durabilidade (0-100)', BH:'Drible (0-100)',
+  PV:'Visão de Jogo (0-100)', PIQ:'Pass IQ (0-100)', AR:'Perfil de Assistência (0-100)',
+  CLU:'Clutch/Pressão (0-100)', CON:'Consistência (0-100)', CE:'Influência do Público (0-100)', STR:'Irregular (0-100)',
 }
 
 function TH({ col, sortKey, sortDir, onSort, tooltips }: {

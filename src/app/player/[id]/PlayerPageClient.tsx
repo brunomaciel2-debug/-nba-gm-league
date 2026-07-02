@@ -99,18 +99,18 @@ export default function PlayerPageClient({ player, stats, injuries, contracts, p
 
   const ATTR_GROUPS = [
     { label: isPT?'Ataque':'Scoring', color:'#b45309', attrs:[
-      {key:'usage',    label: isPT?'Taxa de Uso':'Usage Rate',      tip: isPT?'Taxa de Uso — com que frequência este jogador está envolvido nas jogadas de ataque.':'Usage Rate — how often this player is involved in offensive plays.'},
+      {key:'usage',    label: isPT?'Taxa de Utilização':'Usage Rate',      tip: isPT?'Taxa de Utilização — com que frequência este jogador está envolvido nas jogadas de ataque.':'Usage Rate — how often this player is involved in offensive plays.'},
       {key:'three',    label: isPT?'3 Pontos':'Three Point',         tip: isPT?'3 Pontos — capacidade de lançamento além da linha.':'Three Point — shooting ability from beyond the arc.'},
       {key:'layup',    label: 'Layup',                               tip: isPT?'Layup — capacidade de finalizar perto do cesto.':'Layup — finishing ability at the rim.'},
-      {key:'dunk',     label: 'Dunk',                                tip: isPT?'Dunk — capacidade de finalizar com força acima do cesto.':'Dunk — ability to finish with power above the rim.'},
-      {key:'mid',      label: isPT?'Médio Alcance':'Mid-Range',      tip: isPT?'Médio Alcance — capacidade de pontuar de médio alcance.':'Mid-Range — ability to score from mid-range.'},
+      {key:'dunk',     label: isPT?'Afundanço':'Dunk',               tip: isPT?'Afundanço — capacidade de finalizar com potência acima do cesto.':'Dunk — ability to finish with power above the rim.'},
+      {key:'mid',      label: isPT?'Meia Distância':'Mid-Range',      tip: isPT?'Meia Distância — capacidade de pontuar de meia distância.':'Mid-Range — ability to score from mid-range.'},
       {key:'ft',       label: isPT?'Lances Livres':'Free Throws',    tip: isPT?'Lances Livres — precisão na linha de lance livre.':'Free Throws — free throw shooting accuracy.'},
       {key:'siq',      label: 'Shot IQ',                             tip: isPT?'Shot IQ — capacidade de decisão no lançamento.':'Shot IQ — decision-making on shot selection.'},
       {key:'draw_foul',label: isPT?'Provoca Falta':'Draw Foul',     tip: isPT?'Provoca Falta — capacidade de chegar à linha de lances livres.':'Draw Foul — ability to get to the free throw line.'},
     ]},
     { label: isPT?'Defesa':'Defense', color:'#15803d', attrs:[
-      {key:'blk',  label: isPT?'Bloqueio':'Block',                  tip: isPT?'Bloqueio — capacidade de bloquear lançamentos adversários.':'Block — ability to block opponent shots.'},
-      {key:'stl',  label: isPT?'Roubo':'Steal',                     tip: isPT?'Roubo — capacidade de recuperar a bola.':'Steal — ability to strip the ball or intercept passes.'},
+      {key:'blk',  label: isPT?'Desarme de Lançamento':'Block',                  tip: isPT?'Desarme de Lançamento — capacidade de travar lançamentos adversários.':'Block — ability to block opponent shots.'},
+      {key:'stl',  label: isPT?'Roubo de Bola':'Steal',                     tip: isPT?'Roubo de Bola — capacidade de recuperar a bola.':'Steal — ability to strip the ball or intercept passes.'},
       {key:'idef', label: isPT?'Def. Interior':'Interior Defense',  tip: isPT?'Defesa Interior — capacidade de defender na zona do garrafão.':'Interior Defense — ability to defend in the paint.'},
       {key:'pdef', label: isPT?'Def. Perímetro':'Perimeter Defense',tip: isPT?'Defesa de Perímetro — capacidade de defender no exterior.':'Perimeter Defense — ability to guard on the perimeter.'},
     ]},
@@ -123,15 +123,15 @@ export default function PlayerPageClient({ player, stats, injuries, contracts, p
       {key:'durability', label: isPT?'Durabilidade':'Durability',tip: isPT?'Durabilidade — resistência a lesões.':'Durability — resistance to injuries.'},
     ]},
     { label: isPT?'Criação de Jogo':'Playmaking', color:'#0e7490', attrs:[
-      {key:'ball_hdl',    label: isPT?'Condução de Bola':'Ball Handle', tip: isPT?'Condução de Bola — capacidade de driblarem sob pressão.':'Ball Handling — ability to dribble under pressure.'},
+      {key:'ball_hdl',    label: isPT?'Drible':'Ball Handle', tip: isPT?'Drible — capacidade de driblarem sob pressão.':'Ball Handling — ability to dribble under pressure.'},
       {key:'pass_vis',    label: isPT?'Visão de Jogo':'Pass Vision',    tip: isPT?'Visão de Jogo — capacidade de ler a defesa e encontrar companheiros livres.':'Pass Vision — ability to read the defence and find open teammates.'},
       {key:'pass_iq',     label: 'Pass IQ',                              tip: isPT?'Pass IQ — capacidade de decisão ao passar.':'Pass IQ — decision-making when passing.'},
-      {key:'assist_role', label: isPT?'Função de Assistência':'Assist Role', tip: isPT?'Função de Assistência — como este jogador se encaixa num sistema focado em passes.':'Assist Role — how naturally this player fits into a pass-first role.'},
+      {key:'assist_role', label: isPT?'Perfil de Assistência':'Assist Role', tip: isPT?'Perfil de Assistência — como este jogador se encaixa num sistema focado em passes.':'Assist Role — how naturally this player fits into a pass-first role.'},
     ]},
     { label: isPT?'Psicológico':'Psychological', color:'#b45309', attrs:[
       {key:'pressure',     label: isPT?'Clutch/Pressão':'Clutch/Pressure', tip: isPT?'Clutch/Pressão — desempenho em momentos de alta pressão.':'Clutch/Pressure — performance in high-pressure moments.'},
       {key:'consistency',  label: isPT?'Consistência':'Consistency',        tip: isPT?'Consistência — variação de jogo a jogo.':'Consistency — game-to-game variance in performance.'},
-      {key:'crowd_effect', label: isPT?'Efeito Público':'Crowd Effect',     tip: isPT?'Efeito Público — o quanto o barulho do público afecta este jogador.':'Crowd Effect — how much crowd noise affects this player.'},
+      {key:'crowd_effect', label: isPT?'Influência do Público':'Crowd Effect',     tip: isPT?'Influência do Público — o quanto o barulho do público afecta este jogador.':'Crowd Effect — how much crowd noise affects this player.'},
       {key:'streaky',      label: isPT?'Irregular':'Streaky',               tip: isPT?'Irregular — tendência para fases quentes e frias.':'Streaky — tendency to have hot and cold streaks.'},
       {key:'trash_talk',   label: 'Trash Talk',                             tip: isPT?'Trash Talk — capacidade de entrar na cabeça dos adversários.':'Trash Talk — ability to get in opponents\'s heads.'},
     ]},

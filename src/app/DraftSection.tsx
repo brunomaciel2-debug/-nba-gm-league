@@ -37,18 +37,18 @@ const TOOLTIPS_EN: Record<string,string> = {
   BH:'Ball Handle (0-100)',PV:'Pass Vision (0-100)',PIQ:'Pass IQ (0-100)',AR:'Assist Role (0-100)',
   CLU:'Clutch (0-100)',CON:'Consistency (0-100)',CE:'Crowd Effect (0-100)',STR:'Streaky (0-100)',
   SPD:'Speed (0-100)',AGI:'Agility (0-100)',STR2:'Strength (0-100)',CS:'Close Shot (0-100)',
-  SDNK:'Standing Dunk (0-100)',TT:'Trash Talk (0-100)',USG:'Usage Rate (0-100)',
+  SDNK:'Afundanço Estático (0-100)',TT:'Trash Talk (0-100)',USG:'Usage Rate (0-100)',
   OVR:'Overall rating (Commissioner only)',AGE:'Player age',
 }
 const TOOLTIPS_PT: Record<string,string> = {
-  '3PT':'Lançamento de 3 Pontos (0-100)',LAY:'Layup (0-100)',DNK:'Dunk (0-100)',MID:'Médio Alcance (0-100)',
-  FT:'Lances Livres (0-100)',SIQ:'Shot IQ (0-100)',DF:'Provoca Falta (0-100)',BLK:'Bloqueio (0-100)',
+  '3PT':'Lançamento de 3 Pontos (0-100)',LAY:'Layup (0-100)',DNK:'Afundanço (0-100)',MID:'Meia Distância (0-100)',
+  FT:'Lances Livres (0-100)',SIQ:'Shot IQ (0-100)',DF:'Provoca Falta (0-100)',BLK:'Desarme de Lançamento (0-100)',
   STL:'Roubo de Bola (0-100)',IDEF:'Defesa Interior (0-100)',PDEF:'Defesa de Perímetro (0-100)',
   DREB:'Ressalto Defensivo (0-100)',OREB:'Ressalto Ofensivo (0-100)',STA:'Resistência (0-100)',DUR:'Durabilidade (0-100)',
-  BH:'Condução de Bola (0-100)',PV:'Visão de Jogo (0-100)',PIQ:'Pass IQ (0-100)',AR:'Função de Assistência (0-100)',
-  CLU:'Clutch/Pressão (0-100)',CON:'Consistência (0-100)',CE:'Efeito do Público (0-100)',STR:'Irregular (0-100)',
-  SPD:'Velocidade (0-100)',AGI:'Agilidade (0-100)',STR2:'Força (0-100)',CS:'Lançamento Perto (0-100)',
-  SDNK:'Dunk Parado (0-100)',TT:'Trash Talk (0-100)',USG:'Taxa de Uso (0-100)',
+  BH:'Drible (0-100)',PV:'Visão de Jogo (0-100)',PIQ:'Pass IQ (0-100)',AR:'Perfil de Assistência (0-100)',
+  CLU:'Clutch/Pressão (0-100)',CON:'Consistência (0-100)',CE:'Influência do Público (0-100)',STR:'Irregular (0-100)',
+  SPD:'Velocidade (0-100)',AGI:'Agilidade (0-100)',STR2:'Força (0-100)',CS:'Finalização no Cesto (0-100)',
+  SDNK:'Afundanço Estático (0-100)',TT:'Trash Talk (0-100)',USG:'Taxa de Utilização (0-100)',
   OVR:'Avaliação global (só Comissário)',AGE:'Idade do jogador',
 }
 const ATTR_COLS = [
