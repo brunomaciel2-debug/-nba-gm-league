@@ -8,78 +8,6 @@ import ChatButton from './ChatButton'
 import SimulatorBanner from './SimulatorBanner'
 import LanguageSwitcher from './LanguageSwitcher'
 
-function useNavDropdowns() {
-  const { t } = useTranslation()
-  return [
-    {
-      label: t('nav.league'),
-      icon: 'ti-ball-basketball',
-      items: [
-        { label: t('nav.capSpace'),      href: '/cap-space',        icon: 'ti-cash' },
-        { label: t('nav.freeAgents'),    href: '/free-agents',      icon: 'ti-user-plus' },
-        { label: t('nav.leagueLeaders'), href: '/league-leaders',   icon: 'ti-trophy' },
-        { label: t('nav.powerRankings'), href: '/power-rankings',   icon: 'ti-trending-up' },
-        { label: t('nav.schedule'),      href: '/schedule',         icon: 'ti-calendar' },
-        { label: t('nav.standings'),     href: '/standings',        icon: 'ti-list-numbers' },
-        { label: t('nav.teams'),         href: '/teams',            icon: 'ti-users' },
-        { label: t('nav.tradeCenter'),   href: '/trade-center',     icon: 'ti-switch-horizontal' },
-        { label: t('nav.transactions'),  href: '/transactions',     icon: 'ti-arrows-exchange' },
-      ],
-    },
-    {
-      label: t('nav.events'),
-      icon: 'ti-star',
-      items: [
-        { label: t('nav.allStar'),  href: '/all-star', icon: 'ti-star' },
-        { label: t('nav.awards'),   href: '/awards',   icon: 'ti-award' },
-        { label: t('nav.draft'),    href: '/draft',    icon: 'ti-clipboard-list' },
-        { label: t('nav.playoffs'), href: '/playoffs', icon: 'ti-tournament' },
-      ],
-    },
-    {
-      label: t('nav.rulesInfo'),
-      icon: 'ti-book',
-      items: [
-        { label: t('nav.capRules'),          href: '/rules/cap',       icon: 'ti-cash' },
-        { label: t('nav.contractRules'),     href: '/rules/contracts', icon: 'ti-file-text' },
-        { label: t('nav.tradeRules'),        href: '/rules/trades',    icon: 'ti-switch-horizontal' },
-        { label: t('nav.trainingRules'),     href: '/rules/training',  icon: 'ti-barbell' },
-        { label: t('nav.ordersGuide'),       href: '/rules/orders',    icon: 'ti-clipboard-list' },
-        { label: t('nav.scoutingGuide'),     href: '/rules/scouting',  icon: 'ti-search' },
-        { label: t('nav.sponsorObjectives'), href: '/rules/sponsors',  icon: 'ti-target-arrow' },
-      ],
-    },
-  ]
-}
-
-const NAV_LINKS_STATIC_EN = [
-  { labelKey: 'Job Openings', href: '/jobs',    icon: 'ti-briefcase' },
-  { labelKey: 'G-League',     href: '/gleague', icon: 'ti-ball-basketball' },
-]
-const NAV_LINKS_STATIC_PT = [
-  { labelKey: 'Vagas de GM', href: '/jobs',    icon: 'ti-briefcase' },
-  { labelKey: 'G-League',    href: '/gleague', icon: 'ti-ball-basketball' },
-]
-
-const COMM_LINKS_EN = [
-  { href: '/admin',              label: 'Commissioner Panel', icon: 'ti-settings' },
-  { href: '/admin/article/new',  label: 'Write Article',      icon: 'ti-pencil' },
-  { href: '/admin/articles',     label: 'Manage Articles',    icon: 'ti-news' },
-  { href: '/admin/media',        label: 'Media Manager',      icon: 'ti-photo' },
-  { href: '/admin/coaches',      label: 'Coaching Staff',     icon: 'ti-whistle' },
-  { href: '/admin/applications', label: 'GM Applications',    icon: 'ti-clipboard-list' },
-  { href: '/admin/gms',          label: 'Manage GMs',         icon: 'ti-users' },
-]
-const COMM_LINKS_PT = [
-  { href: '/admin',              label: 'Painel do Comissário', icon: 'ti-settings' },
-  { href: '/admin/article/new',  label: 'Escrever Artigo',      icon: 'ti-pencil' },
-  { href: '/admin/articles',     label: 'Gerir Artigos',        icon: 'ti-news' },
-  { href: '/admin/media',        label: 'Gestor de Media',      icon: 'ti-photo' },
-  { href: '/admin/coaches',      label: 'Staff Técnico',        icon: 'ti-whistle' },
-  { href: '/admin/applications', label: 'Candidaturas GM',      icon: 'ti-clipboard-list' },
-  { href: '/admin/gms',          label: 'Gerir GMs',            icon: 'ti-users' },
-]
-
 function NavDropdown({ label, icon, items, onNavigate }: {
   label: string, icon: string, items: any[], onNavigate: () => void
 }) {
@@ -100,15 +28,16 @@ function NavDropdown({ label, icon, items, onNavigate }: {
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
         style={{
-          padding: '14px 16px', fontSize: 14, fontWeight: 600, color: open ? '#c8102e' : '#2d2722',
+          padding: '14px 16px', fontSize: 14, fontWeight: 600,
+          color: open ? '#c8102e' : '#2d2722',
           borderBottom: open ? '3px solid #c8102e' : '3px solid transparent',
           marginBottom: -2, background: 'transparent', border: 'none',
           borderBottomStyle: 'solid', borderBottomWidth: 3,
           borderBottomColor: open ? '#c8102e' : 'transparent',
           cursor: 'pointer',
         }}
-        onMouseEnter={e => { if (!open) { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}}
-        onMouseLeave={e => { if (!open) { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}}>
+        onMouseEnter={e => { if (!open) { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' } }}
+        onMouseLeave={e => { if (!open) { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' } }}>
         <i className={`ti ${icon}`} style={{ fontSize: 15 }}></i>
         {label}
         <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 11, marginLeft: 2 }}></i>
@@ -140,27 +69,90 @@ export default function Navbar() {
   const [gmOpen, setGmOpen] = useState(false)
   const { user, profile, loading, signOut } = useAuth()
   const { t } = useTranslation()
-  const isPT = t('common.save') === 'Guardar'
-  const NAV_DROPDOWNS = useNavDropdowns()
-  const NAV_LINKS_STATIC = isPT ? NAV_LINKS_STATIC_PT : NAV_LINKS_STATIC_EN
-  const COMM_LINKS = isPT ? COMM_LINKS_PT : COMM_LINKS_EN
 
+  // isPT computed inside component so I18nProvider is ready
+  const isPT = t('common.save') === 'Guardar'
   const teamId = (profile as any)?.team_id
 
+  // All dropdowns built inside the component after i18n is ready
+  const NAV_DROPDOWNS = [
+    {
+      label: isPT ? 'Liga' : 'League',
+      icon: 'ti-ball-basketball',
+      items: [
+        { label: isPT ? 'Margem Salarial'  : 'Cap Space',       href: '/cap-space',      icon: 'ti-cash' },
+        { label: isPT ? 'Free Agents'      : 'Free Agents',     href: '/free-agents',    icon: 'ti-user-plus' },
+        { label: isPT ? 'Líderes da Liga'  : 'League Leaders',  href: '/league-leaders', icon: 'ti-trophy' },
+        { label: isPT ? 'Power Rankings'   : 'Power Rankings',  href: '/power-rankings', icon: 'ti-trending-up' },
+        { label: isPT ? 'Calendário'       : 'Schedule',        href: '/schedule',       icon: 'ti-calendar' },
+        { label: isPT ? 'Classificação'    : 'Standings',       href: '/standings',      icon: 'ti-list-numbers' },
+        { label: isPT ? 'Equipas'          : 'Teams',           href: '/teams',          icon: 'ti-users' },
+        { label: isPT ? 'Trade Center'     : 'Trade Center',    href: '/trade-center',   icon: 'ti-switch-horizontal' },
+        { label: isPT ? 'Transações'       : 'Transactions',    href: '/transactions',   icon: 'ti-arrows-exchange' },
+      ],
+    },
+    {
+      label: isPT ? 'Eventos' : 'Events',
+      icon: 'ti-star',
+      items: [
+        { label: 'All-Star',                               href: '/all-star',  icon: 'ti-star' },
+        { label: isPT ? 'Prémios'   : 'Awards',           href: '/awards',    icon: 'ti-award' },
+        { label: 'Draft',                                  href: '/draft',     icon: 'ti-clipboard-list' },
+        { label: 'Playoffs',                               href: '/playoffs',  icon: 'ti-tournament' },
+      ],
+    },
+    {
+      label: isPT ? 'Regras & Info' : 'Rules & Info',
+      icon: 'ti-book',
+      items: [
+        { label: isPT ? 'Regras do Tecto Salarial'  : 'Salary Cap Rules',    href: '/rules/cap',      icon: 'ti-cash' },
+        { label: isPT ? 'Regras de Contratos'        : 'Contract Rules',      href: '/rules/contracts',icon: 'ti-file-text' },
+        { label: isPT ? 'Regras de Trades'           : 'Trade Rules',         href: '/rules/trades',   icon: 'ti-switch-horizontal' },
+        { label: isPT ? 'Regras de Treino'           : 'Training Rules',      href: '/rules/training', icon: 'ti-barbell' },
+        { label: isPT ? 'Guia das Ordens Semanais'  : 'Weekly Orders Guide',  href: '/rules/orders',   icon: 'ti-clipboard-list' },
+        { label: isPT ? 'Guia de Scouting'          : 'Scouting Guide',       href: '/rules/scouting', icon: 'ti-search' },
+        { label: isPT ? 'Objetivos de Patrocínio'   : 'Sponsor Objectives',   href: '/rules/sponsors', icon: 'ti-target-arrow' },
+      ],
+    },
+  ]
+
+  const NAV_LINKS_STATIC = [
+    { label: isPT ? 'Vagas de GM' : 'Job Openings', href: '/jobs',    icon: 'ti-briefcase' },
+    { label: 'G-League',                             href: '/gleague', icon: 'ti-ball-basketball' },
+  ]
+
+  const COMM_LINKS = isPT ? [
+    { href: '/admin',              label: 'Painel do Comissário', icon: 'ti-settings' },
+    { href: '/admin/article/new',  label: 'Escrever Artigo',      icon: 'ti-pencil' },
+    { href: '/admin/articles',     label: 'Gerir Artigos',        icon: 'ti-news' },
+    { href: '/admin/media',        label: 'Gestor de Media',      icon: 'ti-photo' },
+    { href: '/admin/coaches',      label: 'Staff Técnico',        icon: 'ti-whistle' },
+    { href: '/admin/applications', label: 'Candidaturas GM',      icon: 'ti-clipboard-list' },
+    { href: '/admin/gms',          label: 'Gerir GMs',            icon: 'ti-users' },
+  ] : [
+    { href: '/admin',              label: 'Commissioner Panel', icon: 'ti-settings' },
+    { href: '/admin/article/new',  label: 'Write Article',      icon: 'ti-pencil' },
+    { href: '/admin/articles',     label: 'Manage Articles',    icon: 'ti-news' },
+    { href: '/admin/media',        label: 'Media Manager',      icon: 'ti-photo' },
+    { href: '/admin/coaches',      label: 'Coaching Staff',     icon: 'ti-whistle' },
+    { href: '/admin/applications', label: 'GM Applications',    icon: 'ti-clipboard-list' },
+    { href: '/admin/gms',          label: 'Manage GMs',         icon: 'ti-users' },
+  ]
+
   const GM_LINKS = [
-    { href: `/team/${teamId}`,           label: isPT ? 'A Minha Franquia'    : 'My Franchise',       icon: 'ti-building' },
-    { href: `/gm/orders/${teamId}`,      label: isPT ? 'Ordens Semanais'     : 'Weekly Orders',      icon: 'ti-clipboard-check' },
-    { href: `/trade-center`,             label: t('nav.tradeCenter'),                                 icon: 'ti-switch-horizontal' },
-    { href: `/free-agents`,              label: t('nav.freeAgents'),                                  icon: 'ti-user-plus' },
-    { href: `/preseason`,                label: isPT ? 'Agendar Amigável'    : 'Schedule Friendly',   icon: 'ti-calendar-event' },
-    { href: `/team/${teamId}#contracts`, label: isPT ? 'Contratos'           : 'Contracts',           icon: 'ti-file-dollar' },
-    { href: `/chat`,                     label: 'GM Chat',                                            icon: 'ti-message-circle' },
-    { href: `/inbox`,                    label: t('nav.inbox'),                                       icon: 'ti-mail' },
+    { href: `/team/${teamId}`,           label: isPT ? 'A Minha Franquia'  : 'My Franchise',      icon: 'ti-building' },
+    { href: `/gm/orders/${teamId}`,      label: isPT ? 'Ordens Semanais'   : 'Weekly Orders',     icon: 'ti-clipboard-check' },
+    { href: `/trade-center`,             label: isPT ? 'Trade Center'      : 'Trade Center',      icon: 'ti-switch-horizontal' },
+    { href: `/free-agents`,              label: isPT ? 'Free Agents'       : 'Free Agents',       icon: 'ti-user-plus' },
+    { href: `/preseason`,                label: isPT ? 'Agendar Amigável'  : 'Schedule Friendly', icon: 'ti-calendar-event' },
+    { href: `/team/${teamId}#contracts`, label: isPT ? 'Contratos'         : 'Contracts',         icon: 'ti-file-dollar' },
+    { href: `/chat`,                     label: 'GM Chat',                                        icon: 'ti-message-circle' },
+    { href: `/inbox`,                    label: isPT ? 'Caixa de Entrada'  : 'Inbox',             icon: 'ti-mail' },
   ]
 
   const ALL_MOBILE = [
     ...NAV_DROPDOWNS.flatMap(d => d.items),
-    ...NAV_LINKS_STATIC.map(l => ({ ...l, label: l.labelKey })),
+    ...NAV_LINKS_STATIC,
   ].sort((a, b) => a.label.localeCompare(b.label))
 
   return (
@@ -177,7 +169,6 @@ export default function Navbar() {
             </span>
           </Link>
           <div className="flex items-center gap-3">
-            {/* Language Switcher */}
             <LanguageSwitcher />
             <ChatButton />
             <InboxButton />
@@ -190,7 +181,7 @@ export default function Navbar() {
                     className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg"
                     style={{ background: '#c8102e', color: '#fff' }}>
                     <i className="ti ti-crown" style={{ fontSize: 13 }}></i>
-                    {t('nav.commissioner')}
+                    {isPT ? 'Comissário' : 'Commissioner'}
                     <i className="ti ti-chevron-down" style={{ fontSize: 11 }}></i>
                   </button>
                   {commOpen && (
@@ -308,7 +299,7 @@ export default function Navbar() {
               onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
               onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
               <i className={`ti ${item.icon}`} style={{ fontSize: 15 }}></i>
-              {item.labelKey}
+              {item.label}
             </Link>
           ))}
         </div>
