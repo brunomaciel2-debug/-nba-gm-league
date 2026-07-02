@@ -33,33 +33,39 @@ function interpolate(str: string, vars?: Record<string, string | number>): strin
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('en')
-  const [loaded, setLoaded] = useState(false)
+  // Initialise directly from localStorage — no flicker, no async race
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window === 'undefined') return 'en'
+    const cached = localStorage.getItem('nba_gm_locale')
+    return (cached === 'en' || cached === 'pt') ? cached : 'en'
+  })
 
   useEffect(() => {
-    // 1. Check localStorage cache first for instant render
-    const cached = typeof window !== 'undefined' ? localStorage.getItem('nba_gm_locale') as Locale | null : null
-    if (cached === 'en' || cached === 'pt') setLocaleState(cached)
+    // Only sync FROM DB if localStorage has no preference yet
+    const cached = localStorage.getItem('nba_gm_locale')
+    if (cached === 'en' || cached === 'pt') return   // ← user already has a preference, don't overwrite
 
-    // 2. Then verify/sync with the user's saved profile preference
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { setLoaded(true); return }
-      const { data: profile } = await supabase.from('gm_profiles').select('language').eq('id', user.id).single()
+      if (!user) return
+      const { data: profile } = await supabase
+        .from('gm_profiles').select('language').eq('id', user.id).single()
       if (profile?.language === 'en' || profile?.language === 'pt') {
         setLocaleState(profile.language)
         localStorage.setItem('nba_gm_locale', profile.language)
       }
-      setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => {})
   }, [])
 
   const setLocale = async (newLocale: Locale) => {
+    // Update state and localStorage immediately — instant UI change
     setLocaleState(newLocale)
     localStorage.setItem('nba_gm_locale', newLocale)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      await supabase.from('gm_profiles').update({ language: newLocale }).eq('id', user.id)
-    }
+    // Then persist to DB in background
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        await supabase.from('gm_profiles').update({ language: newLocale }).eq('id', user.id)
+      }
+    }).catch(() => {})
   }
 
   const t = (path: string, vars?: Record<string, string | number>): string => {
