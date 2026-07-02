@@ -52,12 +52,16 @@ function useNavDropdowns() {
   ]
 }
 
-const NAV_LINKS_STATIC = [
+const NAV_LINKS_STATIC_EN = [
   { labelKey: 'Job Openings', href: '/jobs',    icon: 'ti-briefcase' },
   { labelKey: 'G-League',     href: '/gleague', icon: 'ti-ball-basketball' },
 ]
+const NAV_LINKS_STATIC_PT = [
+  { labelKey: 'Vagas de GM', href: '/jobs',    icon: 'ti-briefcase' },
+  { labelKey: 'G-League',    href: '/gleague', icon: 'ti-ball-basketball' },
+]
 
-const COMM_LINKS = [
+const COMM_LINKS_EN = [
   { href: '/admin',              label: 'Commissioner Panel', icon: 'ti-settings' },
   { href: '/admin/article/new',  label: 'Write Article',      icon: 'ti-pencil' },
   { href: '/admin/articles',     label: 'Manage Articles',    icon: 'ti-news' },
@@ -65,6 +69,15 @@ const COMM_LINKS = [
   { href: '/admin/coaches',      label: 'Coaching Staff',     icon: 'ti-whistle' },
   { href: '/admin/applications', label: 'GM Applications',    icon: 'ti-clipboard-list' },
   { href: '/admin/gms',          label: 'Manage GMs',         icon: 'ti-users' },
+]
+const COMM_LINKS_PT = [
+  { href: '/admin',              label: 'Painel do Comissário', icon: 'ti-settings' },
+  { href: '/admin/article/new',  label: 'Escrever Artigo',      icon: 'ti-pencil' },
+  { href: '/admin/articles',     label: 'Gerir Artigos',        icon: 'ti-news' },
+  { href: '/admin/media',        label: 'Gestor de Media',      icon: 'ti-photo' },
+  { href: '/admin/coaches',      label: 'Staff Técnico',        icon: 'ti-whistle' },
+  { href: '/admin/applications', label: 'Candidaturas GM',      icon: 'ti-clipboard-list' },
+  { href: '/admin/gms',          label: 'Gerir GMs',            icon: 'ti-users' },
 ]
 
 function NavDropdown({ label, icon, items, onNavigate }: {
@@ -127,19 +140,22 @@ export default function Navbar() {
   const [gmOpen, setGmOpen] = useState(false)
   const { user, profile, loading, signOut } = useAuth()
   const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const NAV_DROPDOWNS = useNavDropdowns()
+  const NAV_LINKS_STATIC = isPT ? NAV_LINKS_STATIC_PT : NAV_LINKS_STATIC_EN
+  const COMM_LINKS = isPT ? COMM_LINKS_PT : COMM_LINKS_EN
 
   const teamId = (profile as any)?.team_id
 
   const GM_LINKS = [
-    { href: `/team/${teamId}`,           label: t('nav.league') === 'Liga' ? 'A Minha Franquia' : 'My Franchise',  icon: 'ti-building' },
-    { href: `/gm/orders/${teamId}`,      label: t('nav.ordersGuide') === 'Guia das Ordens Semanais' ? 'Ordens Semanais' : 'Weekly Orders', icon: 'ti-clipboard-check' },
-    { href: `/trade-center`,             label: t('nav.tradeCenter'),     icon: 'ti-switch-horizontal' },
-    { href: `/free-agents`,              label: t('nav.freeAgents'),      icon: 'ti-user-plus' },
-    { href: `/preseason`,                label: t('nav.league') === 'Liga' ? 'Agendar Amigável' : 'Schedule Friendly', icon: 'ti-calendar-event' },
-    { href: `/team/${teamId}#contracts`, label: t('nav.contractRules') === 'Regras de Contratos' ? 'Contratos' : 'Contracts', icon: 'ti-file-dollar' },
-    { href: `/chat`,                     label: 'GM Chat',                icon: 'ti-message-circle' },
-    { href: `/inbox`,                    label: t('nav.inbox'),           icon: 'ti-mail' },
+    { href: `/team/${teamId}`,           label: isPT ? 'A Minha Franquia'    : 'My Franchise',       icon: 'ti-building' },
+    { href: `/gm/orders/${teamId}`,      label: isPT ? 'Ordens Semanais'     : 'Weekly Orders',      icon: 'ti-clipboard-check' },
+    { href: `/trade-center`,             label: t('nav.tradeCenter'),                                 icon: 'ti-switch-horizontal' },
+    { href: `/free-agents`,              label: t('nav.freeAgents'),                                  icon: 'ti-user-plus' },
+    { href: `/preseason`,                label: isPT ? 'Agendar Amigável'    : 'Schedule Friendly',   icon: 'ti-calendar-event' },
+    { href: `/team/${teamId}#contracts`, label: isPT ? 'Contratos'           : 'Contracts',           icon: 'ti-file-dollar' },
+    { href: `/chat`,                     label: 'GM Chat',                                            icon: 'ti-message-circle' },
+    { href: `/inbox`,                    label: t('nav.inbox'),                                       icon: 'ti-mail' },
   ]
 
   const ALL_MOBILE = [
@@ -154,7 +170,7 @@ export default function Navbar() {
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-12">
           <Link href="/" className="no-underline flex items-center gap-2.5">
             <span className="text-lg font-bold" style={{ color: '#fff', letterSpacing: '-0.3px' }}>
-              🏀 NBA GM League
+              🏀 Beyond the Court
             </span>
             <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.1)', color: '#8a8279' }}>
               2025-26
@@ -196,7 +212,7 @@ export default function Navbar() {
                         onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         <i className="ti ti-logout" style={{ fontSize: 14 }}></i>
-                        {t('nav.league') === 'Liga' ? 'Terminar Sessão' : 'Sign Out'}
+                        {isPT ? 'Terminar Sessão' : 'Sign Out'}
                       </button>
                     </div>
                   )}
@@ -234,7 +250,7 @@ export default function Navbar() {
                         onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                         <i className="ti ti-logout" style={{ fontSize: 14 }}></i>
-                        {t('nav.league') === 'Liga' ? 'Terminar Sessão' : 'Sign Out'}
+                        {isPT ? 'Terminar Sessão' : 'Sign Out'}
                       </button>
                     </div>
                   )}
@@ -246,14 +262,14 @@ export default function Navbar() {
                   </span>
                   <button onClick={signOut} className="text-xs px-3 py-1.5 rounded-lg"
                     style={{ background: 'rgba(255,255,255,0.1)', color: '#1a1512' }}>
-                    {t('nav.league') === 'Liga' ? 'Terminar Sessão' : 'Sign Out'}
+                    {isPT ? 'Terminar Sessão' : 'Sign Out'}
                   </button>
                 </div>
               )
             ) : (
               <Link href="/login" className="text-xs font-bold px-3 py-1.5 rounded-lg no-underline"
                 style={{ background: '#c8102e', color: '#fff' }}>
-                {t('nav.league') === 'Liga' ? 'Entrar' : 'Sign In'}
+                {isPT ? 'Entrar' : 'Sign In'}
               </Link>
             )}
             <button onClick={() => setOpen(!open)} className="lg:hidden p-1.5 rounded"
@@ -277,7 +293,7 @@ export default function Navbar() {
             onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
             onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
             <i className="ti ti-home" style={{ fontSize: 15 }}></i>
-            Home
+            {isPT ? 'Início' : 'Home'}
           </Link>
 
           {NAV_DROPDOWNS.map(d => (
@@ -304,7 +320,7 @@ export default function Navbar() {
               className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm no-underline"
               style={{ color: '#2d2722' }}>
               <i className="ti ti-home" style={{ fontSize: 16 }}></i>
-              Home
+              {isPT ? 'Início' : 'Home'}
             </Link>
             {ALL_MOBILE.map(item => (
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)}

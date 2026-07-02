@@ -1,12 +1,11 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
-import { I18nProvider } from '@/components/I18nProvider'
 import Navbar from '@/components/Navbar'
 
 export const metadata: Metadata = {
-  title: 'NBA GM League 2025-26',
-  description: 'The ultimate NBA General Manager simulation league',
+  title: 'Beyond the Court 2025-26',
+  description: 'The ultimate NBA General Manager simulation league — Beyond the Court',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,10 +13,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen" style={{ background: '#ede8de', color: '#1a1612' }}>
         <AuthProvider>
-          <I18nProvider>
-            <Navbar />
-            <main>{children}</main>
-          </I18nProvider>
+          <Navbar />
+          <main>{children}</main>
         </AuthProvider>
       </body>
     </html>
