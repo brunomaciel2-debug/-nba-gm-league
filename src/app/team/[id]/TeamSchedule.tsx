@@ -43,6 +43,7 @@ export default function TeamSchedule({
   const isPreseasonPeriod = seasonStatus === 'pre-season'
 
   useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       const { data: gm } = await supabase.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
       if (gm?.team_id === teamId || gm?.role === 'commissioner') setMyTeamId(teamId)
@@ -63,9 +64,6 @@ export default function TeamSchedule({
       setWorldTeams(wt||[])
     })
   }, [teamId])
-
-  // Show scheduling during pre-season status
-  const isPreseasonPeriod = seasonStatus === 'pre-season'
 
   const filters: {key:Filter, label:string}[] = [
     {key:'all',      label:isPT?'Todos':'All'},
