@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
+import { I18nProvider } from '@/components/I18nProvider'
 import Navbar from '@/components/Navbar'
 
 export const metadata: Metadata = {
@@ -13,8 +14,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen" style={{ background: '#ede8de', color: '#1a1612' }}>
         <AuthProvider>
-          <Navbar />
-          <main>{children}</main>
+          <I18nProvider>
+            <Navbar />
+            <main>{children}</main>
+          </I18nProvider>
         </AuthProvider>
       </body>
     </html>
