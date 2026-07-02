@@ -5,24 +5,28 @@ export default function LanguageSwitcher() {
   const { locale, setLocale } = useTranslation()
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 2, background: '#1a1512', borderRadius: 8, padding: 2 }}>
+    <div style={{ display:'flex', alignItems:'center', gap:2, background:'#1a1512', borderRadius:8, padding:2 }}>
       <button
         onClick={() => setLocale('en')}
+        title="English"
         style={{
-          padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
+          padding:'4px 7px', borderRadius:6, fontSize:16, cursor:'pointer', border:'none',
           background: locale === 'en' ? '#faf8f5' : 'transparent',
-          color: locale === 'en' ? '#1a1512' : '#a89f97',
+          opacity: locale === 'en' ? 1 : 0.5,
+          lineHeight:1,
         }}>
-        🇬🇧 EN
+        🇬🇧
       </button>
       <button
         onClick={() => setLocale('pt')}
+        title="Português"
         style={{
-          padding: '4px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
+          padding:'4px 7px', borderRadius:6, fontSize:16, cursor:'pointer', border:'none',
           background: locale === 'pt' ? '#faf8f5' : 'transparent',
-          color: locale === 'pt' ? '#1a1512' : '#a89f97',
+          opacity: locale === 'pt' ? 1 : 0.5,
+          lineHeight:1,
         }}>
-        🇵🇹 PT
+        🇵🇹
       </button>
     </div>
   )
