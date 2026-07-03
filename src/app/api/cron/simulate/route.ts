@@ -16,7 +16,7 @@ return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 }
 try {
 const { data: cfg } = await supabaseAdmin.from('season_config').select('*').eq('id',1).single()
-if (!cfg || !['active','regular-season'].includes(cfg.status)) return NextResponse.json({ message: 'Season not active' })
+if (!cfg || !['active','regular-season','pre-season'].includes(cfg.status)) return NextResponse.json({ message: 'Season not active' })
 const week = cfg.current_week + 1
 
 const { data: teams } = await supabaseAdmin.from('teams').select('*')
@@ -216,7 +216,9 @@ await supabaseAdmin.from('players').update({ health:newHealth }).eq('id',pid)
 }
 }
 
-await supabaseAdmin.from('season_config').update({ current_week: week, status: 'regular-season' }).eq('id',1)
+// Auto-determine status based on week number
+const newStatus = week >= 1 ? 'regular-season' : 'pre-season'
+await supabaseAdmin.from('season_config').update({ current_week: week, status: newStatus }).eq('id',1)
 await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number', week)
 
 // ── ATTRIBUTE DEVELOPMENT ─────────────────────────────
