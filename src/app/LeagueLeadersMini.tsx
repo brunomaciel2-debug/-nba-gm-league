@@ -1,46 +1,58 @@
+'use client'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { readableTeamColor } from '@/lib/color'
+import { useTranslation } from '@/components/I18nProvider'
 
-async function getLeaders(stat: 'pts' | 'ast' | 'reb', minGamesRatio = 0.70) {
-  const { data: sc } = await supabase.from('season_config').select('current_week').eq('id',1).single()
-  const week = (sc as any)?.current_week || 0
-  const expectedGames = Math.max(1, Math.round((week / 26) * 82))
-  const minGames = Math.floor(expectedGames * minGamesRatio)
-  const { data } = await supabase
-    .from('player_stats')
-    .select('player_id, games, pts, ast, reb, players(id, name, pos, photo_url, team_id, teams(id, name, color))')
-    .gte('games', Math.max(1, minGames))
-    .order(stat === 'pts' ? 'pts' : stat === 'ast' ? 'ast' : 'reb', { ascending: false })
-    .limit(5)
-  return (data || []).map((s: any) => {
-    const gp = s.games || 1
-    return {
-      ...s.players, gp,
-      ppg: (s.pts/gp).toFixed(1), apg: (s.ast/gp).toFixed(1), rpg: (s.reb/gp).toFixed(1),
-      statValue: stat==='pts' ? (s.pts/gp).toFixed(1) : stat==='ast' ? (s.ast/gp).toFixed(1) : (s.reb/gp).toFixed(1),
+const CATS_EN = [
+  { key:'pts', label:'Points',    unit:'PPG', color:'#d97706', icon:'ti-ball-basketball', statKey:'pts' },
+  { key:'ast', label:'Assists',   unit:'APG', color:'#0e7490', icon:'ti-arrows-exchange', statKey:'ast' },
+  { key:'reb', label:'Rebounds',  unit:'RPG', color:'#1d4ed8', icon:'ti-arrow-bounce',    statKey:'reb' },
+]
+const CATS_PT = [
+  { key:'pts', label:'Pontos',      unit:'PPG', color:'#d97706', icon:'ti-ball-basketball', statKey:'pts' },
+  { key:'ast', label:'Assistências',unit:'APG', color:'#0e7490', icon:'ti-arrows-exchange', statKey:'ast' },
+  { key:'reb', label:'Ressaltos',   unit:'RPG', color:'#1d4ed8', icon:'ti-arrow-bounce',    statKey:'reb' },
+]
+
+export default function LeagueLeadersMini() {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
+  const CATS = isPT ? CATS_PT : CATS_EN
+
+  const [leaders, setLeaders] = useState<any[][]>([[], [], []])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: sc } = await supabase.from('season_config').select('current_week').eq('id',1).single()
+      const week = (sc as any)?.current_week || 0
+      const expectedGames = Math.max(1, Math.round((week / 26) * 82))
+      const minGames = Math.max(1, Math.floor(expectedGames * 0.7))
+
+      const results = await Promise.all(['pts','ast','reb'].map(async stat => {
+        const { data } = await supabase
+          .from('player_stats')
+          .select('player_id, games, pts, ast, reb, players(id, name, pos, photo_url, team_id, teams(id, name, color))')
+          .gte('games', minGames)
+          .order(stat, { ascending: false })
+          .limit(5)
+        return (data||[]).map((s:any) => {
+          const gp = s.games || 1
+          return {
+            ...s.players, gp,
+            statValue: stat==='pts' ? (s.pts/gp).toFixed(1) : stat==='ast' ? (s.ast/gp).toFixed(1) : (s.reb/gp).toFixed(1),
+          }
+        })
+      }))
+      setLeaders(results)
+      setLoading(false)
     }
-  })
-}
+    load()
+  }, [])
 
-// Server component — reads locale from cookie for translation
-import { cookies } from 'next/headers'
-
-export default async function LeagueLeadersMini() {
-  const cookieStore = cookies()
-  const locale = cookieStore.get('btc_locale')?.value || 'en'
-  const isPT = locale === 'pt'
-
-  const CATS = [
-    { key: 'pts' as const, labelEN: 'Points',   labelPT: 'Pontos',     unit: 'PPG', color: '#d97706', icon: 'ti-ball-basketball' },
-    { key: 'ast' as const, labelEN: 'Assists',  labelPT: 'Assistências', unit: 'APG', color: '#0e7490', icon: 'ti-arrows-exchange' },
-    { key: 'reb' as const, labelEN: 'Rebounds', labelPT: 'Ressaltos',  unit: 'RPG', color: '#1d4ed8', icon: 'ti-arrow-bounce' },
-  ]
-
-  const [pts, ast, reb] = await Promise.all([
-    getLeaders('pts'), getLeaders('ast'), getLeaders('reb'),
-  ])
-  const lists = [pts, ast, reb]
+  if (loading) return null
 
   return (
     <div className="mb-8">
@@ -55,8 +67,8 @@ export default async function LeagueLeadersMini() {
       </div>
       <div className="grid md:grid-cols-3 gap-5">
         {CATS.map((cat, ci) => {
-          const leaders = lists[ci]
-          const leader = leaders[0]
+          const list = leaders[ci]
+          const leader = list[0]
           const tc = leader?.teams ? readableTeamColor((leader.teams as any).color) : '#5c554e'
           return (
             <div key={cat.key} className="rounded-2xl overflow-hidden"
@@ -64,11 +76,11 @@ export default async function LeagueLeadersMini() {
               <div className="px-5 py-3 flex items-center justify-between" style={{borderBottom:'1px solid #d4cec3'}}>
                 <span className="text-xs font-bold uppercase tracking-widest" style={{color:cat.color}}>
                   <i className={`ti ${cat.icon}`} style={{fontSize:14,marginRight:6}}></i>
-                  {isPT ? cat.labelPT : cat.labelEN} Leaders
+                  {cat.label} Leaders
                 </span>
                 <span className="text-xs font-bold" style={{color:cat.color}}>{cat.unit}</span>
               </div>
-              {leaders.length === 0 ? (
+              {list.length === 0 ? (
                 <div className="p-6 text-center">
                   <p className="text-sm" style={{color:'#9c8e7a'}}>
                     {isPT ? 'Disponível após os primeiros jogos' : 'Available after games are played'}
@@ -104,7 +116,7 @@ export default async function LeagueLeadersMini() {
                       </div>
                     </Link>
                   )}
-                  {leaders.slice(1).map((p, i) => {
+                  {list.slice(1).map((p, i) => {
                     const ptc = p?.teams ? readableTeamColor((p.teams as any).color) : '#5c554e'
                     return (
                       <Link key={p.id} href={`/player/${p.id}`} className="no-underline group">
