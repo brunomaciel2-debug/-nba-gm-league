@@ -158,7 +158,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
       .filter((g:any) => g.status !== 'final')
       .map((g:any) => g.home_team === teamId ? g.away_team : g.home_team)
       .filter((id:string) => id && teamsMap[id]) // only NBA teams
-  )]
+  ))
 
   // Calculate strengths in parallel
   const [myStrength, ...oppStrengths] = await Promise.all([
