@@ -7,6 +7,7 @@ import { generateWeeklyScoutPoints } from '@/lib/scouting'
 import { homeWinProb, updateElo } from '@/lib/elo-helper'
 import { getStatusForWeek } from '@/lib/season-week-helper'
 import { simulateGame } from '@/lib/game-simulator'
+import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -698,6 +699,19 @@ await supabaseAdmin.from('players').update({health:nh,moral:nm}).eq('id',p.id)
 }
 } catch(e) { console.warn('Recovery step failed',e) }
 
+// ── FRIENDLY / PRE-SEASON GAMES ────────────────────────
+// Resolve every pending friendly (preseason_games) alongside the week's real
+// games, so the commissioner doesn't have to trigger each one individually.
+let friendliesSimulated = 0
+try {
+const { data: pendingFriendlies } = await supabaseAdmin
+.from('preseason_games').select('id').eq('season','2025-26').in('status',['scheduled','accepted'])
+for (const pf of (pendingFriendlies||[])) {
+const r = await simulatePreseasonGame(pf.id)
+if (r.success) friendliesSimulated++
+}
+} catch(friendlyErr) { console.warn('Friendly games step failed:', friendlyErr) }
+
 // ── SPONSOR OBJECTIVES ────────────────────────────────
 try {
 const sponsorResult = await checkSponsorObjectives()
@@ -722,7 +736,7 @@ const scoutResult = await generateWeeklyScoutPoints()
 console.log(`Scouting points generated for ${scoutResult.updated} teams`)
 } catch(scoutErr) { console.warn('Scouting points generation failed:', scoutErr) }
 
-return NextResponse.json({ success: true, week, games_simulated: gamesSimulated })
+return NextResponse.json({ success: true, week, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated })
 } catch (err: any) {
 return NextResponse.json({ error: err.message }, { status: 500 })
 }

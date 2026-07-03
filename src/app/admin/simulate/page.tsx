@@ -48,6 +48,11 @@ export default function AdminSimulatePage() {
           ? `✅ Semana ${data.week} simulada! ${data.games_simulated} jogos.`
           : `✅ Week ${data.week} simulated! ${data.games_simulated} games.`
         setLog(prev => [...prev, msg])
+        if (data.friendlies_simulated > 0) {
+          setLog(prev => [...prev, isPT
+            ? `⚡ ${data.friendlies_simulated} jogo(s) amigável(is) resolvido(s)`
+            : `⚡ ${data.friendlies_simulated} friendly game(s) resolved`])
+        }
         setResult(data)
       } else {
         const msg = `❌ ${data.error || (isPT ? 'Erro desconhecido' : 'Unknown error')}`
@@ -84,19 +89,21 @@ export default function AdminSimulatePage() {
         <div className="flex flex-col gap-1.5 text-sm" style={{color:'#3d3731'}}>
           {(isPT ? [
             '🏀 4 jogos por equipa (round-robin)',
-            '📊 Estatísticas de jogadores actualizadas',
+            '🤝 Amigáveis pendentes resolvidos (não contam para stats)',
+            '📊 Estatísticas de jogadores actualizadas (excepto na Pré-Época)',
             '🏥 Saúde e lesões processadas',
             '📈 Desenvolvimento de atributos',
-            '🏆 Prémios semanais / mensais',
+            '🏆 Prémios semanais / mensais (excepto na Pré-Época)',
             '💰 Objectivos de patrocínio verificados',
             '🔬 Pontos de scouting gerados',
             '📣 Notificações enviadas aos GMs',
           ] : [
             '🏀 4 games per team (round-robin)',
-            '📊 Player stats updated',
+            '🤝 Pending friendlies resolved (don\'t count toward stats)',
+            '📊 Player stats updated (except during Pre-Season)',
             '🏥 Health and injuries processed',
             '📈 Attribute development',
-            '🏆 Weekly / monthly awards',
+            '🏆 Weekly / monthly awards (except during Pre-Season)',
             '💰 Sponsor objectives checked',
             '🔬 Scouting points generated',
             '📣 Notifications sent to GMs',
