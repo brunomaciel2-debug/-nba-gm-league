@@ -109,10 +109,12 @@ export async function simulatePreseasonGame(id: string) {
       const box = sorted.map((p: any, i: number) => {
         const share = i === sorted.length - 1 ? Math.max(0, remaining) : Math.round(nbaScore * (weights[i] / totalW))
         remaining -= share
+        const offReb = rnd(1, 4), defReb = rnd(1, 5)
         return {
           player_id: p.id, mins: Math.max(8, Math.round(28 - i * 2)),
-          pts: Math.max(0, share), reb: rnd(2, 9), ast: rnd(1, 6), stl: rnd(0, 2), blk: rnd(0, 1),
-          fga: 0, fgm: 0, tpa: 0, tpm: 0, fta: 0, ftm: 0, pf: 0, fd: 0, to: 0, turnovers: rnd(0, 2), plus_minus: 0,
+          pts: Math.max(0, share), reb: offReb + defReb, off_reb: offReb, def_reb: defReb,
+          ast: rnd(1, 6), stl: rnd(0, 2), blk: rnd(0, 1),
+          fga: 0, fgm: 0, tpa: 0, tpm: 0, fta: 0, ftm: 0, pf: 0, turnovers: rnd(0, 2), plus_minus: 0,
         }
       })
       if (nbaSideIsHome) homeBox = box; else awayBox = box

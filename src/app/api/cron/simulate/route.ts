@@ -26,7 +26,15 @@ const week = cfg.current_week + 1
 // should count toward standings, player season stats, or awards.
 const isPreseason = getStatusForWeek(week) === 'pre-season'
 
-const { data: teams } = await supabaseAdmin.from('teams').select('*')
+let gamesSimulated = 0
+const gamesCreated: string[] = []
+
+// The random round-robin only runs during the real Regular Season. During
+// Pre-Season, only games GMs actually scheduled (the friendlies resolved
+// below) should be considered for that week — no invented matchups.
+if (!isPreseason) {
+
+const { data: teams } = await supabaseAdmin.from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)')
 if (!teams || teams.length < 2) return NextResponse.json({ error: 'Not enough teams' }, { status:500 })
 
 // Real NBA arena capacities as fallback
@@ -47,8 +55,6 @@ const pairs: Array<[any,any]> = []
 for (let i=0; i<shuffled.length-1; i+=2) pairs.push([shuffled[i], shuffled[i+1]])
 const allPairs = [...pairs, ...pairs] // 4 games per team
 
-let gamesSimulated = 0
-const gamesCreated: string[] = []
 for (let gi=0; gi<allPairs.length; gi++) {
 const [ht, at] = allPairs[gi]
 const [{ data: hp }, { data: ap }] = await Promise.all([
@@ -92,9 +98,6 @@ if (result.pbp.length > 0) {
 await supabaseAdmin.from('play_by_play').insert(result.pbp.map((p:any) => ({ ...p, game_id: gameRec.id })))
 }
 
-// Pre-Season games are isolated — no counters below this point (wins/losses,
-// elo, triple-doubles, season stat accumulation) may run for them.
-if (!isPreseason) {
 // Update triple_doubles counter in player_stats
 const tdBox = [...result.homeBox, ...result.awayBox]
 for (const b of tdBox) {
@@ -141,7 +144,7 @@ turnovers: ex.turnovers+box.turnovers,
 }
 }
 }
-}
+} // end if (!isPreseason) — random round-robin block
 
 // ── HEALTH LOSS + INJURY GENERATION ──────────────────────
 const { data: allPlayers } = await supabaseAdmin
@@ -153,9 +156,9 @@ const { data: injTypes } = await supabaseAdmin.from('injury_types').select('*')
 const SMOD: Record<string,number> = {minor:1.1,moderate:1.25,serious:1.5,severe:1.75,career_threatening:2.0}
 const SWEIGHTS: Record<string,number> = {minor:40,moderate:25,serious:15,severe:8,career_threatening:2}
 
-const { data: weekBoxes } = await supabaseAdmin
+const { data: weekBoxes } = gamesCreated.length > 0 ? await supabaseAdmin
 .from('box_scores').select('player_id,mins,team_id,game_id')
-.in('game_id', gamesCreated)
+.in('game_id', gamesCreated) : { data: [] as any[] }
 
 const { data: weekOrders } = await supabaseAdmin.from('gm_orders').select('team_id,pace,training_intensity').eq('week_number',week)
 const paceMap: Record<string,number> = {}
@@ -229,8 +232,8 @@ await supabaseAdmin.from('players').update({ health:newHealth }).eq('id',pid)
 }
 }
 
-// Auto-determine status based on week number
-const newStatus = week >= 1 ? 'regular-season' : 'pre-season'
+// Keep season_config.status consistent with the same calendar the UI shows
+const newStatus = isPreseason ? 'pre-season' : 'regular-season'
 await supabaseAdmin.from('season_config').update({ current_week: week, status: newStatus }).eq('id',1)
 await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number', week)
 

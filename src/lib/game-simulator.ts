@@ -11,6 +11,19 @@ return pool[pool.length-1].p
 function r3p(v:number){return(20+(v/100)*22)/100}
 function fmt(tl:number){return Math.floor(tl/60)+":"+String(tl%60).padStart(2,"0")}
 
+// Maps the in-memory sim state (which uses short internal names like or/dr/fd/to)
+// to the actual box_scores column names. Mismatched names here fail an insert
+// silently (PostgREST just drops the row) — keep this in sync with the schema.
+function toBoxRow(p:any, s:any){
+return {
+player_id: p.id, mins: p.mins,
+pts: s.pts||0, ast: s.ast||0, stl: s.stl||0, blk: s.blk||0,
+fga: s.fga||0, fgm: s.fgm||0, tpa: s.tpa||0, tpm: s.tpm||0, fta: s.fta||0, ftm: s.ftm||0,
+pf: s.pf||0, off_reb: s.or||0, def_reb: s.dr||0, reb: (s.or||0)+(s.dr||0),
+turnovers: s.to||0, plus_minus: 0,
+}
+}
+
 export function simulateGame(ht:any,at:any,hp:any[],ap:any[],hOrd?:any,aOrd?:any){
 const defOrd=(ps:any[])=>{const s=[...ps].sort((a,b)=>b.usage-a.usage);return{pris:[s[0]?.name,s[1]?.name,s[2]?.name],clutch:s[0]?.name,pace:70,three_rate:38,atk_style:"motion",def_style:"man"}}
 const ho=hOrd||defOrd(hp),ao=aOrd||defOrd(ap)
@@ -40,8 +53,8 @@ simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp)
 side=side==="home"?"away":"home"
 }
 }
-hp.filter(p=>p.mins>0).forEach(p=>hb.push({player_id:p.id,mins:p.mins,...st[p.id],reb:(st[p.id].or||0)+(st[p.id].dr||0),turnovers:st[p.id].to||0,plus_minus:0}))
-ap.filter(p=>p.mins>0).forEach(p=>ab.push({player_id:p.id,mins:p.mins,...st[p.id],reb:(st[p.id].or||0)+(st[p.id].dr||0),turnovers:st[p.id].to||0,plus_minus:0}))
+hp.filter(p=>p.mins>0).forEach(p=>hb.push(toBoxRow(p,st[p.id])))
+ap.filter(p=>p.mins>0).forEach(p=>ab.push(toBoxRow(p,st[p.id])))
 return{homeScore:sc.home,awayScore:sc.away,homeBox:hb,awayBox:ab,pbp}
 }
 
