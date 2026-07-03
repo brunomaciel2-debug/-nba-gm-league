@@ -152,6 +152,28 @@ export default function TeamSchedule({
     setTimeout(()=>{ setShowModal(false); setMsg(''); setSelectedDate(null); setSelectedOpp(''); setNote('') },2000)
     setSaving(false)
   }
+  const [simulatingId, setSimulatingId] = useState<string|null>(null)
+  const handleSimulateFriendly = async (preseasonGameId: string) => {
+    if (!confirm(isPT ? 'Simular este jogo amigável agora?' : 'Simulate this friendly game now?')) return
+    setSimulatingId(preseasonGameId)
+    try {
+      const res = await fetch('/api/admin/simulate-preseason', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: preseasonGameId, secret: 'nba-admin-2025' }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        alert(isPT ? `Erro: ${data.error}` : `Error: ${data.error}`)
+        setSimulatingId(null)
+        return
+      }
+      window.location.reload()
+    } catch (e: any) {
+      alert(e.message)
+      setSimulatingId(null)
+    }
+  }
   const allDates = getDates()
   const TYPE_BADGE: Record<string,{label:string,bg:string,color:string}> = {
     preseason: {label:isPT?'Pré-Época':'Pre-Season',bg:'#f0f9ff',color:'#0369a1'},
@@ -370,14 +392,25 @@ export default function TeamSchedule({
                             <button
                               onClick={async () => {
                                 if (!confirm(isPT?'Cancelar este jogo amigável?':'Cancel this friendly game?')) return
-                                await supabase.from('preseason_games').update({status:'cancelled'}).eq('id',g.id)
+                                await supabase.from('preseason_games').update({status:'cancelled'}).eq('id',g.preseason_game_id||g.id)
                                 setCancelledIds(prev => { const s = new Set(prev); s.add(g.id); return s })
-                                setPreseasonGames(prev => prev.filter((pg:any) => pg.id !== g.id))
-                                setAllPreseasonGames(prev => prev.map((pg:any) => pg.id===g.id ? {...pg,status:'cancelled'} : pg))
+                                setPreseasonGames(prev => prev.filter((pg:any) => pg.id !== (g.preseason_game_id||g.id)))
+                                setAllPreseasonGames(prev => prev.map((pg:any) => pg.id===(g.preseason_game_id||g.id) ? {...pg,status:'cancelled'} : pg))
                               }}
                               className="text-xs px-2 py-0.5 rounded font-semibold"
                               style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5'}}>
                               {isPT?'✕ Cancelar':'✕ Cancel'}
+                            </button>
+                          )}
+                          {g.game_type==='preseason' && isCommissioner && (
+                            <button
+                              disabled={simulatingId===(g.preseason_game_id||g.id)}
+                              onClick={() => handleSimulateFriendly(g.preseason_game_id||g.id)}
+                              className="text-xs px-2 py-0.5 rounded font-semibold disabled:opacity-40"
+                              style={{background:'#dbeafe',color:'#1d4ed8',border:'1px solid #93c5fd'}}>
+                              {simulatingId===(g.preseason_game_id||g.id)
+                                ? (isPT?'⏳ A simular...':'⏳ Simulating...')
+                                : (isPT?'⚡ Simular':'⚡ Simulate')}
                             </button>
                           )}
                         </div>

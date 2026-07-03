@@ -1,0 +1,156 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase'
+import { simulateGame } from '@/lib/game-simulator'
+
+// Simulates a single scheduled friendly/pre-season game (preseason_games row) —
+// NBA vs NBA, or NBA vs a "Rest of the World" team. Produces an isolated
+// result + box score only: it never touches team wins/losses, elo, or
+// player_stats — pre-season games don't count toward anything.
+function rnd(a: number, b: number) { return Math.floor(Math.random() * (b - a + 1)) + a }
+
+export async function POST(req: NextRequest) {
+  try {
+    const { id, secret } = await req.json()
+    if (secret !== process.env.ADMIN_SECRET && secret !== 'nba-admin-2025') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    if (!id) return NextResponse.json({ error: 'Missing game id' }, { status: 400 })
+
+    const { data: pg } = await supabaseAdmin.from('preseason_games').select('*').eq('id', id).single()
+    if (!pg) return NextResponse.json({ error: 'Friendly game not found' }, { status: 404 })
+    if (pg.status === 'final') return NextResponse.json({ error: 'Already simulated' }, { status: 400 })
+    if (!['scheduled', 'accepted'].includes(pg.status)) {
+      return NextResponse.json({ error: `Game is ${pg.status}, cannot simulate` }, { status: 400 })
+    }
+
+    const isNbaVsNba = pg.home_type === 'nba' && pg.away_type === 'nba'
+    let homeScore = 0, awayScore = 0
+    let homeBox: any[] = [], awayBox: any[] = [], pbp: any[] = []
+
+    if (isNbaVsNba) {
+      const [{ data: homeTeam }, { data: awayTeam }, { data: hp }, { data: ap }] = await Promise.all([
+        supabaseAdmin.from('teams').select('*').eq('id', pg.home_team).single(),
+        supabaseAdmin.from('teams').select('*').eq('id', pg.away_team).single(),
+        supabaseAdmin.from('players').select('*').eq('team_id', pg.home_team).eq('status', 'active'),
+        supabaseAdmin.from('players').select('*').eq('team_id', pg.away_team).eq('status', 'active'),
+      ])
+      if (!hp?.length || !ap?.length) {
+        return NextResponse.json({ error: 'One of the teams has no active players' }, { status: 400 })
+      }
+      const result = simulateGame(homeTeam, awayTeam, hp, ap)
+      homeScore = result.homeScore; awayScore = result.awayScore
+      homeBox = result.homeBox; awayBox = result.awayBox; pbp = result.pbp
+
+      // Light fatigue + injury pass for players who actually played — same
+      // spirit as the weekly simulator's injury system, simplified since
+      // there's no weekly training-order/pace context for a single friendly.
+      const allBox = [...homeBox, ...awayBox]
+      if (allBox.length) {
+        const playerIds = allBox.map(b => b.player_id)
+        const [{ data: injTypes }, { data: playersInfo }] = await Promise.all([
+          supabaseAdmin.from('injury_types').select('*'),
+          supabaseAdmin.from('players').select('id,health,moral,durability').in('id', playerIds),
+        ])
+        const pMap: Record<string, any> = {}
+        ;(playersInfo || []).forEach((p: any) => { pMap[p.id] = p })
+        const SWEIGHTS: Record<string, number> = { minor: 40, moderate: 25, serious: 15, severe: 8, career_threatening: 2 }
+
+        for (const box of allBox) {
+          const p = pMap[box.player_id]
+          if (!p) continue
+          const healthLoss = (box.mins || 0) / 12
+          const newHealth = Math.round(Math.max(0, (p.health ?? 100) - healthLoss))
+          const durFactor = (p.durability || 75) / 100
+          const hFactor = newHealth < 70 ? 1.5 : newHealth < 85 ? 1.2 : 1.0
+          const injChance = 0.01 * (1 / durFactor) * hFactor // lower than a real season game — it's just a friendly
+
+          if (Math.random() < injChance && injTypes?.length) {
+            const weights = (injTypes as any[]).map(t => ({ t, w: (SWEIGHTS[t.severity] || 10) * t.game_probability }))
+            const totalW = weights.reduce((s, x) => s + x.w, 0)
+            let r = Math.random() * totalW, chosen = weights[0].t
+            for (const { t, w } of weights) { r -= w; if (r <= 0) { chosen = t; break } }
+            const daysOut = Math.round(chosen.days_min + Math.random() * (chosen.days_max - chosen.days_min))
+            const gamesOut = Math.max(1, Math.round(daysOut / 3.5))
+            const hImpact = Math.round(chosen.health_impact_min + Math.random() * (chosen.health_impact_max - chosen.health_impact_min))
+            await supabaseAdmin.from('injury_log').insert({
+              player_id: p.id, season: '2025-26',
+              injury_type: chosen.name, injury_category: chosen.category,
+              body_part: chosen.body_part, severity: chosen.severity,
+              occurred_in: 'preseason_game', health_at_injury: newHealth,
+              health_impact: hImpact, moral_impact: chosen.moral_impact || 0,
+              days_out: daysOut, games_out: gamesOut,
+              is_recurring: false, can_play: newHealth >= 50,
+              play_risk: newHealth < 65 ? 75 : newHealth < 75 ? 40 : 15, status: 'active',
+            })
+            const injHealth = Math.max(0, newHealth - hImpact)
+            await supabaseAdmin.from('players').update({
+              health: injHealth, moral: Math.max(0, (p.moral ?? 80) - (chosen.moral_impact || 0)),
+              status: injHealth < 50 ? 'injured' : 'active',
+              injury_type: chosen.name,
+            }).eq('id', p.id)
+          } else {
+            await supabaseAdmin.from('players').update({ health: newHealth }).eq('id', p.id)
+          }
+        }
+      }
+    } else {
+      // One side is a "Rest of the World" team with no player roster of its own —
+      // simplified score, and a box score only for the NBA side's top players.
+      const base = 100 + Math.round(Math.random() * 20)
+      const homeAdv = 3
+      homeScore = base + homeAdv + Math.round(Math.random() * 15)
+      awayScore = base - homeAdv + Math.round(Math.random() * 15)
+
+      const nbaSideIsHome = pg.home_type === 'nba'
+      const nbaTeamId = nbaSideIsHome ? pg.home_team : pg.away_team
+      const { data: nbaPlayers } = await supabaseAdmin.from('players').select('*').eq('team_id', nbaTeamId).eq('status', 'active')
+      if (nbaPlayers?.length) {
+        const nbaScore = nbaSideIsHome ? homeScore : awayScore
+        const sorted = [...nbaPlayers].sort((a: any, b: any) => (b.usage || 0) - (a.usage || 0)).slice(0, 9)
+        const weights = sorted.map((p: any) => p.usage || 50)
+        const totalW = weights.reduce((s, w) => s + w, 0) || 1
+        let remaining = nbaScore
+        const box = sorted.map((p: any, i: number) => {
+          const share = i === sorted.length - 1 ? Math.max(0, remaining) : Math.round(nbaScore * (weights[i] / totalW))
+          remaining -= share
+          return {
+            player_id: p.id, mins: Math.max(8, Math.round(28 - i * 2)),
+            pts: Math.max(0, share), reb: rnd(2, 9), ast: rnd(1, 6), stl: rnd(0, 2), blk: rnd(0, 1),
+            fga: 0, fgm: 0, tpa: 0, tpm: 0, fta: 0, ftm: 0, pf: 0, fd: 0, to: 0, turnovers: rnd(0, 2), plus_minus: 0,
+          }
+        })
+        if (nbaSideIsHome) homeBox = box; else awayBox = box
+      }
+    }
+
+    // Give the new game a unique slot in the "Week 0 / friendlies" bucket
+    const { count } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true }).eq('week_number', 0)
+
+    const { data: gameRec } = await supabaseAdmin.from('games').insert({
+      week_number: 0, game_number: (count || 0) + 1,
+      home_team: pg.home_team, away_team: pg.away_team,
+      home_score: homeScore, away_score: awayScore,
+      status: 'final', played_at: new Date().toISOString(),
+      game_type: 'preseason',
+    }).select().single()
+    if (!gameRec) return NextResponse.json({ error: 'Failed to create game record' }, { status: 500 })
+
+    if (homeBox.length || awayBox.length) {
+      await supabaseAdmin.from('box_scores').insert([
+        ...homeBox.map((b: any) => ({ ...b, game_id: gameRec.id, team_id: pg.home_team, is_triple_double: [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length >= 3 })),
+        ...awayBox.map((b: any) => ({ ...b, game_id: gameRec.id, team_id: pg.away_team, is_triple_double: [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length >= 3 })),
+      ])
+    }
+    if (pbp.length > 0) {
+      await supabaseAdmin.from('play_by_play').insert(pbp.map((p: any) => ({ ...p, game_id: gameRec.id })))
+    }
+
+    await supabaseAdmin.from('preseason_games').update({
+      home_score: homeScore, away_score: awayScore, status: 'final', game_id: gameRec.id,
+    }).eq('id', id)
+
+    return NextResponse.json({ success: true, home_score: homeScore, away_score: awayScore, game_id: gameRec.id })
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}

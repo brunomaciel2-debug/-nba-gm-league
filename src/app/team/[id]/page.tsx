@@ -120,7 +120,8 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const normalizedPreseason = (preseasonGames||[])
     .filter((g:any) => ['scheduled','accepted','final'].includes(g.status))
     .map((g:any) => ({
-      id: g.id,
+      id: g.game_id || g.id,
+      preseason_game_id: g.id,
       week_number: 0,
       game_number: 0,
       home_team: g.home_team,
