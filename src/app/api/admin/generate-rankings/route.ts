@@ -8,11 +8,14 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const validSecrets = [
+    `Bearer ${process.env.CRON_SECRET}`,
+    `Bearer ${process.env.ADMIN_SECRET}`,
+  ]
+  if (!validSecrets.includes(auth || '')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Fetch all teams
   const { data: teams } = await supabase
     .from('teams')
     .select('id,name,logo_url,wins,losses,pts_for,pts_against,conference,division')
@@ -20,38 +23,26 @@ export async function POST(req: NextRequest) {
 
   if (!teams?.length) return NextResponse.json({ error: 'No teams' })
 
-  // Fetch roster OVR for each team
   const { data: players } = await supabase
     .from('players')
     .select('team_id,real_ovr,usage,salary')
     .eq('status', 'active')
     .not('team_id', 'is', null)
 
-  // Fetch coaches
   const { data: coaches } = await supabase
     .from('coaches')
     .select('team_id,role,offense_iq,defense_iq,player_dev')
     .not('team_id', 'is', null)
 
-  // Fetch facilities
   const { data: facilities } = await supabase
     .from('practice_facilities')
     .select('team_id,grade')
 
-  // Build score per team
   type TeamScore = {
-    id: string
-    name: string
-    conference: string
-    division: string
-    rosterScore: number
-    avgOvr: number
-    topPlayerOvr: number
-    coachScore: number
-    facilityScore: number
-    total: number
-    wins: number
-    losses: number
+    id: string; name: string; conference: string; division: string
+    rosterScore: number; avgOvr: number; topPlayerOvr: number
+    coachScore: number; facilityScore: number; total: number
+    wins: number; losses: number
   }
 
   const GRADE_SCORE: Record<string, number> = { A: 100, B: 80, C: 60, D: 40, E: 20, F: 0 }
@@ -62,22 +53,12 @@ export async function POST(req: NextRequest) {
     const avgOvr = top8.length ? top8.reduce((s: number, p: any) => s + (p.real_ovr || 70), 0) / top8.length : 70
     const topPlayerOvr = top8[0]?.real_ovr || 70
     const rosterDepth = Math.min(1, roster.length / 12)
-
-    // Coach score
     const hc = (coaches || []).find((c: any) => c.team_id === team.id && c.role === 'head_coach')
     const coachScore = hc ? ((hc.offense_iq || 60) + (hc.defense_iq || 60)) / 2 : 60
-
-    // Facility score
     const fac = (facilities || []).find((f: any) => f.team_id === team.id)
     const facilityScore = fac ? (GRADE_SCORE[fac.grade] || 0) : 0
-
-    // Composite score
-    // Roster: 60% (avg ovr 40% + top player 20%)
-    // Coach: 25%
-    // Facility: 15%
     const rosterScore = (avgOvr / 99) * 0.4 + (topPlayerOvr / 99) * 0.2 + rosterDepth * 0.1
     const total = rosterScore * 0.7 + (coachScore / 100) * 0.2 + (facilityScore / 100) * 0.1
-
     return {
       id: team.id, name: team.name,
       conference: team.conference, division: team.division,
@@ -89,14 +70,12 @@ export async function POST(req: NextRequest) {
 
   teamScores.sort((a, b) => b.total - a.total)
 
-  // Generate AI comments
   const rankings: any[] = []
-  const week = 0 // Pre-season week
 
   for (let i = 0; i < teamScores.length; i += 6) {
     const batch = teamScores.slice(i, i + 6)
 
-    const prompt = `You are a seasoned NBA journalist writing the Pre-Season Power Rankings. This is BEFORE the season starts — no games have been played yet. Write a sharp, accurate 2-sentence preview for each team based on their roster quality, coaching staff and facilities. Be opinionated and direct. Reference specific strengths, weaknesses or expectations.
+    const prompt = `You are a seasoned NBA journalist writing the Pre-Season Power Rankings. This is BEFORE the season starts — no games have been played yet. Write a sharp, accurate 2-sentence preview for each team based on their roster quality, coaching staff and facilities. Be opinionated and direct. Sound like a real columnist with opinions, not a data report.
 
 ${batch.map((t, idx) => `
 TEAM ${i + idx + 1}: ${t.name}
@@ -107,7 +86,7 @@ TEAM ${i + idx + 1}: ${t.name}
 - Conference: ${t.conference}
 `).join('\n')}
 
-Respond ONLY with a valid JSON array, no markdown:
+Respond ONLY with a valid JSON array, no markdown, no explanation:
 [{"team_id":"TEAM_ID","comment":"2-sentence comment"},...]
 
 Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
@@ -136,7 +115,8 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
         const team = batch[j]
         const rank = i + j + 1
         const commentData = comments.find(c => c.team_id === team.id)
-        const comment = commentData?.comment || `${team.name} enter the season with a roster averaging ${team.avgOvr} OVR.`
+        const comment = commentData?.comment ||
+          `${team.name} enter the season with a roster averaging ${team.avgOvr} OVR and a ${team.coachScore >= 75 ? 'strong' : 'developing'} coaching staff.`
 
         rankings.push({
           season: '2025-26', week_number: 0,
@@ -151,7 +131,7 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
         rankings.push({
           season: '2025-26', week_number: 0,
           team_id: team.id, rank: i + j + 1, previous_rank: null, trend: 'new',
-          comment: `${team.name} enter the season with a roster averaging ${team.avgOvr} OVR and a head coach rated ${team.coachScore}/100.`,
+          comment: `${team.name} enter the season with a roster averaging ${team.avgOvr} OVR and a ${team.coachScore >= 75 ? 'strong' : 'developing'} coaching staff.`,
           wins: 0, losses: 0, last5: 'N/A', ppg: null, opp_ppg: null,
         })
       }
