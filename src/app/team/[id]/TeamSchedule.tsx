@@ -95,6 +95,7 @@ export default function TeamSchedule({
   })
   const played   = games.filter(g=>g.status==='final').length
   const upcoming = games.filter(g=>g.status!=='final').length
+  const worldTeamIds = new Set(worldTeams.map((t:any)=>t.id))
   const fmtDate = (iso:string) => new Date(iso).toLocaleDateString(isPT?'pt-PT':'en-US',{weekday:'short',month:'short',day:'numeric'})
   const fmtTime = (iso:string) => new Date(iso).toLocaleTimeString(isPT?'pt-PT':'en-US',{hour:'numeric',minute:'2-digit',timeZone:'Europe/Lisbon'})
   const myActivePS = preseasonGames.filter(g=>['pending','accepted','scheduled','final'].includes(g.status))
@@ -322,7 +323,7 @@ export default function TeamSchedule({
                     )}
                     <div className="flex-1 flex items-center gap-2 min-w-0">
                       {oppTeam?.logo_url&&<img src={oppTeam.logo_url} alt={opp} className="w-5 h-5 object-contain flex-shrink-0"/>}
-                      <Link href={`/team/${opp}`} className="text-sm font-semibold hover:underline truncate" style={{color:oppColor}}>
+                      <Link href={worldTeamIds.has(opp)?`/world/${opp}`:`/team/${opp}`} className="text-sm font-semibold hover:underline truncate" style={{color:oppColor}}>
                         {oppTeam?.name||opp}
                       </Link>
                     </div>
