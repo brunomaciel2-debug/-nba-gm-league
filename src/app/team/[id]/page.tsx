@@ -15,7 +15,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
       supabase.from('games').select('*')
         .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
         .order('week_number').order('game_number'),
-      supabase.from('teams').select('id,name,color,logo_url,arena'),
+      supabase.from('teams').select('id,name,color,logo_url,arena,elo'),
       supabase.from('injury_log').select('*').eq('status','active').limit(100),
       supabase.from('coaches').select('*').eq('team_id', teamId),
       supabase.from('preseason_games').select('*')
