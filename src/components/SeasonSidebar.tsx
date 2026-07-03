@@ -38,7 +38,7 @@ export default function SeasonSidebar() {
   }
 
   // Calculate current simulator date
-  const SEASON_START = new Date('2025-10-21')
+  const SEASON_START = new Date('2025-10-01')
   const currentWeek = config?.current_week || 0
   const simDate = new Date(SEASON_START)
   simDate.setDate(simDate.getDate() + (currentWeek * 7))
@@ -90,7 +90,7 @@ export default function SeasonSidebar() {
         ) : (
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs" style={{color:'#8a8279'}}>Starts</span>
-            <span className="text-xs font-bold" style={{color:'#f5f1eb'}}>Oct 21, 2025</span>
+            <span className="text-xs font-bold" style={{color:'#f5f1eb'}}>Oct 1, 2025</span>
           </div>
         )}
         <div className="flex items-center justify-between">
