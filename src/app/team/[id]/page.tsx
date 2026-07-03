@@ -153,7 +153,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const pct = played.length > 0 ? (wins/played.length).toFixed(3) : '-'
 
   // Calculate strength for this team and all upcoming opponents
-  const upcomingOpponentIds = [...new Set(
+  const upcomingOpponentIds = Array.from(new Set(
     allGames
       .filter((g:any) => g.status !== 'final')
       .map((g:any) => g.home_team === teamId ? g.away_team : g.home_team)
