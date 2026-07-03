@@ -16,11 +16,14 @@ export default function ManageGMsPage() {
   const load = async () => {
     const { data: profiles } = await supabase.from('gm_profiles').select('*, teams(id,name,logo_url,color,conference)').eq('role','gm').order('created_at',{ascending:false})
     const { data: allTeams } = await supabase.from('teams').select('id,name,logo_url,color,conference').order('name')
+    const { data: applications } = await supabase.from('job_applications').select('email,age,full_name,team_id').eq('status','approved')
+    const appMap = Object.fromEntries((applications||[]).map((a:any) => [a.team_id, a]))
     const specialIds = ['ALL','RVS','ROO','SOP']
     const realTeams = (allTeams||[]).filter((t:any)=>!specialIds.includes(t.id))
     const assignedTeamIds = (profiles||[]).map((p:any)=>p.team_id)
     const vacant = realTeams.filter((t:any)=>!assignedTeamIds.includes(t.id))
-    setGms(profiles||[]); setVacancies(vacant); setLoading(false)
+    const enriched = (profiles||[]).map((p:any) => ({...p, _app: appMap[p.team_id] || null}))
+    setGms(enriched); setVacancies(vacant); setLoading(false)
   }
 
   useEffect(()=>{load()},[])
@@ -70,36 +73,53 @@ export default function ManageGMsPage() {
         🟢 {isPT?'GMs Activos':'Active GMs'} ({gms.length})
       </h2>
 
-      {gms.length===0?(
+      {gms.length===0 ? (
         <div className="text-center py-8 rounded-xl mb-8" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
           <p className="text-sm" style={{color:'#8a8279'}}>{isPT?'Nenhum GM activo.':'No active GMs.'}</p>
         </div>
-      ):(
+      ) : (
         <div className="flex flex-col gap-2 mb-8">
           {gms.map((gm:any)=>(
             <div key={gm.id} className="flex items-center gap-4 px-4 py-3 rounded-xl"
                  style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderLeft:'4px solid #15803d'}}>
               <div className="flex-shrink-0">
                 {gm.teams?.logo_url
-                  ?<img src={gm.teams.logo_url} alt="" className="w-10 h-10 object-contain"/>
-                  :<div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-black" style={{background:'#e8e2d6',color:'#1a1512'}}>{gm.teams?.id?.slice(0,3)}</div>}
+                  ? <img src={gm.teams.logo_url} alt="" className="w-10 h-10 object-contain"/>
+                  : <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-black" style={{background:'#e8e2d6',color:'#1a1512'}}>{gm.teams?.id?.slice(0,3)}</div>}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-sm" style={{color:'#1a1512'}}>{gm.display_name}</div>
                 <div className="text-xs" style={{color:'#6b5f4e'}}>
                   {gm.teams?.name} · {gm.teams?.conference} {isPT?'Conf.':'Conference'}
                 </div>
+                {gm._app && (
+                  <div className="flex items-center gap-3 mt-1">
+                    {gm._app.email && (
+                      <a href={`mailto:${gm._app.email}`}
+                        className="text-xs no-underline"
+                        style={{color:'#1d4ed8'}}>
+                        ✉️ {gm._app.email}
+                      </a>
+                    )}
+                    {gm._app.age && (
+                      <span className="text-xs" style={{color:'#8a8279'}}>
+                        {isPT ? `${gm._app.age} anos` : `Age ${gm._app.age}`}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>
                 {gm.last_seen
-                  ?(isPT?`Visto por último ${new Date(gm.last_seen).toLocaleDateString('pt-PT',{month:'short',day:'numeric'})}`:
-                    `Last seen ${new Date(gm.last_seen).toLocaleDateString('en-US',{month:'short',day:'numeric'})}`)
-                  :(isPT?'Nunca entrou':'Never logged in')}
+                  ? (isPT
+                    ? `Visto por último ${new Date(gm.last_seen).toLocaleDateString('pt-PT',{month:'short',day:'numeric'})}`
+                    : `Last seen ${new Date(gm.last_seen).toLocaleDateString('en-US',{month:'short',day:'numeric'})}`)
+                  : (isPT?'Nunca entrou':'Never logged in')}
               </div>
               <button onClick={()=>fireGM(gm)} disabled={processing===gm.id}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40 flex-shrink-0"
                 style={{background:'#dc2626',color:'#fff'}}>
-                {processing===gm.id?'⏳...':`🔥 ${isPT?'Despedir':'Fire'}`}
+                {processing===gm.id ? '⏳...' : `🔥 ${isPT?'Despedir':'Fire'}`}
               </button>
             </div>
           ))}
@@ -113,8 +133,9 @@ export default function ManageGMsPage() {
         {vacancies.map((t:any)=>(
           <Link key={t.id} href={`/jobs/${t.id}`} className="no-underline">
             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{background:'#f5f1eb',border:'1px solid #e2dcd5'}}>
-              {t.logo_url?<img src={t.logo_url} alt="" className="w-7 h-7 object-contain flex-shrink-0"/>
-                :<div className="w-7 h-7 rounded flex items-center justify-center text-xs font-black flex-shrink-0" style={{background:'#e8e2d6'}}>{t.id?.slice(0,3)}</div>}
+              {t.logo_url
+                ? <img src={t.logo_url} alt="" className="w-7 h-7 object-contain flex-shrink-0"/>
+                : <div className="w-7 h-7 rounded flex items-center justify-center text-xs font-black flex-shrink-0" style={{background:'#e8e2d6'}}>{t.id?.slice(0,3)}</div>}
               <span className="text-xs font-semibold truncate" style={{color:'#1a1512'}}>{t.name}</span>
             </div>
           </Link>
