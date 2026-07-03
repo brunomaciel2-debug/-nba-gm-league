@@ -75,13 +75,14 @@ async function calcTeamStrength(teamId: string, recentGames: any[]): Promise<num
   const elo = teamData?.elo || 1500
   const eloNorm = Math.min(100, Math.max(0, (elo - 1300) / 400 * 100)) // 1300→0%, 1700→100%
 
-  // Weighted composite
+  // Weighted composite — OVR 45% | Win% 25% | Form 15% | Home 10% | Elo 5%
+  // Health is implicit in OVR (injured players are inactive, not counted)
+  // Home advantage is applied externally (+10%) — see TeamSchedule
   const strength =
-    ovrNorm     * 0.35 +
-    winPctNorm  * 0.25 +
-    formScore   * 0.20 +
-    healthScore * 0.15 +
-    eloNorm     * 0.05
+    ovrNorm    * 0.45 +
+    winPctNorm * 0.25 +
+    formScore  * 0.15 +
+    eloNorm    * 0.05
 
   return Math.round(strength)
 }
