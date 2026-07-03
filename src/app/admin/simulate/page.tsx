@@ -144,22 +144,31 @@ export default function AdminSimulatePage() {
       {/* Result */}
       {result && !result.error && (
         <div className="mt-4 rounded-xl p-4" style={{background:'#dcfce7', border:'1px solid #15803d'}}>
-          <p className="text-sm font-bold mb-1" style={{color:'#15803d'}}>
-            ✓ {isPT ? `Semana ${result.week} concluída!` : `Week ${result.week} complete!`}
-          </p>
-          <p className="text-xs" style={{color:'#166534'}}>
-            {result.games_simulated} {isPT ? 'jogos simulados' : 'games simulated'}
-          </p>
-          <div className="flex gap-3 mt-3">
-            <Link href="/schedule" className="text-xs no-underline font-semibold" style={{color:'#15803d'}}>
-              {isPT ? 'Ver Calendário →' : 'View Schedule →'}
-            </Link>
-            <Link href="/standings" className="text-xs no-underline font-semibold" style={{color:'#15803d'}}>
-              {isPT ? 'Classificação →' : 'Standings →'}
-            </Link>
-            <Link href="/power-rankings" className="text-xs no-underline font-semibold" style={{color:'#15803d'}}>
-              Power Rankings →
-            </Link>
+          <div className="flex items-center gap-3 mb-3">
+            <span style={{fontSize:28}}>✅</span>
+            <div>
+              <p className="text-sm font-bold" style={{color:'#15803d'}}>
+                {isPT ? `Semana ${result.week} simulada com sucesso!` : `Week ${result.week} simulated successfully!`}
+              </p>
+              <p className="text-xs mt-0.5" style={{color:'#166534'}}>
+                {result.games_simulated} {isPT ? 'jogos simulados' : 'games simulated'}
+                {result.week && ` · ${isPT ? 'Época Regular' : 'Regular Season'}`}
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              {href:'/schedule', labelEN:'Schedule', labelPT:'Calendário'},
+              {href:'/standings', labelEN:'Standings', labelPT:'Classificação'},
+              {href:'/power-rankings', labelEN:'Power Rankings', labelPT:'Power Rankings'},
+              {href:'/league-leaders', labelEN:'League Leaders', labelPT:'Líderes da Liga'},
+            ].map(({href, labelEN, labelPT}) => (
+              <Link key={href} href={href}
+                className="text-xs no-underline font-semibold text-center py-2 rounded-lg"
+                style={{background:'#bbf7d0', color:'#15803d'}}>
+                {isPT ? labelPT : labelEN} →
+              </Link>
+            ))}
           </div>
         </div>
       )}

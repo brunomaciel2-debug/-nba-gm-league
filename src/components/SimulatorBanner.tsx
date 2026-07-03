@@ -6,7 +6,6 @@ import { useTranslation } from './I18nProvider'
 export default function SimulatorBanner() {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
-
   const [config, setConfig]       = useState<any>(null)
   const [nextEvent, setNextEvent] = useState<any>(null)
 
@@ -29,11 +28,9 @@ export default function SimulatorBanner() {
   if (!config) return null
 
   const week = config.current_week || 0
-
   const SEASON_START = new Date('2025-10-21T00:00:00')
   const PRESEASON_START = new Date('2025-10-01T00:00:00')
 
-  // Current SIM date
   const simDate = week > 0
     ? (() => { const d = new Date(SEASON_START); d.setDate(d.getDate() + (week - 1) * 7); return d })()
     : new Date(PRESEASON_START)
@@ -44,12 +41,16 @@ export default function SimulatorBanner() {
   weekEnd.setDate(weekEnd.getDate() + 6)
 
   const locale = isPT ? 'pt-PT' : 'en-US'
-
-  const fmtDate = (d: Date) =>
-    d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
-
+  const fmtDate = (d: Date) => d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
   const fmtEventDate = (d: string) =>
     new Date(d + 'T12:00:00').toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+
+  // Normalise status — 'active' is the DB value for regular season
+  const normaliseStatus = (s: string) => {
+    if (s === 'active') return 'regular-season'
+    return s
+  }
+  const status = normaliseStatus(config.status)
 
   const statusColors: Record<string, { bg: string, text: string, dot: string }> = {
     'pre-season':     { bg: '#1e3a2f', text: '#4ade80', dot: '#4ade80' },
@@ -57,7 +58,7 @@ export default function SimulatorBanner() {
     'playoffs':       { bg: '#3a1e1e', text: '#f87171', dot: '#f87171' },
     'offseason':      { bg: '#2a2218', text: '#d4cdc5', dot: '#8a8279' },
   }
-  const sc = statusColors[config.status] || statusColors['offseason']
+  const sc = statusColors[status] || statusColors['regular-season']
 
   const STATUS_LABEL_EN: Record<string, string> = {
     'pre-season':     'Pre-Season',
@@ -73,21 +74,17 @@ export default function SimulatorBanner() {
   }
   const statusLabel = isPT ? STATUS_LABEL_PT : STATUS_LABEL_EN
 
-  // Sim days translation
-  const SIM_DAY_EN: Record<string, string> = {
-    Monday: 'Monday', Tuesday: 'Tuesday', Wednesday: 'Wednesday',
-    Thursday: 'Thursday', Friday: 'Friday', Saturday: 'Saturday', Sunday: 'Sunday',
-  }
   const SIM_DAY_PT: Record<string, string> = {
     Monday: 'Segunda', Tuesday: 'Terça', Wednesday: 'Quarta',
     Thursday: 'Quinta', Friday: 'Sexta', Saturday: 'Sábado', Sunday: 'Domingo',
   }
   const simDay = (d: string) => isPT ? (SIM_DAY_PT[d] ?? d) : d
 
+  const isActive = status === 'regular-season' || status === 'playoffs'
+
   return (
     <div style={{ background: '#0a0f1a', borderBottom: '1px solid #1f2937', padding: '6px 0' }}>
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between flex-wrap gap-2">
-
         {/* Left: Season phase + week */}
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
@@ -96,11 +93,10 @@ export default function SimulatorBanner() {
               width: 6, height: 6, borderRadius: '50%',
               background: sc.dot, display: 'inline-block',
               boxShadow: `0 0 6px ${sc.dot}`,
-              animation: config.status !== 'offseason' ? 'pulse 2s infinite' : 'none',
+              animation: isActive ? 'pulse 2s infinite' : 'none',
             }}></span>
-            {statusLabel[config.status] || config.status}
+            {statusLabel[status] || status}
           </span>
-
           {week > 0 ? (
             <span className="text-xs" style={{ color: '#8a8279' }}>
               {isPT ? 'Semana' : 'Week'} {week} ·{' '}
@@ -117,7 +113,6 @@ export default function SimulatorBanner() {
             </span>
           )}
         </div>
-
         {/* Right: Next event + sim days */}
         <div className="flex items-center gap-4">
           {nextEvent && (
@@ -139,7 +134,6 @@ export default function SimulatorBanner() {
             </span>
           </span>
         </div>
-
       </div>
     </div>
   )
