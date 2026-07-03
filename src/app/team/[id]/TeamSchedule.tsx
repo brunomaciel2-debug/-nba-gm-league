@@ -25,7 +25,6 @@ export default function TeamSchedule({
   const isPT = t('common.save') === 'Guardar'
   const [filter, setFilter] = useState<Filter>('all')
   const [myTeamId, setMyTeamId] = useState<string|null>(null)
-  const [isCommissioner, setIsCommissioner] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date|null>(null)
   const [selectedOpp, setSelectedOpp] = useState('')
@@ -39,16 +38,12 @@ export default function TeamSchedule({
   const [worldTeams, setWorldTeams] = useState<any[]>([])
   const [allPreseasonGames, setAllPreseasonGames] = useState<any[]>([])
   const [seasonStatus, setSeasonStatus] = useState<string>('pre-season')
-  const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
-
-  const isPreseasonPeriod = seasonStatus === 'pre-season'
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       const { data: gm } = await supabase.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
       if (gm?.team_id === teamId || gm?.role === 'commissioner') setMyTeamId(teamId)
-      if (gm?.role === 'commissioner') setIsCommissioner(true)
     })
     // Get season status
     supabase.from('season_config').select('status').eq('id',1).single().then(({data}) => {
@@ -67,6 +62,9 @@ export default function TeamSchedule({
     })
   }, [teamId])
 
+  // Show scheduling during pre-season status
+  const isPreseasonPeriod = seasonStatus === 'pre-season'
+
   const filters: {key:Filter, label:string}[] = [
     {key:'all',      label:isPT?'Todos':'All'},
     {key:'upcoming', label:isPT?'Próximos':'Upcoming'},
@@ -75,7 +73,6 @@ export default function TeamSchedule({
     {key:'away',     label:isPT?'Fora':'Away'},
   ]
   const filtered = games.filter(g => {
-    if (cancelledIds.has(g.id)) return false
     if (filter==='played')   return g.status==='final'
     if (filter==='upcoming') return g.status!=='final'
     if (filter==='home')     return g.home_team===teamId
@@ -188,79 +185,39 @@ export default function TeamSchedule({
         )}
       </div>
 
-      {isPreseasonPeriod && (() => {
-        // Commissioner sees ALL pending games across all teams
-        // GM sees pending requests TO their team (to accept/decline)
-        // GM also sees their OWN pending requests (to cancel)
-        const pendingToAccept = isCommissioner
-          ? allPreseasonGames.filter(g => g.status === 'pending')
-          : preseasonGames.filter(g => g.status === 'pending' && g.requested_by !== teamId)
-        const pendingToCancel = preseasonGames.filter(g => g.status === 'pending' && g.requested_by === teamId)
-
-        if (pendingToAccept.length === 0 && pendingToCancel.length === 0) return null
-        return (
-          <>
-            {pendingToAccept.length > 0 && (
-              <div className="mb-4 p-3 rounded-xl" style={{background:'#fef9c3',border:'1px solid #b45309'}}>
-                <div className="text-xs font-bold mb-2" style={{color:'#b45309'}}>
-                  {isPT ? '⏳ Pedidos pendentes para aceitar' : '⏳ Pending requests to accept'}
-                  {isCommissioner && <span className="ml-2 text-xs font-normal opacity-70">{isPT ? '(todas as equipas)' : '(all teams)'}</span>}
-                </div>
-                {pendingToAccept.map((g:any) => (
-                  <div key={g.id} className="flex items-center justify-between gap-3 py-1.5">
-                    <span className="text-xs" style={{color:'#1a1512'}}>
-                      {teams[g.home_team]?.name||g.home_team} vs {teams[g.away_team]?.name||g.away_team}
-                      {g.scheduled_date && <span style={{color:'#8a8279'}}> · {fmtDate(g.scheduled_date+'T12:00:00')}</span>}
-                    </span>
-                    <div className="flex gap-2">
-                      <button onClick={async () => {
-                        await supabase.from('preseason_games').update({status:'scheduled'}).eq('id',g.id)
-                        const {data:pg} = await supabase.from('preseason_games').select('*').eq('season','2025-26').order('scheduled_date')
-                        setAllPreseasonGames(pg||[])
-                        setPreseasonGames((pg||[]).filter((x:any)=>x.home_team===teamId||x.away_team===teamId))
-                      }} className="px-2 py-1 rounded text-xs font-bold" style={{background:'#15803d',color:'#fff'}}>
-                        {isPT?'Aceitar':'Accept'}
-                      </button>
-                      <button onClick={async () => {
-                        await supabase.from('preseason_games').update({status:'declined'}).eq('id',g.id)
-                        const {data:pg} = await supabase.from('preseason_games').select('*').eq('season','2025-26').order('scheduled_date')
-                        setAllPreseasonGames(pg||[])
-                        setPreseasonGames((pg||[]).filter((x:any)=>x.home_team===teamId||x.away_team===teamId))
-                      }} className="px-2 py-1 rounded text-xs font-bold" style={{background:'#dc2626',color:'#fff'}}>
-                        {isPT?'Recusar':'Decline'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+      {isPreseasonPeriod && preseasonGames.filter(g=>g.status==='pending'&&g.requested_by!==teamId).length > 0 && (
+        <div className="mb-4 p-3 rounded-xl" style={{background:'#fef9c3',border:'1px solid #b45309'}}>
+          <div className="text-xs font-bold mb-2" style={{color:'#b45309'}}>
+            {isPT?'⏳ Pedidos pendentes':'⏳ Pending requests to accept'}
+          </div>
+          {preseasonGames.filter(g=>g.status==='pending'&&g.requested_by!==teamId).map((g:any) => (
+            <div key={g.id} className="flex items-center justify-between gap-3 py-1.5">
+              <span className="text-xs" style={{color:'#1a1512'}}>
+                {teams[g.home_team]?.name||g.home_team} vs {teams[g.away_team]?.name||g.away_team}
+                {g.scheduled_date && <span style={{color:'#8a8279'}}> · {fmtDate(g.scheduled_date+'T12:00:00')}</span>}
+              </span>
+              <div className="flex gap-2">
+                <button onClick={async()=>{
+                  await supabase.from('preseason_games').update({status:'scheduled'}).eq('id',g.id)
+                  const {data:pg}=await supabase.from('preseason_games').select('*').eq('season','2025-26').order('scheduled_date')
+                  setAllPreseasonGames(pg||[])
+                  setPreseasonGames((pg||[]).filter((x:any)=>x.home_team===teamId||x.away_team===teamId))
+                }} className="px-2 py-1 rounded text-xs font-bold" style={{background:'#15803d',color:'#fff'}}>
+                  {isPT?'Aceitar':'Accept'}
+                </button>
+                <button onClick={async()=>{
+                  await supabase.from('preseason_games').update({status:'declined'}).eq('id',g.id)
+                  const {data:pg}=await supabase.from('preseason_games').select('*').eq('season','2025-26').order('scheduled_date')
+                  setAllPreseasonGames(pg||[])
+                  setPreseasonGames((pg||[]).filter((x:any)=>x.home_team===teamId||x.away_team===teamId))
+                }} className="px-2 py-1 rounded text-xs font-bold" style={{background:'#dc2626',color:'#fff'}}>
+                  {isPT?'Recusar':'Decline'}
+                </button>
               </div>
-            )}
-            {pendingToCancel.length > 0 && (
-              <div className="mb-4 p-3 rounded-xl" style={{background:'#f0f4ff',border:'1px solid #93c5fd'}}>
-                <div className="text-xs font-bold mb-2" style={{color:'#1d4ed8'}}>
-                  {isPT ? '📤 Pedidos enviados (aguardam resposta)' : '📤 Sent requests (awaiting response)'}
-                </div>
-                {pendingToCancel.map((g:any) => (
-                  <div key={g.id} className="flex items-center justify-between gap-3 py-1.5">
-                    <span className="text-xs" style={{color:'#1a1512'}}>
-                      {teams[g.home_team]?.name||g.home_team} vs {teams[g.away_team]?.name||g.away_team}
-                      {g.scheduled_date && <span style={{color:'#8a8279'}}> · {fmtDate(g.scheduled_date+'T12:00:00')}</span>}
-                    </span>
-                    <button onClick={async () => {
-                      if (!confirm(isPT?'Cancelar este pedido?':'Cancel this request?')) return
-                      await supabase.from('preseason_games').update({status:'cancelled'}).eq('id',g.id)
-                      setCancelledIds(prev => { const s = new Set(prev); s.add(g.id); return s })
-                      setPreseasonGames(prev => prev.filter((pg:any) => pg.id !== g.id))
-                      setAllPreseasonGames(prev => prev.map((pg:any) => pg.id===g.id ? {...pg,status:'cancelled'} : pg))
-                    }} className="px-2 py-1 rounded text-xs font-bold" style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5'}}>
-                      {isPT?'✕ Cancelar':'✕ Cancel'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )
-      })()}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="flex gap-2 mb-5 flex-wrap">
         {filters.map(f=>(
@@ -326,7 +283,7 @@ export default function TeamSchedule({
                         {oppTeam?.name||opp}
                       </Link>
                     </div>
-                    <div className="flex-shrink-0 text-right flex items-center gap-2">
+                    <div className="flex-shrink-0 text-right">
                       {isPlayed?(
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-black px-2 py-0.5 rounded"
@@ -336,25 +293,9 @@ export default function TeamSchedule({
                           <span className="text-sm font-bold" style={{color:'#1a1512'}}>{myScore}-{oppScore}</span>
                         </div>
                       ):(
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs px-2 py-0.5 rounded" style={{background:'#f0ece5',color:'#8a8279'}}>
-                            {isPT?'Agendado':'Scheduled'}
-                          </span>
-                          {g.game_type==='preseason' && myTeamId && (
-                            <button
-                              onClick={async () => {
-                                if (!confirm(isPT?'Cancelar este jogo amigável?':'Cancel this friendly game?')) return
-                                await supabase.from('preseason_games').update({status:'cancelled'}).eq('id',g.id)
-                                setCancelledIds(prev => { const s = new Set(prev); s.add(g.id); return s })
-                                setPreseasonGames(prev => prev.filter((pg:any) => pg.id !== g.id))
-                                setAllPreseasonGames(prev => prev.map((pg:any) => pg.id===g.id ? {...pg,status:'cancelled'} : pg))
-                              }}
-                              className="text-xs px-2 py-0.5 rounded font-semibold"
-                              style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5'}}>
-                              {isPT?'✕ Cancelar':'✕ Cancel'}
-                            </button>
-                          )}
-                        </div>
+                        <span className="text-xs px-2 py-0.5 rounded" style={{background:'#f0ece5',color:'#8a8279'}}>
+                          {isPT?'Agendado':'Scheduled'}
+                        </span>
                       )}
                     </div>
                   </div>
