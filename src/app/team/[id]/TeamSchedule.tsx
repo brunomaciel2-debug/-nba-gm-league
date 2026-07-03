@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { homeWinProb } from '@/lib/elo-helper'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 type Filter = 'all' | 'home' | 'away' | 'played' | 'upcoming'
@@ -327,15 +326,16 @@ export default function TeamSchedule({
                         {oppTeam?.name||opp}
                       </Link>
                     </div>
-                    {/* Odds for upcoming games */}
+                    {/* Odds for upcoming games — based on composite strength */}
                     {!isPlayed && (() => {
-                      const myTeamData = teams[teamId]
-                      const oppTeamData = teams[opp]
-                      const myElo = myTeamData?.elo || 1500
-                      const oppElo = oppTeamData?.elo || 1500
-                      const myWinProb = isHome2
-                        ? homeWinProb(myElo, oppElo)
-                        : 1 - homeWinProb(oppElo, myElo)
+                      const myStr = teams[teamId]?.strength
+                      const oppStr = teams[opp]?.strength
+                      if (myStr == null || oppStr == null) return null
+                      // Home advantage: +5 strength points
+                      const myAdj = myStr + (isHome2 ? 5 : 0)
+                      const oppAdj = oppStr + (isHome2 ? 0 : 5)
+                      const total = myAdj + oppAdj
+                      const myWinProb = total > 0 ? myAdj / total : 0.5
                       const oppWinProb = 1 - myWinProb
                       return (
                         <div className="flex items-center gap-1 flex-shrink-0">
