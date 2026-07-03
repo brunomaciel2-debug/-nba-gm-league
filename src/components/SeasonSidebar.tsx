@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getStatusForWeek, getWeekDates } from '@/lib/season-week-helper'
 
 const TYPE_COLORS: Record<string, string> = {
   milestone: '#c8102e',
@@ -37,20 +38,22 @@ export default function SeasonSidebar() {
     return 'upcoming'
   }
 
-  // Calculate current simulator date
-  const SEASON_START = new Date('2025-10-01')
+  // Calculate current simulator week/phase — mirrors SimulatorBanner.tsx exactly,
+  // so both widgets always agree (they used to use incompatible week-numbering schemes)
   const currentWeek = config?.current_week || 0
-  const simDate = new Date(SEASON_START)
-  simDate.setDate(simDate.getDate() + (currentWeek * 7))
-  const simDateEnd = new Date(simDate)
-  simDateEnd.setDate(simDateEnd.getDate() + 6)
+  const nextWeek = currentWeek + 1
+  const phase = getStatusForWeek(nextWeek)
+  const { start: simDate, end: simDateEnd } = getWeekDates(nextWeek)
 
   const simDateStr = simDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const simDateEndStr = simDateEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
   const statusLabel: Record<string, string> = {
+    'free-agency': 'Free Agency',
+    'summer-league': 'Summer League',
     'pre-season': 'Pre-Season',
     'regular-season': 'Regular Season',
+    'play-in': 'Play-In',
     'playoffs': 'Playoffs',
     'offseason': 'Off-Season',
   }
@@ -77,22 +80,15 @@ export default function SeasonSidebar() {
           <span className="text-xs" style={{color:'#8a8279'}}>Phase</span>
           <span className="text-xs font-bold px-2 py-0.5 rounded"
                 style={{background:'#c8102e22',color:'#c8102e'}}>
-            {statusLabel[config?.status] || config?.status || 'Pre-Season'}
+            {statusLabel[phase] || phase}
           </span>
         </div>
-        {currentWeek > 0 ? (
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs" style={{color:'#8a8279'}}>Week</span>
-            <span className="text-xs font-bold" style={{color:'#f5f1eb'}}>
-              Week {currentWeek} · {simDateStr}–{simDateEndStr}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs" style={{color:'#8a8279'}}>Starts</span>
-            <span className="text-xs font-bold" style={{color:'#f5f1eb'}}>Oct 1, 2025</span>
-          </div>
-        )}
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs" style={{color:'#8a8279'}}>Week</span>
+          <span className="text-xs font-bold" style={{color:'#f5f1eb'}}>
+            Week {nextWeek} · {simDateStr}–{simDateEndStr}
+          </span>
+        </div>
         <div className="flex items-center justify-between">
           <span className="text-xs" style={{color:'#8a8279'}}>Sim days</span>
           <span className="text-xs" style={{color:'#8a8279'}}>
