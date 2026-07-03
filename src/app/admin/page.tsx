@@ -22,7 +22,7 @@ export default function AdminPage() {
     <div className="max-w-md mx-auto px-4 py-16">
       <div className="rounded-2xl p-8" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
         <div className="text-4xl mb-4 text-center">🏀</div>
-        <h1 className="text-xl font-bold text-white mb-2 text-center">
+        <h1 className="text-xl font-bold mb-2 text-center" style={{color:'#1a1512'}}>
           {isPT ? 'Login do Comissário' : 'Commissioner Login'}
         </h1>
         <p className="text-sm mb-6 text-center" style={{color:'#6b5f4e'}}>
@@ -31,8 +31,8 @@ export default function AdminPage() {
         <input type="password" value={secret} onChange={e=>setSecret(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&login()}
           placeholder={isPT ? 'Palavra-passe do comissário' : 'Commissioner password'}
-          className="w-full px-4 py-3 rounded-xl text-sm text-white mb-3"
-          style={{background:'#ddd7ca',border:'1px solid #d4cec3',outline:'none'}}/>
+          className="w-full px-4 py-3 rounded-xl text-sm mb-3"
+          style={{background:'#ddd7ca',border:'1px solid #d4cec3',outline:'none',color:'#1a1512'}}/>
         {error && <p className="text-xs text-red-400 mb-3">{error}</p>}
         <button onClick={login} className="w-full py-3 rounded-xl font-bold text-sm"
           style={{background:'#d4cdc5',color:'#1e40af'}}>
@@ -72,7 +72,7 @@ export default function AdminPage() {
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">
+          <h1 className="text-2xl font-bold" style={{color:'#1a1512'}}>
             {isPT ? 'Painel do Comissário' : 'Commissioner Panel'}
           </h1>
           <p className="text-sm" style={{color:'#6b5f4e'}}>
@@ -89,7 +89,7 @@ export default function AdminPage() {
             <div className="rounded-xl p-5 h-full transition-all"
                  style={{background:'#e8e2d6',border:'1px solid #d4cec3',borderLeft:'3px solid '+item.color}}>
               <div className="text-2xl mb-2">{item.icon}</div>
-              <div className="font-semibold text-white mb-1 group-hover:text-blue-300 transition-colors">{item.label}</div>
+              <div className="font-semibold mb-1 transition-colors" style={{color:'#1a1512'}}>{item.label}</div>
               <div className="text-xs" style={{color:'#6b5f4e'}}>{item.desc}</div>
             </div>
           </Link>
