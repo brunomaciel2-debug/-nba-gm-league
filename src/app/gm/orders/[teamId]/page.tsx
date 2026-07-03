@@ -96,7 +96,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
     })
     supabase.from('teams').select('*').eq('id',teamId).single().then(({data})=>data&&setTeam(data))
     supabase.from('players').select('name,pos,usage').eq('team_id',teamId).eq('status','active')
-      .order('usage',{ascending:false}).then(({data})=>{ if(data)setPlayers(data) })
+      .order('name',{ascending:true}).then(({data})=>{ if(data)setPlayers(data) })
     supabase.from('season_config').select('current_week').eq('id',1).single()
       .then(({data:cfg})=>{
         if(!cfg)return
