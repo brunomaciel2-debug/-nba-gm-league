@@ -164,9 +164,6 @@ export default function Navbar() {
             <span className="text-lg font-bold" style={{ color: '#fff', letterSpacing: '-0.3px' }}>
               🏀 Beyond the Court
             </span>
-            <span className="text-xs px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.1)', color: '#8a8279' }}>
-              2025-26
-            </span>
           </Link>
           <div className="flex items-center gap-3">
             <LanguageSwitcher />
