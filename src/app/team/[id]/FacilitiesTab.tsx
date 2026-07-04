@@ -15,6 +15,10 @@ type Facility = {
 
 const GRADES: GymGrade[] = ['F','E','D','C','B','A']
 
+const UNLOCK_LABELS_PT: Record<string,string> = {
+  Playmaking: 'Passe', Shooting: 'Lançamento', Mental: 'Mental', Analytics: 'Análise',
+}
+
 const GYM_CONFIG: Record<GymGrade,{label:string,color:string,bg:string,speed:number,recovery:number,risk:number,fa:number,cost:number,unlocks:string[],descEN:string,descPT:string}> = {
   F:{label:'Grade F',color:'#dc2626',bg:'#fee2e2',speed:5, recovery:-5, risk:0,  fa:0,  cost:50000,   unlocks:[],            descEN:'Temporary rented facility',       descPT:'Instalação alugada temporária'},
   E:{label:'Grade E',color:'#b45309',bg:'#fef3c7',speed:7, recovery:0,  risk:0,  fa:0,  cost:150000,  unlocks:[],            descEN:'Entry-level NBA facility',         descPT:'Instalação básica de NBA'},
@@ -155,7 +159,7 @@ export default function FacilitiesTab({teamId,teamColor,arenaName,arenaCapacity,
                   {label:isPT?'Risco lesão':'Injury risk',val:cfg.risk===0?'—':`${cfg.risk}%`,color:cfg.risk<0?'#15803d':'#5c554e'},
                   {label:isPT?'Bónus FA':'FA bonus',val:cfg.fa>0?`+${cfg.fa}%`:'—',color:cfg.fa>0?'#15803d':'#8a8279'},
                   ...(isGM?[{label:isPT?'Mensal':'Monthly',val:fmtM(facility.monthly_cost),color:'#dc2626'}]:[]),
-                  {label:isPT?'Desbloqueia':'Unlocks',val:cfg.unlocks[0]||'—',color:cfg.color},
+                  {label:isPT?'Desbloqueia':'Unlocks',val:(isPT?UNLOCK_LABELS_PT[cfg.unlocks[0]]:cfg.unlocks[0])||'—',color:cfg.color},
                 ].map(item=>(
                   <div key={item.label} style={{background:'#f0ece5',borderRadius:6,padding:'6px 8px'}}>
                     <div style={{fontSize:9,color:'#8a8279'}}>{item.label}</div>
@@ -213,7 +217,7 @@ export default function FacilitiesTab({teamId,teamColor,arenaName,arenaCapacity,
                 {[
                   {label:isPT?'Duração':'Duration',val:`${upg.weeks} ${isPT?'semanas':'weeks'}`},
                   {label:isPT?'Velocidade slot':'Slot speed',val:`+${nextCfg.speed}%/${isPT?'sem':'week'}`},
-                  {label:isPT?'Desbloqueia':'Unlocks',val:nextCfg.unlocks[0]||'—'},
+                  {label:isPT?'Desbloqueia':'Unlocks',val:(isPT?UNLOCK_LABELS_PT[nextCfg.unlocks[0]]:nextCfg.unlocks[0])||'—'},
                   ...(isGM?[{label:isPT?'Custo':'Cost',val:fmtM(upg.cost)}]:[]),
                 ].map(row=>(
                   <div key={row.label} style={{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:'1px solid #e2dcd5',fontSize:11}}>

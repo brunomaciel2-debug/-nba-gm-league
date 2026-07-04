@@ -122,8 +122,8 @@ export default function DraftSection() {
   const OVR_BG=(v:number)=>v>=85?'#fef3c7':v>=75?'#dcfce7':v>=65?'#dbeafe':'#f0ece5'
 
   const TABS = [
-    {key:'class',   labelEN:'🎓 Draft Class',    labelPT:'🎓 Draft Class'},
-    {key:'mock',    labelEN:'📊 Mock Draft',      labelPT:'📊 Mock Draft'},
+    {key:'class',   labelEN:'🎓 Draft Class',    labelPT:'🎓 Classe do Draft'},
+    {key:'mock',    labelEN:'📊 Mock Draft',      labelPT:'📊 Simulação de Draft'},
     {key:'results', labelEN:'🏆 Draft Results',   labelPT:'🏆 Resultados do Draft'},
   ]
 

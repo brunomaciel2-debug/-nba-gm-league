@@ -22,6 +22,19 @@ const TOOLTIPS: Record<string,string> = {
   OVR:'Overall rating', AGE:'Player age', EXP:'NBA seasons played',
 }
 
+const TOOLTIPS_PT: Record<string,string> = {
+  '3PT':'Lançamento de 3 Pontos (0-100)', LAY:'Layup (0-100)', DNK:'Afundanço (0-100)',
+  MID:'Meia Distância (0-100)', FT:'Lance Livre (0-100)', SIQ:'Shot IQ (0-100)',
+  DF:'Provoca Falta (0-100)', BLK:'Desarme de Lançamento (0-100)', STL:'Roubo de Bola (0-100)',
+  IDEF:'Defesa Interior (0-100)', PDEF:'Defesa de Perímetro (0-100)',
+  DREB:'Ressalto Defensivo (0-100)', OREB:'Ressalto Ofensivo (0-100)',
+  STA:'Resistência (0-100)', DUR:'Durabilidade (0-100)',
+  BH:'Drible (0-100)', PV:'Visão de Jogo (0-100)', PIQ:'Pass IQ (0-100)',
+  AR:'Perfil de Assistência (0-100)', CLU:'Clutch (0-100)', CON:'Consistência (0-100)',
+  CE:'Influência do Público (0-100)', STR:'Irregular (0-100)',
+  OVR:'Classificação geral', AGE:'Idade do jogador', EXP:'Épocas de NBA jogadas',
+}
+
 const ATTR_COLS = [
   {key:'three',label:'3PT'},{key:'layup',label:'LAY'},{key:'dunk',label:'DNK'},
   {key:'mid',label:'MID'},{key:'ft',label:'FT'},{key:'siq',label:'SIQ'},
@@ -57,11 +70,12 @@ function Tip({ text }: { text: string }) {
   )
 }
 
-function SortTh({ label, active, dir, onClick }: { label: string, active: boolean, dir: string, onClick: () => void }) {
+function SortTh({ label, active, dir, onClick, isPT }: { label: string, active: boolean, dir: string, onClick: () => void, isPT?: boolean }) {
+  const tip = isPT ? (TOOLTIPS_PT[label] || TOOLTIPS[label]) : TOOLTIPS[label]
   return (
     <th onClick={onClick} className="px-2 py-2.5 text-center cursor-pointer select-none whitespace-nowrap"
         style={{background:'#f0ece5',color:active?'#c8102e':'#5c554e',fontSize:11,fontWeight:700,letterSpacing:'0.5px',borderBottom:'2px solid #d4cdc5',borderRight:'1px solid #e2dcd5'}}>
-      {label}{TOOLTIPS[label] && <Tip text={TOOLTIPS[label]}/>}
+      {label}{tip && <Tip text={tip}/>}
       {active && <span style={{marginLeft:3}}>{dir==='desc'?'↓':'↑'}</span>}
     </th>
   )
@@ -133,7 +147,7 @@ export default function FreeAgentsPage() {
   }
 
   const tabLabels: Record<Tab, string> = {
-    players: isPT ? 'Free Agents' : 'Free Agents',
+    players: isPT ? 'Agentes Livres' : 'Free Agents',
     gleague: isPT ? 'G-League' : 'G-Leaguers',
     staff: isPT ? 'Staff' : 'Staff',
   }
@@ -269,14 +283,14 @@ export default function FreeAgentsPage() {
                       {isPT?'Jogador':'Player'}
                     </th>
                     <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',borderRight:'1px solid #e2dcd5'}}>{isPT?'Pos':'Pos'}</th>
-                    <SortTh label="OVR" active={sortKey==='ovr'} dir={sortDir} onClick={() => handleSort('ovr')}/>
-                    <SortTh label="AGE" active={sortKey==='age'} dir={sortDir} onClick={() => handleSort('age')}/>
+                    <SortTh label="OVR" active={sortKey==='ovr'} dir={sortDir} onClick={() => handleSort('ovr')} isPT={isPT}/>
+                    <SortTh label="AGE" active={sortKey==='age'} dir={sortDir} onClick={() => handleSort('age')} isPT={isPT}/>
                     <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',borderRight:'1px solid #e2dcd5'}}>
                       {isPT?'Exp':'EXP'}</th>
                     <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,fontSize:11,color:'#8a8279',whiteSpace:'nowrap',background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>Status</th>
                     {mode === 'attributes'
-                      ? ATTR_COLS.map(c => <SortTh key={c.key} label={c.label} active={sortKey===c.key} dir={sortDir} onClick={() => handleSort(c.key)}/>)
-                      : ['ppg','rpg','apg','spg','bpg'].map(k => <SortTh key={k} label={k.toUpperCase()} active={sortKey===k} dir={sortDir} onClick={() => handleSort(k)}/>)
+                      ? ATTR_COLS.map(c => <SortTh key={c.key} label={c.label} active={sortKey===c.key} dir={sortDir} onClick={() => handleSort(c.key)} isPT={isPT}/>)
+                      : ['ppg','rpg','apg','spg','bpg'].map(k => <SortTh key={k} label={k.toUpperCase()} active={sortKey===k} dir={sortDir} onClick={() => handleSort(k)} isPT={isPT}/>)
                     }
                     <th style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5',padding:'10px 8px',fontWeight:700,fontSize:11,color:'#5c554e',textAlign:'center',whiteSpace:'nowrap'}}>
                       {isPT?'Salário Est.':'Salary Ask'}
