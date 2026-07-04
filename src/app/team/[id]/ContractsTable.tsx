@@ -5,7 +5,6 @@ import { useTranslation } from '@/components/I18nProvider'
 
 const SEASONS = ['2025-26','2026-27','2027-28','2028-29','2029-30']
 const SALARY_CAP = 180_000_000 // matches teams.salary_cap, the cap used everywhere else in the app
-const LUX_TAX   = 220_000_000 // proportional to the real cap/tax-line ratio, scaled to this league's $180M cap
 const CURRENT_SEASON = '2025-26'
 const CURRENT_YEAR = 2025
 
@@ -56,17 +55,11 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
       sub: currentTotal > SALARY_CAP ? (isPT ? 'Acima do tecto' : 'Over the cap') : (isPT ? 'Disponível' : 'Available'),
       color: currentTotal > SALARY_CAP ? '#e04040' : '#40e080',
     },
-    {
-      label: isPT ? 'Luxury Tax' : 'Luxury Tax',
-      value: currentTotal > LUX_TAX ? '+'+fmt(currentTotal-LUX_TAX) : fmt(LUX_TAX-currentTotal)+' away',
-      sub: currentTotal > LUX_TAX ? (isPT ? 'A pagar luxury tax' : 'Paying luxury tax') : (isPT ? 'Abaixo da linha de tax' : 'Below tax line'),
-      color: currentTotal > LUX_TAX ? '#e04040' : '#8a7a6a',
-    },
   ]
 
   return (
     <div>
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
+      <div className="grid sm:grid-cols-2 gap-4 mb-6">
         {cards.map(card => (
           <div key={card.label} className="rounded-xl p-4" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
             <div className="text-xs mb-1" style={{color:'#8a8279'}}>{card.label}</div>
@@ -87,7 +80,6 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
         <div className="flex justify-between text-xs mt-1" style={{color:'#a89f97'}}>
           <span>$0</span>
           <span>{isPT ? 'Tecto' : 'Cap'} ${(SALARY_CAP/1000000).toFixed(0)}M</span>
-          <span style={{color:'#ffa040'}}>Tax ${(LUX_TAX/1000000).toFixed(0)}M</span>
         </div>
       </div>
 
