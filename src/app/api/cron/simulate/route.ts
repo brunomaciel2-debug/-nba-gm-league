@@ -431,16 +431,21 @@ await supabaseAdmin.from('attribute_development').insert(devLogs)
 } catch(devErr) { console.warn('Development step failed', devErr) }
 
 // ── TRAINING SLOT FILL + UNLOCK ───────────────────────
-// Fills each unlocked training_slots row a little every week — the rate
-// depends on the quality of the specific staff member relevant to that
-// slot (matches the coach fields used just above). At 100% the slot pays
-// out 10 credits (per TrainingTab.tsx's UI copy) and rolls over any
-// overflow into the next fill cycle. Locked slots unlock once their
+// Fills each unlocked training_slots row a little every week. The fill
+// rate blends the whole relevant coaching staff, not just one person:
+// Head Coach + Assistant Coach share the 6 "skill" categories (the Head
+// Coach sets the overall program, the Assistant Coach's specialty fields
+// — offense_dev/defense_dev/shooting_dev/tactical_dev/mental_dev/analytics
+// — represent their specific focus), while the Trainer leads Physical and
+// Recovery (their actual domain) with the Head Coach as a smaller
+// secondary contributor everywhere via general oversight. At 100% the
+// slot pays out 10 credits (per TrainingTab.tsx's UI copy) and rolls over
+// any overflow into the next fill cycle. Locked slots unlock once their
 // facility/coach requirement is actually met.
 try {
 const { data: allSlots } = await supabaseAdmin.from('training_slots').select('id,team_id,slot_type,fill_pct,credits_available,locked')
 const { data: slotCoaches } = await supabaseAdmin.from('coaches')
-.select('team_id,role,off_development,def_development,mental_dev,physical_dev,shooting_dev,analytics,recovery_boost')
+.select('team_id,role,off_development,def_development,mental_dev,physical_dev,shooting_dev,analytics,recovery_boost,offense_dev,defense_dev,tactical_dev')
 .not('team_id','is',null)
 const { data: allFacilities } = await supabaseAdmin.from('practice_facilities').select('team_id,gym_grade,has_pool,has_sauna,has_shooting_machine')
 
@@ -454,18 +459,21 @@ for (const f of (allFacilities||[])) facilityByTeam[f.team_id] = f
 
 const trainingFillRate = (slotType: string, teamId: string): number => {
 const hc = coachByTeamRole[teamId]?.head_coach
+const ac = coachByTeamRole[teamId]?.assistant_coach
 const trainer = coachByTeamRole[teamId]?.trainer
-const relevant: number | undefined =
-slotType==='offense' ? hc?.off_development :
-slotType==='defense' ? hc?.def_development :
-slotType==='physical' ? trainer?.physical_dev :
-slotType==='playmaking' ? hc?.off_development :
-slotType==='mental' ? hc?.mental_dev :
-slotType==='recovery' ? trainer?.recovery_boost :
-slotType==='shooting' ? hc?.shooting_dev :
-slotType==='analytics' ? hc?.analytics :
-undefined
-const quality = relevant ?? 60
+const g = (v: number | undefined | null) => v ?? 60
+
+let quality: number
+if (slotType === 'physical') quality = 0.7*g(trainer?.physical_dev) + 0.3*g(hc?.physical_dev)
+else if (slotType === 'recovery') quality = 0.7*g(trainer?.recovery_boost) + 0.3*g(hc?.recovery_boost)
+else if (slotType === 'offense') quality = 0.6*g(hc?.off_development) + 0.4*g(ac?.offense_dev)
+else if (slotType === 'defense') quality = 0.6*g(hc?.def_development) + 0.4*g(ac?.defense_dev)
+else if (slotType === 'shooting') quality = 0.6*g(hc?.shooting_dev) + 0.4*g(ac?.shooting_dev)
+else if (slotType === 'playmaking') quality = 0.6*g(hc?.tactical_dev) + 0.4*g(ac?.tactical_dev)
+else if (slotType === 'mental') quality = 0.6*g(hc?.mental_dev) + 0.4*g(ac?.mental_dev)
+else if (slotType === 'analytics') quality = 0.6*g(hc?.analytics) + 0.4*g(ac?.analytics)
+else quality = 60
+
 return Math.max(2, Math.min(15, 5 + (quality-60)*0.3))
 }
 
