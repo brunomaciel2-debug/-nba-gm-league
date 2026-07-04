@@ -123,6 +123,27 @@ export function notifInjury(lang: 'en'|'pt', player: string, injuryType: string,
   }
 }
 
+export function notifTechnicalFoul(
+  lang: 'en'|'pt', player: string, seasonTechs: number, techsUntilNextSuspension: number,
+  gamesSuspendedNow: number, isPostseason: boolean
+) {
+  const phase = isPostseason ? (lang === 'pt' ? 'playoffs' : 'postseason') : (lang === 'pt' ? 'época regular' : 'regular season')
+  if (gamesSuspendedNow > 0) {
+    return {
+      subject: lang === 'pt' ? `🚫 Suspensão — ${player}` : `🚫 Suspension — ${player}`,
+      body: lang === 'pt'
+        ? `O ${player} atingiu ${seasonTechs} faltas técnicas na ${phase} e foi suspenso por ${gamesSuspendedNow} jogo${gamesSuspendedNow !== 1 ? 's' : ''}.\n\nPróxima suspensão daqui a ${techsUntilNextSuspension} falta${techsUntilNextSuspension !== 1 ? 's' : ''} técnica${techsUntilNextSuspension !== 1 ? 's' : ''}.`
+        : `${player} reached ${seasonTechs} technical fouls in the ${phase} and has been suspended for ${gamesSuspendedNow} game${gamesSuspendedNow !== 1 ? 's' : ''}.\n\nNext suspension in ${techsUntilNextSuspension} more technical${techsUntilNextSuspension !== 1 ? 's' : ''}.`,
+    }
+  }
+  return {
+    subject: lang === 'pt' ? `🟨 Falta Técnica — ${player}` : `🟨 Technical Foul — ${player}`,
+    body: lang === 'pt'
+      ? `O ${player} recebeu uma falta técnica — a nº${seasonTechs} da ${phase}.\n\nDaqui a ${techsUntilNextSuspension} falta${techsUntilNextSuspension !== 1 ? 's' : ''} técnica${techsUntilNextSuspension !== 1 ? 's' : ''}, o jogador é automaticamente suspenso por 1 jogo.`
+      : `${player} picked up a technical foul — #${seasonTechs} of the ${phase}.\n\n${techsUntilNextSuspension} more technical${techsUntilNextSuspension !== 1 ? 's' : ''} will trigger an automatic 1-game suspension.`,
+  }
+}
+
 export function notifPlayoffBubble(lang: 'en'|'pt', conference: string, rank: number) {
   return {
     subject: lang === 'pt' ? `⚠️ Estás na bolha dos playoffs` : `⚠️ You are on the playoff bubble`,

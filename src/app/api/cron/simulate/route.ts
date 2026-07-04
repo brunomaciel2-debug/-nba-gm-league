@@ -28,6 +28,7 @@ const isPreseason = getStatusForWeek(week) === 'pre-season'
 
 let gamesSimulated = 0
 const gamesCreated: string[] = []
+const weekGamesByTeam: Record<string, number> = {}
 
 // Regular Season games are never invented — they must already exist in the
 // real schedule (created ahead of time, e.g. via a schedule generator) as
@@ -82,6 +83,8 @@ attendance, is_rivalry: isRivalry,
 if (!gameRec) continue
 gamesSimulated++
 gamesCreated.push(gameRec.id)
+weekGamesByTeam[ht.id] = (weekGamesByTeam[ht.id]||0) + 1
+weekGamesByTeam[at.id] = (weekGamesByTeam[at.id]||0) + 1
 
 await supabaseAdmin.from('box_scores').insert([
 ...result.homeBox.map((b:any) => ({
@@ -145,6 +148,81 @@ fouls: (ex.fouls||0)+(box.pf||0), tech_fouls: (ex.tech_fouls||0)+(box.tech_fouls
 }
 }
 } // end if (!isPreseason) — random round-robin block
+
+// ── TECHNICAL FOUL SUSPENSIONS ────────────────────────
+// Real NBA rule: 16 technicals in a regular season = 1-game suspension,
+// then another 1-game suspension every 2 additional technicals. In the
+// postseason the threshold resets and is stricter: 7 technicals, then
+// every 2 more. (2-technicals-in-one-game ejection is handled live inside
+// the sim engine itself, see game-simulator.ts's rollTechs/ejected.)
+type TechFoulEvent = { playerId:string, name:string, teamId:string, seasonTechs:number, techsUntilNextSuspension:number, gamesAdded:number }
+const techFoulEvents: TechFoulEvent[] = []
+try {
+const isPostseasonWeek = ['play-in','playoffs'].includes(getStatusForWeek(week))
+const threshold = isPostseasonWeek ? 7 : 16
+// Only regular-season/playoff games count toward suspensions — friendlies
+// never count toward anything, same rule as everywhere else in this sim.
+const gameTypeFilter = isPostseasonWeek ? 'playoff' : 'regular'
+
+// 1. Serve out suspensions for players whose team played this week.
+const { data: suspendedNow } = await supabaseAdmin.from('players')
+.select('id,team_id,suspended_games_remaining').eq('status','suspended')
+for (const p of (suspendedNow||[])) {
+const gamesPlayedThisWeek = weekGamesByTeam[p.team_id] || 0
+if (!gamesPlayedThisWeek) continue
+const remaining = Math.max(0, (p.suspended_games_remaining||1) - gamesPlayedThisWeek)
+if (remaining <= 0) {
+await supabaseAdmin.from('players').update({ status:'active', suspended_games_remaining:0 }).eq('id', p.id)
+} else {
+await supabaseAdmin.from('players').update({ suspended_games_remaining: remaining }).eq('id', p.id)
+}
+}
+
+// 2. Notify + apply suspensions for every player who picked up a technical this week.
+if (gamesCreated.length > 0) {
+const { data: weekTechBoxes } = await supabaseAdmin.from('box_scores')
+.select('player_id,tech_fouls,games!inner(game_type)')
+.in('game_id', gamesCreated).eq('games.game_type', gameTypeFilter).gt('tech_fouls', 0)
+
+const weekTechsByPlayer: Record<string,number> = {}
+for (const b of (weekTechBoxes||[])) weekTechsByPlayer[b.player_id] = (weekTechsByPlayer[b.player_id]||0) + (b.tech_fouls||0)
+
+for (const [playerId, weekTechs] of Object.entries(weekTechsByPlayer)) {
+const { data: allBoxes } = await supabaseAdmin.from('box_scores')
+.select('tech_fouls,games!inner(game_type)')
+.eq('player_id', playerId).eq('games.game_type', gameTypeFilter)
+const totalTechs = (allBoxes||[]).reduce((s:number,b:any)=>s+(b.tech_fouls||0),0)
+const priorTechs = totalTechs - weekTechs
+
+let crossings = 0
+for (let t = priorTechs+1; t <= totalTechs; t++) {
+if (t === threshold || (t > threshold && (t-threshold) % 2 === 0)) crossings++
+}
+let nextTrigger = threshold
+while (nextTrigger <= totalTechs) nextTrigger += 2
+
+const { data: pl } = await supabaseAdmin.from('players').select('id,name,team_id,suspended_games_remaining').eq('id',playerId).single()
+if (!pl) continue
+
+if (crossings > 0) {
+await supabaseAdmin.from('players').update({
+status:'suspended',
+suspended_games_remaining: (pl.suspended_games_remaining||0) + crossings,
+}).eq('id', pl.id)
+await supabaseAdmin.from('transactions').insert({
+type:'suspension',
+description:`${pl.name} (${pl.team_id}) — ${totalTechs} technical fouls (${isPostseasonWeek?'postseason':'regular season'}). Suspended ${crossings} game${crossings!==1?'s':''}.`,
+teams:[pl.team_id], players:[pl.name], status:'completed',
+})
+}
+
+techFoulEvents.push({
+playerId, name:pl.name, teamId:pl.team_id, seasonTechs:totalTechs,
+techsUntilNextSuspension: nextTrigger - totalTechs, gamesAdded: crossings,
+})
+}
+}
+} catch(techErr) { console.warn('Technical foul suspension step failed:', techErr) }
 
 // ── HEALTH LOSS + INJURY GENERATION ──────────────────────
 const { data: allPlayers } = await supabaseAdmin
@@ -729,7 +807,7 @@ console.log(`Power Rankings generated: ${prResult.generated} teams`)
 
 // ── POST-SIM NOTIFICATIONS ────────────────────────────
 try {
-await runPostSimNotifications(week, gamesCreated)
+await runPostSimNotifications(week, gamesCreated, techFoulEvents)
 console.log('Post-sim notifications sent')
 } catch(notifErr) { console.warn('Notifications failed:', notifErr) }
 

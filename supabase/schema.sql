@@ -41,6 +41,7 @@ create table players (
   status      text default 'active',   -- active | injured | suspended
   injury_type text,
   games_missed int default 0,
+  suspended_games_remaining int default 0, -- technical-foul suspensions still owed
   -- attributes (0-100)
   usage       int default 40,
   three       int default 50,
