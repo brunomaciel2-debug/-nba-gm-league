@@ -126,8 +126,8 @@ elo: atNewElo,
 }).eq('id', at.id),
 ])
 
-// Accumulate player stats
-const allBox = [...result.homeBox, ...result.awayBox]
+// Accumulate player stats — DNP rows (mins=0) don't count as a game played
+const allBox = [...result.homeBox, ...result.awayBox].filter((b:any) => (b.mins||0) > 0)
 for (const box of allBox) {
 const { data: ex } = await supabaseAdmin.from('player_stats')
 .select('*').eq('player_id', box.player_id).eq('season','2025-26').single()

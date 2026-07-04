@@ -34,72 +34,143 @@ export default async function GamePage({ params }: { params: { id: string } }) {
     weekday:'long', month:'long', day:'numeric', year:'numeric'
   })
 
+  // Column order matches the standard NBA box score convention:
+  // MIN, PTS, FG, 3PT, FT, REB, AST, TO, STL, BLK, OREB, DREB, PF, +/-
   const statCols = [
-    { key:'pts', label:'PTS' },
-    { key:'reb', label:'REB' },
-    { key:'ast', label:'AST' },
-    { key:'stl', label:'STL' },
-    { key:'blk', label:'BLK' },
-    { key:'fgm', label:'FGM' },
-    { key:'fga', label:'FGA' },
-    { key:'tpm', label:'3PM' },
-    { key:'tpa', label:'3PA' },
-    { key:'ftm', label:'FTM' },
-    { key:'fta', label:'FTA' },
-    { key:'turnovers', label:'TO' },
-    { key:'mins', label:'MIN' },
+    { key:'mins',       label:'MIN' },
+    { key:'pts',        label:'PTS' },
+    { key:'fg',         label:'FG'  },
+    { key:'tp',         label:'3PT' },
+    { key:'ft',         label:'FT'  },
+    { key:'reb',        label:'REB' },
+    { key:'ast',        label:'AST' },
+    { key:'turnovers',  label:'TO'  },
+    { key:'stl',        label:'STL' },
+    { key:'blk',        label:'BLK' },
+    { key:'off_reb',    label:'OREB' },
+    { key:'def_reb',    label:'DREB' },
+    { key:'pf',         label:'PF'  },
+    { key:'plus_minus', label:'+/-' },
   ]
+  const splitCols: Record<string,[string,string]> = { fg:['fgm','fga'], tp:['tpm','tpa'], ft:['ftm','fta'] }
 
-  const teamTotals = (box: any[]) => statCols.reduce((acc, col) => {
-    acc[col.key] = box.reduce((s, b) => s + (b[col.key] || 0), 0)
-    return acc
-  }, {} as Record<string,number>)
+  const sumStat = (box: any[], key: string) => box.reduce((s, b) => s + (b[key] || 0), 0)
+  const teamTotals = (box: any[]) => {
+    const t: Record<string,number> = {}
+    ;['pts','reb','ast','turnovers','stl','blk','off_reb','def_reb','pf','fgm','fga','tpm','tpa','ftm','fta'].forEach(k => t[k] = sumStat(box,k))
+    return t
+  }
+  const pct = (m:number,a:number) => a>0 ? Math.round(m/a*100)+'%' : '—'
 
   const homeTotals = teamTotals(homeBox)
   const awayTotals = teamTotals(awayBox)
 
-  const BoxTable = ({ players, color, totals }: { players: any[], color: string, totals: any }) => (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr style={{background:'#ddd7ca',borderBottom:'1px solid #d4cdc5'}}>
-            <th className="px-3 py-2 text-left font-bold" style={{color:'#5c554e',minWidth:140}}>Player</th>
-            {statCols.map(c => (
-              <th key={c.key} className="px-2 py-2 text-right font-bold" style={{color:'#5c554e'}}>{c.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {players.map((b: any, i: number) => (
-            <tr key={b.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e8e2d6'}}>
-              <td className="px-3 py-2">
-                <Link href={`/player/${b.player?.id}`} className="no-underline font-semibold hover:underline"
-                  style={{color}}>
-                  {b.player?.name}
-                </Link>
-                <span className="ml-1.5 text-xs" style={{color:'#9c8e7a'}}>{b.player?.pos}</span>
-              </td>
+  const cellValue = (b: any, key: string) => {
+    if (splitCols[key]) { const [m,a] = splitCols[key]; return `${b[m]||0}-${b[a]||0}` }
+    if (key === 'plus_minus') { const v = b[key]||0; return v>0?`+${v}`:`${v}` }
+    return b[key] ?? 0
+  }
+
+  const BoxTable = ({ players, color, totals }: { players: any[], color: string, totals: any }) => {
+    // Older games simulated before is_starter existed have it false/null for
+    // everyone — fall back to "top 5 minutes = starters" so those box scores
+    // still group sensibly instead of dumping everyone into BENCH.
+    const hasStarterFlag = players.some((b:any) => b.is_starter)
+    const played = players.filter((b:any) => (b.mins||0) > 0).sort((a:any,b:any)=>(b.mins||0)-(a.mins||0))
+    const starters = hasStarterFlag ? played.filter((b:any) => b.is_starter) : played.slice(0,5)
+    const bench = hasStarterFlag ? played.filter((b:any) => !b.is_starter) : played.slice(5)
+    const dnp = players.filter((b:any) => !(b.mins||0)).sort((a:any,b:any)=>(a.player?.name||'').localeCompare(b.player?.name||''))
+
+    const PlayerRow = ({ b, i }: { b: any, i: number }) => (
+      <tr style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e8e2d6'}}>
+        <td className="px-3 py-2">
+          <Link href={`/player/${b.player?.id}`} className="no-underline font-semibold hover:underline"
+            style={{color}}>
+            {b.player?.name}
+          </Link>
+          <span className="ml-1.5 text-xs" style={{color:'#9c8e7a'}}>{b.player?.pos}</span>
+        </td>
+        {statCols.map(c => (
+          <td key={c.key} className="px-2 py-2 text-right font-semibold"
+            style={{color: c.key==='pts' && b[c.key]>=20 ? color : '#1a1512'}}>
+            {cellValue(b, c.key)}
+          </td>
+        ))}
+      </tr>
+    )
+
+    const SectionHeader = ({ label }: { label: string }) => (
+      <tr style={{background:'#ddd7ca',borderBottom:'1px solid #d4cdc5'}}>
+        <th className="px-3 py-2 text-left font-bold" style={{color:'#5c554e',minWidth:140}}>{label}</th>
+        {statCols.map(c => (
+          <th key={c.key} className="px-2 py-2 text-right font-bold" style={{color:'#5c554e'}}>{c.label}</th>
+        ))}
+      </tr>
+    )
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <SectionHeader label="STARTERS" />
+          </thead>
+          <tbody>
+            {starters.map((b:any,i:number) => <PlayerRow key={b.id} b={b} i={i} />)}
+          </tbody>
+          {bench.length > 0 && (
+            <>
+              <thead>
+                <SectionHeader label="BENCH" />
+              </thead>
+              <tbody>
+                {bench.map((b:any,i:number) => <PlayerRow key={b.id} b={b} i={i} />)}
+              </tbody>
+            </>
+          )}
+          {dnp.length > 0 && (
+            <tbody>
+              {dnp.map((b:any,i:number) => (
+                <tr key={b.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e8e2d6'}}>
+                  <td className="px-3 py-2">
+                    <Link href={`/player/${b.player?.id}`} className="no-underline font-semibold hover:underline" style={{color}}>
+                      {b.player?.name}
+                    </Link>
+                    <span className="ml-1.5 text-xs" style={{color:'#9c8e7a'}}>{b.player?.pos}</span>
+                  </td>
+                  <td colSpan={statCols.length} className="px-2 py-2 text-center" style={{color:'#9c8e7a'}}>
+                    DNP-COACH&apos;S DECISION
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          )}
+          <tbody>
+            {/* Totals row */}
+            <tr style={{background:'#e8e2d6',borderTop:'2px solid #d4cdc5'}}>
+              <td className="px-3 py-2 font-black text-xs" style={{color:'#1a1512'}}>TEAM</td>
               {statCols.map(c => (
-                <td key={c.key} className="px-2 py-2 text-right font-semibold"
-                  style={{color: c.key==='pts' && b[c.key]>=20 ? color : '#1a1512'}}>
-                  {b[c.key] || 0}
+                <td key={c.key} className="px-2 py-2 text-right font-black" style={{color:'#1a1512'}}>
+                  {c.key==='mins' || c.key==='plus_minus' ? '' : cellValue(totals, c.key)}
                 </td>
               ))}
             </tr>
-          ))}
-          {/* Totals row */}
-          <tr style={{background:'#e8e2d6',borderTop:'2px solid #d4cdc5'}}>
-            <td className="px-3 py-2 font-black text-xs" style={{color:'#1a1512'}}>TEAM</td>
-            {statCols.map(c => (
-              <td key={c.key} className="px-2 py-2 text-right font-black" style={{color:'#1a1512'}}>
-                {totals[c.key] || 0}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  )
+            {/* Shooting % row */}
+            <tr style={{background:'#e8e2d6',borderBottom:'1px solid #d4cdc5'}}>
+              <td className="px-3 py-2"></td>
+              {statCols.map(c => (
+                <td key={c.key} className="px-2 py-2 text-right text-xs font-semibold" style={{color:'#8a8279'}}>
+                  {c.key==='fg' ? pct(totals.fgm,totals.fga)
+                    : c.key==='tp' ? pct(totals.tpm,totals.tpa)
+                    : c.key==='ft' ? pct(totals.ftm,totals.fta)
+                    : ''}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">

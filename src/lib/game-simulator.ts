@@ -16,7 +16,7 @@ function fmt(tl:number){return Math.floor(tl/60)+":"+String(tl%60).padStart(2,"0
 // silently (PostgREST just drops the row) — keep this in sync with the schema.
 function toBoxRow(p:any, s:any){
 return {
-player_id: p.id, mins: p.mins,
+player_id: p.id, mins: p.mins, is_starter: !!p.isStarter,
 pts: s.pts||0, ast: s.ast||0, stl: s.stl||0, blk: s.blk||0,
 fga: s.fga||0, fgm: s.fgm||0, tpa: s.tpa||0, tpm: s.tpm||0, fta: s.fta||0, ftm: s.ftm||0,
 pf: s.pf||0, off_reb: s.or||0, def_reb: s.dr||0, reb: (s.or||0)+(s.dr||0),
@@ -53,16 +53,18 @@ simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp)
 side=side==="home"?"away":"home"
 }
 }
-hp.filter(p=>p.mins>0).forEach(p=>hb.push(toBoxRow(p,st[p.id])))
-ap.filter(p=>p.mins>0).forEach(p=>ab.push(toBoxRow(p,st[p.id])))
+// Everyone gets a row now — 0-min players show up as DNP-Coach's Decision
+// in the box score UI instead of silently vanishing.
+hp.forEach(p=>hb.push(toBoxRow(p,st[p.id])))
+ap.forEach(p=>ab.push(toBoxRow(p,st[p.id])))
 return{homeScore:sc.home,awayScore:sc.away,homeBox:hb,awayBox:ab,pbp}
 }
 
 function applyDC(players:any[],dc:any){
-players.forEach(p=>p.mins=0)
+players.forEach(p=>{p.mins=0;p.isStarter=false})
 ;["PG","SG","SF","PF","C"].forEach(pos=>{
 const pd=dc[pos];if(!pd)return
-;["s","b1","b2"].forEach(sl=>{const e=pd[sl];if(e?.name&&e.mins>0){const p=players.find((pl:any)=>pl.name===e.name);if(p)p.mins+=e.mins}})
+;["s","b1","b2"].forEach(sl=>{const e=pd[sl];if(e?.name&&e.mins>0){const p=players.find((pl:any)=>pl.name===e.name);if(p){p.mins+=e.mins;if(sl==="s")p.isStarter=true}}})
 })
 }
 
