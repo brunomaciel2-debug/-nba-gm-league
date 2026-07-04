@@ -67,6 +67,9 @@ INSERT INTO injury_log_preteste SELECT * FROM injury_log;
 TRUNCATE TABLE transactions_preteste CASCADE;
 INSERT INTO transactions_preteste SELECT * FROM transactions;
 
+TRUNCATE TABLE awards_preteste CASCADE;
+INSERT INTO awards_preteste SELECT * FROM awards;
+
 TRUNCATE TABLE weekly_highlights_preteste CASCADE;
 INSERT INTO weekly_highlights_preteste SELECT * FROM weekly_highlights;
 
@@ -198,8 +201,6 @@ INSERT INTO injury_types_preteste SELECT * FROM injury_types;
 
 TRUNCATE TABLE season_config_preteste CASCADE;
 INSERT INTO season_config_preteste SELECT * FROM season_config;
-
--- awards não tem cópia de segurança (fica sempre vazia no RESET, por desenho)
 
 SET session_replication_role = DEFAULT;
 

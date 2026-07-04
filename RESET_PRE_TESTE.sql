@@ -67,6 +67,9 @@ INSERT INTO injury_log SELECT * FROM injury_log_preteste;
 TRUNCATE TABLE transactions CASCADE;
 INSERT INTO transactions SELECT * FROM transactions_preteste;
 
+TRUNCATE TABLE awards CASCADE;
+INSERT INTO awards SELECT * FROM awards_preteste;
+
 TRUNCATE TABLE weekly_highlights CASCADE;
 INSERT INTO weekly_highlights SELECT * FROM weekly_highlights_preteste;
 
