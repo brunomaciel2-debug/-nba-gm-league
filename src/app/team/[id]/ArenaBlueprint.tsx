@@ -187,6 +187,101 @@ const SLOT_LABEL_PT: Record<string,string> = {
   jumbotron: 'Jumbotron', fan_zone: 'Zona de Adeptos', mascot: 'Mascote',
 }
 
+type SlotTranslation = {
+  zoneLabels: Record<string,string>
+  synergies: string[]
+  penalties: string[]
+  fan_xp: string
+  tooltip_detail: string
+}
+
+const SLOT_TR_PT: Record<string,SlotTranslation> = {
+  food_stall_basic: {
+    zoneLabels:{food_stall_basic_north:'Corredor Norte',food_stall_basic_south:'Corredor Sul',food_stall_basic_east:'Corredor Este',food_stall_basic_west:'Corredor Oeste'},
+    synergies:['3 bancas em corredores diferentes → +4% adesão','Jumbotron → +5% em toda a comida','5+ vitórias seguidas → +8%'],
+    penalties:['2 bancas no mesmo corredor → a segunda perde -10%','Comida Premium no mesmo corredor → -8%','5+ derrotas seguidas → -10%'],
+    fan_xp:'Mais variedade = maior Satisfação dos Adeptos.',
+    tooltip_detail:'25% dos adeptos passam por lá · média $8 · distribui pelos corredores para evitar penalização',
+  },
+  food_stall_premium: {
+    zoneLabels:{food_stall_premium_north:'Corredor Norte',food_stall_premium_south:'Corredor Sul'},
+    synergies:['Chef Executivo na equipa → +8%','Restaurante VIP próximo → +5%','Playoffs → +15%'],
+    penalties:['Banca de Comida básica no mesmo corredor → a básica perde -8%','Bilhete >$150 → -5%'],
+    fan_xp:'+3pts de Satisfação dos Adeptos/jogo.',
+    tooltip_detail:'18% dos adeptos · média $18 · norte para donos de camarotes, sul para entrada geral',
+  },
+  bar: {
+    zoneLabels:{bar_east:'Corredor Este',bar_west:'Corredor Oeste'},
+    synergies:['Bartender especialista → +6%','Jogo de rivalidade → +10%','Lugares Clube próximos → +5%'],
+    penalties:['Os dois bares activos → cada um -3% (público dividido)','Noite em família → -6%'],
+    fan_xp:'+2pts de Satisfação dos Adeptos/jogo.',
+    tooltip_detail:'15% dos adeptos · média $14 · o bar este perto do lounge courtside é uma combinação premium',
+  },
+  vending: {
+    zoneLabels:{vending_north:'Corredor Norte',vending_south:'Corredor Sul',vending_east:'Corredor Este',vending_west:'Corredor Oeste'},
+    synergies:['Todos os corredores cobertos → +3% em todas as bancas (sem filas)','Jumbotron → +5% em toda a comida'],
+    penalties:['Muitas opções de comida → cai para 12% de adesão (recurso)'],
+    fan_xp:'Reduz a frustração das filas. +1pt de satisfação.',
+    tooltip_detail:'Opção mais barata · melhor cobertura por dólar investido · preenche lacunas em todo o lado',
+  },
+  restaurant_vip: {
+    zoneLabels:{restaurant_vip:'Nível Superior Norte'},
+    synergies:['Lounge Courtside → +10% adesão VIP','Camarotes Corporativos → +6%','Chef Executivo → +8%'],
+    penalties:['Sem Lounge Courtside nem Camarotes → -6%','Registo fraco → -4%'],
+    fan_xp:'Elemento de prestígio. Desbloqueia níveis de patrocínio corporativo. +5pts.',
+    tooltip_detail:'Apenas 4% dos adeptos · média $65 · desbloqueia níveis de patrocínio corporativo',
+  },
+  franchise_store: {
+    zoneLabels:{franchise_store:'Entrada Principal Sul'},
+    synergies:['Mascote próxima → +5%','Sequência de vitórias → +10%','Playoffs → +20%'],
+    penalties:['5+ derrotas seguidas → -8%'],
+    fan_xp:'+2% de assistência no próximo jogo. +3pts de satisfação.',
+    tooltip_detail:'12% dos adeptos · média $35 · entrada sul = máximo tráfego de pessoas',
+  },
+  corporate_suites: {
+    zoneLabels:{corporate_suites:'Nível Superior Norte'},
+    synergies:['Restaurante VIP → donos de camarotes jantam lá','3 camarotes → desbloqueia nível de Patrocinador Platina','Lounge Courtside → +15% receita de camarotes'],
+    penalties:['Sem comodidades VIP → renovação de camarotes cai','Registo fraco → -10% renovação na época seguinte'],
+    fan_xp:'Sinal de prestígio. Atrai patrocinadores de topo. +4pts.',
+    tooltip_detail:'$8K fixos por camarote por jogo · 3 camarotes = $24K/jogo · receita garantida',
+  },
+  club_seats: {
+    zoneLabels:{club_seats:'Linha Lateral Oeste'},
+    synergies:['Bar Oeste → donos de lugares clube gastam +30%','Comida Premium a norte → donos de lugares clube passam por lá'],
+    penalties:['Sem acesso a lounge → -15% renovação na época seguinte'],
+    fan_xp:'Os adeptos mais fiéis assistem a 90%+ dos jogos. +3pts.',
+    tooltip_detail:'$40K fixos por jogo · os adeptos mais fiéis do pavilhão',
+  },
+  courtside_lounge: {
+    zoneLabels:{courtside_lounge:'Linha Lateral Este'},
+    synergies:['Restaurante VIP → pacote combinado +10%','Bar Este → membros do lounge usam o bar este','3 Camarotes → nível premium combinado'],
+    penalties:['Sem Restaurante VIP → -10% receita','Época perdedora → cancelamento de membros'],
+    fan_xp:'Desbloqueia níveis de patrocínio de Celebridades e Media. +6pts.',
+    tooltip_detail:'$120K fixos por jogo · a maior fonte de receita isolada',
+  },
+  jumbotron: {
+    zoneLabels:{jumbotron:'Centro do Campo (Teto)'},
+    synergies:['+5% adesão em TODA a comida/bebida','+3% assistência nos 3 jogos seguintes','Combinação com Zona de Adeptos → +8%','$15K/jogo em publicidade'],
+    penalties:['Sem outro entretenimento → efeito reduzido a +2%'],
+    fan_xp:'+5pts de Satisfação dos Adeptos · reduz saídas antecipadas em 12%.',
+    tooltip_detail:'Multiplicador em todas as bancas · essencial para uma experiência de pavilhão moderna',
+  },
+  fan_zone: {
+    zoneLabels:{fan_zone:'Entrada Principal Sul'},
+    synergies:['Jumbotron → +8%','Mascote → +6%','Jogos em família → +12%'],
+    penalties:['Público corporativo → -4% adesão'],
+    fan_xp:'+5% de assistência na semana seguinte. Redes sociais +40%. +5pts.',
+    tooltip_detail:'10% dos adeptos · média $20 · principal motor de assistência recorrente',
+  },
+  mascot: {
+    zoneLabels:{mascot:'Entrada Sul e Túnel'},
+    synergies:['Loja da Equipa → +5%','Zona de Adeptos → +6%','Noites em família → +8% assistência'],
+    penalties:['Foco corporativo/luxo → -2pts satisfação VIP'],
+    fan_xp:'+2% de assistência (famílias). Segmento infantil/família +15%. +2pts.',
+    tooltip_detail:'Entretenimento mais barato · melhor retorno para público familiar · $5K/jogo',
+  },
+}
+
 const CAT = {
   food:          {bg:'#dcfce7',border:'#16a34a',text:'#15803d'},
   premium:       {bg:'#dbeafe',border:'#3b82f6',text:'#1d4ed8'},
@@ -205,6 +300,12 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
   const [hover,setHover] = useState(false)
   const [picking,setPicking] = useState(false)
   const c = CAT[slot.category]
+  const trPT = SLOT_TR_PT[slot.id]
+  const synergies = isPT ? trPT.synergies : slot.synergies
+  const penalties = isPT ? trPT.penalties : slot.penalties
+  const fanXp = isPT ? trPT.fan_xp : slot.fan_xp
+  const tooltipDetail = isPT ? trPT.tooltip_detail : slot.tooltip_detail
+  const zoneLabel = (v:SlotVariant) => isPT ? trPT.zoneLabels[v.key] : v.zoneLabel
   const totalQty = slot.variants.reduce((t,v)=>t+((concessions as any)[v.key]||0),0)
   const totalMax = slot.variants.reduce((t,v)=>t+v.max,0)
   const atMax = totalQty>=totalMax
@@ -233,7 +334,7 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
               <div style={{fontSize:10,color:c.border}}>{isPT?'Construir':'Build'}: {fmtM(slot.cost)} · {isPT?'Manutenção':'Maint'}: {fmtM(slot.monthly)}/mo</div>
             </div>
           </div>
-          <div style={{fontSize:10,color:'#d4cdc5',marginBottom:8,lineHeight:1.5}}>{slot.tooltip_detail}</div>
+          <div style={{fontSize:10,color:'#d4cdc5',marginBottom:8,lineHeight:1.5}}>{tooltipDetail}</div>
           {/* Zones */}
           {slot.variants.length>1 && (
             <div style={{marginBottom:8}}>
@@ -244,7 +345,7 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
                   return <span key={v.key} style={{fontSize:9,padding:'1px 6px',borderRadius:3,
                     background:q>=v.max?'rgba(74,222,128,0.15)':'rgba(255,255,255,0.05)',
                     color:q>=v.max?'#4ade80':'#8a8279',border:'1px solid rgba(255,255,255,0.1)'}}>
-                    {v.zoneLabel} {q}/{v.max}
+                    {zoneLabel(v)} {q}/{v.max}
                   </span>
                 })}
               </div>
@@ -252,15 +353,15 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
           )}
           <div style={{marginBottom:6}}>
             <div style={{fontSize:9,fontWeight:700,color:'#4ade80',marginBottom:2}}>✓ {isPT?'SINERGIAS':'SYNERGIES'}</div>
-            {slot.synergies.map((s,i)=><div key={i} style={{fontSize:9,color:'#86efac',marginBottom:1}}>· {s}</div>)}
+            {synergies.map((s,i)=><div key={i} style={{fontSize:9,color:'#86efac',marginBottom:1}}>· {s}</div>)}
           </div>
           <div style={{marginBottom:6}}>
             <div style={{fontSize:9,fontWeight:700,color:'#f87171',marginBottom:2}}>⚠ {isPT?'ATENÇÃO':'WATCH OUT'}</div>
-            {slot.penalties.map((p,i)=><div key={i} style={{fontSize:9,color:'#fca5a5',marginBottom:1}}>· {p}</div>)}
+            {penalties.map((p,i)=><div key={i} style={{fontSize:9,color:'#fca5a5',marginBottom:1}}>· {p}</div>)}
           </div>
           <div>
             <div style={{fontSize:9,fontWeight:700,color:'#a78bfa',marginBottom:2}}>🌟 {isPT?'EXPERIÊNCIA DO ADEPTO':'FAN XP'}</div>
-            <div style={{fontSize:9,color:'#c4b5fd'}}>{slot.fan_xp}</div>
+            <div style={{fontSize:9,color:'#c4b5fd'}}>{fanXp}</div>
           </div>
           <div style={{position:'absolute',bottom:-6,left:'50%',width:10,height:10,background:'#1a1512',
             borderRight:`1px solid ${c.border}55`,borderBottom:`1px solid ${c.border}55`,
@@ -289,7 +390,7 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
               return <span key={v.key} style={{fontSize:8,padding:'1px 5px',borderRadius:3,
                 background:q>0?c.border+'22':'#f0ece5',color:q>0?c.text:'#8a8279',
                 border:`1px solid ${q>0?c.border+'44':'#e2dcd5'}`}}>
-                {v.zoneLabel.split(' ')[0]} {q}/{v.max}
+                {zoneLabel(v).split(' ')[0]} {q}/{v.max}
               </span>
             })}
           </div>
@@ -320,7 +421,7 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
               <button key={v.key} onClick={()=>{onBuild(v.key,slot.cost,slot.monthly);setPicking(false)}}
                 style={{padding:'3px 6px',fontSize:10,fontWeight:600,textAlign:'left',
                   border:`1px solid ${c.border}`,borderRadius:5,background:c.bg,color:c.text,cursor:'pointer'}}>
-                📍 {v.zoneLabel}
+                📍 {zoneLabel(v)}
               </button>
             ))}
             <button onClick={()=>setPicking(false)}
