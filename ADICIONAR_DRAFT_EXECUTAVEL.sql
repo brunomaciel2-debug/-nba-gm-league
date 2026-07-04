@@ -13,6 +13,11 @@
 ALTER TABLE draft_orders ADD COLUMN IF NOT EXISTS round int;
 ALTER TABLE draft_orders_preteste ADD COLUMN IF NOT EXISTS round int;
 
+-- "pick_number" era obrigatório (sobra de um desenho antigo, uma linha por
+-- escolha) — no desenho actual (uma lista combinada por ronda) não faz
+-- sentido, por isso deixa de ser obrigatório.
+ALTER TABLE draft_orders ALTER COLUMN pick_number DROP NOT NULL;
+
 DO $$
 BEGIN
   IF NOT EXISTS (

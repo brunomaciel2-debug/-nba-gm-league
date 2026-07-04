@@ -5,20 +5,8 @@
       "schedule": "0 0 * * 1,4"
     },
     {
-      "path": "/api/cron/resolve-offers",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/resolve-staff-offers",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/resolve-free-agency",
-      "schedule": "0 */4 * * *"
-    },
-    {
-      "path": "/api/cron/resolve-draft",
-      "schedule": "0 */6 * * *"
+      "path": "/api/cron/resolve-all",
+      "schedule": "0 6 * * *"
     }
   ]
 }
