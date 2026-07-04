@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getStatusForWeek } from '@/lib/season-week-helper'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -17,6 +18,18 @@ export async function POST(req: NextRequest) {
   // Get GM team
   const { data: profile } = await admin.from('gm_profiles').select('team_id').eq('id', user.id).single()
   if (!profile?.team_id) return NextResponse.json({ error: 'No team assigned' }, { status: 403 })
+
+  // This flat $650K deal only exists outside Free Agency week (real, GM-picked
+  // offers happen there instead) and stops entirely 2 weeks before the playoffs.
+  const { data: cfg } = await admin.from('season_config').select('current_week').eq('id', 1).single()
+  const nextWeek = (cfg?.current_week || 0) + 1
+  const phase = getStatusForWeek(nextWeek)
+  if (phase === 'free-agency') {
+    return NextResponse.json({ error: 'This is Free Agency week — submit a full contract offer instead of the quick $650K deal. See the negotiation panel on the player page.' }, { status: 400 })
+  }
+  if (nextWeek >= 39) {
+    return NextResponse.json({ error: 'Free agent signings are closed — the roster freeze starts 2 weeks before the play-in.' }, { status: 400 })
+  }
 
   // Get player
   const { data: player } = await admin.from('players').select('id, name, team_id, gleague_team_id, on_gleague_assignment').eq('id', playerId).single()

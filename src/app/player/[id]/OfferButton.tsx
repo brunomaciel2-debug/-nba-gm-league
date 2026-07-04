@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import FAMarketOfferPanel from './FAMarketOfferPanel'
 
 const CAP = 180_000_000
 const MIN_ROSTER = 12
@@ -12,7 +13,7 @@ function fmt(n: number) {
   return '$' + (n / 1_000_000).toFixed(2) + 'M'
 }
 
-export default function OfferButton({ playerId, isAssigned }: { playerId: number, isAssigned: boolean }) {
+export default function OfferButton({ playerId, isAssigned, phase, faClosed }: { playerId: number, isAssigned: boolean, phase?: string, faClosed?: boolean }) {
   const [gmTeamId, setGmTeamId]   = useState<string|null>(null)
   const [offered, setOffered]     = useState(false)
   const [loading, setLoading]     = useState(false)
@@ -80,6 +81,15 @@ export default function OfferButton({ playerId, isAssigned }: { playerId: number
   if (isAssigned) return (
     <div style={{marginTop:16,padding:'10px 16px',background:'#f0ece5',border:'1px solid #d4cdc5',borderRadius:8,fontSize:13,color:'#8a8279'}}>
       On NBA assignment — cannot be signed by other teams
+    </div>
+  )
+
+  // During Free Agency week, GMs negotiate a real contract instead of the flat $650K deal.
+  if (phase === 'free-agency') return <FAMarketOfferPanel playerId={playerId} />
+
+  if (faClosed) return (
+    <div style={{marginTop:16,padding:'10px 16px',background:'#f0ece5',border:'1px solid #d4cdc5',borderRadius:8,fontSize:13,color:'#8a8279'}}>
+      🔒 Free agent signings are closed — the roster freeze starts 2 weeks before the play-in.
     </div>
   )
 

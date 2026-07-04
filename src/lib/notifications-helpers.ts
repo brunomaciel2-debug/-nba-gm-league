@@ -109,6 +109,25 @@ export function notifStaffOfferLost(lang: 'en'|'pt', name: string) {
   }
 }
 
+export function notifFAMarketWon(lang: 'en'|'pt', name: string, salary: number, years: number) {
+  const fmt = (n: number) => `$${(n/1_000_000).toFixed(2)}M`
+  return {
+    subject: lang === 'pt' ? `✅ Contrataste ${name}!` : `✅ Signed ${name}!`,
+    body: lang === 'pt'
+      ? `${name} escolheu a tua proposta durante a Free Agency e assinou por ${fmt(salary)}/ano × ${years} ano${years!==1?'s':''}.`
+      : `${name} picked your offer during Free Agency and signed for ${fmt(salary)}/yr × ${years} year${years!==1?'s':''}.`,
+  }
+}
+
+export function notifFAMarketLost(lang: 'en'|'pt', name: string) {
+  return {
+    subject: lang === 'pt' ? `❌ Perdeste ${name}` : `❌ Missed out on ${name}`,
+    body: lang === 'pt'
+      ? `${name} escolheu outra proposta durante a Free Agency. A tua não foi a selecionada desta vez.`
+      : `${name} picked a different offer during Free Agency. Yours wasn't the one selected this time.`,
+  }
+}
+
 export function notifScoutTier(lang: 'en'|'pt', scoutName: string, tier: number, revealCount: number, creditCost: number, maintenance: number) {
   const maint = maintenance > 0 ? (lang === 'pt' ? `\n\nManter este tier custa ${maintenance/1000}K$/semana, debitados automaticamente do teu saldo.` : `\n\nHolding this tier costs $${maintenance/1000}K/week, billed automatically from your balance.`) : ''
   return {
