@@ -86,6 +86,29 @@ export function notifDeadCapCleared(lang: 'en'|'pt', player: string, amount: num
   }
 }
 
+const ROLE_LABEL_EN: Record<string,string> = { head_coach:'Head Coach', assistant_coach:'Assistant Coach', trainer:'Trainer', physio:'Physio' }
+const ROLE_LABEL_PT: Record<string,string> = { head_coach:'Head Coach', assistant_coach:'Assistante Treinador', trainer:'Preparador Físico', physio:'Fisioterapeuta' }
+
+export function notifStaffOfferWon(lang: 'en'|'pt', name: string, role: string, salary: number, years: number) {
+  const roleLabel = (lang==='pt'?ROLE_LABEL_PT:ROLE_LABEL_EN)[role] || role
+  const fmt = (n: number) => `$${(n/1_000_000).toFixed(2)}M`
+  return {
+    subject: lang === 'pt' ? `✅ Contrataste ${name}!` : `✅ Signed ${name}!`,
+    body: lang === 'pt'
+      ? `${name} aceitou a tua proposta e assinou como ${roleLabel} por ${fmt(salary)}/ano × ${years} ano${years!==1?'s':''}.`
+      : `${name} has accepted your offer and signed as ${roleLabel} for ${fmt(salary)}/yr × ${years} year${years!==1?'s':''}.`,
+  }
+}
+
+export function notifStaffOfferLost(lang: 'en'|'pt', name: string) {
+  return {
+    subject: lang === 'pt' ? `❌ Perdeste ${name}` : `❌ Missed out on ${name}`,
+    body: lang === 'pt'
+      ? `${name} assinou por outra equipa. A tua proposta não foi escolhida desta vez.`
+      : `${name} has signed elsewhere. Your offer was not selected this time.`,
+  }
+}
+
 export function notifScoutTier(lang: 'en'|'pt', scoutName: string, tier: number, revealCount: number, creditCost: number, maintenance: number) {
   const maint = maintenance > 0 ? (lang === 'pt' ? `\n\nManter este tier custa ${maintenance/1000}K$/semana, debitados automaticamente do teu saldo.` : `\n\nHolding this tier costs $${maintenance/1000}K/week, billed automatically from your balance.`) : ''
   return {

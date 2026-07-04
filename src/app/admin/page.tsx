@@ -55,6 +55,7 @@ export default function AdminPage() {
     {icon:'🎯',label:'Coaching Staff',    desc:'View all coaches, free agents',                 href:'/admin/coaches',     color:'#b45309'},
     {icon:'🤝',label:'Sponsor Pool',      desc:'Generate sponsor options for every team',       href:'/admin/sponsor-pool',color:'#0e7490'},
     {icon:'📅',label:'Generate Schedule', desc:'Rebuild the full 82-game Regular Season calendar', href:'/admin/generate-schedule', color:'#4338ca'},
+    {icon:'👔',label:'Resolve Staff Offers', desc:'Decide pending free-agent coach offers',        href:'/admin/resolve-staff-offers', color:'#1d4ed8'},
   ]
   const items_PT = [
     {icon:'⚡',label:'Simular Semana',     desc:'Disparar simulação da próxima semana',          href:'/admin/simulate',    color:'#15803d'},
@@ -69,6 +70,7 @@ export default function AdminPage() {
     {icon:'🎯',label:'Staff Técnico',      desc:'Ver todos os treinadores e agentes livres',    href:'/admin/coaches',     color:'#b45309'},
     {icon:'🤝',label:'Reserva Patrocínios',desc:'Gerar opções de patrocínio para as equipas',    href:'/admin/sponsor-pool',color:'#0e7490'},
     {icon:'📅',label:'Gerar Calendário',   desc:'Reconstruir o calendário completo de 82 jogos',href:'/admin/generate-schedule',color:'#4338ca'},
+    {icon:'👔',label:'Resolver Propostas de Staff', desc:'Decidir propostas pendentes a treinadores livres', href:'/admin/resolve-staff-offers', color:'#1d4ed8'},
   ]
   const items = isPT ? items_PT : items_EN
 
