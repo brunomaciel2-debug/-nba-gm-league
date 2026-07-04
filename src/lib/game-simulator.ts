@@ -19,8 +19,34 @@ return {
 player_id: p.id, mins: p.mins, is_starter: !!p.isStarter,
 pts: s.pts||0, ast: s.ast||0, stl: s.stl||0, blk: s.blk||0,
 fga: s.fga||0, fgm: s.fgm||0, tpa: s.tpa||0, tpm: s.tpm||0, fta: s.fta||0, ftm: s.ftm||0,
-pf: s.pf||0, off_reb: s.or||0, def_reb: s.dr||0, reb: (s.or||0)+(s.dr||0),
+pf: s.pf||0, tech_fouls: s.tf||0, off_reb: s.or||0, def_reb: s.dr||0, reb: (s.or||0)+(s.dr||0),
 turnovers: s.to||0, plus_minus: 0,
+}
+}
+
+// A technical foul counts as a personal foul AND its own separate tally.
+// A player's 2nd technical foul in the same game is an automatic ejection —
+// same real-world NBA rule. Rolled once per quarter per active player,
+// weighted by their trash_talk attribute (hot-headed players pick up more).
+function rollTechs(offense:any[],defense:any[],offSide:"home"|"away",defSide:"home"|"away",offTeam:any,sc:any,st:any,q:number,pbp:any[]){
+for(const p of offense){
+if(p.mins<=0||p.ejected)continue
+const chance=0.003+((p.trash_talk??50)/100)*0.012
+if(Math.random()>=chance)continue
+const s=st[p.id]
+s.tf=(s.tf||0)+1;s.pf=(s.pf||0)+1
+const activeOpp=defense.filter((o:any)=>o.mins>0&&!o.ejected)
+if(activeOpp.length){
+const shooter=wt(activeOpp.map((o:any)=>({p:o,w:(o.ft||70)})))
+const os2=st[shooter.id]
+os2.fta=(os2.fta||0)+1
+if(Math.random()<(shooter.ft||70)/100){os2.ftm=(os2.ftm||0)+1;os2.pts=(os2.pts||0)+1;sc[defSide]+=1}
+}
+pbp.push({quarter:q+1,time_left:fmt(720),team_id:offTeam.id,event_type:"technical",description:`🟨 TECHNICAL FOUL — ${p.name}`,home_score:sc.home,away_score:sc.away})
+if(s.tf>=2){
+p.ejected=true
+pbp.push({quarter:q+1,time_left:fmt(720),team_id:offTeam.id,event_type:"ejection",description:`⛔ ${p.name} EJECTED — 2nd technical foul!`,home_score:sc.home,away_score:sc.away})
+}
 }
 }
 
@@ -33,18 +59,20 @@ const sc={home:0,away:0},st:Record<string,any>={},fat:Record<string,number>={},m
 const tol={home:{used:0,q:{0:0,1:0,2:0,3:0}} as any,away:{used:0,q:{0:0,1:0,2:0,3:0}} as any}
 let isGT=false,gtW=""
 const pbp:any[]=[],hb:any[]=[],ab:any[]=[]
-;[...hp,...ap].forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=100;mom[p.id]=0;ls[p.id]=[]})
+;[...hp,...ap].forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=100;mom[p.id]=0;ls[p.id]=[];p.ejected=false})
 const pa=(ho.pace+ao.pace)/2,ppq=Math.round(23+pa/100*4)
 for(let q=0;q<4;q++){
 part.home=0;part.away=0
 let side="home"
+rollTechs(hp,ap,"home","away",ht,sc,st,q,pbp)
+rollTechs(ap,hp,"away","home",at,sc,st,q,pbp)
 for(let i=0;i<ppq*2;i++){
 const tl=Math.max(0,Math.round(720*(1-i/(ppq*2))))
 const diff=Math.abs(sc.home-sc.away)
 if(q===3&&!isGT&&((tl<=120&&diff>=20)||(tl<=90&&diff>=15))){isGT=true;gtW=sc.home>sc.away?"home":"away";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:null,event_type:"info",description:`🗑️ GARBAGE TIME — ${isGT&&gtW==="home"?ht.name:at.name} leads by ${diff}!`,home_score:sc.home,away_score:sc.away})}
 const isC=q===3&&tl<=120&&diff<=5
-const ops=side==="home"?(isGT&&side===gtW?hp.filter(p=>p.mins>0).slice(5):hp.filter(p=>p.mins>0)):(isGT&&side===gtW?ap.filter(p=>p.mins>0).slice(5):ap.filter(p=>p.mins>0))
-const dps=side==="home"?ap.filter(p=>p.mins>0):hp.filter(p=>p.mins>0)
+const ops=side==="home"?(isGT&&side===gtW?hp.filter(p=>p.mins>0&&!p.ejected).slice(5):hp.filter(p=>p.mins>0&&!p.ejected)):(isGT&&side===gtW?ap.filter(p=>p.mins>0&&!p.ejected).slice(5):ap.filter(p=>p.mins>0&&!p.ejected))
+const dps=side==="home"?ap.filter(p=>p.mins>0&&!p.ejected):hp.filter(p=>p.mins>0&&!p.ejected)
 const oo=side==="home"?ho:ao,doo=side==="home"?ao:ho
 const ot=side==="home"?ht:at,dt=side==="home"?at:ht
 const os=side as "home"|"away",ds=(side==="home"?"away":"home") as "home"|"away"

@@ -50,6 +50,7 @@ export default async function GamePage({ params }: { params: { id: string } }) {
     { key:'off_reb',    label:'OREB' },
     { key:'def_reb',    label:'DREB' },
     { key:'pf',         label:'PF'  },
+    { key:'tech_fouls', label:'TECH' },
     { key:'plus_minus', label:'+/-' },
   ]
   const splitCols: Record<string,[string,string]> = { fg:['fgm','fga'], tp:['tpm','tpa'], ft:['ftm','fta'] }
@@ -57,7 +58,7 @@ export default async function GamePage({ params }: { params: { id: string } }) {
   const sumStat = (box: any[], key: string) => box.reduce((s, b) => s + (b[key] || 0), 0)
   const teamTotals = (box: any[]) => {
     const t: Record<string,number> = {}
-    ;['pts','reb','ast','turnovers','stl','blk','off_reb','def_reb','pf','fgm','fga','tpm','tpa','ftm','fta'].forEach(k => t[k] = sumStat(box,k))
+    ;['pts','reb','ast','turnovers','stl','blk','off_reb','def_reb','pf','tech_fouls','fgm','fga','tpm','tpa','ftm','fta'].forEach(k => t[k] = sumStat(box,k))
     return t
   }
   const pct = (m:number,a:number) => a>0 ? Math.round(m/a*100)+'%' : '—'
@@ -89,10 +90,17 @@ export default async function GamePage({ params }: { params: { id: string } }) {
             {b.player?.name}
           </Link>
           <span className="ml-1.5 text-xs" style={{color:'#9c8e7a'}}>{b.player?.pos}</span>
+          {(b.tech_fouls||0) >= 2 && (
+            <span className="ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#dc2626',color:'#fff'}}>
+              ⛔ EJECTED
+            </span>
+          )}
         </td>
         {statCols.map(c => (
           <td key={c.key} className="px-2 py-2 text-right font-semibold"
-            style={{color: c.key==='pts' && b[c.key]>=20 ? color : '#1a1512'}}>
+            style={{color: c.key==='pts' && b[c.key]>=20 ? color
+              : c.key==='tech_fouls' && b[c.key]>0 ? '#dc2626'
+              : '#1a1512'}}>
             {cellValue(b, c.key)}
           </td>
         ))}

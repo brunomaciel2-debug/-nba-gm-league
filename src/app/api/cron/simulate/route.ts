@@ -139,6 +139,7 @@ fgm: ex.fgm+box.fgm, fga: ex.fga+box.fga,
 tpm: ex.tpm+box.tpm, tpa: ex.tpa+box.tpa,
 ftm: ex.ftm+box.ftm, fta: ex.fta+box.fta,
 turnovers: ex.turnovers+box.turnovers,
+fouls: (ex.fouls||0)+(box.pf||0), tech_fouls: (ex.tech_fouls||0)+(box.tech_fouls||0),
 }).eq('player_id', box.player_id).eq('season','2025-26')
 }
 }
