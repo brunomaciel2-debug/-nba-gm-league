@@ -1,5 +1,6 @@
 'use client'
 import { useState } from 'react'
+import { useTranslation } from '@/components/I18nProvider'
 
 type Concessions = {
   id: string
@@ -179,6 +180,13 @@ const SLOTS: SlotDef[] = [
   },
 ]
 
+const SLOT_LABEL_PT: Record<string,string> = {
+  food_stall_basic: 'Banca de Comida', food_stall_premium: 'Comida Premium', bar: 'Bar',
+  vending: 'Vending', restaurant_vip: 'Restaurante VIP', franchise_store: 'Loja da Equipa',
+  corporate_suites: 'Camarotes Corp.', club_seats: 'Lugares Clube', courtside_lounge: 'Lounge Courtside',
+  jumbotron: 'Jumbotron', fan_zone: 'Zona de Adeptos', mascot: 'Mascote',
+}
+
 const CAT = {
   food:          {bg:'#dcfce7',border:'#16a34a',text:'#15803d'},
   premium:       {bg:'#dbeafe',border:'#3b82f6',text:'#1d4ed8'},
@@ -192,6 +200,8 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
   slot:SlotDef, concessions:Concessions, isGM:boolean,
   teamColor:string, cash:number, onBuild:(key:string,cost:number,monthly:number)=>void
 }) {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const [hover,setHover] = useState(false)
   const [picking,setPicking] = useState(false)
   const c = CAT[slot.category]
@@ -219,15 +229,15 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,paddingBottom:8,borderBottom:'1px solid rgba(255,255,255,0.1)'}}>
             <span style={{fontSize:18}}>{slot.icon}</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:700,color:'#f5f1eb'}}>{slot.label}</div>
-              <div style={{fontSize:10,color:c.border}}>Build: {fmtM(slot.cost)} · Maint: {fmtM(slot.monthly)}/mo</div>
+              <div style={{fontSize:13,fontWeight:700,color:'#f5f1eb'}}>{isPT?SLOT_LABEL_PT[slot.id]:slot.label}</div>
+              <div style={{fontSize:10,color:c.border}}>{isPT?'Construir':'Build'}: {fmtM(slot.cost)} · {isPT?'Manutenção':'Maint'}: {fmtM(slot.monthly)}/mo</div>
             </div>
           </div>
           <div style={{fontSize:10,color:'#d4cdc5',marginBottom:8,lineHeight:1.5}}>{slot.tooltip_detail}</div>
           {/* Zones */}
           {slot.variants.length>1 && (
             <div style={{marginBottom:8}}>
-              <div style={{fontSize:9,color:'#8a8279',marginBottom:3}}>📍 LOCATIONS</div>
+              <div style={{fontSize:9,color:'#8a8279',marginBottom:3}}>📍 {isPT?'LOCALIZAÇÕES':'LOCATIONS'}</div>
               <div style={{display:'flex',flexWrap:'wrap',gap:3}}>
                 {slot.variants.map(v=>{
                   const q=(concessions as any)[v.key]||0
@@ -241,15 +251,15 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
             </div>
           )}
           <div style={{marginBottom:6}}>
-            <div style={{fontSize:9,fontWeight:700,color:'#4ade80',marginBottom:2}}>✓ SYNERGIES</div>
+            <div style={{fontSize:9,fontWeight:700,color:'#4ade80',marginBottom:2}}>✓ {isPT?'SINERGIAS':'SYNERGIES'}</div>
             {slot.synergies.map((s,i)=><div key={i} style={{fontSize:9,color:'#86efac',marginBottom:1}}>· {s}</div>)}
           </div>
           <div style={{marginBottom:6}}>
-            <div style={{fontSize:9,fontWeight:700,color:'#f87171',marginBottom:2}}>⚠ WATCH OUT</div>
+            <div style={{fontSize:9,fontWeight:700,color:'#f87171',marginBottom:2}}>⚠ {isPT?'ATENÇÃO':'WATCH OUT'}</div>
             {slot.penalties.map((p,i)=><div key={i} style={{fontSize:9,color:'#fca5a5',marginBottom:1}}>· {p}</div>)}
           </div>
           <div>
-            <div style={{fontSize:9,fontWeight:700,color:'#a78bfa',marginBottom:2}}>🌟 FAN XP</div>
+            <div style={{fontSize:9,fontWeight:700,color:'#a78bfa',marginBottom:2}}>🌟 {isPT?'EXPERIÊNCIA DO ADEPTO':'FAN XP'}</div>
             <div style={{fontSize:9,color:'#c4b5fd'}}>{slot.fan_xp}</div>
           </div>
           <div style={{position:'absolute',bottom:-6,left:'50%',width:10,height:10,background:'#1a1512',
@@ -267,7 +277,7 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
       }}>
         <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
           <span style={{fontSize:16}}>{slot.icon}</span>
-          <span style={{fontSize:11,fontWeight:700,color:totalQty>0?c.text:'#5c554e',flex:1,lineHeight:1.2}}>{slot.label}</span>
+          <span style={{fontSize:11,fontWeight:700,color:totalQty>0?c.text:'#5c554e',flex:1,lineHeight:1.2}}>{isPT?SLOT_LABEL_PT[slot.id]:slot.label}</span>
           <span style={{fontSize:10,fontWeight:600,color:atMax?'#15803d':totalQty>0?c.text:'#8a8279'}}>{totalQty}/{totalMax}</span>
         </div>
 
@@ -299,13 +309,13 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
             style={{width:'100%',padding:'3px 0',fontSize:10,fontWeight:600,border:'none',borderRadius:5,
               background:canAfford?c.border:'#e2dcd5',color:canAfford?'#fff':'#8a8279',
               cursor:canAfford?'pointer':'not-allowed',marginTop:2}}>
-            {available.length===1?`Build · ${fmtM(slot.cost)}`:`Choose location · ${fmtM(slot.cost)}`}
+            {available.length===1?`${isPT?'Construir':'Build'} · ${fmtM(slot.cost)}`:`${isPT?'Escolher localização':'Choose location'} · ${fmtM(slot.cost)}`}
           </button>
         )}
 
         {picking && (
           <div style={{display:'flex',flexDirection:'column',gap:3,marginTop:4}}>
-            <div style={{fontSize:9,color:'#8a8279'}}>Pick location:</div>
+            <div style={{fontSize:9,color:'#8a8279'}}>{isPT?'Escolhe localização:':'Pick location:'}</div>
             {available.map(v=>(
               <button key={v.key} onClick={()=>{onBuild(v.key,slot.cost,slot.monthly);setPicking(false)}}
                 style={{padding:'3px 6px',fontSize:10,fontWeight:600,textAlign:'left',
@@ -314,20 +324,24 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
               </button>
             ))}
             <button onClick={()=>setPicking(false)}
-              style={{padding:'2px',fontSize:9,border:'none',background:'transparent',color:'#8a8279',cursor:'pointer'}}>Cancel</button>
+              style={{padding:'2px',fontSize:9,border:'none',background:'transparent',color:'#8a8279',cursor:'pointer'}}>{isPT?'Cancelar':'Cancel'}</button>
           </div>
         )}
 
-        {atMax && <div style={{fontSize:9,color:c.text,fontWeight:600,marginTop:3}}>✓ Max built</div>}
+        {atMax && <div style={{fontSize:9,color:c.text,fontWeight:600,marginTop:3}}>✓ {isPT?'Máximo construído':'Max built'}</div>}
       </div>
     </div>
   )
 }
 
+const CAT_LABEL_PT: Record<string,string> = { food:'Comida', premium:'Premium', entertainment:'Entretenimento' }
+
 export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild}:{
   concessions:Concessions, isGM:boolean, teamColor:string, cash:number,
   onBuild:(key:string,cost:number,monthly:number)=>void
 }) {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const totalRev = SLOTS.reduce((t,s)=>{
     const qty=s.variants.reduce((q,v)=>q+((concessions as any)[v.key]||0),0)
     if(!qty)return t
@@ -342,7 +356,7 @@ export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild}
       {isGM && (
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
           marginBottom:12,padding:'8px 14px',background:'#f0ece5',borderRadius:8,fontSize:12}}>
-          <span style={{color:'#5c554e'}}>Est. concession revenue/game</span>
+          <span style={{color:'#5c554e'}}>{isPT?'Receita de bares/lojas est. por jogo':'Est. concession revenue/game'}</span>
           <strong style={{color:'#15803d',fontSize:14}}>{fmtD(totalRev)}</strong>
         </div>
       )}
@@ -353,7 +367,7 @@ export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild}
         {/* TOP LEFT — upper north slots */}
         <div style={{gridColumn:'1/3',gridRow:'1',display:'flex',gap:8,alignItems:'flex-start',padding:'8px 10px',
           background:'#f0ece5',borderRadius:8,border:'1px solid #d4cdc5'}}>
-          <div style={{fontSize:9,fontWeight:700,color:'#8a8279',whiteSpace:'nowrap',paddingTop:10,minWidth:50}}>UPPER N</div>
+          <div style={{fontSize:9,fontWeight:700,color:'#8a8279',whiteSpace:'nowrap',paddingTop:10,minWidth:50}}>{isPT?'SUP. NORTE':'UPPER N'}</div>
           {['corporate_suites','restaurant_vip'].map(id=>(
             <SlotCard key={id} slot={slot(id)} concessions={concessions} isGM={isGM} teamColor={teamColor} cash={cash} onBuild={onBuild}/>
           ))}
@@ -365,7 +379,7 @@ export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild}
         {/* MIDDLE LEFT — west slots */}
         <div style={{gridColumn:'1',gridRow:'2',display:'flex',flexDirection:'column',gap:8,padding:'8px',
           background:'#f0ece5',borderRadius:8,border:'1px solid #d4cdc5',justifyContent:'center'}}>
-          <div style={{fontSize:9,fontWeight:700,color:'#8a8279',marginBottom:2}}>WEST</div>
+          <div style={{fontSize:9,fontWeight:700,color:'#8a8279',marginBottom:2}}>{isPT?'OESTE':'WEST'}</div>
           {['bar','club_seats'].map(id=>(
             <SlotCard key={id} slot={slot(id)} concessions={concessions} isGM={isGM} teamColor={teamColor} cash={cash} onBuild={onBuild}/>
           ))}
@@ -375,7 +389,7 @@ export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild}
         <div style={{gridColumn:'2',gridRow:'2',display:'flex',flexDirection:'column',gap:8}}>
           {/* North food row */}
           <div style={{display:'flex',gap:8,padding:'6px 8px',background:'#f0ece5',borderRadius:8,border:'1px solid #d4cdc5'}}>
-            <div style={{fontSize:9,fontWeight:700,color:'#8a8279',whiteSpace:'nowrap',paddingTop:8,minWidth:36}}>NORTH</div>
+            <div style={{fontSize:9,fontWeight:700,color:'#8a8279',whiteSpace:'nowrap',paddingTop:8,minWidth:36}}>{isPT?'NORTE':'NORTH'}</div>
             {['food_stall_basic','food_stall_premium','vending'].map(id=>(
               <SlotCard key={id} slot={slot(id)} concessions={concessions} isGM={isGM} teamColor={teamColor} cash={cash} onBuild={onBuild}/>
             ))}
@@ -416,7 +430,7 @@ export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild}
 
           {/* South food row */}
           <div style={{display:'flex',gap:8,padding:'6px 8px',background:'#f0ece5',borderRadius:8,border:'1px solid #d4cdc5'}}>
-            <div style={{fontSize:9,fontWeight:700,color:'#8a8279',whiteSpace:'nowrap',paddingTop:8,minWidth:36}}>SOUTH</div>
+            <div style={{fontSize:9,fontWeight:700,color:'#8a8279',whiteSpace:'nowrap',paddingTop:8,minWidth:36}}>{isPT?'SUL':'SOUTH'}</div>
             {['franchise_store','fan_zone','mascot'].map(id=>(
               <SlotCard key={id} slot={slot(id)} concessions={concessions} isGM={isGM} teamColor={teamColor} cash={cash} onBuild={onBuild}/>
             ))}
@@ -426,7 +440,7 @@ export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild}
         {/* MIDDLE RIGHT — east slots */}
         <div style={{gridColumn:'3',gridRow:'2',display:'flex',flexDirection:'column',gap:8,padding:'8px',
           background:'#f0ece5',borderRadius:8,border:'1px solid #d4cdc5',justifyContent:'center'}}>
-          <div style={{fontSize:9,fontWeight:700,color:'#8a8279',marginBottom:2,textAlign:'right'}}>EAST</div>
+          <div style={{fontSize:9,fontWeight:700,color:'#8a8279',marginBottom:2,textAlign:'right'}}>{isPT?'ESTE':'EAST'}</div>
           <SlotCard slot={slot('courtside_lounge')} concessions={concessions} isGM={isGM} teamColor={teamColor} cash={cash} onBuild={onBuild}/>
         </div>
 
@@ -436,10 +450,10 @@ export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild}
           {Object.entries(CAT).map(([cat,c])=>(
             <div key={cat} style={{display:'flex',alignItems:'center',gap:4}}>
               <div style={{width:12,height:12,borderRadius:2,background:c.bg,border:`1px solid ${c.border}`}}/>
-              <span style={{color:'#5c554e',textTransform:'capitalize'}}>{cat}</span>
+              <span style={{color:'#5c554e',textTransform:'capitalize'}}>{isPT?CAT_LABEL_PT[cat]:cat}</span>
             </div>
           ))}
-          <span style={{color:'#8a8279',marginLeft:'auto',fontSize:10}}>Hover any slot for strategy details</span>
+          <span style={{color:'#8a8279',marginLeft:'auto',fontSize:10}}>{isPT?'Passa o rato sobre um espaço para ver detalhes de estratégia':'Hover any slot for strategy details'}</span>
         </div>
       </div>
     </div>

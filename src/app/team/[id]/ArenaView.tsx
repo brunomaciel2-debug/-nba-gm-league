@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
+import { useTranslation } from '@/components/I18nProvider'
 import ArenaBlueprint from './ArenaBlueprint'
 
 type Section = { id:string, section:string, level:number, capacity:number, under_construction:boolean, construction_ends_at:string|null }
@@ -35,6 +36,8 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
 }) {
   const {profile} = useAuth()
   const isGM = (profile as any)?.team_id===teamId || profile?.role==='commissioner'
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
 
   const [sections,setSections]       = useState<Record<string,Section>>({})
   const [config,setConfig]           = useState<Config|null>(null)
@@ -103,7 +106,7 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
       started_at:new Date().toISOString().split('T')[0], ends_at:endsStr, status:'in_progress',
     })
     setSections(p=>({...p,[selected]:{...p[selected],under_construction:true,construction_ends_at:endsStr}}))
-    setMsg(isBuilt?'Upgrade started!':'Construction started!')
+    setMsg(isBuilt?(isPT?'Melhoria iniciada!':'Upgrade started!'):(isPT?'Construção iniciada!':'Construction started!'))
     setBuilding(false)
   }
 
@@ -112,7 +115,7 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
     setSaving(true)
     await supabase.from('franchise_config').update(ticketDraft).eq('id',config.id)
     setConfig(p=>p?{...p,...ticketDraft}:p)
-    setEditTickets(false); setSaving(false); setMsg('Ticket prices updated!')
+    setEditTickets(false); setSaving(false); setMsg(isPT?'Preços dos bilhetes actualizados!':'Ticket prices updated!')
   }
 
   const handleBuildConcession=async(key:string, unitCost:number, unitMonthly:number)=>{
@@ -121,10 +124,10 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
     const newMonthly = (concessions.monthly_maintenance||0) + unitMonthly
     await supabase.from('arena_concessions').update({[key]:current+1, monthly_maintenance:newMonthly}).eq('id',concessions.id)
     setConcessions(p=>p?{...p,[key]:current+1, monthly_maintenance:newMonthly}:p)
-    setMsg('Built successfully!')
+    setMsg(isPT?'Construído com sucesso!':'Built successfully!')
   }
 
-  if(loading)return <div className="text-center py-8" style={{color:'#8a8279'}}>Loading arena...</div>
+  if(loading)return <div className="text-center py-8" style={{color:'#8a8279'}}>{t('common.loading')}</div>
 
   return (
     <div>
@@ -135,15 +138,15 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
         <div>
           <h3 style={{fontSize:15,fontWeight:700,color:'#1a1512',margin:0}}>{arenaName}</h3>
           <p style={{fontSize:11,color:'#8a8279',margin:0}}>
-            Capacity: <strong>{fmt(totalCurrent)}</strong> · Est. attendance: <strong>{fmt(attendance)}</strong> ({Math.round(attendancePct*100)}%)
+            {isPT?'Capacidade':'Capacity'}: <strong>{fmt(totalCurrent)}</strong> · {isPT?'Assistência est.':'Est. attendance'}: <strong>{fmt(attendance)}</strong> ({Math.round(attendancePct*100)}%)
           </p>
         </div>
-        {isGM && <div style={{fontSize:11,padding:'4px 10px',borderRadius:6,background:'#dcfce7',color:'#15803d',fontWeight:600}}>Funds: {fmtM(cash)}</div>}
+        {isGM && <div style={{fontSize:11,padding:'4px 10px',borderRadius:6,background:'#dcfce7',color:'#15803d',fontWeight:600}}>{isPT?'Fundos':'Funds'}: {fmtM(cash)}</div>}
       </div>
 
       {/* Tab nav */}
       <div style={{display:'flex',gap:6,marginBottom:14,borderBottom:'2px solid #e2dcd5'}}>
-        {[{k:'sections',l:'🏟️ Sections'},{k:'concessions',l:'🍔 Concessions'},{k:'tickets',l:'🎟️ Tickets'}].map((t:any)=>(
+        {[{k:'sections',l:isPT?'🏟️ Secções':'🏟️ Sections'},{k:'concessions',l:isPT?'🍔 Bares':'🍔 Concessions'},{k:'tickets',l:isPT?'🎟️ Bilhetes':'🎟️ Tickets'}].map((t:any)=>(
           <button key={t.k} onClick={()=>setTab(t.k)}
             style={{padding:'6px 14px',fontSize:12,fontWeight:600,border:'none',
                     borderBottom:`3px solid ${tab===t.k?teamColor:'transparent'}`,
@@ -163,24 +166,24 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
               <g key={sec} style={{cursor:'pointer'}} onClick={()=>setSelected(sec===selected?null:sec)}>
                 <rect x={120+i*130} y="8" width="115" height="50" rx="8" fill={sections[sec]?.under_construction?'#378ADD':'url(#hatch)'} fillOpacity={sections[sec]?.capacity>0?0.9:0.4} stroke={selected===sec?teamColor:'#b0a898'} strokeDasharray={selected===sec?'0':'6,3'} strokeWidth={selected===sec?2:0.8}/>
                 <text x={120+i*130+57} y="29" textAnchor="middle" fontSize="11" fontWeight="500" fill="#6b5f4e" fontFamily="sans-serif">{sec}</text>
-                <text x={120+i*130+57} y="47" textAnchor="middle" fontSize="9" fill="#9a8a78" fontFamily="sans-serif">{sections[sec]?.capacity>0?fmt(sections[sec].capacity):'(future)'}</text>
+                <text x={120+i*130+57} y="47" textAnchor="middle" fontSize="9" fill="#9a8a78" fontFamily="sans-serif">{sections[sec]?.capacity>0?fmt(sections[sec].capacity):(isPT?'(futuro)':'(future)')}</text>
               </g>
             ))}
             <rect x="100" y="62" width="500" height="16" rx="4" fill="#d4c8a8" stroke="#b0a898" strokeWidth="0.5"/>
-            <text x="350" y="74" textAnchor="middle" fontSize="9" fontWeight="500" fill="#5c4a20" fontFamily="sans-serif">NORTH STAND</text>
+            <text x="350" y="74" textAnchor="middle" fontSize="9" fontWeight="500" fill="#5c4a20" fontFamily="sans-serif">{isPT?'BANCADA NORTE':'NORTH STAND'}</text>
             {[['N1',100,82,155],['N2',272,82,156],['N3',445,82,155]].map(([sec,x,y,w]:any)=>(
               <g key={sec} style={{cursor:'pointer'}} onClick={()=>setSelected(sec===selected?null:sec)}>
                 <rect x={x} y={y} width={w} height="52" rx="6" fill={secFill(sec)} fillOpacity={secOp(sec)} stroke={secStroke(sec)} strokeWidth={selected===sec?2:1}/>
                 <text x={x+w/2} y={y+18} textAnchor="middle" fontSize="13" fontWeight="500" fill="#fef3c7" fontFamily="sans-serif">{sec}</text>
-                <text x={x+w/2} y={y+36} textAnchor="middle" fontSize="9" fill="#e8c96a" fontFamily="sans-serif">{sections[sec]?.under_construction?'building':fmt(sections[sec]?.capacity||0)}</text>
+                <text x={x+w/2} y={y+36} textAnchor="middle" fontSize="9" fill="#e8c96a" fontFamily="sans-serif">{sections[sec]?.under_construction?(isPT?'em obras':'building'):fmt(sections[sec]?.capacity||0)}</text>
               </g>
             ))}
             <rect x="6" y="148" width="16" height="184" rx="4" fill="#d4c8a8" stroke="#b0a898" strokeWidth="0.5"/>
-            <text x="14" y="253" textAnchor="middle" fontSize="8" fontWeight="500" fill="#5c4a20" fontFamily="sans-serif" transform="rotate(-90,14,253)">WEST STAND</text>
+            <text x="14" y="253" textAnchor="middle" fontSize="8" fontWeight="500" fill="#5c4a20" fontFamily="sans-serif" transform="rotate(-90,14,253)">{isPT?'BANCADA OESTE':'WEST STAND'}</text>
             <g style={{cursor:'pointer'}} onClick={()=>setSelected('W1'===selected?null:'W1')}>
               <rect x="24" y="148" width="68" height="184" rx="6" fill={secFill('W1')} fillOpacity={secOp('W1')} stroke={secStroke('W1')} strokeWidth={selected==='W1'?2:1}/>
               <text x="58" y="234" textAnchor="middle" fontSize="13" fontWeight="500" fill="#fef3c7" fontFamily="sans-serif">W1</text>
-              <text x="58" y="250" textAnchor="middle" fontSize="8" fill="#e8c96a" fontFamily="sans-serif">{sections['W1']?.under_construction?'building':fmt(sections['W1']?.capacity||0)}</text>
+              <text x="58" y="250" textAnchor="middle" fontSize="8" fill="#e8c96a" fontFamily="sans-serif">{sections['W1']?.under_construction?(isPT?'em obras':'building'):fmt(sections['W1']?.capacity||0)}</text>
             </g>
             {[148,210,270].map((y,i)=>(
               <g key={i} style={{cursor:'pointer'}} onClick={()=>setSelected((i===0?'W_upper':'W_mid')===selected?null:(i===0?'W_upper':'W_mid'))}>
@@ -188,11 +191,11 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
               </g>
             ))}
             <rect x="678" y="148" width="16" height="184" rx="4" fill="#d4c8a8" stroke="#b0a898" strokeWidth="0.5"/>
-            <text x="686" y="253" textAnchor="middle" fontSize="8" fontWeight="500" fill="#5c4a20" fontFamily="sans-serif" transform="rotate(90,686,253)">EAST STAND</text>
+            <text x="686" y="253" textAnchor="middle" fontSize="8" fontWeight="500" fill="#5c4a20" fontFamily="sans-serif" transform="rotate(90,686,253)">{isPT?'BANCADA ESTE':'EAST STAND'}</text>
             <g style={{cursor:'pointer'}} onClick={()=>setSelected('E1'===selected?null:'E1')}>
               <rect x="608" y="148" width="68" height="184" rx="6" fill={secFill('E1')} fillOpacity={secOp('E1')} stroke={secStroke('E1')} strokeWidth={selected==='E1'?2:1}/>
               <text x="642" y="234" textAnchor="middle" fontSize="13" fontWeight="500" fill="#fef3c7" fontFamily="sans-serif">E1</text>
-              <text x="642" y="250" textAnchor="middle" fontSize="8" fill="#e8c96a" fontFamily="sans-serif">{sections['E1']?.under_construction?'building':fmt(sections['E1']?.capacity||0)}</text>
+              <text x="642" y="250" textAnchor="middle" fontSize="8" fill="#e8c96a" fontFamily="sans-serif">{sections['E1']?.under_construction?(isPT?'em obras':'building'):fmt(sections['E1']?.capacity||0)}</text>
             </g>
             {[148,210,270].map((y,i)=>(
               <g key={i} style={{cursor:'pointer'}} onClick={()=>setSelected((i===0?'E_upper':'E_mid')===selected?null:(i===0?'E_upper':'E_mid'))}>
@@ -203,16 +206,16 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
               <g key={sec} style={{cursor:'pointer'}} onClick={()=>setSelected(sec===selected?null:sec)}>
                 <rect x={x} y={y} width={w} height="52" rx="6" fill={secFill(sec)} fillOpacity={secOp(sec)} stroke={secStroke(sec)} strokeWidth={selected===sec?2:1}/>
                 <text x={x+w/2} y={y+18} textAnchor="middle" fontSize="13" fontWeight="500" fill="#fef3c7" fontFamily="sans-serif">{sec}</text>
-                <text x={x+w/2} y={y+36} textAnchor="middle" fontSize="9" fill="#e8c96a" fontFamily="sans-serif">{sections[sec]?.under_construction?'building':fmt(sections[sec]?.capacity||0)}</text>
+                <text x={x+w/2} y={y+36} textAnchor="middle" fontSize="9" fill="#e8c96a" fontFamily="sans-serif">{sections[sec]?.under_construction?(isPT?'em obras':'building'):fmt(sections[sec]?.capacity||0)}</text>
               </g>
             ))}
             <rect x="100" y="400" width="500" height="16" rx="4" fill="#d4c8a8" stroke="#b0a898" strokeWidth="0.5"/>
-            <text x="350" y="412" textAnchor="middle" fontSize="9" fontWeight="500" fill="#5c4a20" fontFamily="sans-serif">SOUTH STAND</text>
+            <text x="350" y="412" textAnchor="middle" fontSize="9" fontWeight="500" fill="#5c4a20" fontFamily="sans-serif">{isPT?'BANCADA SUL':'SOUTH STAND'}</text>
             {['S1A','S2A','S3A'].map((sec,i)=>(
               <g key={sec} style={{cursor:'pointer'}} onClick={()=>setSelected(sec===selected?null:sec)}>
                 <rect x={120+i*130} y="420" width="115" height="50" rx="8" fill={sections[sec]?.capacity>0?'#d4a055':'url(#hatch)'} fillOpacity={sections[sec]?.capacity>0?0.9:0.4} stroke={selected===sec?teamColor:'#b0a898'} strokeDasharray={selected===sec?'0':'6,3'} strokeWidth={selected===sec?2:0.8}/>
                 <text x={120+i*130+57} y="441" textAnchor="middle" fontSize="11" fontWeight="500" fill="#6b5f4e" fontFamily="sans-serif">{sec}</text>
-                <text x={120+i*130+57} y="459" textAnchor="middle" fontSize="9" fill="#9a8a78" fontFamily="sans-serif">{sections[sec]?.capacity>0?fmt(sections[sec].capacity):'(future)'}</text>
+                <text x={120+i*130+57} y="459" textAnchor="middle" fontSize="9" fill="#9a8a78" fontFamily="sans-serif">{sections[sec]?.capacity>0?fmt(sections[sec].capacity):(isPT?'(futuro)':'(future)')}</text>
               </g>
             ))}
             {/* Court */}
@@ -252,16 +255,16 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
                 <div style={{display:'inline-block',fontSize:10,padding:'2px 6px',borderRadius:4,marginBottom:2,
                   background:isUnderConst?'#dbeafe':isBuilt?'#dcfce7':'#fef3c7',
                   color:isUnderConst?'#1d4ed8':isBuilt?'#15803d':'#b45309'}}>
-                  {isUnderConst?'Under construction':isBuilt?'Built':'Not built'}
+                  {isUnderConst?(isPT?'Em obras':'Under construction'):isBuilt?(isPT?'Construído':'Built'):(isPT?'Por construir':'Not built')}
                 </div>
                 <div style={{fontSize:15,fontWeight:700,color:'#1a1512'}}>{selected}</div>
               </div>
               {[
-                isBuilt&&['Seats',fmt(sel?.capacity||0)],
-                isBuilt&&['Upgrade adds','+'+fmt(expansionSeats)+' seats'],
-                !isBuilt&&['New seats','+'+fmt(expansionSeats)],
-                isGM&&['Cost',fmtM(cost)],
-                isGM&&['Offline',weeks+' weeks'],
+                isBuilt&&[isPT?'Lugares':'Seats',fmt(sel?.capacity||0)],
+                isBuilt&&[isPT?'Melhoria acrescenta':'Upgrade adds','+'+fmt(expansionSeats)+(isPT?' lugares':' seats')],
+                !isBuilt&&[isPT?'Novos lugares':'New seats','+'+fmt(expansionSeats)],
+                isGM&&[isPT?'Custo':'Cost',fmtM(cost)],
+                isGM&&[isPT?'Fora de serviço':'Offline',weeks+(isPT?' semanas':' weeks')],
               ].filter(Boolean).map((r:any)=>(
                 <div key={r[0]} style={{textAlign:'center',padding:'5px 10px',background:'#f0ece5',borderRadius:8}}>
                   <div style={{fontSize:9,color:'#8a8279'}}>{r[0]}</div>
@@ -273,10 +276,10 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
                 <button onClick={handleBuildUpgrade} disabled={!canAfford||building}
                   style={{padding:'7px 14px',fontSize:12,fontWeight:600,border:'none',borderRadius:8,
                     background:canAfford?'#b45309':'#e2dcd5',color:canAfford?'#fef3c7':'#8a8279',cursor:canAfford?'pointer':'not-allowed'}}>
-                  {building?'...':(isBuilt?'Upgrade — ':'Build — ')+fmtM(cost)}
+                  {building?'...':(isBuilt?(isPT?'Melhorar — ':'Upgrade — '):(isPT?'Construir — ':'Build — '))+fmtM(cost)}
                 </button>
               )}
-              {!canAfford&&isGM&&<span style={{fontSize:10,color:'#dc2626'}}>Insufficient funds</span>}
+              {!canAfford&&isGM&&<span style={{fontSize:10,color:'#dc2626'}}>{isPT?'Fundos insuficientes':'Insufficient funds'}</span>}
               <button onClick={()=>setSelected(null)} style={{padding:'5px 9px',fontSize:11,borderRadius:6,border:'1px solid #d4cdc5',background:'#f0ece5',color:'#5c554e',cursor:'pointer'}}>✕</button>
             </div>
           )}
@@ -299,19 +302,19 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
         isGM ? (
           <div style={{maxWidth:400}}>
             <div style={{marginBottom:12,padding:'8px 12px',background:'#f0ece5',borderRadius:8,fontSize:11,color:'#5c554e',display:'flex',justifyContent:'space-between'}}>
-              <span>Est. ticket revenue/game</span>
+              <span>{isPT?'Receita de bilhetes est./jogo':'Est. ticket revenue/game'}</span>
               <strong style={{color:'#15803d'}}>{fmtD(Math.round(ticketRevenue))}</strong>
             </div>
             <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12,padding:16}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-                <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#8a8279'}}>Ticket Prices</div>
-                {!editTickets && <button onClick={()=>setEditTickets(true)} style={{fontSize:11,padding:'3px 8px',borderRadius:6,border:'1px solid #d4cdc5',background:'#f0ece5',color:'#5c554e',cursor:'pointer'}}>Edit</button>}
+                <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#8a8279'}}>{isPT?'Preços dos Bilhetes':'Ticket Prices'}</div>
+                {!editTickets && <button onClick={()=>setEditTickets(true)} style={{fontSize:11,padding:'3px 8px',borderRadius:6,border:'1px solid #d4cdc5',background:'#f0ece5',color:'#5c554e',cursor:'pointer'}}>{isPT?'Editar':'Edit'}</button>}
               </div>
               {[
-                {key:'ticket_lower',    label:'Lower Bowl',   icon:'🟡', pct:'~50% of seats', note:'Main seating level'},
-                {key:'ticket_upper',    label:'Upper Bowl',   icon:'🔵', pct:'~35% of seats', note:'Upper deck'},
-                {key:'ticket_courtside',label:'Courtside',    icon:'⭐', pct:'~2% of seats',  note:'Premium floor seats'},
-                {key:'ticket_suite',    label:'Suite (each)', icon:'🏢', pct:'Per suite/game', note:'Full suite rental'},
+                {key:'ticket_lower',    label:isPT?'Bancada Inferior':'Lower Bowl',   icon:'🟡', pct:isPT?'~50% dos lugares':'~50% of seats', note:isPT?'Nível principal':'Main seating level'},
+                {key:'ticket_upper',    label:isPT?'Bancada Superior':'Upper Bowl',   icon:'🔵', pct:isPT?'~35% dos lugares':'~35% of seats', note:isPT?'Piso superior':'Upper deck'},
+                {key:'ticket_courtside',label:isPT?'Courtside':'Courtside',    icon:'⭐', pct:isPT?'~2% dos lugares':'~2% of seats',  note:isPT?'Lugares premium junto ao campo':'Premium floor seats'},
+                {key:'ticket_suite',    label:isPT?'Camarote (cada)':'Suite (each)', icon:'🏢', pct:isPT?'Por camarote/jogo':'Per suite/game', note:isPT?'Aluguer de camarote completo':'Full suite rental'},
               ].map(t=>(
                 <div key={t.key} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid #e2dcd5'}}>
                   <span style={{fontSize:16}}>{t.icon}</span>
@@ -335,22 +338,22 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
                 <div style={{display:'flex',gap:6,marginTop:12}}>
                   <button onClick={handleSaveTickets} disabled={saving}
                     style={{flex:1,padding:'7px',fontSize:12,fontWeight:600,border:'none',borderRadius:8,background:teamColor,color:'#fff',cursor:'pointer'}}>
-                    {saving?'Saving...':'Save prices'}
+                    {saving?(isPT?'A guardar...':'Saving...'):(isPT?'Guardar preços':'Save prices')}
                   </button>
                   <button onClick={()=>setEditTickets(false)}
                     style={{padding:'7px 12px',fontSize:12,borderRadius:8,border:'1px solid #d4cdc5',background:'#f0ece5',color:'#5c554e',cursor:'pointer'}}>
-                    Cancel
+                    {isPT?'Cancelar':'Cancel'}
                   </button>
                 </div>
               )}
               <div style={{marginTop:10,fontSize:10,color:'#8a8279',lineHeight:1.5}}>
-                ⚠️ Higher prices reduce attendance. Monitor the balance between revenue and fan turnout.
+                ⚠️ {isPT?'Preços mais altos reduzem a assistência. Gere o equilíbrio entre receita e afluência de adeptos.':'Higher prices reduce attendance. Monitor the balance between revenue and fan turnout.'}
               </div>
             </div>
           </div>
         ) : (
           <div style={{padding:32,textAlign:'center',color:'#b0a89e',fontSize:13}}>
-            🔒 Ticket pricing is private to the franchise GM.
+            🔒 {isPT?'Os preços dos bilhetes são privados, só o GM da franquia os vê.':'Ticket pricing is private to the franchise GM.'}
           </div>
         )
       )}
