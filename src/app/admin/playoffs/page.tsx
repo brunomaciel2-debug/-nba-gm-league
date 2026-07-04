@@ -48,8 +48,8 @@ export default function AdminPlayoffsPage() {
       </h1>
       <p className="text-sm mb-6" style={{color:'#5c554e'}}>
         {isPT
-          ? 'Executa isto após a Semana 26 (fim da época regular). Criará o Play-In e o quadro de Playoffs com base na classificação actual.'
-          : 'Run this after Week 26 (end of regular season). This will create the Play-In and Playoff bracket based on the current standings.'}
+          ? 'Executa isto após a Semana 40 (fim da época regular). Criará o Play-In e o quadro de Playoffs com base na classificação actual.'
+          : 'Run this after Week 40 (end of regular season). This will create the Play-In and Playoff bracket based on the current standings.'}
       </p>
       <div className="rounded-xl p-5 mb-6" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
         <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{color:'#5c554e'}}>

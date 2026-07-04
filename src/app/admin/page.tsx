@@ -50,10 +50,11 @@ export default function AdminPage() {
     {icon:'🤝',label:'Trade Approvals',   desc:'Review pending trade proposals',                href:'/admin/trades',      color:'#c2410c'},
     {icon:'🏥',label:'Injury Report',     desc:'Add/update player injuries',                    href:'/admin/injuries',    color:'#dc2626'},
     {icon:'👥',label:'Manage GMs',        desc:'Assign GMs to teams, send invites',             href:'/admin/gms',         color:'#166534'},
-    {icon:'🏆',label:'Generate Playoffs', desc:'Create play-in and playoff bracket after Week 26', href:'/admin/playoffs', color:'#c8102e'},
+    {icon:'🏆',label:'Generate Playoffs', desc:'Create play-in and playoff bracket after Week 40', href:'/admin/playoffs', color:'#c8102e'},
     {icon:'📋',label:'GM Applications',   desc:'Review and approve GM job applications',        href:'/admin/applications',color:'#166534'},
     {icon:'🎯',label:'Coaching Staff',    desc:'View all coaches, free agents',                 href:'/admin/coaches',     color:'#b45309'},
     {icon:'🤝',label:'Sponsor Pool',      desc:'Generate sponsor options for every team',       href:'/admin/sponsor-pool',color:'#0e7490'},
+    {icon:'📅',label:'Generate Schedule', desc:'Rebuild the full 82-game Regular Season calendar', href:'/admin/generate-schedule', color:'#4338ca'},
   ]
   const items_PT = [
     {icon:'⚡',label:'Simular Semana',     desc:'Disparar simulação da próxima semana',          href:'/admin/simulate',    color:'#15803d'},
@@ -63,10 +64,11 @@ export default function AdminPage() {
     {icon:'🤝',label:'Aprovação de Trades',desc:'Rever propostas de trade pendentes',            href:'/admin/trades',      color:'#c2410c'},
     {icon:'🏥',label:'Relatório de Lesões',desc:'Adicionar/actualizar lesões de jogadores',     href:'/admin/injuries',    color:'#dc2626'},
     {icon:'👥',label:'Gerir GMs',          desc:'Atribuir GMs a equipas, enviar convites',      href:'/admin/gms',         color:'#166534'},
-    {icon:'🏆',label:'Gerar Playoffs',     desc:'Criar o quadro de playoffs após a Semana 26',  href:'/admin/playoffs',    color:'#c8102e'},
+    {icon:'🏆',label:'Gerar Playoffs',     desc:'Criar o quadro de playoffs após a Semana 40',  href:'/admin/playoffs',    color:'#c8102e'},
     {icon:'📋',label:'Candidaturas GM',    desc:'Rever e aprovar candidaturas a GM',            href:'/admin/applications',color:'#166534'},
     {icon:'🎯',label:'Staff Técnico',      desc:'Ver todos os treinadores e agentes livres',    href:'/admin/coaches',     color:'#b45309'},
     {icon:'🤝',label:'Reserva Patrocínios',desc:'Gerar opções de patrocínio para as equipas',    href:'/admin/sponsor-pool',color:'#0e7490'},
+    {icon:'📅',label:'Gerar Calendário',   desc:'Reconstruir o calendário completo de 82 jogos',href:'/admin/generate-schedule',color:'#4338ca'},
   ]
   const items = isPT ? items_PT : items_EN
 
