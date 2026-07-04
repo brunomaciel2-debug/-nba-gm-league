@@ -327,19 +327,25 @@ const { data: allPlayers3 } = await supabaseAdmin
 'pot_idef,pot_pdef,pot_def_reb,pot_off_reb,pot_stamina,pot_durability,'+
 'pot_ball_hdl,pot_pass_vis,pot_pass_iq,pot_pressure,pot_consistency,pot_assist_role')
 
-const { data: coaches3 } = await supabaseAdmin.from('coaches').select('team_id,role,player_dev,offense_iq,defense_iq,specialty,specialty_boost,conditioning')
+// Was querying columns that don't exist on `coaches` (player_dev, specialty,
+// specialty_boost) — Supabase returned a 400 on every single call, so this
+// whole coach-quality bonus was silently a no-op forever (every player got
+// the same neutral 60-baseline regardless of actual coaching staff).
+const { data: coaches3 } = await supabaseAdmin.from('coaches').select('team_id,role,player_development,offense_iq,defense_iq,offense_dev,defense_dev,shooting_dev,conditioning')
 
 const coachBonus: Record<string,{dev:number,off:number,def:number,conditioning:number,specialties:Record<string,number>}> = {}
 for (const c of (coaches3||[])) {
 if (!c.team_id) continue
 if (!coachBonus[c.team_id]) coachBonus[c.team_id] = {dev:60,off:60,def:60,conditioning:60,specialties:{}}
 if (c.role==='head_coach') {
-coachBonus[c.team_id].dev = c.player_dev||60
+coachBonus[c.team_id].dev = c.player_development||60
 coachBonus[c.team_id].off = c.offense_iq||60
 coachBonus[c.team_id].def = c.defense_iq||60
 }
-if (c.role==='assistant_coach' && c.specialty) {
-coachBonus[c.team_id].specialties[c.specialty] = (c.specialty_boost||10)
+if (c.role==='assistant_coach') {
+if ((c.offense_dev||60) > 65) coachBonus[c.team_id].specialties['offense'] = c.offense_dev-60
+if ((c.defense_dev||60) > 65) coachBonus[c.team_id].specialties['defense'] = c.defense_dev-60
+if ((c.shooting_dev||60) > 65) coachBonus[c.team_id].specialties['shooting'] = c.shooting_dev-60
 }
 if (c.role==='trainer') {
 coachBonus[c.team_id].conditioning = Math.max(coachBonus[c.team_id].conditioning, c.conditioning||60)
@@ -423,6 +429,73 @@ await supabaseAdmin.from('attribute_development').insert(devLogs)
 }
 }
 } catch(devErr) { console.warn('Development step failed', devErr) }
+
+// ── TRAINING SLOT FILL + UNLOCK ───────────────────────
+// Fills each unlocked training_slots row a little every week — the rate
+// depends on the quality of the specific staff member relevant to that
+// slot (matches the coach fields used just above). At 100% the slot pays
+// out 10 credits (per TrainingTab.tsx's UI copy) and rolls over any
+// overflow into the next fill cycle. Locked slots unlock once their
+// facility/coach requirement is actually met.
+try {
+const { data: allSlots } = await supabaseAdmin.from('training_slots').select('id,team_id,slot_type,fill_pct,credits_available,locked')
+const { data: slotCoaches } = await supabaseAdmin.from('coaches')
+.select('team_id,role,off_development,def_development,mental_dev,physical_dev,shooting_dev,analytics,recovery_boost')
+.not('team_id','is',null)
+const { data: allFacilities } = await supabaseAdmin.from('practice_facilities').select('team_id,gym_grade,has_pool,has_sauna,has_shooting_machine')
+
+const coachByTeamRole: Record<string, Record<string, any>> = {}
+for (const c of (slotCoaches||[])) {
+if (!coachByTeamRole[c.team_id]) coachByTeamRole[c.team_id] = {}
+coachByTeamRole[c.team_id][c.role] = c
+}
+const facilityByTeam: Record<string, any> = {}
+for (const f of (allFacilities||[])) facilityByTeam[f.team_id] = f
+
+const trainingFillRate = (slotType: string, teamId: string): number => {
+const hc = coachByTeamRole[teamId]?.head_coach
+const trainer = coachByTeamRole[teamId]?.trainer
+const relevant: number | undefined =
+slotType==='offense' ? hc?.off_development :
+slotType==='defense' ? hc?.def_development :
+slotType==='physical' ? trainer?.physical_dev :
+slotType==='playmaking' ? hc?.off_development :
+slotType==='mental' ? hc?.mental_dev :
+slotType==='recovery' ? trainer?.recovery_boost :
+slotType==='shooting' ? hc?.shooting_dev :
+slotType==='analytics' ? hc?.analytics :
+undefined
+const quality = relevant ?? 60
+return Math.max(2, Math.min(15, 5 + (quality-60)*0.3))
+}
+
+const trainingUnlockMet = (slotType: string, teamId: string): boolean => {
+const fac = facilityByTeam[teamId]
+const hc = coachByTeamRole[teamId]?.head_coach
+if (slotType==='playmaking') return !!fac && ['D','C','B','A'].includes(fac.gym_grade)
+if (slotType==='mental') return (hc?.mental_dev||0) >= 70
+if (slotType==='recovery') return !!fac && (fac.has_pool || fac.has_sauna)
+if (slotType==='shooting') return !!fac && !!fac.has_shooting_machine
+if (slotType==='analytics') return !!fac && fac.gym_grade === 'A'
+return true
+}
+
+for (const slot of (allSlots||[])) {
+if (slot.locked) {
+if (trainingUnlockMet(slot.slot_type, slot.team_id)) {
+await supabaseAdmin.from('training_slots').update({ locked: false }).eq('id', slot.id)
+}
+continue
+}
+const gain = trainingFillRate(slot.slot_type, slot.team_id)
+let newFill = (slot.fill_pct||0) + gain
+let newCredits = slot.credits_available||0
+while (newFill >= 100) { newCredits += 10; newFill -= 100 }
+if (newFill !== slot.fill_pct || newCredits !== slot.credits_available) {
+await supabaseAdmin.from('training_slots').update({ fill_pct: newFill, credits_available: newCredits }).eq('id', slot.id)
+}
+}
+} catch(trainSlotErr) { console.warn('Training slot fill step failed:', trainSlotErr) }
 
 // ── WEEKLY HIGHLIGHTS ─────────────────────────
 if (!isPreseason) {
