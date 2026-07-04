@@ -87,7 +87,10 @@ pbp.push({quarter:q+1,time_left:fmt(720),team_id:offTeam.id,event_type:"ejection
 
 export function simulateGame(ht:any,at:any,hp:any[],ap:any[],hOrd?:any,aOrd?:any){
 const defOrd=(ps:any[])=>{const s=[...ps].sort((a,b)=>b.usage-a.usage);return{pris:[s[0]?.name,s[1]?.name,s[2]?.name],clutch:s[0]?.name,pace:70,three_rate:38,atk_style:"motion",def_style:"man"}}
-const ho=hOrd||defOrd(hp),ao=aOrd||defOrd(ap)
+// Merged, not all-or-nothing: game-context fields (attRate/isRivalry/decisive)
+// must apply even to a team that never submitted Weekly Orders, so a partial
+// hOrd/aOrd (just those fields) still gets real pace/style defaults underneath.
+const ho={...defOrd(hp),...(hOrd||{})},ao={...defOrd(ap),...(aOrd||{})}
 if(ho.depth_chart)applyDC(hp,ho.depth_chart)
 if(ao.depth_chart)applyDC(ap,ao.depth_chart)
 // fat[] is seeded from each player's weekly health (not a flat 100) so a
@@ -108,11 +111,16 @@ for(let i=0;i<ppq*2;i++){
 const tl=Math.max(0,Math.round(720*(1-i/(ppq*2))))
 const diff=Math.abs(sc.home-sc.away)
 if(q===3&&!isGT&&((tl<=120&&diff>=20)||(tl<=90&&diff>=15))){isGT=true;gtW=sc.home>sc.away?"home":"away";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:null,event_type:"info",description:`🗑️ GARBAGE TIME — ${isGT&&gtW==="home"?ht.name:at.name} leads by ${diff}!`,home_score:sc.home,away_score:sc.away})}
-const isC=q===3&&tl<=120&&diff<=5
-const ops=side==="home"?(isGT&&side===gtW?hp.filter(p=>p.mins>0&&!p.ejected).slice(5):hp.filter(p=>p.mins>0&&!p.ejected)):(isGT&&side===gtW?ap.filter(p=>p.mins>0&&!p.ejected).slice(5):ap.filter(p=>p.mins>0&&!p.ejected))
-const dps=side==="home"?ap.filter(p=>p.mins>0&&!p.ejected):hp.filter(p=>p.mins>0&&!p.ejected)
 const oo=side==="home"?ho:ao,doo=side==="home"?ao:ho
 const ot=side==="home"?ht:at,dt=side==="home"?at:ht
+// Rivalry games: every 4th-quarter possession is pressure-relevant, not just
+// the final 2 minutes. Decisive games (playoffs, or standings still in
+// play): the clutch window widens too, though not as far as a rivalry.
+const isRivalryGame=!!(ho.isRivalry||ao.isRivalry)
+const isDecisiveGame=!!(ho.decisive||ao.decisive)
+const isC=q===3&&(isRivalryGame||(isDecisiveGame?(tl<=240&&diff<=8):(tl<=120&&diff<=5)))
+const ops=side==="home"?(isGT&&side===gtW?hp.filter(p=>p.mins>0&&!p.ejected).slice(5):hp.filter(p=>p.mins>0&&!p.ejected)):(isGT&&side===gtW?ap.filter(p=>p.mins>0&&!p.ejected).slice(5):ap.filter(p=>p.mins>0&&!p.ejected))
+const dps=side==="home"?ap.filter(p=>p.mins>0&&!p.ejected):hp.filter(p=>p.mins>0&&!p.ejected)
 const os=side as "home"|"away",ds=(side==="home"?"away":"home") as "home"|"away"
 if((part[ds] as number)>=8&&tol[os].q[q]<2&&tol[os].used<7){tol[os].q[q]++;tol[os].used++;part.home=0;part.away=0;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"timeout",description:`⏱ TIMEOUT — ${ot.name}`,home_score:sc.home,away_score:sc.away})}
 simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp)
@@ -176,10 +184,21 @@ const isDoubled=!!dtTarget&&sc2.name===dtTarget
 const dtOnCourt=!!dtTarget&&ops.some((p:any)=>p.name===dtTarget&&p.mins>0&&!p.ejected)
 const dtMult=isDoubled?0.80:(dtOnCourt?1.08:1.0)
 
+// Home court: a structural edge for the home team that grows with a fuller
+// arena (attRate 0-1, attached to the home side's order object). Crowd
+// effect: a player's OWN crowd_effect (1-98) shifts them up or down from a
+// neutral midpoint of 50 — players on either team can feed off a loud
+// building, not just the home side.
+const attRate=oo.attRate??doo.attRate??0.75
+const homeBoost=os==="home"?1.00+attRate*0.12:1.0
+const crowdMult=1+((sc2.crowd_effect??50)-50)/50*0.06*attRate
+const decisive=!!(oo.decisive||doo.decisive)
+const pressureMult=isC?(decisive?(.75+(sc2.pressure/100)*.45):(.82+(sc2.pressure/100)*.32)):1
+
 if(Math.random()<.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015+(isDoubled?0.04:0)){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:p.stl*.5+20})));if(Math.random()<st3.stl/100*.7)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
 if(!u3&&Math.random()<def.blk/100*.065*(doo.def_style==='zone23'?.5:1)){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
 ss.fga++;if(u3)ss.tpa++
-const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*(isC?(.82+(sc2.pressure/100)*.32):1)*matchupMult*dtMult))
+const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult))
 const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100

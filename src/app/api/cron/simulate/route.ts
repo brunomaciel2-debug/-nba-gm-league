@@ -68,6 +68,25 @@ orderMap[c.team_id].def_adjustment = c.def_adjustment
 }
 })
 
+// Conference standings — used to detect "decisive" games. Playoffs/play-in
+// always count; a regular-season game only counts if BOTH teams are still
+// realistically in the mix for their conference's playoff/play-in seeding
+// (rank 4-12 of 15 — covers the seeding fight for 4-6 and the play-in
+// bubble 7-10, plus the fight to avoid being fully out of it).
+const simPhase = getStatusForWeek(week)
+const isPlayoffPhase = simPhase === 'playoffs' || simPhase === 'play-in'
+const byConf: Record<string, any[]> = {}
+teams.forEach((t:any) => { if (!byConf[t.conference]) byConf[t.conference] = []; byConf[t.conference].push(t) })
+const inFightSet = new Set<string>()
+Object.values(byConf).forEach((confTeams:any[]) => {
+const ranked = [...confTeams].sort((a,b) => {
+const aPct = (a.wins||0)/Math.max(1,(a.wins||0)+(a.losses||0))
+const bPct = (b.wins||0)/Math.max(1,(b.wins||0)+(b.losses||0))
+return bPct - aPct
+})
+ranked.forEach((t, i) => { const rank = i+1; if (rank>=4 && rank<=12) inFightSet.add(t.id) })
+})
+
 // Only the games actually scheduled for this week — nothing invented
 const { data: weekGames } = await supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
 
@@ -80,14 +99,22 @@ supabaseAdmin.from('players').select('*').eq('team_id', at.id).eq('status','acti
 ])
 if (!hp || !ap) continue
 
-const result = simulateGame(ht, at, hp, ap, orderMap[ht.id], orderMap[at.id])
-
-// Attendance: capacity × attendance rate (65-95% based on win% and rivalry)
+// Attendance/rivalry/decisive computed BEFORE the game now, so home crowd,
+// rivalry intensity, and decisive-game clutch can actually feed into the
+// simulation itself — not just the post-game revenue figure like before.
+// Built as fresh objects (not mutating orderMap directly) since a team can
+// play several different opponents this same week — each game needs its
+// own attRate/isRivalry/decisive, not whatever the last game happened to set.
 const isRivalry = ht.rival_team_id === at.id || at.rival_team_id === ht.id
 const htWinPct = (ht.wins||0) / Math.max(1, (ht.wins||0)+(ht.losses||0))
 const baseAttRate = 0.65 + htWinPct * 0.20 + (isRivalry ? 0.08 : 0)
 const attRate = Math.min(0.98, baseAttRate + (Math.random() * 0.06 - 0.03))
 const attendance = Math.round((ht.arena_capacity || arenaCapacityMap[ht.id] || 18000) * attRate)
+const decisive = isPlayoffPhase || (inFightSet.has(ht.id) && inFightSet.has(at.id))
+
+const hOrd = { ...(orderMap[ht.id]||{}), attRate, isRivalry, decisive }
+const aOrd = { ...(orderMap[at.id]||{}), attRate, isRivalry, decisive }
+const result = simulateGame(ht, at, hp, ap, hOrd, aOrd)
 
 const { data: gameRec } = await supabaseAdmin.from('games').update({
 home_score: result.homeScore, away_score: result.awayScore,
