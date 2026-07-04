@@ -88,8 +88,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   const [locked, setLocked] = useState(false)
   const [currentWeek, setCurrentWeek] = useState(0)
   const [doubleTeamTarget, setDoubleTeamTarget] = useState('')
-  const [oppPlayers, setOppPlayers] = useState<any[]>([])
-  const [oppName, setOppName] = useState('')
+  const [oppGroups, setOppGroups] = useState<{teamId:string,teamName:string,players:any[]}[]>([])
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -105,15 +104,24 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         if(!cfg)return
         const week = cfg.current_week + 1
         setCurrentWeek(week)
-        // Double Team targets the SCHEDULED opponent for this week's game
+        // A team plays SEVERAL games in a single simulated week (this league
+        // runs ~4 per week), each potentially against a different opponent.
+        // Double Team is a weekly setting like everything else here (Pace,
+        // Attack/Defense Style) — it applies to every game that week, but
+        // only actually does anything in the specific game against whichever
+        // team the chosen player really plays for.
         supabase.from('games').select('home_team,away_team')
-          .eq('week_number',week).or(`home_team.eq.${teamId},away_team.eq.${teamId}`).limit(1).single()
-          .then(({data:game})=>{
-            if(!game)return
-            const oppId = game.home_team===teamId ? game.away_team : game.home_team
-            supabase.from('teams').select('name').eq('id',oppId).single().then(({data:ot})=>ot&&setOppName(ot.name))
-            supabase.from('players').select('name,pos,usage').eq('team_id',oppId).eq('status','active')
-              .order('usage',{ascending:false}).then(({data})=>{ if(data)setOppPlayers(data) })
+          .eq('week_number',week).or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
+          .then(({data:games})=>{
+            if(!games||!games.length)return
+            const oppIds = Array.from(new Set(games.map((g:any)=>g.home_team===teamId?g.away_team:g.home_team)))
+            Promise.all(oppIds.map(async (oppId:string)=>{
+              const [{data:ot},{data:ops}] = await Promise.all([
+                supabase.from('teams').select('name').eq('id',oppId).single(),
+                supabase.from('players').select('name,pos,usage').eq('team_id',oppId).eq('status','active').order('usage',{ascending:false}),
+              ])
+              return { teamId:oppId, teamName:ot?.name||oppId, players:ops||[] }
+            })).then(groups=>setOppGroups(groups))
           })
         supabase.from('gm_orders').select('*').eq('team_id',teamId).eq('week_number',week).single()
           .then(({data:ord})=>{
@@ -369,18 +377,22 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         <div>
           <label className="text-xs mb-1 block font-semibold" style={{color:'#6b5f4e'}}>
             {isPT?'Double Team':'Double Team'}
-            <InfoTip text={isPT?'Escolhe o jogador mais perigoso do adversário desta semana para dobrar a marcação — reduz muito o lançamento e aumenta as perdas de bola dele, mas deixa os companheiros dele com lançamentos mais fáceis. Se ele não estiver em campo, não tem efeito nenhum.':'Pick this week\'s opponent\'s most dangerous player to double-team — sharply reduces his shooting and raises his turnovers, but leaves his teammates with easier looks. Has no effect at all if he\'s not on the floor.'} />
+            <InfoTip text={isPT?'Escolhe um jogador para dobrar a marcação — reduz muito o lançamento e aumenta as perdas de bola dele, mas deixa os companheiros dele com lançamentos mais fáceis. Tal como o Ritmo e os Estilos, aplica-se a todos os jogos desta semana — mas só tem efeito real no jogo contra a equipa real desse jogador; nos outros joga como se não estivesse definido.':'Pick a player to double-team — sharply reduces his shooting and raises his turnovers, but leaves his teammates with easier looks. Like Pace and the Styles, this applies to every game this week — but it only actually does anything in the game against that player\'s real team; in the others it\'s simply inactive.'} />
           </label>
           <select value={doubleTeamTarget} onChange={e=>setDoubleTeamTarget(e.target.value)}
             className="w-full text-xs px-3 py-2 rounded-lg"
             style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}>
             <option value="">-- {isPT?'Nenhum':'None'} --</option>
-            {oppPlayers.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
+            {oppGroups.map(g=>(
+              <optgroup key={g.teamId} label={`vs ${g.teamName}`}>
+                {g.players.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
+              </optgroup>
+            ))}
           </select>
           <p className="text-xs mt-1" style={{color:'#9c8e7a'}}>
-            {oppName
-              ? (isPT?`Adversário desta semana: ${oppName}`:`This week's opponent: ${oppName}`)
-              : (isPT?'Sem jogo agendado esta semana.':'No game scheduled this week.')}
+            {oppGroups.length>0
+              ? (isPT?`Adversários desta semana: ${oppGroups.map(g=>g.teamName).join(', ')}`:`This week's opponents: ${oppGroups.map(g=>g.teamName).join(', ')}`)
+              : (isPT?'Sem jogos agendados esta semana.':'No games scheduled this week.')}
           </p>
         </div>
       </div>
