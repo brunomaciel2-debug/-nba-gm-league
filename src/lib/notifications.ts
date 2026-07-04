@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek } from './season-week-helper'
-import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifPlayoffBubble, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk } from './notifications-helpers'
+import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk } from './notifications-helpers'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -159,10 +159,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     const rank = confTeams.findIndex((t:any) => t.id === team.id) + 1
     const lang = await getTeamLang(team.id)
 
-    if (rank === 8) {
-      const notif = notifPlayoffBubble(lang, team.conference, rank)
-      await notify(team.id, 'standings', notif.subject, notif.body, { rank })
-    } else if (rank === 9) {
+    if (rank === 9) {
       const notif = notifDroppedOutPlayoffs(lang, team.conference)
       await notify(team.id, 'standings', notif.subject, notif.body, { rank })
     } else if (rank === 1) {

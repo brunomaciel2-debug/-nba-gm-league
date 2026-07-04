@@ -144,15 +144,6 @@ export function notifTechnicalFoul(
   }
 }
 
-export function notifPlayoffBubble(lang: 'en'|'pt', conference: string, rank: number) {
-  return {
-    subject: lang === 'pt' ? `⚠️ Estás na bolha dos playoffs` : `⚠️ You are on the playoff bubble`,
-    body: lang === 'pt'
-      ? `Estás atualmente em #${rank} na Conferência ${conference === 'Eastern' ? 'Este' : 'Oeste'} — o último lugar dos playoffs. Uma má semana pode tirarte da corrida.`
-      : `You are currently #${rank} in the ${conference} Conference — the last playoff spot. One bad week could drop you to the play-in.`,
-  }
-}
-
 export function notifDroppedOutPlayoffs(lang: 'en'|'pt', conference: string) {
   return {
     subject: lang === 'pt' ? `📉 Caíste fora dos playoffs` : `📉 You dropped out of the playoffs`,
