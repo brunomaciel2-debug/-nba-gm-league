@@ -29,13 +29,17 @@ const isPreseason = getStatusForWeek(week) === 'pre-season'
 let gamesSimulated = 0
 const gamesCreated: string[] = []
 
-// The random round-robin only runs during the real Regular Season. During
-// Pre-Season, only games GMs actually scheduled (the friendlies resolved
-// below) should be considered for that week — no invented matchups.
+// Regular Season games are never invented — they must already exist in the
+// real schedule (created ahead of time, e.g. via a schedule generator) as
+// `games` rows with status='scheduled' for this exact week_number. Only
+// Pre-Season friendlies (resolved below) are the exception, since GMs
+// schedule those manually as they go.
 if (!isPreseason) {
 
 const { data: teams } = await supabaseAdmin.from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)')
 if (!teams || teams.length < 2) return NextResponse.json({ error: 'Not enough teams' }, { status:500 })
+const teamMap: Record<string,any> = {}
+teams.forEach((t:any) => teamMap[t.id] = t)
 
 // Real NBA arena capacities as fallback
 const arenaCapacityMap: Record<string,number> = {
@@ -49,14 +53,12 @@ const { data: orders } = await supabaseAdmin.from('gm_orders').select('*').eq('w
 const orderMap: Record<string, any> = {}
 ;(orders||[]).forEach((o:any) => orderMap[o.team_id] = o)
 
-// Round-robin: each team plays 4 games per week
-const shuffled = [...teams].sort(() => Math.random() - 0.5)
-const pairs: Array<[any,any]> = []
-for (let i=0; i<shuffled.length-1; i+=2) pairs.push([shuffled[i], shuffled[i+1]])
-const allPairs = [...pairs, ...pairs] // 4 games per team
+// Only the games actually scheduled for this week — nothing invented
+const { data: weekGames } = await supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
 
-for (let gi=0; gi<allPairs.length; gi++) {
-const [ht, at] = allPairs[gi]
+for (const sg of (weekGames||[])) {
+const ht = teamMap[sg.home_team], at = teamMap[sg.away_team]
+if (!ht || !at) continue
 const [{ data: hp }, { data: ap }] = await Promise.all([
 supabaseAdmin.from('players').select('*').eq('team_id', ht.id).eq('status','active'),
 supabaseAdmin.from('players').select('*').eq('team_id', at.id).eq('status','active'),
@@ -72,14 +74,11 @@ const baseAttRate = 0.65 + htWinPct * 0.20 + (isRivalry ? 0.08 : 0)
 const attRate = Math.min(0.98, baseAttRate + (Math.random() * 0.06 - 0.03))
 const attendance = Math.round((ht.arena_capacity || arenaCapacityMap[ht.id] || 18000) * attRate)
 
-const { data: gameRec } = await supabaseAdmin.from('games').insert({
-week_number: week, game_number: gi+1,
-home_team: ht.id, away_team: at.id,
+const { data: gameRec } = await supabaseAdmin.from('games').update({
 home_score: result.homeScore, away_score: result.awayScore,
 status: 'final', played_at: new Date().toISOString(),
 attendance, is_rivalry: isRivalry,
-game_type: isPreseason ? 'preseason' : 'regular',
-}).select().single()
+}).eq('id', sg.id).select().single()
 if (!gameRec) continue
 gamesSimulated++
 gamesCreated.push(gameRec.id)

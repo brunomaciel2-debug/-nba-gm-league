@@ -10,6 +10,7 @@ export default function SchedulePage() {
   const isPT = t('common.save') === 'Guardar'
   const [games,setGames]=useState<any[]>([])
   const [teamMap,setTeamMap]=useState<Record<string,any>>({})
+  const [worldTeamIds,setWorldTeamIds]=useState<Set<string>>(new Set())
   const [loading,setLoading]=useState(true)
 
   const GAME_TYPE_LABEL_EN: Record<string,{label:string,bg:string,color:string}> = {
@@ -31,9 +32,30 @@ export default function SchedulePage() {
       supabase.from('games').select('*').order('played_at').order('game_number').range(0,699),
       supabase.from('games').select('*').order('played_at').order('game_number').range(700,1299),
       supabase.from('teams').select('id,name,color,logo_url'),
-    ]).then(([{data:g1},{data:g2},{data:teams}])=>{
-      setGames([...(g1||[]),...(g2||[])])
+      supabase.from('preseason_games').select('*').eq('season','2025-26'),
+    ]).then(([{data:g1},{data:g2},{data:teams}, {data:preseason}])=>{
+      const normalizedPreseason = (preseason||[])
+        .filter((g:any)=>['scheduled','accepted','final'].includes(g.status))
+        .map((g:any)=>({
+          id: g.game_id || g.id,
+          week_number: 0, game_number: 0,
+          home_team: g.home_team, away_team: g.away_team,
+          home_score: g.home_score || null, away_score: g.away_score || null,
+          status: g.status==='final' ? 'final' : 'scheduled',
+          played_at: g.scheduled_date ? g.scheduled_date+'T12:00:00' : null,
+          game_type: 'preseason',
+        }))
+      setGames([...(g1||[]),...(g2||[]),...normalizedPreseason])
       setTeamMap(Object.fromEntries((teams||[]).map((t:any)=>[t.id,t])))
+
+      const missingIds = Array.from(new Set(normalizedPreseason.flatMap((g:any)=>[g.home_team,g.away_team])
+        .filter((id:string)=>id && !(teams||[]).some((t:any)=>t.id===id))))
+      if (missingIds.length>0) {
+        supabase.from('world_teams').select('id,name,color,logo_url').in('id',missingIds).then(({data:wt})=>{
+          setTeamMap(prev=>({...prev, ...Object.fromEntries((wt||[]).map((t:any)=>[t.id,t]))}))
+          setWorldTeamIds(new Set(missingIds))
+        })
+      }
       setLoading(false)
     })
   },[])
@@ -96,10 +118,10 @@ export default function SchedulePage() {
                   <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:typeInfo.bg,color:typeInfo.color,fontSize:10}}>{typeInfo.label}</span>
                   <div className="flex-1 flex items-center gap-2 min-w-0 flex-wrap">
                     {home?.logo_url&&<img src={home.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
-                    <Link href={`/team/${g.home_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='away'?'#8a8279':homeColor}}>{home?.name||g.home_team}</Link>
+                    <Link href={worldTeamIds.has(g.home_team)?`/world/${g.home_team}`:`/team/${g.home_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='away'?'#8a8279':homeColor}}>{home?.name||g.home_team}</Link>
                     {isFinal?<span className="font-black text-sm mx-1" style={{color:'#1a1512'}}>{g.home_score}–{g.away_score}</span>:<span className="text-xs mx-1" style={{color:'#8a8279'}}>vs</span>}
                     {away?.logo_url&&<img src={away.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
-                    <Link href={`/team/${g.away_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='home'?'#8a8279':awayColor}}>{away?.name||g.away_team}</Link>
+                    <Link href={worldTeamIds.has(g.away_team)?`/world/${g.away_team}`:`/team/${g.away_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='home'?'#8a8279':awayColor}}>{away?.name||g.away_team}</Link>
                   </div>
                   {isFinal
                     ?<Link href={`/game/${g.id}`} className="text-xs no-underline px-2 py-1 rounded flex-shrink-0" style={{background:'#e8e2d6',color:'#1d4ed8'}}>{isPT?'Box Score →':'Box Score →'}</Link>
