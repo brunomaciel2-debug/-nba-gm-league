@@ -35,8 +35,34 @@ const UNLOCK_REQ_PT: Record<string,string> = {
   playmaking:'Ginásio Grau D', mental:'Coach Mental', recovery:'Piscina ou Sauna', shooting:'Máquina de Lançamento', analytics:'Ginásio Grau A',
 }
 
+// Matches the exact weighting used in the weekly fill step (cron/simulate/route.ts).
+const STAFF_LABEL_EN: Record<string,string> = {
+  offense:'60% Head Coach + 40% Assistant Coach', defense:'60% Head Coach + 40% Assistant Coach',
+  physical:'70% Trainer + 30% Head Coach', playmaking:'60% Head Coach + 40% Assistant Coach',
+  mental:'60% Head Coach + 40% Assistant Coach', recovery:'70% Trainer + 30% Head Coach',
+  shooting:'60% Head Coach + 40% Assistant Coach', analytics:'60% Head Coach + 40% Assistant Coach',
+}
+const STAFF_LABEL_PT: Record<string,string> = {
+  offense:'60% Head Coach + 40% Assistant Coach', defense:'60% Head Coach + 40% Assistant Coach',
+  physical:'70% Preparador Físico + 30% Head Coach', playmaking:'60% Head Coach + 40% Assistant Coach',
+  mental:'60% Head Coach + 40% Assistant Coach', recovery:'70% Preparador Físico + 30% Head Coach',
+  shooting:'60% Head Coach + 40% Assistant Coach', analytics:'60% Head Coach + 40% Assistant Coach',
+}
+
 function costForOnePoint(v:number):number { if(v<=60)return 0.5; if(v<=75)return 1; if(v<=90)return 2; return 3 }
 function attrColor(v:number):string { if(v>=85)return'#b45309'; if(v>=75)return'#15803d'; if(v>=65)return'#1d4ed8'; return'#8a8279' }
+
+function StaffTip({text,isPT}:{text:string,isPT:boolean}){
+  return (
+    <span className="relative group inline-flex ml-1 cursor-help align-middle">
+      <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:13,height:13,borderRadius:'50%',background:'#d4cdc5',color:'#5c554e',fontSize:9,fontWeight:700,lineHeight:1}}>i</span>
+      <span className="absolute left-0 top-full mt-1 z-50 px-2.5 py-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+        style={{background:'#1a1512',color:'#f5f1eb',width:190,whiteSpace:'normal',lineHeight:1.5,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
+        {isPT?'Quem enche este slot: ':'Who fills this slot: '}{text}
+      </span>
+    </span>
+  )
+}
 
 export default function TrainingTab({teamId,teamColor,players}:{teamId:string,teamColor:string,players:Player[]}) {
   const {profile} = useAuth()
@@ -145,7 +171,10 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
               style={{background:isSelected?c.bg:'#faf8f5',border:`1px solid ${isSelected?c.color:'#d4cdc5'}`,borderTop:`3px solid ${isSelected||isFull?c.color:'#d4cdc5'}`,borderRadius:10,padding:'10px 12px',cursor:isGM?'pointer':'default',transition:'all 0.15s'}}>
               <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:isGM?6:0}}>
                 <span style={{fontSize:16}}>{c.icon}</span>
-                <span style={{fontSize:12,fontWeight:700,color:c.color,flex:1}}>{c.label}</span>
+                <span style={{fontSize:12,fontWeight:700,color:c.color,flex:1,display:'flex',alignItems:'center'}}>
+                  {c.label}
+                  {isGM && <StaffTip text={(isPT?STAFF_LABEL_PT:STAFF_LABEL_EN)[slot.slot_type]} isPT={isPT}/>}
+                </span>
                 {isGM && slot.credits_available>0 && (
                   <span style={{background:c.color,color:'#fff',fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:10}}>{slot.credits_available}cr</span>
                 )}
@@ -309,8 +338,8 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
 
       <div style={{marginTop:12,padding:'8px 12px',background:'#f0ece5',borderRadius:8,fontSize:10,color:'#6b5f4e',lineHeight:1.5}}>
         {isPT
-          ? 'Slots enchem automaticamente por semana · Slot cheio = 10 créditos · Máx 3 créditos por jogador por ciclo · Atributos limitados pelo potencial individual'
-          : 'Slots fill automatically each week · Full slot = 10 credits · Max 3 credits per player per cycle · Attributes capped at individual potential'}
+          ? 'Slots enchem automaticamente por semana, a uma velocidade que depende do staff técnico certo para cada área (passa o rato sobre o ⓘ) · Slot cheio = 10 créditos · Máx 3 créditos por jogador por ciclo · Atributos limitados pelo potencial individual'
+          : 'Slots fill automatically each week, at a speed that depends on the right staff member for each area (hover the ⓘ) · Full slot = 10 credits · Max 3 credits per player per cycle · Attributes capped at individual potential'}
       </div>
     </div>
   )
