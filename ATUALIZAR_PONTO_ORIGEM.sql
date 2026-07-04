@@ -64,9 +64,6 @@ INSERT INTO attribute_development_preteste SELECT * FROM attribute_development;
 TRUNCATE TABLE injury_log_preteste CASCADE;
 INSERT INTO injury_log_preteste SELECT * FROM injury_log;
 
-TRUNCATE TABLE injuries_preteste CASCADE;
-INSERT INTO injuries_preteste SELECT * FROM injuries;
-
 TRUNCATE TABLE transactions_preteste CASCADE;
 INSERT INTO transactions_preteste SELECT * FROM transactions;
 
