@@ -2,6 +2,12 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
+import { useTranslation } from '@/components/I18nProvider'
+
+function useIsPT() {
+  const { t } = useTranslation()
+  return t('common.save') === 'Guardar'
+}
 
 type Template = {
   id: string
@@ -61,7 +67,7 @@ type PoolEntry = {
   objectives?: Objective[]
 }
 
-const TIER_CONFIG = {
+const TIER_CONFIG_EN = {
   jersey: {
     label: 'Jersey Patch',
     icon: '👕',
@@ -85,6 +91,26 @@ const TIER_CONFIG = {
     bg: '#dcfce7',
     desc: 'Rotating electronic panels around the court perimeter',
     impact: 'Moderate visibility · Game-day exposure',
+  },
+}
+const TIER_CONFIG_PT: typeof TIER_CONFIG_EN = {
+  jersey: {
+    ...TIER_CONFIG_EN.jersey,
+    label: 'Patch da Camisola',
+    desc: 'Logótipo na camisola da equipa — visível em todos os jogos, transmissões e media',
+    impact: 'Visibilidade máxima · Marca em cada jogador',
+  },
+  court: {
+    ...TIER_CONFIG_EN.court,
+    label: 'Logótipo do Campo',
+    desc: 'Logótipo pintado no centro do campo — foco permanente das câmaras',
+    impact: 'Alta visibilidade · Todos os ângulos de transmissão',
+  },
+  panels: {
+    ...TIER_CONFIG_EN.panels,
+    label: 'Painéis Courtside',
+    desc: 'Painéis electrónicos rotativos à volta do perímetro do campo',
+    impact: 'Visibilidade moderada · Exposição no dia de jogo',
   },
 }
 
@@ -151,6 +177,7 @@ function Tip({ text, children }: TipProps) {
 }
 
 function ObjectiveRow({ obj, tracking, rivalName }: { obj: Objective, tracking?: ObjectiveTracking, rivalName?: string }) {
+  const isPT = useIsPT()
   const achieved = tracking?.achieved || false
   const paid = tracking?.paid || false
   const icon = OBJECTIVE_ICONS[obj.objective_type] || '🎯'
@@ -173,7 +200,7 @@ function ObjectiveRow({ obj, tracking, rivalName }: { obj: Objective, tracking?:
         </div>
         {tracking && !achieved && tracking.current_value > 0 && (
           <div style={{fontSize:10,color:'#8a8279',marginTop:2}}>
-            Progress: {tracking.current_value}{obj.threshold ? ` / ${obj.threshold}` : ''}
+            {isPT?'Progresso':'Progress'}: {tracking.current_value}{obj.threshold ? ` / ${obj.threshold}` : ''}
           </div>
         )}
       </div>
@@ -183,7 +210,7 @@ function ObjectiveRow({ obj, tracking, rivalName }: { obj: Objective, tracking?:
         </div>
         {achieved && (
           <div style={{fontSize:9,color:paid?'#15803d':'#b45309',fontWeight:600}}>
-            {paid ? '✓ Paid' : '⏳ Pending'}
+            {paid ? (isPT?'✓ Pago':'✓ Paid') : (isPT?'⏳ Pendente':'⏳ Pending')}
           </div>
         )}
       </div>
@@ -192,6 +219,7 @@ function ObjectiveRow({ obj, tracking, rivalName }: { obj: Objective, tracking?:
 }
 
 function JerseyPreview({ jerseyUrl, companyName }: { jerseyUrl: string, companyName: string }) {
+  const isPT = useIsPT()
   const [zoomed, setZoomed] = useState(false)
   return (
     <>
@@ -203,10 +231,10 @@ function JerseyPreview({ jerseyUrl, companyName }: { jerseyUrl: string, companyN
           background:'#f5f1eb', textAlign:'center', padding:8,
           cursor:'zoom-in', position:'relative',
         }}>
-        <img src={jerseyUrl} alt="Jersey preview"
+        <img src={jerseyUrl} alt={isPT?'Pré-visualização da camisola':'Jersey preview'}
           style={{height:120, objectFit:'contain', display:'block', margin:'0 auto'}}/>
         <div style={{fontSize:9,color:'#8a8279',marginTop:4}}>
-          🔍 Click to enlarge
+          🔍 {isPT?'Clica para ampliar':'Click to enlarge'}
         </div>
       </div>
 
@@ -231,7 +259,7 @@ function JerseyPreview({ jerseyUrl, companyName }: { jerseyUrl: string, companyN
             <img src={jerseyUrl} alt={companyName}
               style={{maxHeight:'70vh', maxWidth:'80vw', objectFit:'contain', borderRadius:8}}/>
             <div style={{fontSize:13, fontWeight:600, color:'#1a1512'}}>{companyName}</div>
-            <div style={{fontSize:11, color:'#8a8279'}}>Jersey sponsor patch preview</div>
+            <div style={{fontSize:11, color:'#8a8279'}}>{isPT?'Pré-visualização do patch da camisola':'Jersey sponsor patch preview'}</div>
             <button
               onClick={() => setZoomed(false)}
               style={{
@@ -239,7 +267,7 @@ function JerseyPreview({ jerseyUrl, companyName }: { jerseyUrl: string, companyN
                 border:'1px solid #d4cdc5', borderRadius:8,
                 background:'#f0ece5', color:'#5c554e', cursor:'pointer',
               }}>
-              Close
+              {isPT?'Fechar':'Close'}
             </button>
           </div>
         </div>
@@ -249,6 +277,7 @@ function JerseyPreview({ jerseyUrl, companyName }: { jerseyUrl: string, companyN
 }
 
 function SponsorImagePreview({ jerseyUrl, companyName, label, aspect }: { jerseyUrl: string, companyName: string, label: string, aspect: string }) {
+  const isPT = useIsPT()
   const [zoomed, setZoomed] = useState(false)
   return (
     <>
@@ -259,7 +288,7 @@ function SponsorImagePreview({ jerseyUrl, companyName, label, aspect }: { jersey
         <div style={{aspectRatio:aspect, overflow:'hidden', borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center'}}>
           <img src={jerseyUrl} alt={companyName} style={{maxWidth:'100%', maxHeight:'100%', objectFit:'contain'}}/>
         </div>
-        <div style={{fontSize:9, color:'#8a8279', marginTop:4}}>🔍 Click to enlarge</div>
+        <div style={{fontSize:9, color:'#8a8279', marginTop:4}}>🔍 {isPT?'Clica para ampliar':'Click to enlarge'}</div>
       </div>
       {zoomed && (
         <div onClick={() => setZoomed(false)} style={{
@@ -279,7 +308,7 @@ function SponsorImagePreview({ jerseyUrl, companyName, label, aspect }: { jersey
               padding:'6px 20px', fontSize:12, fontWeight:600,
               border:'1px solid #d4cdc5', borderRadius:8,
               background:'#f0ece5', color:'#5c554e', cursor:'pointer',
-            }}>Close</button>
+            }}>{isPT?'Fechar':'Close'}</button>
           </div>
         </div>
       )}
@@ -302,6 +331,8 @@ function SponsorCard({
   realCompanyName?: string
   companyDescription?: string
 }) {
+  const isPT = useIsPT()
+  const TIER_CONFIG = isPT ? TIER_CONFIG_PT : TIER_CONFIG_EN
   const t = entry.template!
   const tier = TIER_CONFIG[entry.tier as keyof typeof TIER_CONFIG]
   const fixedMonthly = Math.round(t.fixed_annual / 12)
@@ -319,10 +350,10 @@ function SponsorCard({
         <JerseyPreview jerseyUrl={jerseyUrl} companyName={t.company_name} />
       )}
       {jerseyUrl && entry.tier === 'court' && (
-        <SponsorImagePreview jerseyUrl={jerseyUrl} companyName={t.company_name} label="Court logo preview" aspect="3/2"/>
+        <SponsorImagePreview jerseyUrl={jerseyUrl} companyName={t.company_name} label={isPT?'Pré-visualização do logótipo do campo':'Court logo preview'} aspect="3/2"/>
       )}
       {jerseyUrl && entry.tier === 'panels' && (
-        <SponsorImagePreview jerseyUrl={jerseyUrl} companyName={t.company_name} label="Courtside panel preview" aspect="4/1"/>
+        <SponsorImagePreview jerseyUrl={jerseyUrl} companyName={t.company_name} label={isPT?'Pré-visualização do painel courtside':'Courtside panel preview'} aspect="4/1"/>
       )}
 
       {/* Header */}
@@ -346,44 +377,44 @@ function SponsorCard({
         </div>
         {entry.chosen && (
           <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,background:tier.color,color:'#fff'}}>
-            ✓ Active
+            ✓ {isPT?'Activo':'Active'}
           </span>
         )}
       </div>
 
       {/* Financials */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
-        <Tip text="Guaranteed fixed payment regardless of performance">
+        <Tip text={isPT?'Pagamento fixo garantido, independentemente do desempenho':'Guaranteed fixed payment regardless of performance'}>
           <div style={{background:tier.bg,borderRadius:8,padding:'8px 10px',cursor:'help',width:'100%'}}>
-            <div style={{fontSize:9,color:tier.color,fontWeight:600,marginBottom:2}}>FIXED / YEAR</div>
+            <div style={{fontSize:9,color:tier.color,fontWeight:600,marginBottom:2}}>{isPT?'FIXO / ANO':'FIXED / YEAR'}</div>
             <div style={{fontSize:16,fontWeight:800,color:tier.color}}>{fmt(t.fixed_annual)}</div>
-            <div style={{fontSize:10,color:tier.color+'99'}}>{fmt(fixedMonthly)}/mo</div>
+            <div style={{fontSize:10,color:tier.color+'99'}}>{fmt(fixedMonthly)}/mês</div>
           </div>
         </Tip>
-        <Tip text="Maximum bonus if all objectives are achieved">
+        <Tip text={isPT?'Bónus máximo se todos os objectivos forem alcançados':'Maximum bonus if all objectives are achieved'}>
           <div style={{background:'#f0ece5',borderRadius:8,padding:'8px 10px',cursor:'help',width:'100%'}}>
-            <div style={{fontSize:9,color:'#5c554e',fontWeight:600,marginBottom:2}}>VARIABLE MAX</div>
+            <div style={{fontSize:9,color:'#5c554e',fontWeight:600,marginBottom:2}}>{isPT?'MÁX. VARIÁVEL':'VARIABLE MAX'}</div>
             <div style={{fontSize:16,fontWeight:800,color:'#5c554e'}}>{fmt(t.variable_max)}</div>
-            <div style={{fontSize:10,color:'#8a8279'}}>by objectives</div>
+            <div style={{fontSize:10,color:'#8a8279'}}>{isPT?'por objectivos':'by objectives'}</div>
           </div>
         </Tip>
       </div>
 
       {/* Total potential */}
-      <Tip text="Fixed + all bonuses if every objective is met">
+      <Tip text={isPT?'Fixo + todos os bónus se cada objectivo for cumprido':'Fixed + all bonuses if every objective is met'}>
         <div style={{
           display:'flex',justifyContent:'space-between',alignItems:'center',
           padding:'6px 10px',borderRadius:6,marginBottom:12,cursor:'help',
           background:'rgba(0,0,0,0.03)',border:'1px solid #e2dcd5',
         }}>
-          <span style={{fontSize:11,color:'#8a8279'}}>Total potential</span>
+          <span style={{fontSize:11,color:'#8a8279'}}>{isPT?'Potencial total':'Total potential'}</span>
           <span style={{fontSize:13,fontWeight:700,color:'#1a1512'}}>{fmt(t.fixed_annual + t.variable_max)}</span>
         </div>
       </Tip>
 
       {/* Objectives */}
       <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#8a8279',marginBottom:6}}>
-        Bonus Objectives
+        {isPT?'Objectivos de Bónus':'Bonus Objectives'}
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:isGM && !hasContract ? 12 : 0}}>
         {objectives.map(obj => (
@@ -402,7 +433,7 @@ function SponsorCard({
             color:signing?'#8a8279':'#fff',
             marginTop:12,
           }}>
-          {signing ? 'Signing...' : `Sign Contract — ${fmt(fixedMonthly)}/mo`}
+          {signing ? (isPT?'A assinar...':'Signing...') : `${isPT?'Assinar Contrato':'Sign Contract'} — ${fmt(fixedMonthly)}/${isPT?'mês':'mo'}`}
         </button>
       )}
     </div>
@@ -410,6 +441,8 @@ function SponsorCard({
 }
 
 export default function SponsorsTab({ teamId, teamColor }: { teamId: string, teamColor: string }) {
+  const isPT = useIsPT()
+  const TIER_CONFIG = isPT ? TIER_CONFIG_PT : TIER_CONFIG_EN
   const { profile } = useAuth()
   const isGM = (profile as any)?.team_id === teamId || profile?.role === 'commissioner'
 
@@ -501,11 +534,11 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
 
     setPool(prev => prev.map(e => e.id === poolId ? { ...e, chosen: true } : e))
     setContracts(prev => [...prev, { ...contract, tier, fixed_monthly: fixedMonthly, status: 'active', signed_at: new Date().toISOString() }])
-    setMsg(`Contract signed! ${fmt(fixedMonthly)}/month added to your balance.`)
+    setMsg(isPT ? `Contrato assinado! ${fmt(fixedMonthly)}/mês adicionado ao teu saldo.` : `Contract signed! ${fmt(fixedMonthly)}/month added to your balance.`)
     setSigning(false)
   }
 
-  if (loading) return <div style={{color:'#8a8279',padding:20}}>Loading sponsors...</div>
+  if (loading) return <div style={{color:'#8a8279',padding:20}}>{isPT?'A carregar patrocinadores...':'Loading sponsors...'}</div>
 
   const tiers: ('jersey'|'court'|'panels')[] = ['jersey','court','panels']
 
@@ -521,7 +554,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
       {contracts.length > 0 && (
         <div style={{marginBottom:16,padding:'12px 16px',background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:10}}>
           <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#8a8279',marginBottom:8}}>
-            Active Contracts
+            {isPT?'Contratos Activos':'Active Contracts'}
           </div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {contracts.map(c=>{
@@ -535,17 +568,17 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
                   <span style={{fontSize:14}}>{tier.icon}</span>
                   <div>
                     <div style={{fontSize:11,fontWeight:700,color:tier.color}}>{template?.company_name||'—'}</div>
-                    <div style={{fontSize:10,color:tier.color+'99'}}>{fmt(c.fixed_monthly)}/mo · {tier.label}</div>
+                    <div style={{fontSize:10,color:tier.color+'99'}}>{fmt(c.fixed_monthly)}/{isPT?'mês':'mo'} · {tier.label}</div>
                   </div>
                 </div>
               )
             })}
-            <Tip text="Total guaranteed monthly income from all active sponsors">
+            <Tip text={isPT?'Receita mensal total garantida de todos os patrocinadores activos':'Total guaranteed monthly income from all active sponsors'}>
               <div style={{
                 display:'flex',alignItems:'center',gap:6,padding:'6px 12px',
                 borderRadius:8,background:'#f0ece5',border:'1px solid #d4cdc5',cursor:'help',
               }}>
-                <span style={{fontSize:11,color:'#5c554e'}}>Monthly income:</span>
+                <span style={{fontSize:11,color:'#5c554e'}}>{isPT?'Receita mensal:':'Monthly income:'}</span>
                 <span style={{fontSize:13,fontWeight:700,color:'#15803d'}}>
                   {fmt(contracts.reduce((t,c)=>t+c.fixed_monthly,0))}
                 </span>
@@ -625,7 +658,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
 
       {!isGM && (
         <div style={{marginTop:16,padding:'10px 14px',background:'#f0ece5',borderRadius:8,fontSize:11,color:'#8a8279'}}>
-          🔒 Sponsor contracts and financial details are private to the franchise GM.
+          🔒 {isPT?'Os contratos de patrocínio e detalhes financeiros são privados, só o GM da franquia os vê.':'Sponsor contracts and financial details are private to the franchise GM.'}
         </div>
       )}
     </div>
