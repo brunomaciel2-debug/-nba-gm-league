@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { readableTeamColor } from '@/lib/color'
+import { readableTeamColor, readableTeamColorOnDark } from '@/lib/color'
 import { notFound } from 'next/navigation'
 export const dynamic = 'force-dynamic'
 
@@ -26,6 +26,8 @@ export default async function GamePage({ params }: { params: { id: string } }) {
   const away = game.away as any
   const homeColor = readableTeamColor(home?.color)
   const awayColor = readableTeamColor(away?.color)
+  const homeColorOnDark = readableTeamColorOnDark(home?.color)
+  const awayColorOnDark = readableTeamColorOnDark(away?.color)
   const homeWon = game.home_score > game.away_score
 
   const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', {
@@ -119,10 +121,10 @@ export default async function GamePage({ params }: { params: { id: string } }) {
               {home?.logo_url && (
                 <img src={home.logo_url} alt="" className="w-20 h-20 object-contain mx-auto mb-3"/>
               )}
-              <div className="text-sm font-bold" style={{color:homeColor}}>{home?.name}</div>
+              <div className="text-sm font-bold" style={{color:homeColorOnDark}}>{home?.name}</div>
               <div className="text-xs mb-2" style={{color:'#8a8279'}}>HOME</div>
             </Link>
-            <div className="text-6xl font-black" style={{color:homeWon?homeColor:'#5c554e'}}>
+            <div className="text-6xl font-black" style={{color:homeWon?homeColorOnDark:'#5c554e'}}>
               {game.home_score}
             </div>
             {homeWon && <div className="text-xs font-bold mt-1" style={{color:'#4ade80'}}>WIN</div>}
@@ -144,10 +146,10 @@ export default async function GamePage({ params }: { params: { id: string } }) {
               {away?.logo_url && (
                 <img src={away.logo_url} alt="" className="w-20 h-20 object-contain mx-auto mb-3"/>
               )}
-              <div className="text-sm font-bold" style={{color:awayColor}}>{away?.name}</div>
+              <div className="text-sm font-bold" style={{color:awayColorOnDark}}>{away?.name}</div>
               <div className="text-xs mb-2" style={{color:'#8a8279'}}>AWAY</div>
             </Link>
-            <div className="text-6xl font-black" style={{color:!homeWon?awayColor:'#5c554e'}}>
+            <div className="text-6xl font-black" style={{color:!homeWon?awayColorOnDark:'#5c554e'}}>
               {game.away_score}
             </div>
             {!homeWon && <div className="text-xs font-bold mt-1" style={{color:'#4ade80'}}>WIN</div>}
