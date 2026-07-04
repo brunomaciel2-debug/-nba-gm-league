@@ -4,8 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
 const SEASONS = ['2025-26','2026-27','2027-28','2028-29','2029-30']
-const SALARY_CAP = 141000000
-const LUX_TAX   = 172000000
+const SALARY_CAP = 180_000_000 // matches teams.salary_cap, the cap used everywhere else in the app
+const LUX_TAX   = 220_000_000 // proportional to the real cap/tax-line ratio, scaled to this league's $180M cap
 const CURRENT_SEASON = '2025-26'
 const CURRENT_YEAR = 2025
 

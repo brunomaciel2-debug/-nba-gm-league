@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 const CAP = 180_000_000
 const MIN_ROSTER = 12
 const MAX_ROSTER = 15
-const MIN_SALARY = 1_000_000
+const OFFER_SALARY = 650_000 // every FA signing is this flat 1-year deal, see /api/fa/offer
 const CAP_WARNING_THRESHOLD = 5_000_000 // warn if cap space < $5M after signing
 
 function fmt(n: number) {
@@ -38,17 +38,19 @@ export default function OfferButton({ playerId, isAssigned }: { playerId: number
       if (offer) setOffered(true)
 
       // Load cap & roster info
-      const [{ data: team }, { data: players }, { data: faPlayer }] = await Promise.all([
+      const [{ data: team }, { data: players }] = await Promise.all([
         supabase.from('teams').select('cap_used,salary_cap').eq('id', gm.team_id).single(),
         supabase.from('players').select('id,salary').eq('team_id', gm.team_id).eq('status', 'active'),
-        supabase.from('players').select('salary').eq('id', playerId).single(),
       ])
 
-      if (!team || !faPlayer) return
+      if (!team) return
 
       const capUsed = players?.reduce((s, p) => s + (p.salary || 0), 0) || 0
       const rosterSize = players?.length || 0
-      const playerSalary = faPlayer.salary || MIN_SALARY
+      // Every FA signing is a flat $650K/1yr deal (see /api/fa/offer) — the
+      // player's own "salary" field reflects their market value, not what
+      // they'll actually be signed for, so it's never used in this math.
+      const playerSalary = OFFER_SALARY
       const newCapUsed = capUsed + playerSalary
       const capSpace = CAP - capUsed
       const canSign = newCapUsed <= CAP && rosterSize < MAX_ROSTER
@@ -62,7 +64,7 @@ export default function OfferButton({ playerId, isAssigned }: { playerId: number
       } else {
         const spaceAfter = CAP - newCapUsed
         const spotsLeft = MAX_ROSTER - rosterSize - 1 // after signing this player
-        if (spotsLeft > 0 && spaceAfter < spotsLeft * MIN_SALARY) {
+        if (spotsLeft > 0 && spaceAfter < spotsLeft * OFFER_SALARY) {
           warning = `⚠️ After signing, you'll have ${fmt(spaceAfter)} cap space for ${spotsLeft} more slot${spotsLeft > 1 ? 's' : ''}. You may not be able to reach the ${MIN_ROSTER}-player minimum.`
         } else if (spaceAfter < CAP_WARNING_THRESHOLD) {
           warning = `⚠️ Only ${fmt(spaceAfter)} cap space remaining after this signing.`

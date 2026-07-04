@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
   const OFFER_SALARY = 650000
   const { data: roster } = await admin.from('players').select('salary').eq('team_id', profile.team_id).eq('status', 'active')
   const used = (roster || []).reduce((s: number, p: any) => s + (p.salary || 0), 0)
-  const CAP = 141000000
-  if (used + OFFER_SALARY > CAP * 1.1) return NextResponse.json({ error: 'Insufficient cap space' }, { status: 400 })
+  const CAP = 180_000_000 // matches teams.salary_cap and the cap used everywhere else in the app
+  if (used + OFFER_SALARY > CAP) return NextResponse.json({ error: 'Insufficient cap space' }, { status: 400 })
 
   // Insert or ignore duplicate offer
   const { error } = await admin.from('fa_offers').upsert({ player_id: playerId, team_id: profile.team_id }, { onConflict: 'player_id,team_id', ignoreDuplicates: true })
