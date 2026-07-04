@@ -4,7 +4,7 @@ import type { Article, Game, Team, Transaction } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
 import LeagueLeadersMini from './LeagueLeadersMini'
 import SeasonTimeline from '@/components/SeasonTimeline'
-import { WeeklyHighlightsHeader, HighlightCardTitle, HighlightEmpty, ViewBoxScore, WinStreakLabel, FeaturedHeader, FeaturedLabel, RecentResultsHeader, BoxScoreLink, UnderdogLabel, UotwWinLoss, WinBadge } from './HomePageClient'
+import { WeeklyHighlightsHeader, HighlightCardTitle, HighlightEmpty, ViewBoxScore, WinStreakLabel, FeaturedHeader, FeaturedLabel, RecentResultsHeader, BoxScoreLink, UnderdogLabel, UotwWinLoss, WinBadge, SeasonBadge, ArticleDate, WeekLabel } from './HomePageClient'
 export const revalidate = 60
 
 function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#1d4ed8' }
@@ -52,7 +52,7 @@ export default async function HomePage() {
           <div className="text-center">
             <div className="text-5xl mb-3">🏀</div>
             <h1 className="text-4xl font-black mb-2" style={{color:'#1a1612'}}>NBA GM League</h1>
-            <p className="text-lg" style={{color:'#6b5f4e'}}>2025-26 Season</p>
+            <SeasonBadge />
           </div>
         </div>
       )}
@@ -79,9 +79,7 @@ export default async function HomePage() {
                   {art.excerpt && (
                     <p className="text-sm" style={{color:'#3d3529',lineHeight:1.6}}>{art.excerpt}</p>
                   )}
-                  <p className="text-sm mt-3" style={{color:'#9c8e7a'}}>
-                    {new Date(art.created_at).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}
-                  </p>
+                  <ArticleDate date={art.created_at} />
                 </div>
               </div>
             </Link>
@@ -239,7 +237,7 @@ export default async function HomePage() {
                 <Link key={g.id} href={`/game/${g.id}`} className="no-underline">
                   <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
                        style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-                    <span className="text-xs w-6 font-semibold" style={{color:'#6b5f4e'}}>W{g.week_number}</span>
+                    <WeekLabel week={g.week_number} />
                     <div className="flex-1 flex items-center gap-3">
                       <span className="text-sm font-semibold" style={{color:winner==='home'?'#e8e2d6':'#5c554e'}}>
                         <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{background:teamColor(home)}}></span>

@@ -1,14 +1,9 @@
-import { supabase } from '@/lib/supabase'
+'use client'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
-export const revalidate = 60
-
-async function getStandings() {
-  const { data } = await supabase
-    .from('teams').select('id,name,color,logo_url,wins,losses,conference,pts_for,pts_against')
-    .not('id','in','(ALL,RVS)')
-  return data || []
-}
+import { useTranslation } from '@/components/I18nProvider'
 
 function sortConf(teams: any[]) {
   return [...teams].sort((a,b) => {
@@ -53,28 +48,43 @@ function Matchup({ hiTeam, loTeam, hiSeed, loSeed }: { hiTeam:any, loTeam:any, h
   )
 }
 
-export default async function PlayoffsPage() {
-  const teams = await getStandings()
+export default function PlayoffsPage() {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
+  const [teams, setTeams] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    supabase.from('teams').select('id,name,color,logo_url,wins,losses,conference,pts_for,pts_against')
+      .not('id','in','(ALL,RVS)')
+      .then(({data}) => { setTeams(data||[]); setLoading(false) })
+  }, [])
+
+  if (loading) return <div className="text-center py-12" style={{color:'#8a8279'}}>{t('common.loading')}</div>
+
   const east = sortConf(teams.filter((t:any) => t.conference === 'Eastern'))
   const west = sortConf(teams.filter((t:any) => t.conference === 'Western'))
 
   // East: 1-6 direct, 7&8 = TBD from play-in
   const eTop = east.slice(0,10)
   const wTop = west.slice(0,10)
+  const TBD = 'TBD'
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="sec-hdr mb-2">
         <span className="sec-title">
           <i className="ti ti-tournament" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>
-          2025-26 Playoff Picture
+          {isPT ? 'Quadro de Playoffs 2025-26' : '2025-26 Playoff Picture'}
         </span>
         <Link href="/standings" className="text-xs no-underline font-semibold" style={{color:'#c8102e'}}>
-          Standings →
+          {isPT ? 'Classificação →' : 'Standings →'}
         </Link>
       </div>
       <p className="text-xs mb-6" style={{color:'#8a8279'}}>
-        Based on current standings. Seeds 7 & 8 are determined by the Play-In Tournament. Updates after each simulation.
+        {isPT
+          ? 'Baseado na classificação actual. As posições 7 e 8 são decididas pelo Play-In Tournament. Actualiza a cada simulação.'
+          : 'Based on current standings. Seeds 7 & 8 are determined by the Play-In Tournament. Updates after each simulation.'}
       </p>
 
       {/* BRACKET — East left, West right, Finals center */}
@@ -83,7 +93,7 @@ export default async function PlayoffsPage() {
         {/* ── EAST (left side, reads inward) ── */}
         <div>
           <div className="text-xs font-bold uppercase tracking-widest mb-3 text-center"
-               style={{color:'#1e3a8a',letterSpacing:'1.5px'}}>Eastern Conference</div>
+               style={{color:'#1e3a8a',letterSpacing:'1.5px'}}>{isPT?'Conferência Este':'Eastern Conference'}</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',alignItems:'center'}}>
 
             {/* Round 1 — leftmost */}
@@ -98,18 +108,18 @@ export default async function PlayoffsPage() {
             <div style={{display:'flex',flexDirection:'column',gap:112,justifyContent:'space-around'}}>
               <div style={{display:'flex',flexDirection:'column',gap:3}}>
                 <div style={{height:58,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>SEMI A</span>
+                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>{isPT?'MEIA A':'SEMI A'}</span>
                 </div>
                 <div style={{height:58,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>TBD</span>
+                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>{TBD}</span>
                 </div>
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:3}}>
                 <div style={{height:58,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>SEMI B</span>
+                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>{isPT?'MEIA B':'SEMI B'}</span>
                 </div>
                 <div style={{height:58,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>TBD</span>
+                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>{TBD}</span>
                 </div>
               </div>
             </div>
@@ -117,10 +127,10 @@ export default async function PlayoffsPage() {
             {/* Conf Finals */}
             <div style={{display:'flex',flexDirection:'column',gap:2,alignSelf:'center'}}>
               <div style={{height:62,background:'#e8f0fe',border:'1px dashed #1e3a8a44',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:14,color:'#1e3a8a',fontWeight:700}}>EAST FINAL</span>
+                <span style={{fontSize:14,color:'#1e3a8a',fontWeight:700}}>{isPT?'FINAL ESTE':'EAST FINAL'}</span>
               </div>
               <div style={{height:62,background:'#e8f0fe',border:'1px dashed #1e3a8a44',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:14,color:'#1e3a8a',fontWeight:700}}>TBD</span>
+                <span style={{fontSize:14,color:'#1e3a8a',fontWeight:700}}>{TBD}</span>
               </div>
             </div>
           </div>
@@ -129,30 +139,30 @@ export default async function PlayoffsPage() {
         {/* ── NBA FINALS (center) ── */}
         <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,minWidth:100}}>
           <i className="ti ti-trophy" style={{fontSize:40,color:'#c8102e',marginBottom:4}}></i>
-          <div style={{fontSize:14,fontWeight:700,color:'#c8102e',letterSpacing:'1px',textTransform:'uppercase',textAlign:'center',marginBottom:8}}>NBA Finals</div>
+          <div style={{fontSize:14,fontWeight:700,color:'#c8102e',letterSpacing:'1px',textTransform:'uppercase',textAlign:'center',marginBottom:8}}>{isPT?'Finais NBA':'NBA Finals'}</div>
           <div style={{width:140,height:62,background:'#fff0f0',border:'1.5px dashed #c8102e',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <span style={{fontSize:14,color:'#c8102e',fontWeight:700}}>EAST</span>
+            <span style={{fontSize:14,color:'#c8102e',fontWeight:700}}>{isPT?'ESTE':'EAST'}</span>
           </div>
           <div style={{fontSize:14,color:'#d4cdc5',fontWeight:700,margin:'2px 0'}}>vs</div>
           <div style={{width:140,height:62,background:'#fff0f0',border:'1.5px dashed #c8102e',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <span style={{fontSize:14,color:'#c8102e',fontWeight:700}}>WEST</span>
+            <span style={{fontSize:14,color:'#c8102e',fontWeight:700}}>{isPT?'OESTE':'WEST'}</span>
           </div>
-          <div style={{fontSize:13,color:'#8a8279',marginTop:6,textAlign:'center'}}>Best of 7</div>
+          <div style={{fontSize:13,color:'#8a8279',marginTop:6,textAlign:'center'}}>{isPT?'Melhor de 7':'Best of 7'}</div>
         </div>
 
         {/* ── WEST (right side, reads inward) ── */}
         <div>
           <div className="text-xs font-bold uppercase tracking-widest mb-3 text-center"
-               style={{color:'#7c2d12',letterSpacing:'1.5px'}}>Western Conference</div>
+               style={{color:'#7c2d12',letterSpacing:'1.5px'}}>{isPT?'Conferência Oeste':'Western Conference'}</div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'8px',alignItems:'center'}}>
 
             {/* Conf Finals */}
             <div style={{display:'flex',flexDirection:'column',gap:2,alignSelf:'center'}}>
               <div style={{height:62,background:'#fef3e8',border:'1px dashed #7c2d1244',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:14,color:'#7c2d12',fontWeight:700}}>WEST FINAL</span>
+                <span style={{fontSize:14,color:'#7c2d12',fontWeight:700}}>{isPT?'FINAL OESTE':'WEST FINAL'}</span>
               </div>
               <div style={{height:62,background:'#fef3e8',border:'1px dashed #7c2d1244',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <span style={{fontSize:14,color:'#7c2d12',fontWeight:700}}>TBD</span>
+                <span style={{fontSize:14,color:'#7c2d12',fontWeight:700}}>{TBD}</span>
               </div>
             </div>
 
@@ -160,18 +170,18 @@ export default async function PlayoffsPage() {
             <div style={{display:'flex',flexDirection:'column',gap:112,justifyContent:'space-around'}}>
               <div style={{display:'flex',flexDirection:'column',gap:3}}>
                 <div style={{height:58,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>SEMI A</span>
+                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>{isPT?'MEIA A':'SEMI A'}</span>
                 </div>
                 <div style={{height:58,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>TBD</span>
+                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>{TBD}</span>
                 </div>
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:3}}>
                 <div style={{height:58,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>SEMI B</span>
+                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>{isPT?'MEIA B':'SEMI B'}</span>
                 </div>
                 <div style={{height:58,background:'#f0ece5',border:'1px dashed #d4cdc5',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>TBD</span>
+                  <span style={{fontSize:14,color:'#8a8279',fontWeight:600}}>{TBD}</span>
                 </div>
               </div>
             </div>
@@ -191,29 +201,29 @@ export default async function PlayoffsPage() {
       <div className="mt-8 rounded-xl p-4" style={{background:'#fef9c3',border:'1px solid #b45309'}}>
         <div className="text-xs font-bold mb-2" style={{color:'#b45309'}}>
           <i className="ti ti-tournament" style={{marginRight:4}}></i>
-          Play-In Tournament — seeds 7-10
+          {isPT ? 'Play-In Tournament — posições 7-10' : 'Play-In Tournament — seeds 7-10'}
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
-          {[['Eastern',eTop],['Western',wTop]].map(([conf,ranked]:any) => (
+          {[[isPT?'Este':'Eastern',eTop],[isPT?'Oeste':'Western',wTop]].map(([conf,ranked]:any) => (
             <div key={conf}>
               <div className="text-xs font-semibold mb-2" style={{color:'#8a8279'}}>{conf}</div>
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-2 text-xs" style={{color:'#5c554e'}}>
-                  <span className="font-bold" style={{color:'#b45309'}}>Game A:</span>
+                  <span className="font-bold" style={{color:'#b45309'}}>{isPT?'Jogo A:':'Game A:'}</span>
                   <Seed team={ranked[6]} seed={7} />
                   <span>vs</span>
                   <Seed team={ranked[7]} seed={8} />
-                  <span style={{color:'#8a8279'}}>→ winner = #7 seed</span>
+                  <span style={{color:'#8a8279'}}>{isPT?'→ vencedor = posição #7':'→ winner = #7 seed'}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs" style={{color:'#5c554e'}}>
-                  <span className="font-bold" style={{color:'#b45309'}}>Game B:</span>
+                  <span className="font-bold" style={{color:'#b45309'}}>{isPT?'Jogo B:':'Game B:'}</span>
                   <Seed team={ranked[8]} seed={9} />
                   <span>vs</span>
                   <Seed team={ranked[9]} seed={10} />
-                  <span style={{color:'#8a8279'}}>→ loser eliminated</span>
+                  <span style={{color:'#8a8279'}}>{isPT?'→ perdedor eliminado':'→ loser eliminated'}</span>
                 </div>
                 <div className="text-xs" style={{color:'#8a8279'}}>
-                  Game C: loser(A) vs winner(B) → winner = #8 seed
+                  {isPT ? 'Jogo C: perdedor(A) vs vencedor(B) → vencedor = posição #8' : 'Game C: loser(A) vs winner(B) → winner = #8 seed'}
                 </div>
               </div>
             </div>

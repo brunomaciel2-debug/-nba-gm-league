@@ -131,3 +131,25 @@ export function WinBadge() {
     </span>
   )
 }
+
+export function SeasonBadge() {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
+  return <p className="text-lg" style={{color:'#6b5f4e'}}>{isPT ? 'Época 2025-26' : '2025-26 Season'}</p>
+}
+
+export function ArticleDate({ date }: { date: string }) {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
+  return (
+    <p className="text-sm mt-3" style={{color:'#9c8e7a'}}>
+      {new Date(date).toLocaleDateString(isPT?'pt-PT':'en-US',{month:'long',day:'numeric',year:'numeric'})}
+    </p>
+  )
+}
+
+export function WeekLabel({ week }: { week: number }) {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
+  return <span className="text-xs w-6 font-semibold" style={{color:'#6b5f4e'}}>{isPT?'S':'W'}{week}</span>
+}
