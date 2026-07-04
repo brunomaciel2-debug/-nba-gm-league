@@ -483,7 +483,7 @@ await supabaseAdmin.from('players').update({ [attr]: cur + 1 }).eq('id', p.id)
 if (!isPreseason) {
 try {
 const isEndOfMonth = week % 4 === 0
-const isEndOfSeason = week >= 26
+const isEndOfSeason = week >= 40 // last week of the Regular Season (see season-week-helper.ts)
 
 const { data: weekBoxesAw } = await supabaseAdmin
 .from('box_scores')
@@ -660,7 +660,7 @@ player_id:m.id, score:m.score, stats_context:m.stats
 }
 
 // ── END OF SEASON AGING ────────────────────────────────────
-if (week >= 26) {
+if (week >= 40) { // last week of the Regular Season (see season-week-helper.ts)
 try {
 const { data: everyPlayer } = await supabaseAdmin
 .from('players').select('id,age,nba_experience,team_id,status').not('age','is',null)

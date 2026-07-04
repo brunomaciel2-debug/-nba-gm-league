@@ -121,31 +121,40 @@ export async function simulatePreseasonGame(id: string) {
     }
   }
 
-  // Give the new game a unique slot in the "Week 0 / friendlies" bucket
-  const { count } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true }).eq('week_number', 0)
+  // games.home_team/away_team have a hard foreign key to teams.id only — a
+  // "Rest of the World" team id (e.g. Red Star Belgrade = CZV) would violate
+  // that constraint. So a real `games` row (and its box score page) only
+  // gets created for NBA-vs-NBA friendlies; World-team friendlies just get
+  // their result recorded directly on the preseason_games row.
+  let gameId: string | null = null
 
-  const { data: gameRec } = await supabaseAdmin.from('games').insert({
-    week_number: 0, game_number: (count || 0) + 1,
-    home_team: pg.home_team, away_team: pg.away_team,
-    home_score: homeScore, away_score: awayScore,
-    status: 'final', played_at: new Date().toISOString(),
-    game_type: 'preseason',
-  }).select().single()
-  if (!gameRec) return { success: false as const, error: 'Failed to create game record' }
+  if (isNbaVsNba) {
+    const { count } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true }).eq('week_number', 0)
 
-  if (homeBox.length || awayBox.length) {
-    await supabaseAdmin.from('box_scores').insert([
-      ...homeBox.map((b: any) => ({ ...b, game_id: gameRec.id, team_id: pg.home_team, is_triple_double: [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length >= 3 })),
-      ...awayBox.map((b: any) => ({ ...b, game_id: gameRec.id, team_id: pg.away_team, is_triple_double: [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length >= 3 })),
-    ])
-  }
-  if (pbp.length > 0) {
-    await supabaseAdmin.from('play_by_play').insert(pbp.map((p: any) => ({ ...p, game_id: gameRec.id })))
+    const { data: gameRec } = await supabaseAdmin.from('games').insert({
+      week_number: 0, game_number: (count || 0) + 1,
+      home_team: pg.home_team, away_team: pg.away_team,
+      home_score: homeScore, away_score: awayScore,
+      status: 'final', played_at: new Date().toISOString(),
+      game_type: 'preseason',
+    }).select().single()
+    if (!gameRec) return { success: false as const, error: 'Failed to create game record' }
+    gameId = gameRec.id
+
+    if (homeBox.length || awayBox.length) {
+      await supabaseAdmin.from('box_scores').insert([
+        ...homeBox.map((b: any) => ({ ...b, game_id: gameId, team_id: pg.home_team, is_triple_double: [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length >= 3 })),
+        ...awayBox.map((b: any) => ({ ...b, game_id: gameId, team_id: pg.away_team, is_triple_double: [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length >= 3 })),
+      ])
+    }
+    if (pbp.length > 0) {
+      await supabaseAdmin.from('play_by_play').insert(pbp.map((p: any) => ({ ...p, game_id: gameId })))
+    }
   }
 
   await supabaseAdmin.from('preseason_games').update({
-    home_score: homeScore, away_score: awayScore, status: 'final', game_id: gameRec.id,
+    home_score: homeScore, away_score: awayScore, status: 'final', game_id: gameId,
   }).eq('id', id)
 
-  return { success: true as const, home_score: homeScore, away_score: awayScore, game_id: gameRec.id }
+  return { success: true as const, home_score: homeScore, away_score: awayScore, game_id: gameId }
 }
