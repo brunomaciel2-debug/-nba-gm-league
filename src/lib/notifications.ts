@@ -56,30 +56,26 @@ type TechFoulEvent = { playerId:string, name:string, teamId:string, seasonTechs:
 export async function runPostSimNotifications(week: number, gamesCreated: string[], techFoulEvents: TechFoulEvent[] = []) {
   const [
     { data: teams },
-    { data: profiles },
     { data: games },
     { data: injuries },
     { data: players },
-    { data: glBoxes },
     { data: awards },
     { data: contracts },
     { data: sponsorContracts },
     { data: constructions },
   ] = await Promise.all([
     supabase.from('teams').select('id,name,wins,losses,conference,rival_team_id,cap_used').not('id','in','(ALL,RVS,ROO,SOP)'),
-    supabase.from('profiles').select('team_id,email,full_name').not('team_id','is',null),
     supabase.from('games').select('*,home:teams!games_home_team_fkey(name),away:teams!games_away_team_fkey(name)').in('id', gamesCreated),
     supabase.from('injury_log').select('*,players!inner(name,team_id)').eq('season','2025-26').eq('status','active').in('game_id', gamesCreated),
-    supabase.from('players').select('id,name,team_id,real_ovr,moral,age,contract_years_left,salary').eq('status','active').not('team_id','is',null),
-    supabase.from('gleague_player_stats').select('*,players!inner(name,team_id,on_gleague_assignment)').eq('season','2025-26').in('game_id', gamesCreated ?? []),
+    // NOTE: real column is "contract_years" (years REMAINING on the deal),
+    // not "contract_years_left" — the wrong name here silently broke this
+    // query (and the LOW MORALE + CONTRACTS EXPIRING sections below) forever.
+    supabase.from('players').select('id,name,team_id,real_ovr,moral,age,contract_years,salary').eq('status','active').not('team_id','is',null),
     supabase.from('awards').select('*,players!inner(name,team_id)').eq('season','2025-26').in('period',[`week_${week}`]),
-    supabase.from('players').select('id,name,team_id,contract_years_left,salary').eq('status','active').not('team_id','is',null).lte('contract_years_left',1),
+    supabase.from('players').select('id,name,team_id,contract_years,salary').eq('status','active').not('team_id','is',null).lte('contract_years',1),
     supabase.from('sponsor_contracts').select('*,template:sponsor_templates(company_name,tier)').eq('season','2025-26').eq('status','active'),
     supabase.from('construction_queue').select('*').eq('status','in_progress'),
   ])
-
-  const profileMap: Record<string,any> = {}
-  ;(profiles||[]).forEach((p:any) => { if(p.team_id) profileMap[p.team_id] = p })
 
   const teamMap: Record<string,any> = {}
   ;(teams||[]).forEach((t:any) => teamMap[t.id] = t)
@@ -176,14 +172,20 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   }
 
   // ── 4. WIN/LOSS STREAKS ────────────────────────────────
+  // A trailing 5-game streak needs the team's real recent history — NOT just
+  // this week's newly-simulated games. (A team only plays ~2-4 games in a
+  // single simulated week, so computing "5 in a row" from that small batch
+  // alone could never actually reach 5 — this was a standing bug.)
   for (const team of (teams||[])) {
-    const teamGames = (games||[])
-      .filter((g:any) => g.home_team === team.id || g.away_team === team.id)
-      .sort((a:any,b:any) => new Date(b.played_at).getTime() - new Date(a.played_at).getTime())
-      .slice(0,5)
+    const { data: recentGames } = await supabase.from('games')
+      .select('home_team,away_team,home_score,away_score,played_at')
+      .or(`home_team.eq.${team.id},away_team.eq.${team.id}`)
+      .eq('status','final')
+      .order('played_at', { ascending:false })
+      .limit(5)
 
     let streak = 0, streakType = ''
-    for (const g of teamGames) {
+    for (const g of (recentGames||[])) {
       const won = (g.home_team===team.id&&g.home_score>g.away_score)||(g.away_team===team.id&&g.away_score>g.home_score)
       const result = won ? 'W' : 'L'
       if (!streakType) { streakType = result; streak = 1 }
@@ -201,8 +203,11 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       await notify(team.id, 'streak', notif.subject, notif.body, { streak, type: 'loss' })
     }
 
+    // Rivalry win check only cares about THIS week's games, which is what
+    // the gamesCreated-scoped `games` variable correctly represents.
     if (team.rival_team_id) {
-      const rivalGame = teamGames.find((g:any) =>
+      const teamGamesThisWeek = (games||[]).filter((g:any) => g.home_team === team.id || g.away_team === team.id)
+      const rivalGame = teamGamesThisWeek.find((g:any) =>
         (g.home_team===team.id&&g.away_team===team.rival_team_id)||(g.away_team===team.id&&g.home_team===team.rival_team_id)
       )
       if (rivalGame) {
