@@ -1,36 +1,54 @@
+'use client'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { calcOvr } from '@/lib/ovr'
-import { notFound } from 'next/navigation'
+import { useTranslation } from '@/components/I18nProvider'
 import Link from 'next/link'
 import ApplyForm from './ApplyForm'
-export const revalidate = 30
 
-export default async function TeamJobPage({ params }: { params: { teamId: string } }) {
+export default function TeamJobPage({ params }: { params: { teamId: string } }) {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const teamId = params.teamId.toUpperCase()
-  const [{ data: team }, { data: players }, { data: coaches }, { data: profile }] = await Promise.all([
-    supabase.from('teams').select('*').eq('id', teamId).single(),
-    supabase.from('players').select('id,name,pos,usage,real_ovr,three,layup,dunk,mid,ft,siq,blk,stl,idef,pdef,def_reb,off_reb,stamina,durability,ball_hdl,pass_iq,pressure,consistency,crowd_effect, contracts!inner(salary,season)')
-      .eq('team_id', teamId).eq('status','active').eq('contracts.season','2025-26').order('usage',{ascending:false}),
-    supabase.from('coaches').select('name,role').eq('team_id', teamId),
-    supabase.from('gm_profiles').select('id,display_name').eq('team_id', teamId).single(),
-  ])
 
-  if (!team) notFound()
+  const [team, setTeam] = useState<any>(null)
+  const [players, setPlayers] = useState<any[]>([])
+  const [coaches, setCoaches] = useState<any[]>([])
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('teams').select('*').eq('id', teamId).single(),
+      supabase.from('players').select('id,name,pos,usage,real_ovr,three,layup,dunk,mid,ft,siq,blk,stl,idef,pdef,def_reb,off_reb,stamina,durability,ball_hdl,pass_iq,pressure,consistency,crowd_effect, contracts!inner(salary,season)')
+        .eq('team_id', teamId).eq('status','active').eq('contracts.season','2025-26').order('usage',{ascending:false}),
+      supabase.from('coaches').select('name,role').eq('team_id', teamId),
+      supabase.from('gm_profiles').select('id,display_name').eq('team_id', teamId).single(),
+    ]).then(([{data: t}, {data: pl}, {data: co}, {data: pr}]) => {
+      if (!t) { setNotFound(true); setLoading(false); return }
+      setTeam(t); setPlayers(pl||[]); setCoaches(co||[]); setProfile(pr)
+      setLoading(false)
+    })
+  }, [teamId])
+
+  if (loading) return <div className="text-center py-12" style={{color:'#8a8279'}}>{t('common.loading')}</div>
+  if (notFound || !team) return <div className="text-center py-12" style={{color:'#8a8279'}}>{isPT?'Equipa não encontrada.':'Team not found.'}</div>
 
   const isOpen = !profile
-  const tc = readableTeamColor((team as any).color)
+  const tc = readableTeamColor(team.color)
 
   const capFmt = (n: number) => n >= 1000000 ? '$' + (n/1000000).toFixed(1) + 'M' : '$' + n?.toLocaleString()
-  const cap = (team as any).salary_cap
-  const used = (team as any).cap_used
+  const cap = team.salary_cap
+  const used = team.cap_used
   const space = cap - used
-  const hc = (coaches||[]).find((c:any) => c.role === 'head_coach')
+  const hc = coaches.find((c:any) => c.role === 'head_coach')
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <Link href="/jobs" className="text-xs no-underline mb-6 block" style={{color:'#6b5f4e'}}>
-        ← Back to All Vacancies
+        ← {isPT ? 'Voltar a Todas as Vagas' : 'Back to All Vacancies'}
       </Link>
 
       {/* Team header */}
@@ -39,21 +57,21 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
         <div className="flex items-center gap-5 flex-wrap">
           <div className="w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0"
                style={{background:tc+'22',border:'2px solid '+tc+'44'}}>
-            {(team as any).logo_url
-              ?<img src={(team as any).logo_url} alt="" className="w-full h-full object-contain p-2"/>
+            {team.logo_url
+              ?<img src={team.logo_url} alt="" className="w-full h-full object-contain p-2"/>
               :<span className="text-2xl font-black" style={{color:tc}}>{teamId}</span>}
           </div>
           <div className="flex-1">
             <div className="text-xs font-semibold mb-1" style={{color:tc}}>
-              {(team as any).conference} · {(team as any).division}
+              {team.conference} · {team.division}
             </div>
-            <h1 className="text-2xl font-black mb-1" style={{color:'#1a1612'}}>{(team as any).name}</h1>
-            <div className="text-sm" style={{color:'#6b5f4e'}}>{(team as any).arena} · {(team as any).city}</div>
+            <h1 className="text-2xl font-black mb-1" style={{color:'#1a1612'}}>{team.name}</h1>
+            <div className="text-sm" style={{color:'#6b5f4e'}}>{team.arena} · {team.city}</div>
           </div>
           <div className="text-center">
             <span className="text-sm font-bold px-4 py-2 rounded-full"
                   style={{background:isOpen?'#0a2a10':'#2a0a0a',color:isOpen?'#15803d':'#dc2626'}}>
-              {isOpen ? '✅ Position Open' : '❌ Position Filled'}
+              {isOpen ? (isPT?'✅ Vaga Aberta':'✅ Position Open') : (isPT?'❌ Vaga Preenchida':'❌ Position Filled')}
             </span>
           </div>
         </div>
@@ -63,17 +81,17 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
         {/* Franchise info */}
         <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
           <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>
-            📊 Franchise Overview
+            📊 {isPT ? 'Visão Geral da Franquia' : 'Franchise Overview'}
           </h3>
           {[
-            ['Record', `${(team as any).wins}W – ${(team as any).losses}L`],
-            ['Head Coach', hc?.name || 'TBA'],
-            ['Cap Space', space > 0 ? '+' + capFmt(space) : 'Over cap ' + capFmt(Math.abs(space))],
-            ['Arena', (team as any).arena],
-            ['Capacity', (team as any).arena_capacity ? (team as any).arena_capacity.toLocaleString() + ' seats' : 'N/A'],
-            ['City', (team as any).city],
+            [isPT?'Registo':'Record', `${team.wins}${isPT?'V':'W'} – ${team.losses}${isPT?'D':'L'}`],
+            ['Head Coach', hc?.name || (isPT?'Por anunciar':'TBA')],
+            [isPT?'Espaço Salarial':'Cap Space', space > 0 ? '+' + capFmt(space) : (isPT?'Acima do limite ':'Over cap ') + capFmt(Math.abs(space))],
+            [isPT?'Pavilhão':'Arena', team.arena],
+            [isPT?'Capacidade':'Capacity', team.arena_capacity ? team.arena_capacity.toLocaleString() + (isPT?' lugares':' seats') : 'N/A'],
+            [isPT?'Cidade':'City', team.city],
           ].map(([l, v]) => (
-            <div key={l} className="flex justify-between py-1.5" style={{borderBottom:'1px solid #ddd8ce'}}>
+            <div key={l as string} className="flex justify-between py-1.5" style={{borderBottom:'1px solid #ddd8ce'}}>
               <span className="text-xs" style={{color:'#6b5f4e'}}>{l}</span>
               <span className="text-xs font-semibold" style={{color:'#1a1612'}}>{v}</span>
             </div>
@@ -83,9 +101,9 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
         {/* Roster preview */}
         <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
           <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>
-            🏀 Full Roster ({(players||[]).length} players)
+            🏀 {isPT ? `Plantel Completo (${players.length} jogadores)` : `Full Roster (${players.length} players)`}
           </h3>
-          {(players||[]).map((p:any) => (
+          {players.map((p:any) => (
             <Link key={p.id} href={`/player/${p.id}`} className="no-underline group">
               <div className="flex items-center gap-2 py-1.5 group-hover:brightness-125 transition-all"
                    style={{borderBottom:'1px solid #ddd8ce'}}>
@@ -105,17 +123,17 @@ export default async function TeamJobPage({ params }: { params: { teamId: string
 
       {/* Apply form or filled message */}
       {isOpen ? (
-        <ApplyForm teamId={teamId} teamName={(team as any).name} />
+        <ApplyForm teamId={teamId} teamName={team.name} />
       ) : (
         <div className="rounded-xl p-6 text-center" style={{background:'#fee2e2',border:'1px solid #5a1a1a'}}>
           <div className="text-3xl mb-3">❌</div>
-          <h3 className="font-bold mb-1" style={{color:'#dc2626'}}>Position Filled</h3>
+          <h3 className="font-bold mb-1" style={{color:'#dc2626'}}>{isPT?'Vaga Preenchida':'Position Filled'}</h3>
           <p className="text-sm mb-4" style={{color:'#6b5f4e'}}>
-            This franchise already has a GM. Check other available positions.
+            {isPT ? 'Esta franquia já tem um GM. Verifica outras vagas disponíveis.' : 'This franchise already has a GM. Check other available positions.'}
           </p>
           <Link href="/jobs" className="text-sm font-bold px-4 py-2 rounded-lg no-underline"
                 style={{background:'#1d4ed8',color:'#e8e2d6'}}>
-            View All Vacancies
+            {isPT ? 'Ver Todas as Vagas' : 'View All Vacancies'}
           </Link>
         </div>
       )}
