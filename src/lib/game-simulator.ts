@@ -55,11 +55,14 @@ const defOrd=(ps:any[])=>{const s=[...ps].sort((a,b)=>b.usage-a.usage);return{pr
 const ho=hOrd||defOrd(hp),ao=aOrd||defOrd(ap)
 if(ho.depth_chart)applyDC(hp,ho.depth_chart)
 if(ao.depth_chart)applyDC(ap,ao.depth_chart)
+// fat[] is seeded from each player's weekly health (not a flat 100) so a
+// player who's still banged up starts the game already worn down — it then
+// degrades further as the game itself wears on, same as before.
 const sc={home:0,away:0},st:Record<string,any>={},fat:Record<string,number>={},mom:Record<string,number>={},ls:Record<string,number[]>={},part={home:0,away:0}
 const tol={home:{used:0,q:{0:0,1:0,2:0,3:0}} as any,away:{used:0,q:{0:0,1:0,2:0,3:0}} as any}
 let isGT=false,gtW=""
 const pbp:any[]=[],hb:any[]=[],ab:any[]=[]
-;[...hp,...ap].forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=100;mom[p.id]=0;ls[p.id]=[];p.ejected=false})
+;[...hp,...ap].forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=Math.min(100,Math.max(40,p.health??100));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
 const pa=(ho.pace+ao.pace)/2,ppq=Math.round(23+pa/100*4)
 for(let q=0;q<4;q++){
 part.home=0;part.away=0

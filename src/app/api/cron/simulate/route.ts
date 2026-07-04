@@ -10,7 +10,7 @@ import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
 import { rookieOptionSalary } from '@/lib/draft-constants'
-import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from '@/lib/injury-constants'
+import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -241,11 +241,33 @@ const { data: weekBoxes } = gamesCreated.length > 0 ? await supabaseAdmin
 .from('box_scores').select('player_id,mins,team_id,game_id')
 .in('game_id', gamesCreated) : { data: [] as any[] }
 
-const { data: weekOrders } = await supabaseAdmin.from('gm_orders').select('team_id,pace,training_intensity').eq('week_number',week)
+const { data: weekOrders } = await supabaseAdmin.from('gm_orders').select('team_id,pace,training_intensity,def_style,atk_style').eq('week_number',week)
 const paceMap: Record<string,number> = {}
-;(weekOrders||[]).forEach((o:any) => paceMap[o.team_id] = o.pace||70)
+const defStyleMap: Record<string,string> = {}
+const atkStyleMap: Record<string,string> = {}
+;(weekOrders||[]).forEach((o:any) => { paceMap[o.team_id]=o.pace||70; defStyleMap[o.team_id]=o.def_style||'man'; atkStyleMap[o.team_id]=o.atk_style||'motion' })
+
+// Opponent lookup per game, so an opponent's own tempo/aggressiveness can
+// also raise a player's injury risk — not just their own team's Pace order.
+const { data: weekGamesForOpp } = gamesCreated.length > 0 ? await supabaseAdmin
+.from('games').select('id,home_team,away_team').in('id', gamesCreated) : { data: [] as any[] }
+const gameTeamsMap: Record<string,{home:string,away:string}> = {}
+;(weekGamesForOpp||[]).forEach((g:any) => { gameTeamsMap[g.id] = { home:g.home_team, away:g.away_team } })
+
+const opponentAggro = (teamId: string, gameId: string): number => {
+const teams = gameTeamsMap[gameId]
+if (!teams) return 1.0
+const oppId = teams.home === teamId ? teams.away : teams.home
+if (!oppId) return 1.0
+let a = 1.0
+if ((paceMap[oppId]||70) > 80) a *= 1.15
+if (defStyleMap[oppId] === 'press') a *= 1.15
+if (atkStyleMap[oppId] === 'iso' || atkStyleMap[oppId] === 'post') a *= 1.08
+return a
+}
 
 const healthUpdates: Record<string,{health:number,moral:number,wins:number,losses:number}> = {}
+const oppAggroAccum: Record<string,{sum:number,count:number}> = {}
 for (const box of (weekBoxes||[])) {
 const p = playerMap[box.player_id]
 if (!p) continue
@@ -254,7 +276,28 @@ const pace = paceMap[box.team_id]||70
 const pacePenalty = pace > 80 ? 0.5 : 0
 const healthLoss = (box.mins / 10) * (1 + pacePenalty)
 healthUpdates[p.id].health = Math.max(0, healthUpdates[p.id].health - healthLoss)
+if (!oppAggroAccum[p.id]) oppAggroAccum[p.id] = { sum:0, count:0 }
+oppAggroAccum[p.id].sum += opponentAggro(box.team_id, box.game_id)
+oppAggroAccum[p.id].count += 1
 }
+
+// Reinjury window — a player who recently recovered from an injury is more
+// prone to getting hurt again, especially to the same body part. Driven by
+// each injury type's own recurrence_risk (5-60), already in injury_types.
+const healedPids = Object.keys(healthUpdates)
+const { data: recentlyHealed } = healedPids.length > 0 ? await supabaseAdmin
+.from('injury_log').select('player_id,injury_type,healed_week')
+.eq('status','resolved').in('player_id', healedPids).not('healed_week','is',null)
+.gte('healed_week', week - 6) : { data: [] as any[] }
+const injTypeByName: Record<string,any> = {}
+;(injTypes||[]).forEach((t:any) => injTypeByName[t.name] = t)
+const fragileMap: Record<string,{bodyPart:string,risk:number}> = {}
+;(recentlyHealed||[]).forEach((r:any) => {
+const t = injTypeByName[r.injury_type]
+if (!t) return
+const windowWeeks = recurrenceWindowWeeks(t.recurrence_risk||10)
+if (week - r.healed_week <= windowWeeks) fragileMap[r.player_id] = { bodyPart:t.body_part, risk:t.recurrence_risk||10 }
+})
 
 for (const [pid, upd] of Object.entries(healthUpdates)) {
 const p = playerMap[pid]
@@ -264,10 +307,15 @@ const newHealth = Math.round(Math.max(0, upd.health))
 const durFactor = (p.durability||75) / 100
 const hFactor = newHealth < 70 ? 1.5 : newHealth < 85 ? 1.2 : 1.0
 const pace = paceMap[p.team_id]||70
-const injChance = 0.018 * (1/durFactor) * hFactor * (pace>80?1.3:1.0)
+const accum = oppAggroAccum[pid]
+const avgOppAggro = accum && accum.count > 0 ? accum.sum/accum.count : 1.0
+const fragile = fragileMap[pid]
+const injChance = 0.018 * (1/durFactor) * hFactor * (pace>80?1.3:1.0) * avgOppAggro * (fragile?1.2:1.0)
 
 if (Math.random() < injChance && injTypes && injTypes.length > 0) {
-const weights = (injTypes as any[]).map(t => ({ t, w:(SWEIGHTS[t.severity]||10)*t.game_probability }))
+const weights = (injTypes as any[]).map(t => ({
+t, w:(SWEIGHTS[t.severity]||10)*t.game_probability*((fragile&&t.body_part===fragile.bodyPart)?recurrenceBodyPartWeightBoost(fragile.risk):1)
+}))
 const totalW = weights.reduce((s,x)=>s+x.w,0)
 let r = Math.random()*totalW, chosen = weights[0].t
 for (const {t,w} of weights) { r-=w; if(r<=0){chosen=t;break} }
@@ -930,7 +978,7 @@ if (recovered) {
 const { data: openInj } = await supabaseAdmin.from('injury_log').select('id')
 .eq('player_id',p.id).eq('status','active').order('created_at',{ascending:false}).limit(1)
 if (openInj && openInj.length > 0) {
-await supabaseAdmin.from('injury_log').update({ status:'resolved', healed_at:new Date().toISOString() }).eq('id',openInj[0].id)
+await supabaseAdmin.from('injury_log').update({ status:'resolved', healed_at:new Date().toISOString(), healed_week:week }).eq('id',openInj[0].id)
 }
 }
 }

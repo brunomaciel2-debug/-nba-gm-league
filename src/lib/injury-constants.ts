@@ -1,7 +1,7 @@
 // Shared constants for the injury system: medical bills, the "See a
-// Specialist" pay-to-heal feature, and the Physio's real effect on recovery.
-// All dollar figures here are flat, pre-decided lookups by severity — never
-// a percentage of anything else.
+// Specialist" pay-to-heal feature, the Physio's real effect on recovery, and
+// the reinjury-risk window. All dollar figures here are flat, pre-decided
+// lookups by severity — never a percentage of anything else.
 
 export type InjurySeverity = 'minor' | 'moderate' | 'serious' | 'severe' | 'career_threatening'
 
@@ -47,4 +47,19 @@ export function physioRecoveryMultiplier(rehabSpeed?: number | null): number {
   const raw = (rs - 50) / 50 * 0.3
   const clamped = Math.max(-0.3, Math.min(0.3, raw))
   return 1 + clamped
+}
+
+// How many weeks a player stays "fragile" (elevated reinjury risk) to the
+// same body part after recovering from an injury there, driven directly by
+// that injury type's own recurrence_risk value (5-60 in the data). A risk of
+// 60 (e.g. Hamstring Strain) gives a 6-week window; a risk of 10 gives 1 week.
+export function recurrenceWindowWeeks(recurrenceRisk: number): number {
+  return Math.max(1, Math.round(recurrenceRisk / 10))
+}
+
+// Extra weight multiplier applied to injury types matching a player's
+// currently-fragile body part when rolling a new injury — reuses the type's
+// own recurrence_risk as the bias strength (risk 60 -> x2.2, risk 10 -> x1.2).
+export function recurrenceBodyPartWeightBoost(recurrenceRisk: number): number {
+  return 1 + recurrenceRisk / 50
 }
