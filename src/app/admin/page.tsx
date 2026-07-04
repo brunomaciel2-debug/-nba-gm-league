@@ -57,6 +57,7 @@ export default function AdminPage() {
     {icon:'📅',label:'Generate Schedule', desc:'Rebuild the full 82-game Regular Season calendar', href:'/admin/generate-schedule', color:'#4338ca'},
     {icon:'👔',label:'Resolve Staff Offers', desc:'Decide pending free-agent coach offers',        href:'/admin/resolve-staff-offers', color:'#1d4ed8'},
     {icon:'🏀',label:'Resolve Free Agency', desc:'Decide Free Agency week contract offers',        href:'/admin/resolve-free-agency', color:'#c8102e'},
+    {icon:'🎓',label:'Resolve Draft',       desc:'Run Round 1 / Round 2 of the Draft',            href:'/admin/resolve-draft',       color:'#7c3aed'},
   ]
   const items_PT = [
     {icon:'⚡',label:'Simular Semana',     desc:'Disparar simulação da próxima semana',          href:'/admin/simulate',    color:'#15803d'},
@@ -73,6 +74,7 @@ export default function AdminPage() {
     {icon:'📅',label:'Gerar Calendário',   desc:'Reconstruir o calendário completo de 82 jogos',href:'/admin/generate-schedule',color:'#4338ca'},
     {icon:'👔',label:'Resolver Propostas de Staff', desc:'Decidir propostas pendentes a treinadores livres', href:'/admin/resolve-staff-offers', color:'#1d4ed8'},
     {icon:'🏀',label:'Resolver Free Agency', desc:'Decidir propostas de contrato da semana de Free Agency', href:'/admin/resolve-free-agency', color:'#c8102e'},
+    {icon:'🎓',label:'Resolver Draft',       desc:'Correr a Ronda 1 / Ronda 2 do Draft',            href:'/admin/resolve-draft',       color:'#7c3aed'},
   ]
   const items = isPT ? items_PT : items_EN
 

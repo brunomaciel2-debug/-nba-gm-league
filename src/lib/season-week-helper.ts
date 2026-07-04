@@ -21,7 +21,19 @@ export function getStatusForWeek(week: number): string {
   if (week <= 40)             return 'regular-season'   // Oct 21 - Apr 12
   if (week === 41)            return 'play-in'          // Apr 13-19
   if (week <= 49)             return 'playoffs'         // Apr 20 - Jun 14
-  return 'offseason'                                    // Jun 15+ (Draft, Reset)
+  if (week === 50)            return 'draft-submission-r1' // Round 1 pick-order deadline week
+  if (week === 51)            return 'draft-round1'     // Round 1 draft day (contains Jun 23) + Round 2 submission window
+  if (week === 52)            return 'draft-round2'     // Round 2 draft day
+  return 'offseason'                                    // Jun 15+ (Reset)
+}
+
+// Round 1's pick-order submission window spans weeks 49-50 (opens 2 weeks
+// before draft day, closes the week before) — it overlaps the tail end of
+// the 'playoffs' phase (week 49), so it's checked independently rather
+// than folded into getStatusForWeek()'s single phase label.
+export function isDraftSubmissionOpen(round: 1 | 2, week: number): boolean {
+  if (round === 1) return week === 49 || week === 50
+  return week === 51 // Round 2: opens right after Round 1 resolves, closes before week 52
 }
 
 export function isPlayableWeek(week: number): boolean {

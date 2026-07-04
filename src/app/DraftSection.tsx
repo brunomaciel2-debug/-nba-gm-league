@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
+import { NEXT_DRAFT } from '@/lib/draft-constants'
+import { isDraftSubmissionOpen } from '@/lib/season-week-helper'
 
 function ScrollTable({ children }: { children: React.ReactNode }) {
   const topRef = useRef<HTMLDivElement>(null)
@@ -26,7 +28,7 @@ function ScrollTable({ children }: { children: React.ReactNode }) {
   )
 }
 
-type DraftTab = 'class'|'mock'|'results'
+type DraftTab = 'class'|'mock'|'results'|'board'
 const POS_COLOR: Record<string,string> = {PG:'#1d4ed8',SG:'#6d28d9',SF:'#15803d',PF:'#b45309',C:'#dc2626'}
 const POSITIONS = ['All','PG','SG','SF','PF','C']
 const TOOLTIPS_EN: Record<string,string> = {
@@ -83,7 +85,16 @@ export default function DraftSection() {
   const [search,setSearch]=useState('')
   const [sortKey,setSortKey]=useState('name')
   const [sortDir,setSortDir]=useState<'desc'|'asc'>('asc')
-  const NEXT_DRAFT='2027'
+
+  // ── Draft Board (GM ranked priority list) ──
+  const [currentWeek,setCurrentWeek]=useState(0)
+  const [boardRound,setBoardRound]=useState<1|2>(1)
+  const [myPickCounts,setMyPickCounts]=useState<{1:number,2:number}>({1:0,2:0})
+  const [rankedLists,setRankedLists]=useState<{1:string[],2:string[]}>({1:[],2:[]})
+  const [boardSearch,setBoardSearch]=useState('')
+  const [boardPos,setBoardPos]=useState('All')
+  const [savingBoard,setSavingBoard]=useState(false)
+  const [boardMsg,setBoardMsg]=useState('')
 
   useEffect(()=>{
     supabase.auth.getUser().then(async({data:{user}})=>{
@@ -95,6 +106,20 @@ export default function DraftSection() {
       if(gm.team_id){
         const{data:reveals}=await supabase.from('scouting_reveals').select('prospect_id,attribute_name').eq('team_id',gm.team_id).eq('season','2025-26')
         setRevealedSet(new Set((reveals||[]).map((r:any)=>`${r.prospect_id}:${r.attribute_name}`)))
+
+        const[{data:myPicks1},{data:myPicks2},{data:order1},{data:order2},{data:cfg}]=await Promise.all([
+          supabase.from('draft_picks').select('id').eq('team_id',gm.team_id).eq('season',NEXT_DRAFT).eq('round',1).eq('status','owned'),
+          supabase.from('draft_picks').select('id').eq('team_id',gm.team_id).eq('season',NEXT_DRAFT).eq('round',2).eq('status','owned'),
+          supabase.from('draft_orders').select('*').eq('team_id',gm.team_id).eq('season',NEXT_DRAFT).eq('round',1).maybeSingle(),
+          supabase.from('draft_orders').select('*').eq('team_id',gm.team_id).eq('season',NEXT_DRAFT).eq('round',2).maybeSingle(),
+          supabase.from('season_config').select('current_week').eq('id',1).single(),
+        ])
+        setMyPickCounts({1:myPicks1?.length||0,2:myPicks2?.length||0})
+        setRankedLists({
+          1:order1?.preferences?.ranked_prospect_ids||[],
+          2:order2?.preferences?.ranked_prospect_ids||[],
+        })
+        setCurrentWeek((cfg?.current_week||0)+1)
       }
     })
     Promise.all([
@@ -121,10 +146,47 @@ export default function DraftSection() {
   const OVR_COLOR=(v:number)=>v>=85?'#b45309':v>=75?'#15803d':v>=65?'#1d4ed8':'#5c554e'
   const OVR_BG=(v:number)=>v>=85?'#fef3c7':v>=75?'#dcfce7':v>=65?'#dbeafe':'#f0ece5'
 
+  // ── Draft Board helpers ──
+  const boardWindowOpen = isDraftSubmissionOpen(boardRound, currentWeek)
+  const availableProspects = prospects.filter(p=>!p.drafted)
+  const boardFiltered = availableProspects
+    .filter(p=>boardPos==='All'||p.pos===boardPos)
+    .filter(p=>!boardSearch||p.name.toLowerCase().includes(boardSearch.toLowerCase()))
+    .filter(p=>!rankedLists[boardRound].includes(p.id))
+  const addToRankedList=(prospectId:string)=>{
+    setRankedLists(prev=>({...prev,[boardRound]:[...prev[boardRound],prospectId]}))
+  }
+  const removeFromRankedList=(prospectId:string)=>{
+    setRankedLists(prev=>({...prev,[boardRound]:prev[boardRound].filter(id=>id!==prospectId)}))
+  }
+  const moveInRankedList=(index:number,dir:-1|1)=>{
+    setRankedLists(prev=>{
+      const list=[...prev[boardRound]]
+      const j=index+dir
+      if(j<0||j>=list.length)return prev
+      ;[list[index],list[j]]=[list[j],list[index]]
+      return {...prev,[boardRound]:list}
+    })
+  }
+  const saveBoard=async()=>{
+    setSavingBoard(true);setBoardMsg('')
+    const{data:{session}}=await supabase.auth.getSession()
+    if(!session){setBoardMsg(isPT?'Não estás autenticado':'Not logged in');setSavingBoard(false);return}
+    const res=await fetch('/api/draft/orders',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({round:boardRound,rankedProspectIds:rankedLists[boardRound]}),
+    })
+    const json=await res.json()
+    setBoardMsg(res.ok?(isPT?'✅ Lista guardada!':'✅ List saved!'):(json.error||(isPT?'Erro ao guardar':'Error saving')))
+    setSavingBoard(false)
+  }
+
   const TABS = [
     {key:'class',   labelEN:'🎓 Draft Class',    labelPT:'🎓 Classe do Draft'},
     {key:'mock',    labelEN:'📊 Mock Draft',      labelPT:'📊 Simulação de Draft'},
     {key:'results', labelEN:'🏆 Draft Results',   labelPT:'🏆 Resultados do Draft'},
+    ...(!isCommissioner&&myTeamId?[{key:'board',labelEN:'📋 My Draft Board',labelPT:'📋 O Meu Quadro de Escolhas'}]:[]),
   ]
 
   return (
@@ -317,6 +379,93 @@ export default function DraftSection() {
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {tab==='board'&&(
+            <div>
+              <div className="flex gap-2 mb-4">
+                {[1,2].map(r=>(
+                  <button key={r} onClick={()=>setBoardRound(r as 1|2)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold"
+                    style={{background:boardRound===r?'#1a1512':'#e8e2d6',color:boardRound===r?'#f5f1eb':'#5c554e',border:'1px solid '+(boardRound===r?'#1a1512':'#d4cdc5')}}>
+                    {isPT?`Ronda ${r}`:`Round ${r}`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-xl p-3 mb-4" style={{background:boardWindowOpen?'#dcfce7':'#f0ece5',border:'1px solid '+(boardWindowOpen?'#86efac':'#d4cdc5')}}>
+                <div className="text-xs font-semibold" style={{color:boardWindowOpen?'#15803d':'#8a8279'}}>
+                  {boardWindowOpen
+                    ? (isPT?'✅ Submissão aberta — podes guardar a tua lista agora.':'✅ Submission open — you can save your list now.')
+                    : (isPT?'🔒 Submissão fechada esta semana.':'🔒 Submission closed this week.')}
+                </div>
+                <div className="text-xs mt-1" style={{color:'#5c554e'}}>
+                  {isPT?'A tua equipa tem':'Your team has'} <strong>{myPickCounts[boardRound]}</strong> {isPT?`escolha(s) na Ronda ${boardRound}. Ordena os teus prospectos preferidos — se o 1º já tiver sido escolhido por outra equipa, passamos automaticamente para o 2º, e por aí a fora.`:`pick(s) in Round ${boardRound}. Rank your preferred prospects — if your #1 gets taken by another team first, we automatically move to #2, and so on.`}
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+                  <div className="px-3 py-2" style={{background:'#f0ece5',borderBottom:'1px solid #d4cdc5'}}>
+                    <div className="text-xs font-bold mb-2" style={{color:'#5c554e'}}>{isPT?'Prospectos disponíveis':'Available prospects'}</div>
+                    <input value={boardSearch} onChange={e=>setBoardSearch(e.target.value)} placeholder={isPT?'Procurar...':'Search...'}
+                      className="w-full px-2 py-1.5 rounded-lg text-xs mb-2" style={{background:'#fff',border:'1px solid #d4cdc5',outline:'none'}}/>
+                    <div className="flex gap-1 flex-wrap">
+                      {POSITIONS.map(p=>(
+                        <button key={p} onClick={()=>setBoardPos(p)} className="text-xs font-bold px-2 py-1 rounded"
+                          style={{background:boardPos===p?'#1a1512':'#fff',color:boardPos===p?'#fff':'#5c554e',border:'1px solid '+(boardPos===p?'#1a1512':'#d4cdc5')}}>
+                          {p==='All'?(isPT?'Todos':'All'):p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{maxHeight:420,overflowY:'auto'}}>
+                    {boardFiltered.map(p=>(
+                      <div key={p.id} className="flex items-center gap-2 px-3 py-2" style={{borderBottom:'1px solid #e8e3db'}}>
+                        <span className="text-xs font-semibold px-1.5 py-0.5 rounded flex-shrink-0" style={{background:(POS_COLOR[p.pos]||'#5c554e')+'22',color:POS_COLOR[p.pos]||'#5c554e'}}>{p.pos}</span>
+                        <a href={`/prospect/${p.id}`} target="_blank" className="text-xs font-semibold flex-1 no-underline hover:underline" style={{color:'#1a1512'}}>{p.name}</a>
+                        <button onClick={()=>addToRankedList(p.id)} className="text-xs font-bold px-2 py-1 rounded flex-shrink-0" style={{background:'#1d4ed8',color:'#fff',border:'none',cursor:'pointer'}}>
+                          + {isPT?'Adicionar':'Add'}
+                        </button>
+                      </div>
+                    ))}
+                    {boardFiltered.length===0&&<div className="px-3 py-6 text-center text-xs" style={{color:'#8a8279'}}>{isPT?'Sem resultados':'No results'}</div>}
+                  </div>
+                </div>
+
+                <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+                  <div className="px-3 py-2 flex items-center justify-between" style={{background:'#fef3c7',borderBottom:'1px solid #d4cdc5'}}>
+                    <span className="text-xs font-bold" style={{color:'#b45309'}}>{isPT?'A tua lista de prioridades':'Your priority list'}</span>
+                    <span className="text-xs" style={{color:'#8a7a6a'}}>{rankedLists[boardRound].length}</span>
+                  </div>
+                  <div style={{maxHeight:420,overflowY:'auto'}}>
+                    {rankedLists[boardRound].map((pid,i)=>{
+                      const p=prospects.find(pp=>pp.id===pid)
+                      if(!p)return null
+                      return(
+                        <div key={pid} className="flex items-center gap-2 px-3 py-2" style={{borderBottom:'1px solid #e8e3db'}}>
+                          <span className="text-xs font-black w-5 text-center flex-shrink-0" style={{color:'#b45309'}}>{i+1}</span>
+                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded flex-shrink-0" style={{background:(POS_COLOR[p.pos]||'#5c554e')+'22',color:POS_COLOR[p.pos]||'#5c554e'}}>{p.pos}</span>
+                          <span className="text-xs font-semibold flex-1" style={{color:'#1a1512'}}>{p.name}</span>
+                          <button onClick={()=>moveInRankedList(i,-1)} disabled={i===0} className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{background:'#f0ece5',border:'1px solid #d4cdc5',opacity:i===0?0.3:1,cursor:i===0?'default':'pointer'}}>↑</button>
+                          <button onClick={()=>moveInRankedList(i,1)} disabled={i===rankedLists[boardRound].length-1} className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{background:'#f0ece5',border:'1px solid #d4cdc5',opacity:i===rankedLists[boardRound].length-1?0.3:1,cursor:i===rankedLists[boardRound].length-1?'default':'pointer'}}>↓</button>
+                          <button onClick={()=>removeFromRankedList(pid)} className="text-xs px-1.5 py-0.5 rounded flex-shrink-0" style={{background:'#fee2e2',color:'#dc2626',border:'1px solid #fca5a5'}}>✕</button>
+                        </div>
+                      )
+                    })}
+                    {rankedLists[boardRound].length===0&&<div className="px-3 py-6 text-center text-xs" style={{color:'#8a8279'}}>{isPT?'Ainda sem prospectos na lista':'No prospects ranked yet'}</div>}
+                  </div>
+                  <div className="px-3 py-2.5" style={{background:'#f5f1eb',borderTop:'1px solid #e2dcd5'}}>
+                    <button onClick={saveBoard} disabled={savingBoard||!boardWindowOpen||rankedLists[boardRound].length===0}
+                      className="w-full py-2 rounded-lg text-sm font-bold disabled:opacity-40"
+                      style={{background:'#1a1512',color:'#faf8f5',border:'none',cursor:'pointer'}}>
+                      {savingBoard?(isPT?'A guardar...':'Saving...'):(isPT?'Guardar Lista':'Save List')}
+                    </button>
+                    {boardMsg&&<div className="text-xs font-semibold mt-2" style={{color:boardMsg.startsWith('✅')?'#15803d':'#dc2626'}}>{boardMsg}</div>}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </>

@@ -3,6 +3,9 @@ import { readableTeamColor } from '@/lib/color'
 import { calcOvr } from '@/lib/ovr'
 import { getStatusForWeek } from '@/lib/season-week-helper'
 import OfferButton from './OfferButton'
+import DraftConfirmPanel from './DraftConfirmPanel'
+import RookieOptionPanel from './RookieOptionPanel'
+import ContractExtensionPanel from './ContractExtensionPanel'
 import PlayerPageClient from './PlayerPageClient'
 export const dynamic = "force-dynamic"
 
@@ -43,9 +46,17 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         ovr={ovr}
         currentContract={currentContract}
         totalValue={totalValue}
-        actionButtons={!player.team_id && (
-          <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} phase={phase} faClosed={faClosed} />
-        )}
+        actionButtons={
+          !player.team_id ? (
+            <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} phase={phase} faClosed={faClosed} />
+          ) : p.status === 'draft_pending' ? (
+            <DraftConfirmPanel playerId={player.id} />
+          ) : p.rookie_option_status?.startsWith('pending_') ? (
+            <RookieOptionPanel playerId={player.id} />
+          ) : (
+            <ContractExtensionPanel playerId={player.id} />
+          )
+        }
       />
     </div>
   )

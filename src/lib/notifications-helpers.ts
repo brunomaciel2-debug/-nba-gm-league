@@ -128,6 +128,54 @@ export function notifFAMarketLost(lang: 'en'|'pt', name: string) {
   }
 }
 
+export function notifDraftSubmissionOpen(lang: 'en'|'pt', round: 1|2, pickCount: number) {
+  return {
+    subject: lang === 'pt' ? `🎓 Submissão do Draft aberta — Ronda ${round}` : `🎓 Draft submission open — Round ${round}`,
+    body: lang === 'pt'
+      ? `Já podes submeter a tua lista de prioridades para a Ronda ${round} do Draft. A tua equipa tem ${pickCount} escolha${pickCount!==1?'s':''} nesta ronda — vai à Draft Board para ordenar os teus prospectos preferidos.`
+      : `You can now submit your priority list for Round ${round} of the Draft. Your team has ${pickCount} pick${pickCount!==1?'s':''} in this round — head to the Draft Board to rank your preferred prospects.`,
+  }
+}
+
+export function notifDraftPickResult(lang: 'en'|'pt', prospectName: string, pickNumber: number, round: 1|2, salary: number) {
+  const fmt = (n: number) => `$${(n/1_000_000).toFixed(2)}M`
+  return {
+    subject: lang === 'pt' ? `🎓 Escolheste ${prospectName}! (Pick #${pickNumber})` : `🎓 You drafted ${prospectName}! (Pick #${pickNumber})`,
+    body: lang === 'pt'
+      ? `Com a escolha #${pickNumber} (Ronda ${round}), a tua equipa selecionou ${prospectName}. Contrato de rookie: ${fmt(salary)}/ano × 2 anos garantidos. Já podes ver os atributos completos na página do jogador — tens 7 dias para confirmar o contrato ou ele torna-se agente livre.`
+      : `With pick #${pickNumber} (Round ${round}), your team selected ${prospectName}. Rookie contract: ${fmt(salary)}/yr × 2 guaranteed years. Full attributes are now visible on the player page — you have 7 days to confirm the contract or he becomes a free agent.`,
+  }
+}
+
+export function notifDraftConfirmExpired(lang: 'en'|'pt', name: string) {
+  return {
+    subject: lang === 'pt' ? `⏰ Prazo expirado — ${name}` : `⏰ Confirmation window expired — ${name}`,
+    body: lang === 'pt'
+      ? `Não confirmaste o contrato de ${name} dentro do prazo de 7 dias. Tornou-se agente livre.`
+      : `You didn't confirm ${name}'s contract within the 7-day window. He's now a free agent.`,
+  }
+}
+
+export function notifRookieOptionEligible(lang: 'en'|'pt', name: string, stage: 'Y3'|'Y4', amount: number, deadline: Date) {
+  const fmt = (n: number) => `$${(n/1_000_000).toFixed(2)}M`
+  const deadlineStr = deadline.toLocaleDateString(lang==='pt'?'pt-PT':'en-US', { day:'numeric', month:'short', year:'numeric' })
+  return {
+    subject: lang === 'pt' ? `📋 Team Option disponível — ${name}` : `📋 Team Option available — ${name}`,
+    body: lang === 'pt'
+      ? `A opção de equipa do ano ${stage==='Y3'?'3':'4'} de ${name} já pode ser exercida — ${fmt(amount)}/ano. Decide até ${deadlineStr} ou ele torna-se agente livre.`
+      : `${name}'s Year ${stage==='Y3'?'3':'4'} team option is now available to exercise — ${fmt(amount)}/yr. Decide by ${deadlineStr} or he becomes a free agent.`,
+  }
+}
+
+export function notifRookieOptionAutoDeclined(lang: 'en'|'pt', name: string) {
+  return {
+    subject: lang === 'pt' ? `⏰ Team Option expirada — ${name}` : `⏰ Team Option expired — ${name}`,
+    body: lang === 'pt'
+      ? `Não exerceste a Team Option de ${name} dentro do prazo. Tornou-se agente livre.`
+      : `You didn't exercise ${name}'s Team Option within the deadline. He's now a free agent.`,
+  }
+}
+
 export function notifScoutTier(lang: 'en'|'pt', scoutName: string, tier: number, revealCount: number, creditCost: number, maintenance: number) {
   const maint = maintenance > 0 ? (lang === 'pt' ? `\n\nManter este tier custa ${maintenance/1000}K$/semana, debitados automaticamente do teu saldo.` : `\n\nHolding this tier costs $${maintenance/1000}K/week, billed automatically from your balance.`) : ''
   return {

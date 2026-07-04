@@ -8,6 +8,8 @@ import { homeWinProb, updateElo } from '@/lib/elo-helper'
 import { getStatusForWeek } from '@/lib/season-week-helper'
 import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
+import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
+import { rookieOptionSalary } from '@/lib/draft-constants'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -757,6 +759,34 @@ age: (p.age || 20) + 1,
 }
 }
 } catch(ageErr) { console.warn('Aging step failed:', ageErr) }
+
+// ── ROOKIE TEAM OPTION PROGRESSION ──────────────────────
+// Same once-a-season trigger as the aging step above — advances rookie
+// contracts toward their next Team Option decision point.
+try {
+const { data: rookies } = await supabaseAdmin
+.from('players').select('id,name,team_id,rookie_years_elapsed,rookie_option_status,rookie_draft_round,rookie_draft_pick')
+.eq('is_rookie_contract', true).eq('status', 'active')
+for (const r of (rookies||[])) {
+const newElapsed = (r.rookie_years_elapsed||0) + 1
+const update: any = { rookie_years_elapsed: newElapsed }
+let newStage: 'y3'|'y4'|null = null
+if (newElapsed === 2 && !r.rookie_option_status) { update.rookie_option_status = 'pending_y3'; newStage = 'y3' }
+else if (newElapsed === 3 && r.rookie_option_status === 'exercised_y3') { update.rookie_option_status = 'pending_y4'; newStage = 'y4' }
+if (newStage) {
+const deadline = new Date(Date.now() + 14*24*60*60*1000)
+update.rookie_option_deadline = deadline.toISOString()
+const lang = await getTeamLang(r.team_id)
+const amount = rookieOptionSalary(r.rookie_draft_round, r.rookie_draft_pick, newStage)
+const notif = notifRookieOptionEligible(lang, r.name, newStage==='y3'?'Y3':'Y4', amount, deadline)
+await supabaseAdmin.from('inbox_messages').insert({
+to_team_id: r.team_id, type:'draft', subject: notif.subject, body: notif.body,
+read:false, metadata:{ player_id: r.id, stage: newStage },
+})
+}
+await supabaseAdmin.from('players').update(update).eq('id', r.id)
+}
+} catch(rookieErr) { console.warn('Rookie option progression failed:', rookieErr) }
 }
 
 // ── HEALTH RECOVERY ────────────────────────────────────
