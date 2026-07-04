@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_HEALTH_BONUS_BY_SEVERITY } from '@/lib/injury-constants'
+import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY } from '@/lib/injury-constants'
 import { getTeamLang } from '@/lib/notifications-helpers'
 import { notify } from '@/lib/notifications'
 import { notifSpecialistUsed } from '@/lib/notifications-helpers'
@@ -8,8 +8,10 @@ import { notifSpecialistUsed } from '@/lib/notifications-helpers'
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 // "See a Specialist" — pay to send an injured player to an outside, generic
-// medical specialist (not a hired staff member) to speed up their recovery.
-// Cost and health bonus both scale with the injury's severity; usable once
+// medical specialist (not a hired staff member). This does NOT instantly
+// heal the player — it speeds up their normal weekly recovery (on top of
+// whatever the Physio already contributes) for as long as the injury stays
+// open. Cost and speedup both scale with the injury's severity; usable once
 // per injury.
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('Authorization')
@@ -37,22 +39,16 @@ export async function POST(req: NextRequest) {
   if (!isSpecialistEligible(injury.severity)) return NextResponse.json({ error: 'This injury is not severe enough to need a specialist' }, { status: 400 })
 
   const cost = SPECIALIST_COST_BY_SEVERITY[injury.severity]!
-  const bonus = SPECIALIST_HEALTH_BONUS_BY_SEVERITY[injury.severity]!
+  const boost = SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY[injury.severity]!
 
   const { data: fin } = await admin.from('franchise_finances').select('balance').eq('team_id', player.team_id).single()
   if (!fin || (fin.balance || 0) < cost) return NextResponse.json({ error: 'Not enough balance to cover the specialist fee' }, { status: 400 })
 
-  const newHealth = Math.min(100, (player.health || 0) + bonus)
-  const recovered = newHealth >= 50
-
-  await admin.from('players').update({
-    health: newHealth, ...(recovered ? { status: 'active' } : {}),
-  }).eq('id', playerId)
-
-  await admin.from('injury_log').update({
-    specialist_used: true, specialist_health_bonus: bonus,
-    ...(recovered ? { status: 'resolved', healed_at: new Date().toISOString() } : {}),
-  }).eq('id', injury.id)
+  // Marks the injury as boosted — the weekly recovery step (cron/simulate)
+  // picks this up and applies the multiplier on top of the normal regen and
+  // any Physio bonus, every week, until the player naturally crosses back
+  // above 50 health. No instant health change here.
+  await admin.from('injury_log').update({ specialist_used: true }).eq('id', injury.id)
 
   await admin.from('franchise_finances').update({ balance: (fin.balance || 0) - cost }).eq('team_id', player.team_id)
   await admin.from('franchise_transactions').insert({
@@ -61,8 +57,8 @@ export async function POST(req: NextRequest) {
   })
 
   const lang = await getTeamLang(player.team_id)
-  const notif = notifSpecialistUsed(lang, player.name, cost, bonus, newHealth)
+  const notif = notifSpecialistUsed(lang, player.name, cost, boost)
   await notify(player.team_id, 'injury', notif.subject, notif.body, { player_id: playerId })
 
-  return NextResponse.json({ success: true, newHealth, recovered, cost })
+  return NextResponse.json({ success: true, boost, cost })
 }

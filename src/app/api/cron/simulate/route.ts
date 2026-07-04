@@ -10,7 +10,7 @@ import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
 import { rookieOptionSalary } from '@/lib/draft-constants'
-import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, InjurySeverity } from '@/lib/injury-constants'
+import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from '@/lib/injury-constants'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -904,11 +904,19 @@ const { data: physios } = await supabaseAdmin.from('coaches').select('team_id,re
 const physioMap: Record<string,number> = {}
 ;(physios||[]).forEach((c:any) => physioMap[c.team_id]=c.rehab_speed)
 
+const injuredIds = (allP2||[]).filter((p:any) => p.status==='injured').map((p:any) => p.id)
+const { data: openInjuries } = injuredIds.length > 0 ? await supabaseAdmin
+.from('injury_log').select('player_id,severity,specialist_used').eq('status','active').in('player_id',injuredIds) : { data: [] as any[] }
+const boostMap: Record<string,number> = {}
+;(openInjuries||[]).forEach((inj:any) => {
+if (inj.specialist_used) boostMap[inj.player_id] = SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY[inj.severity as InjurySeverity] || 1
+})
+
 for (const p of (allP2||[])) {
 const mod = IMOD[iMap[p.team_id]||'normal']||1.0
 const durB = ((p.durability||75)-75)/100*0.5
 let hGain = 3*recDays*mod*(1+durB)
-if (p.status==='injured') hGain *= physioRecoveryMultiplier(physioMap[p.team_id])
+if (p.status==='injured') hGain *= physioRecoveryMultiplier(physioMap[p.team_id]) * (boostMap[p.id]||1)
 const mGain = (p.moral||80)<50?0:0.5*recDays
 const nh = Math.min(100, Math.round((p.health||100)+hGain))
 const nm = Math.min(100, Math.round((p.moral||80)+mGain))

@@ -90,11 +90,16 @@ async function calcTeamStrength(teamId: string, recentGames: any[]): Promise<num
 export default async function TeamPage({ params }: { params: { id: string } }) {
   const teamId = params.id.toUpperCase()
 
-  const [{ data: team }, { data: players }, { data: games }, { data: allTeams }, { data: injuries }, { data: coaches }, { data: preseasonGames }] =
+  const [{ data: team }, { data: players }, { data: injuredPlayers }, { data: games }, { data: allTeams }, { data: injuries }, { data: coaches }, { data: preseasonGames }] =
     await Promise.all([
       supabase.from('teams').select('*').eq('id', teamId).single(),
       supabase.from('players').select('*, player_stats(*)')
         .eq('team_id', teamId).eq('status','active').order('usage', { ascending: false }),
+      // Injured players are deliberately excluded from the roster/orders query above
+      // (they can't play), but the Injury Report still needs their name/health/photo —
+      // fetched separately so it doesn't silently disappear from that screen.
+      supabase.from('players').select('*, player_stats(*)')
+        .eq('team_id', teamId).eq('status','injured'),
       supabase.from('games').select('*')
         .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
         .order('week_number').order('game_number'),
@@ -144,7 +149,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   }
 
   const allGames = [...normalizedPreseason, ...(games||[])]
-  const teamPlayerIds = new Set((players||[]).map((p:any) => p.id))
+  const teamPlayerIds = new Set([...(players||[]), ...(injuredPlayers||[])].map((p:any) => p.id))
   const teamInjuries = (injuries||[]).filter((i:any) => teamPlayerIds.has(i.player_id))
 
   const played = (games||[]).filter((g:any) => g.status === 'final')
@@ -215,6 +220,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
 
       <TeamPageTabs
         players={players||[]}
+        injuredPlayers={injuredPlayers||[]}
         games={allGames}
         teamId={teamId}
         teamColor={color}

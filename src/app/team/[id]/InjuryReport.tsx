@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
-import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_HEALTH_BONUS_BY_SEVERITY } from '@/lib/injury-constants'
+import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY } from '@/lib/injury-constants'
 
 const SEVERITY_STYLE: Record<string,{color:string,bg:string,labelEN:string,labelPT:string}> = {
   minor:              { color:'#b45309', bg:'#2a2000', labelEN:'Minor',       labelPT:'Ligeira' },
@@ -49,10 +49,10 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
 
   const seeSpecialist = async (inj: any, playerName: string) => {
     const cost = SPECIALIST_COST_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_COST_BY_SEVERITY] || 0
-    const bonus = SPECIALIST_HEALTH_BONUS_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_HEALTH_BONUS_BY_SEVERITY] || 0
+    const boostPct = Math.round(((SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY] || 1) - 1) * 100)
     const confirmMsg = isPT
-      ? `Levar ${playerName} a um especialista externo custa $${(cost/1000).toFixed(0)}K e devolve +${bonus} de saúde. Confirmas?`
-      : `Sending ${playerName} to an outside specialist costs $${(cost/1000).toFixed(0)}K and returns +${bonus} health. Confirm?`
+      ? `Levar ${playerName} a um especialista externo custa $${(cost/1000).toFixed(0)}K e acelera a recuperação dele em ${boostPct}% (não cura na hora — continua a precisar do tempo de recuperação normal, só mais rápido). Confirmas?`
+      : `Sending ${playerName} to an outside specialist costs $${(cost/1000).toFixed(0)}K and speeds up his recovery by ${boostPct}% (not an instant cure — he still needs normal recovery time, just faster). Confirm?`
     if (!window.confirm(confirmMsg)) return
 
     setBusyId(inj.id); setMsg('')
@@ -65,10 +65,8 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
     })
     const json = await res.json()
     if (res.ok) {
-      setList(prev => prev.map(i => i.id === inj.id
-        ? { ...i, specialist_used: true, status: json.recovered ? 'resolved' : i.status }
-        : i))
-      setMsg(isPT ? `✅ Especialista consultado! Nova saúde: ${json.newHealth}%.` : `✅ Specialist consulted! New health: ${json.newHealth}%.`)
+      setList(prev => prev.map(i => i.id === inj.id ? { ...i, specialist_used: true } : i))
+      setMsg(isPT ? `✅ Especialista consultado! Recuperação ${boostPct}% mais rápida a partir de agora.` : `✅ Specialist consulted! Recovery is ${boostPct}% faster from now on.`)
     } else {
       setMsg(json.error || (isPT?'Erro':'Error'))
     }
@@ -187,7 +185,7 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                       <button onClick={()=>seeSpecialist(inj, p?.name||'')} disabled={busyId===inj.id}
                         className="w-full rounded-lg px-3 py-2 text-xs font-bold"
                         style={{background:'#0e7490',color:'#fff',border:'none',cursor:busyId===inj.id?'wait':'pointer'}}>
-                        🩺 {busyId===inj.id ? '...' : `${isPT?'Ver Especialista':'See a Specialist'} — $${((SPECIALIST_COST_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_COST_BY_SEVERITY]||0)/1000).toFixed(0)}K (+${SPECIALIST_HEALTH_BONUS_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_HEALTH_BONUS_BY_SEVERITY]||0} ${isPT?'saúde':'health'})`}
+                        🩺 {busyId===inj.id ? '...' : `${isPT?'Ver Especialista':'See a Specialist'} — $${((SPECIALIST_COST_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_COST_BY_SEVERITY]||0)/1000).toFixed(0)}K (${isPT?'recuperação':'recovery'} +${Math.round(((SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY]||1)-1)*100)}%)`}
                       </button>
                     )}
                   </div>

@@ -213,13 +213,14 @@ export function notifInjury(lang: 'en'|'pt', player: string, injuryType: string,
   }
 }
 
-export function notifSpecialistUsed(lang: 'en'|'pt', player: string, cost: number, healthBonus: number, newHealth: number) {
+export function notifSpecialistUsed(lang: 'en'|'pt', player: string, cost: number, boostMultiplier: number) {
   const fmt = (n: number) => `$${(n/1000).toFixed(0)}K`
+  const pct = Math.round((boostMultiplier - 1) * 100)
   return {
     subject: lang === 'pt' ? `🩺 Especialista visto — ${player}` : `🩺 Specialist consulted — ${player}`,
     body: lang === 'pt'
-      ? `Pagaste ${fmt(cost)} para levar ${player} a um especialista externo. Ganhou +${healthBonus} de saúde (agora em ${newHealth}%).`
-      : `You paid ${fmt(cost)} to send ${player} to an outside specialist. He gained +${healthBonus} health (now at ${newHealth}%).`,
+      ? `Pagaste ${fmt(cost)} para levar ${player} a um especialista externo. A recuperação dele vai ser ${pct}% mais rápida a partir de agora, até estar totalmente recuperado.`
+      : `You paid ${fmt(cost)} to send ${player} to an outside specialist. His recovery will be ${pct}% faster from now on, until he's fully healed.`,
   }
 }
 

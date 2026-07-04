@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek } from './season-week-helper'
 import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk } from './notifications-helpers'
-import { MEDICAL_COST_BY_SEVERITY, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_HEALTH_BONUS_BY_SEVERITY, InjurySeverity } from './injury-constants'
+import { MEDICAL_COST_BY_SEVERITY, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -138,11 +138,11 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       const medLine = lang === 'pt' ? `\n💵 Despesas médicas: $${(medCost/1000).toFixed(0)}K (já debitadas)` : `\n💵 Medical bill: $${(medCost/1000).toFixed(0)}K (already charged)`
       const eligible = isSpecialistEligible(severity)
       const specialistCost = eligible ? SPECIALIST_COST_BY_SEVERITY[severity as InjurySeverity] || 0 : 0
-      const specialistBonus = eligible ? SPECIALIST_HEALTH_BONUS_BY_SEVERITY[severity as InjurySeverity] || 0 : 0
+      const specialistBoostPct = eligible ? Math.round(((SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY[severity as InjurySeverity] || 1) - 1) * 100) : 0
       const specialistLine = eligible
         ? (lang === 'pt'
-            ? `\n\n🩺 Podes levar ${inj.players?.name} a um especialista externo por $${(specialistCost/1000).toFixed(0)}K para ganhar +${specialistBonus} de saúde imediatamente — vê o Relatório de Lesões da tua equipa.`
-            : `\n\n🩺 You can send ${inj.players?.name} to an outside specialist for $${(specialistCost/1000).toFixed(0)}K for +${specialistBonus} immediate health — check your team's Injury Report.`)
+            ? `\n\n🩺 Podes levar ${inj.players?.name} a um especialista externo por $${(specialistCost/1000).toFixed(0)}K para acelerar a recuperação dele em ${specialistBoostPct}% (não cura na hora) — vê o Relatório de Lesões da tua equipa.`
+            : `\n\n🩺 You can send ${inj.players?.name} to an outside specialist for $${(specialistCost/1000).toFixed(0)}K to speed up his recovery by ${specialistBoostPct}% (not an instant cure) — check your team's Injury Report.`)
         : ''
       const bodyPart = lang === 'pt' ? `Zona afetada: ${inj.body_part}\nRecuperação estimada: ${inj.games_out} jogos (aprox. ${Math.ceil(inj.games_out/4)} semanas)${recurring}` : `Body part: ${inj.body_part}\nEstimated recovery: ${inj.games_out} games (approx. ${Math.ceil(inj.games_out/4)} weeks)${recurring}`
       await notify(teamId, 'injury', `${emoji} ${notif.subject.replace('🏥 Injury — ', '').replace('🏥 Lesão — ', '')}`, `${notif.body}\n\n${bodyPart}${medLine}${specialistLine}`, {

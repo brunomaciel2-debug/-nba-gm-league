@@ -28,9 +28,9 @@ function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: 
 }
 
 export default function TeamPageTabs({
-  players, games, teamId, teamsMap, teamColor, coaches, injuries, arenaName, arenaCapacity
+  players, injuredPlayers, games, teamId, teamsMap, teamColor, coaches, injuries, arenaName, arenaCapacity
 }: {
-  players: any[], games: any[], teamId: string, teamsMap: any, teamColor: string,
+  players: any[], injuredPlayers?: any[], games: any[], teamId: string, teamsMap: any, teamColor: string,
   coaches: any[], injuries: any[], arenaName?: string, arenaCapacity?: number
 }) {
   const { t } = useTranslation()
@@ -117,7 +117,7 @@ export default function TeamPageTabs({
               <CoachingStaff staff={coaches} />
             </div>
             <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-              <InjuryReport injuries={injuries} players={players} teamId={teamId} />
+              <InjuryReport injuries={injuries} players={[...players, ...(injuredPlayers||[])]} teamId={teamId} />
             </div>
           </>
         )}

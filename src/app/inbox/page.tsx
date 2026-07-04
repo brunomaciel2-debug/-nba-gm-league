@@ -108,7 +108,8 @@ export default function InboxPage() {
       })
       const result = await res.json()
       if (!res.ok) throw new Error(result.error||'Unknown error')
-      setActionMsg(`✅ ${isPT?'Especialista consultado! Nova saúde':'Specialist consulted! New health'}: ${result.newHealth}%`)
+      const boostPct = Math.round((result.boost - 1) * 100)
+      setActionMsg(`✅ ${isPT?`Especialista consultado! Recuperação ${boostPct}% mais rápida`:`Specialist consulted! Recovery ${boostPct}% faster`}`)
       const newMeta = { ...msg.metadata, specialist_used:true }
       await supabase.from('inbox_messages').update({ metadata:newMeta }).eq('id',msg.id)
       setMessages(prev=>prev.map(m=>m.id===msg.id?{...m,metadata:newMeta}:m))

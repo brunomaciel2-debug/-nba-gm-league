@@ -23,10 +23,14 @@ export const SPECIALIST_COST_BY_SEVERITY: Partial<Record<InjurySeverity, number>
   career_threatening: 350_000,
 }
 
-export const SPECIALIST_HEALTH_BONUS_BY_SEVERITY: Partial<Record<InjurySeverity, number>> = {
-  serious: 20,
-  severe: 30,
-  career_threatening: 40,
+// The specialist does NOT instantly heal the player — it speeds up the
+// normal weekly recovery for as long as the injury stays open, on top of
+// whatever the Physio already contributes. Bigger boost on worse injuries,
+// since that's where expedited treatment matters most.
+export const SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY: Partial<Record<InjurySeverity, number>> = {
+  serious: 1.4,
+  severe: 1.7,
+  career_threatening: 2.0,
 }
 
 export function isSpecialistEligible(severity: string): severity is InjurySeverity {
