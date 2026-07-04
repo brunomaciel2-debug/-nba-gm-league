@@ -72,7 +72,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     supabase.from('awards').select('*,players!inner(name,team_id)').eq('season','2025-26').in('period',[`week_${week}`]),
     supabase.from('players').select('id,name,team_id,contract_years_left,salary').eq('status','active').not('team_id','is',null).lte('contract_years_left',1),
     supabase.from('sponsor_contracts').select('*,template:sponsor_templates(company_name,tier)').eq('season','2025-26').eq('status','active'),
-    supabase.from('arena_sections').select('team_id,section,construction_ends_at,under_construction').eq('under_construction',true),
+    supabase.from('construction_queue').select('*').eq('status','in_progress'),
   ])
 
   const profileMap: Record<string,any> = {}
@@ -237,7 +237,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   }
 
   // ── 7. CONTRACTS EXPIRING ─────────────────────────────
-  if (week === 18) { // ~8 weeks before end of season
+  if (week === 32) { // ~8 weeks before end of the Regular Season (ends week 40)
     const expiringByTeam: Record<string,any[]> = {}
     for (const p of (contracts||[])) {
       if (!expiringByTeam[p.team_id]) expiringByTeam[p.team_id] = []
@@ -249,18 +249,35 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     }
   }
 
-  // ── 8. ARENA CONSTRUCTION COMPLETED ──────────────────
-  for (const section of (constructions||[])) {
-    const endDate = new Date(section.construction_ends_at)
+  // ── 8. CONSTRUCTION QUEUE (arena sections + practice facility upgrades) ──
+  const ARENA_EXPANSION_RATE = 0.6
+  const NEW_SECTION_BASE_SEATS = 3000
+  const GYM_NEXT_GRADE: Record<string,string> = { F:'E', E:'D', D:'C', C:'B', B:'A' }
+
+  for (const item of (constructions||[])) {
+    const endDate = new Date(item.ends_at)
     const today = new Date()
     const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000*60*60*24))
-    const lang = await getTeamLang(section.team_id)
-    const notif = notifArenaConstruction(lang, section.section, daysLeft <= 0)
+    const lang = await getTeamLang(item.team_id)
+    const notif = notifArenaConstruction(lang, item.name, daysLeft <= 0)
+
     if (daysLeft <= 0) {
-      await notify(section.team_id, 'construction', notif.subject, notif.body, { section: section.section })
-      await supabase.from('arena_sections').update({ under_construction: false }).eq('team_id', section.team_id).eq('section', section.section)
+      await notify(item.team_id, 'construction', notif.subject, notif.body, { name: item.name })
+      if (item.construction_type === 'arena_section') {
+        const { data: sec } = await supabase.from('arena_sections').select('capacity').eq('id', item.reference_id).single()
+        const oldCapacity = sec?.capacity || 0
+        const delta = Math.round((oldCapacity > 0 ? oldCapacity : NEW_SECTION_BASE_SEATS) * ARENA_EXPANSION_RATE)
+        await supabase.from('arena_sections').update({ under_construction: false, capacity: oldCapacity + delta }).eq('id', item.reference_id)
+      } else if (item.construction_type === 'practice_facility') {
+        const { data: fac } = await supabase.from('practice_facilities').select('gym_grade').eq('id', item.reference_id).single()
+        const nextGrade = fac?.gym_grade ? GYM_NEXT_GRADE[fac.gym_grade] : null
+        await supabase.from('practice_facilities').update({
+          gym_under_construction: false, ...(nextGrade ? { gym_grade: nextGrade } : {}),
+        }).eq('id', item.reference_id)
+      }
+      await supabase.from('construction_queue').update({ status: 'completed' }).eq('id', item.id)
     } else if (daysLeft <= 7) {
-      await notify(section.team_id, 'construction', notif.subject, notif.body, { section: section.section, days_left: daysLeft })
+      await notify(item.team_id, 'construction', notif.subject, notif.body, { name: item.name, days_left: daysLeft })
     }
   }
 
@@ -305,7 +322,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   }
 
   // ── 12. SEASON END APPROACHING ────────────────────────
-  if (week === 22) {
+  if (week === 36) { // 4 weeks before end of the Regular Season (ends week 40)
     for (const team of (teams||[])) {
       const lang = await getTeamLang(team.id)
       const notif = notifSeasonEnd(lang, 4)

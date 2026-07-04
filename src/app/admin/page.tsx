@@ -53,6 +53,7 @@ export default function AdminPage() {
     {icon:'🏆',label:'Generate Playoffs', desc:'Create play-in and playoff bracket after Week 26', href:'/admin/playoffs', color:'#c8102e'},
     {icon:'📋',label:'GM Applications',   desc:'Review and approve GM job applications',        href:'/admin/applications',color:'#166534'},
     {icon:'🎯',label:'Coaching Staff',    desc:'View all coaches, free agents',                 href:'/admin/coaches',     color:'#b45309'},
+    {icon:'🤝',label:'Sponsor Pool',      desc:'Generate sponsor options for every team',       href:'/admin/sponsor-pool',color:'#0e7490'},
   ]
   const items_PT = [
     {icon:'⚡',label:'Simular Semana',     desc:'Disparar simulação da próxima semana',          href:'/admin/simulate',    color:'#15803d'},
@@ -65,6 +66,7 @@ export default function AdminPage() {
     {icon:'🏆',label:'Gerar Playoffs',     desc:'Criar o quadro de playoffs após a Semana 26',  href:'/admin/playoffs',    color:'#c8102e'},
     {icon:'📋',label:'Candidaturas GM',    desc:'Rever e aprovar candidaturas a GM',            href:'/admin/applications',color:'#166534'},
     {icon:'🎯',label:'Staff Técnico',      desc:'Ver todos os treinadores e agentes livres',    href:'/admin/coaches',     color:'#b45309'},
+    {icon:'🤝',label:'Reserva Patrocínios',desc:'Gerar opções de patrocínio para as equipas',    href:'/admin/sponsor-pool',color:'#0e7490'},
   ]
   const items = isPT ? items_PT : items_EN
 

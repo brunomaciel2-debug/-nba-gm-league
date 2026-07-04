@@ -74,8 +74,14 @@ export default function FacilitiesTab({teamId,teamColor,arenaName,arenaCapacity,
     const upg=UPGRADES[facility.gym_grade]; if(!upg||cash<upg.cost)return
     setUpgrading(true)
     const ends=new Date(); ends.setDate(ends.getDate()+upg.weeks*7)
-    await supabase.from('practice_facilities').update({gym_under_construction:true,gym_upgrade_ends_at:ends.toISOString().split('T')[0]}).eq('id',facility.id)
-    setFacility(p=>p?{...p,gym_under_construction:true,gym_upgrade_ends_at:ends.toISOString().split('T')[0]}:p)
+    const endsStr=ends.toISOString().split('T')[0]
+    await supabase.from('practice_facilities').update({gym_under_construction:true,gym_upgrade_ends_at:endsStr}).eq('id',facility.id)
+    await supabase.from('construction_queue').insert({
+      team_id:teamId, construction_type:'practice_facility', reference_id:facility.id,
+      name:`Gym ${facility.gym_grade} → ${upg.next}`, cost:upg.cost, duration_weeks:upg.weeks,
+      started_at:new Date().toISOString().split('T')[0], ends_at:endsStr, status:'in_progress',
+    })
+    setFacility(p=>p?{...p,gym_under_construction:true,gym_upgrade_ends_at:endsStr}:p)
     setMsg(isPT?`Melhoria para ${upg.next} iniciada — pronta em ${upg.weeks} semanas.`:`Upgrade to ${upg.next} started — ready in ${upg.weeks} weeks.`)
     setUpgrading(false)
   }

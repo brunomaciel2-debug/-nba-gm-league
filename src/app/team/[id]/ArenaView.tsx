@@ -95,8 +95,14 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
     if(!selected||!isGM)return
     setBuilding(true); setMsg('')
     const ends=new Date(); ends.setDate(ends.getDate()+weeks*7)
-    await supabase.from('arena_sections').update({under_construction:true,construction_ends_at:ends.toISOString().split('T')[0]}).eq('id',sections[selected].id)
-    setSections(p=>({...p,[selected]:{...p[selected],under_construction:true,construction_ends_at:ends.toISOString().split('T')[0]}}))
+    const endsStr=ends.toISOString().split('T')[0]
+    await supabase.from('arena_sections').update({under_construction:true,construction_ends_at:endsStr}).eq('id',sections[selected].id)
+    await supabase.from('construction_queue').insert({
+      team_id:teamId, construction_type:'arena_section', reference_id:sections[selected].id,
+      name:selected, cost, duration_weeks:weeks,
+      started_at:new Date().toISOString().split('T')[0], ends_at:endsStr, status:'in_progress',
+    })
+    setSections(p=>({...p,[selected]:{...p[selected],under_construction:true,construction_ends_at:endsStr}}))
     setMsg(isBuilt?'Upgrade started!':'Construction started!')
     setBuilding(false)
   }
