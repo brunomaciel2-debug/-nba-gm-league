@@ -213,6 +213,16 @@ export function notifInjury(lang: 'en'|'pt', player: string, injuryType: string,
   }
 }
 
+export function notifSpecialistUsed(lang: 'en'|'pt', player: string, cost: number, healthBonus: number, newHealth: number) {
+  const fmt = (n: number) => `$${(n/1000).toFixed(0)}K`
+  return {
+    subject: lang === 'pt' ? `🩺 Especialista visto — ${player}` : `🩺 Specialist consulted — ${player}`,
+    body: lang === 'pt'
+      ? `Pagaste ${fmt(cost)} para levar ${player} a um especialista externo. Ganhou +${healthBonus} de saúde (agora em ${newHealth}%).`
+      : `You paid ${fmt(cost)} to send ${player} to an outside specialist. He gained +${healthBonus} health (now at ${newHealth}%).`,
+  }
+}
+
 export function notifTechnicalFoul(
   lang: 'en'|'pt', player: string, seasonTechs: number, techsUntilNextSuspension: number,
   gamesSuspendedNow: number, isPostseason: boolean

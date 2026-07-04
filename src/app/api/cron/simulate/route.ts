@@ -10,6 +10,7 @@ import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
 import { rookieOptionSalary } from '@/lib/draft-constants'
+import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, InjurySeverity } from '@/lib/injury-constants'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -280,7 +281,7 @@ const gamesOut = Math.max(1, Math.round(daysOut/3.5))
 const hImpact = Math.round(chosen.health_impact_min + Math.random()*(chosen.health_impact_max-chosen.health_impact_min))
 
 await supabaseAdmin.from('injury_log').insert({
-player_id:pid, season:'2025-26',
+player_id:pid, season:'2025-26', week_number:week,
 injury_type:chosen.name, injury_category:chosen.category,
 body_part:chosen.body_part, severity:chosen.severity,
 occurred_in:'game', health_at_injury:newHealth,
@@ -290,6 +291,21 @@ return_week:week+Math.ceil(gamesOut/2),
 is_recurring:isRec, can_play:newHealth>=50,
 play_risk:newHealth<65?75:newHealth<75?40:15, status:'active'
 })
+
+// Medical bill — every injury costs the team money, scaled by severity
+const medicalCost = MEDICAL_COST_BY_SEVERITY[chosen.severity as InjurySeverity] || 0
+if (medicalCost > 0 && p.team_id) {
+const { data: fin } = await supabaseAdmin.from('franchise_finances')
+.select('balance').eq('team_id',p.team_id).single()
+if (fin) {
+await supabaseAdmin.from('franchise_finances').update({ balance:(fin.balance||0)-medicalCost }).eq('team_id',p.team_id)
+await supabaseAdmin.from('franchise_transactions').insert({
+team_id:p.team_id, type:'expense', category:'medical', amount:medicalCost,
+description:`Medical bill — ${p.name}: ${chosen.name}`,
+season:'2025-26', week_number:week,
+})
+}
+}
 
 const injHealth = Math.max(0, newHealth-hImpact)
 const injMoral = Math.max(0, (upd.moral||80)-(chosen.moral_impact||0))
@@ -871,23 +887,44 @@ await supabaseAdmin.from('players').update(update).eq('id', r.id)
 }
 
 // ── HEALTH RECOVERY ────────────────────────────────────
+// Includes 'injured' players too — previously only 'active' players ever
+// got health back, so a player who crossed into 'injured' (health<50) was
+// stuck there forever with no way back to 'active'. The Physio's rehab_speed
+// now genuinely speeds this up (or slows it down), only for the injured.
 try {
 const isMonday = new Date().getDay() === 1
 const recDays = isMonday ? 3 : 2
-const { data: allP2 } = await supabaseAdmin.from('players').select('id,health,moral,durability,team_id').eq('status','active')
+const { data: allP2 } = await supabaseAdmin.from('players').select('id,health,moral,durability,team_id,status').in('status',['active','injured'])
 const { data: ords2 } = await supabaseAdmin.from('gm_orders').select('team_id,training_intensity').eq('week_number',week)
 const iMap: Record<string,string> = {}
 ;(ords2||[]).forEach((o:any) => iMap[o.team_id]=o.training_intensity||'normal')
 const IMOD: Record<string,number> = {rest:1.5,light:1.25,normal:1.0,intense:0.5,very_intense:0.25}
+
+const { data: physios } = await supabaseAdmin.from('coaches').select('team_id,rehab_speed').eq('role','physio')
+const physioMap: Record<string,number> = {}
+;(physios||[]).forEach((c:any) => physioMap[c.team_id]=c.rehab_speed)
+
 for (const p of (allP2||[])) {
 const mod = IMOD[iMap[p.team_id]||'normal']||1.0
 const durB = ((p.durability||75)-75)/100*0.5
-const hGain = 3*recDays*mod*(1+durB)
+let hGain = 3*recDays*mod*(1+durB)
+if (p.status==='injured') hGain *= physioRecoveryMultiplier(physioMap[p.team_id])
 const mGain = (p.moral||80)<50?0:0.5*recDays
 const nh = Math.min(100, Math.round((p.health||100)+hGain))
 const nm = Math.min(100, Math.round((p.moral||80)+mGain))
-if (nh!==(p.health||100)||nm!==(p.moral||80))
-await supabaseAdmin.from('players').update({health:nh,moral:nm}).eq('id',p.id)
+const recovered = p.status==='injured' && nh>=50
+if (nh!==(p.health||100)||nm!==(p.moral||80)||recovered) {
+await supabaseAdmin.from('players').update({
+health:nh, moral:nm, ...(recovered?{status:'active'}:{}),
+}).eq('id',p.id)
+}
+if (recovered) {
+const { data: openInj } = await supabaseAdmin.from('injury_log').select('id')
+.eq('player_id',p.id).eq('status','active').order('created_at',{ascending:false}).limit(1)
+if (openInj && openInj.length > 0) {
+await supabaseAdmin.from('injury_log').update({ status:'resolved', resolved_at:new Date().toISOString() }).eq('id',openInj[0].id)
+}
+}
 }
 } catch(e) { console.warn('Recovery step failed',e) }
 

@@ -1,5 +1,8 @@
 'use client'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
+import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_HEALTH_BONUS_BY_SEVERITY } from '@/lib/injury-constants'
 
 const SEVERITY_STYLE: Record<string,{color:string,bg:string,labelEN:string,labelPT:string}> = {
   minor:              { color:'#b45309', bg:'#2a2000', labelEN:'Minor',       labelPT:'Ligeira' },
@@ -24,11 +27,55 @@ const PLAY_STATUS = (health: number, isPT: boolean) => {
   return                  { text: isPT?'DISPONÍVEL':'AVAILABLE',  color:'#166534', bg:'#0a2a10' }
 }
 
-export default function InjuryReport({ injuries, players }: { injuries: any[], players: any[] }) {
+export default function InjuryReport({ injuries, players, teamId }: { injuries: any[], players: any[], teamId?: string }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const playerMap = Object.fromEntries(players.map((p:any)=>[p.id,p]))
-  const active = injuries.filter((i:any) => i.status === 'active')
+  const [list, setList] = useState(injuries)
+  const [canManage, setCanManage] = useState(false)
+  const [busyId, setBusyId] = useState<string|null>(null)
+  const [msg, setMsg] = useState<string>('')
+
+  useEffect(() => { setList(injuries) }, [injuries])
+
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: gm } = await supabase.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
+      if (!gm) return
+      if (gm.role === 'commissioner' || gm.team_id === teamId) setCanManage(true)
+    })
+  }, [teamId])
+
+  const seeSpecialist = async (inj: any, playerName: string) => {
+    const cost = SPECIALIST_COST_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_COST_BY_SEVERITY] || 0
+    const bonus = SPECIALIST_HEALTH_BONUS_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_HEALTH_BONUS_BY_SEVERITY] || 0
+    const confirmMsg = isPT
+      ? `Levar ${playerName} a um especialista externo custa $${(cost/1000).toFixed(0)}K e devolve +${bonus} de saúde. Confirmas?`
+      : `Sending ${playerName} to an outside specialist costs $${(cost/1000).toFixed(0)}K and returns +${bonus} health. Confirm?`
+    if (!window.confirm(confirmMsg)) return
+
+    setBusyId(inj.id); setMsg('')
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setMsg(isPT?'Não estás autenticado':'Not logged in'); setBusyId(null); return }
+    const res = await fetch('/api/players/see-specialist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ playerId: inj.player_id }),
+    })
+    const json = await res.json()
+    if (res.ok) {
+      setList(prev => prev.map(i => i.id === inj.id
+        ? { ...i, specialist_used: true, status: json.recovered ? 'resolved' : i.status }
+        : i))
+      setMsg(isPT ? `✅ Especialista consultado! Nova saúde: ${json.newHealth}%.` : `✅ Specialist consulted! New health: ${json.newHealth}%.`)
+    } else {
+      setMsg(json.error || (isPT?'Erro':'Error'))
+    }
+    setBusyId(null)
+  }
+
+  const active = list.filter((i:any) => i.status === 'active')
 
   if (active.length === 0) return (
     <div>
@@ -130,11 +177,27 @@ export default function InjuryReport({ injuries, players }: { injuries: any[], p
                     </span>
                   </div>
                 )}
+                {canManage && isSpecialistEligible(inj.severity) && (
+                  <div className="mt-2">
+                    {inj.specialist_used ? (
+                      <div className="rounded-lg px-3 py-2 text-xs font-semibold" style={{background:'#dcfce7',color:'#15803d'}}>
+                        🩺 {isPT?'Especialista já consultado para esta lesão':'Specialist already consulted for this injury'}
+                      </div>
+                    ) : (
+                      <button onClick={()=>seeSpecialist(inj, p?.name||'')} disabled={busyId===inj.id}
+                        className="w-full rounded-lg px-3 py-2 text-xs font-bold"
+                        style={{background:'#0e7490',color:'#fff',border:'none',cursor:busyId===inj.id?'wait':'pointer'}}>
+                        🩺 {busyId===inj.id ? '...' : `${isPT?'Ver Especialista':'See a Specialist'} — $${((SPECIALIST_COST_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_COST_BY_SEVERITY]||0)/1000).toFixed(0)}K (+${SPECIALIST_HEALTH_BONUS_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_HEALTH_BONUS_BY_SEVERITY]||0} ${isPT?'saúde':'health'})`}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )
         })}
       </div>
+      {msg && <div className="mt-3 text-xs font-semibold" style={{color: msg.startsWith('✅')?'#15803d':'#dc2626'}}>{msg}</div>}
     </div>
   )
 }

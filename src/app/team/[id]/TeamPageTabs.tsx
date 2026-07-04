@@ -117,7 +117,7 @@ export default function TeamPageTabs({
               <CoachingStaff staff={coaches} />
             </div>
             <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-              <InjuryReport injuries={injuries} players={players} />
+              <InjuryReport injuries={injuries} players={players} teamId={teamId} />
             </div>
           </>
         )}

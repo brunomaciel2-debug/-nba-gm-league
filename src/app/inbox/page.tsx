@@ -96,6 +96,26 @@ export default function InboxPage() {
     setProcessing(null)
   }
 
+  const seeSpecialist = async (msg: any) => {
+    if (!msg.metadata?.player_id) return
+    setProcessing(msg.id)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error(isPT?'Não estás autenticado':'Not logged in')
+      const res = await fetch('/api/players/see-specialist', {
+        method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+        body:JSON.stringify({ playerId: msg.metadata.player_id }),
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error||'Unknown error')
+      setActionMsg(`✅ ${isPT?'Especialista consultado! Nova saúde':'Specialist consulted! New health'}: ${result.newHealth}%`)
+      const newMeta = { ...msg.metadata, specialist_used:true }
+      await supabase.from('inbox_messages').update({ metadata:newMeta }).eq('id',msg.id)
+      setMessages(prev=>prev.map(m=>m.id===msg.id?{...m,metadata:newMeta}:m))
+    } catch (e:any) { setActionMsg(`❌ ${isPT?'Erro':'Error'}: ${e.message}`) }
+    setProcessing(null)
+  }
+
   const rejectApp = async (msg: any) => {
     if (!msg.metadata?.application_id) return
     setProcessing(msg.id)
@@ -237,6 +257,16 @@ export default function InboxPage() {
                         </a>
                       )}
                     </div>
+                    {msg.type==='injury'&&msg.metadata?.specialist_eligible&&!msg.metadata?.specialist_used&&(
+                      <div className="px-6 py-3 flex items-center gap-3 flex-wrap"
+                           style={{background:'#f0ece5',borderTop:'1px solid #ddd8d0'}}>
+                        <button onClick={()=>seeSpecialist(msg)} disabled={processing===msg.id}
+                          className="px-4 py-1.5 rounded-lg text-xs font-bold disabled:opacity-40 ml-auto"
+                          style={{background:'#0e7490',color:'#fff'}}>
+                          {processing===msg.id?'⏳...':`🩺 ${isPT?'Ver Especialista':'See a Specialist'} ($${(msg.metadata.specialist_cost/1000).toFixed(0)}K)`}
+                        </button>
+                      </div>
+                    )}
                     {isCommissioner&&msg.type==='application'&&msg.metadata?.application_id&&(
                       <div className="px-6 py-3 flex items-center gap-3 flex-wrap"
                            style={{background:'#f0ece5',borderTop:'1px solid #ddd8d0'}}>

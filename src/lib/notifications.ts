@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek } from './season-week-helper'
 import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk } from './notifications-helpers'
+import { MEDICAL_COST_BY_SEVERITY, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_HEALTH_BONUS_BY_SEVERITY, InjurySeverity } from './injury-constants'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,7 +67,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   ] = await Promise.all([
     supabase.from('teams').select('id,name,wins,losses,conference,rival_team_id,cap_used').not('id','in','(ALL,RVS,ROO,SOP)'),
     supabase.from('games').select('*,home:teams!games_home_team_fkey(name),away:teams!games_away_team_fkey(name)').in('id', gamesCreated),
-    supabase.from('injury_log').select('*,players!inner(name,team_id)').eq('season','2025-26').eq('status','active').in('game_id', gamesCreated),
+    supabase.from('injury_log').select('*,players!inner(name,team_id)').eq('season','2025-26').eq('status','active').eq('week_number', week),
     // NOTE: real column is "contract_years" (years REMAINING on the deal),
     // not "contract_years_left" — the wrong name here silently broke this
     // query (and the LOW MORALE + CONTRACTS EXPIRING sections below) forever.
@@ -133,8 +134,21 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       const emoji = severity === 'career_threatening' ? '🚨' : severity === 'severe' ? '🔴' : severity === 'serious' ? '🟠' : '🟡'
       const notif = notifInjury(lang, inj.players?.name, inj.injury_type, inj.games_out)
       const recurring = inj.is_recurring ? (lang === 'pt' ? '\n⚠️ Esta é uma lesão recorrente.' : '\n⚠️ This is a recurring injury.') : ''
+      const medCost = MEDICAL_COST_BY_SEVERITY[severity as InjurySeverity] || 0
+      const medLine = lang === 'pt' ? `\n💵 Despesas médicas: $${(medCost/1000).toFixed(0)}K (já debitadas)` : `\n💵 Medical bill: $${(medCost/1000).toFixed(0)}K (already charged)`
+      const eligible = isSpecialistEligible(severity)
+      const specialistCost = eligible ? SPECIALIST_COST_BY_SEVERITY[severity as InjurySeverity] || 0 : 0
+      const specialistBonus = eligible ? SPECIALIST_HEALTH_BONUS_BY_SEVERITY[severity as InjurySeverity] || 0 : 0
+      const specialistLine = eligible
+        ? (lang === 'pt'
+            ? `\n\n🩺 Podes levar ${inj.players?.name} a um especialista externo por $${(specialistCost/1000).toFixed(0)}K para ganhar +${specialistBonus} de saúde imediatamente — vê o Relatório de Lesões da tua equipa.`
+            : `\n\n🩺 You can send ${inj.players?.name} to an outside specialist for $${(specialistCost/1000).toFixed(0)}K for +${specialistBonus} immediate health — check your team's Injury Report.`)
+        : ''
       const bodyPart = lang === 'pt' ? `Zona afetada: ${inj.body_part}\nRecuperação estimada: ${inj.games_out} jogos (aprox. ${Math.ceil(inj.games_out/4)} semanas)${recurring}` : `Body part: ${inj.body_part}\nEstimated recovery: ${inj.games_out} games (approx. ${Math.ceil(inj.games_out/4)} weeks)${recurring}`
-      await notify(teamId, 'injury', `${emoji} ${notif.subject.replace('🏥 Injury — ', '').replace('🏥 Lesão — ', '')}`, `${notif.body}\n\n${bodyPart}`, { player_id: inj.player_id, injury_type: inj.injury_type, severity, games_out: inj.games_out })
+      await notify(teamId, 'injury', `${emoji} ${notif.subject.replace('🏥 Injury — ', '').replace('🏥 Lesão — ', '')}`, `${notif.body}\n\n${bodyPart}${medLine}${specialistLine}`, {
+        player_id: inj.player_id, injury_type: inj.injury_type, severity, games_out: inj.games_out,
+        specialist_eligible: eligible, specialist_cost: specialistCost, specialist_used: false,
+      })
     }
   }
 
