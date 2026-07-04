@@ -11,6 +11,41 @@ return pool[pool.length-1].p
 function r3p(v:number){return(20+(v/100)*22)/100}
 function fmt(tl:number){return Math.floor(tl/60)+":"+String(tl%60).padStart(2,"0")}
 
+// Real rock-paper-scissors matchups: every attacking style has exactly one
+// defense that shuts it down and one it torches. Man denies Motion's ball
+// movement but gets exposed 1-on-1 by Isolation; Zone clogs Post-Ups/Pick &
+// Rolls but leaves Motion shooters open; Press creates chaos but is worst
+// against Transition/Post (pulls defenders from the paint); Pack the Paint
+// smothers Iso/Transition drives but concedes Pick & Roll/Post-Up looks.
+const ATK_DEF_MATCHUP:Record<string,Record<string,number>>={
+motion:     {man:0.90,zone23:1.05,press:1.00,pack:1.05},
+pickroll:   {man:1.05,zone23:0.90,press:1.05,pack:0.95},
+transition: {man:1.00,zone23:1.00,press:1.10,pack:0.90},
+iso:        {man:1.10,zone23:1.00,press:1.05,pack:0.85},
+post:       {man:1.00,zone23:0.85,press:1.10,pack:0.95},
+}
+
+// Pace tendencies: Transition/Press want a fast tempo, Iso/Post/Pack want a
+// slow deliberate one. Motion, Pick & Roll, Man and Zone are pace-neutral —
+// every system needs some options that work at any speed.
+const PACE_PREF:Record<string,"high"|"low"|undefined>={
+transition:"high",press:"high",iso:"low",post:"low",pack:"low",
+}
+function paceSynergy(style:string,pace:number):number{
+const pref=PACE_PREF[style]
+if(!pref)return 1.0
+if(pref==="high")return pace>=75?1.06:pace<=55?0.94:1.0
+return pace<=55?1.06:pace>=75?0.94:1.0
+}
+
+// A Head Coach's off_adjustment/def_adjustment sharpens a matchup that
+// already favors their side, or dulls one that doesn't — same ±30% cap
+// pattern used for the Physio's rehab_speed effect on injury recovery.
+function coachDampen(adj?:number):number{
+const a=adj??50
+return Math.max(-0.3,Math.min(0.3,(a-50)/50*0.3))
+}
+
 // Maps the in-memory sim state (which uses short internal names like or/dr/fd/to)
 // to the actual box_scores column names. Mismatched names here fail an insert
 // silently (PostgREST just drops the row) — keep this in sync with the schema.
@@ -122,10 +157,29 @@ if(!sc2||!def)return
 const ss=st[sc2.id],ds2=st[def.id],fs=fat[sc2.id]/100
 fat[sc2.id]=Math.max(40,fat[sc2.id]-(14/sc2.stamina)*.7*1.2)
 fat[def.id]=Math.max(40,fat[def.id]-(14/def.stamina)*.7)
-if(Math.random()<.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:p.stl*.5+20})));if(Math.random()<st3.stl/100*.7)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
+
+// Real matchup: this attacking style vs. this defensive style, adjusted by
+// each side's Pace synergy and dampened/sharpened by each Head Coach's
+// off_adjustment/def_adjustment.
+const matchupBase=(ATK_DEF_MATCHUP[oo.atk_style]?.[doo.def_style]??1.0)*paceSynergy(oo.atk_style,oo.pace||70)*paceSynergy(doo.def_style,doo.pace||70)
+const mDev=matchupBase-1
+const offDamp=coachDampen(oo.off_adjustment),defDamp=coachDampen(doo.def_adjustment)
+const dampenFactor=Math.max(0,1+(mDev>0?offDamp-defDamp:defDamp-offDamp))
+const matchupMult=1+mDev*dampenFactor
+
+// Double Team: a GM can commit extra defenders to the opponent's most
+// dangerous player. Smothers him if he's the one shooting, but stretches
+// the defense thin against everyone else — a real risk/reward, and wasted
+// entirely if the named target isn't even on the floor.
+const dtTarget=doo.double_team_target
+const isDoubled=!!dtTarget&&sc2.name===dtTarget
+const dtOnCourt=!!dtTarget&&ops.some((p:any)=>p.name===dtTarget&&p.mins>0&&!p.ejected)
+const dtMult=isDoubled?0.80:(dtOnCourt?1.08:1.0)
+
+if(Math.random()<.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015+(isDoubled?0.04:0)){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:p.stl*.5+20})));if(Math.random()<st3.stl/100*.7)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
 if(!u3&&Math.random()<def.blk/100*.065*(doo.def_style==='zone23'?.5:1)){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
 ss.fga++;if(u3)ss.tpa++
-const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14*(doo.def_style==="man"?1.1:.82))*(.9+(sc2.consistency/100)*.15)*(isC?(.82+(sc2.pressure/100)*.32):1)))
+const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*(isC?(.82+(sc2.pressure/100)*.32):1)*matchupMult*dtMult))
 const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100

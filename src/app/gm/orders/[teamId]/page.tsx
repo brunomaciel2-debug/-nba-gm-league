@@ -87,6 +87,9 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   const [saved, setSaved] = useState(false)
   const [locked, setLocked] = useState(false)
   const [currentWeek, setCurrentWeek] = useState(0)
+  const [doubleTeamTarget, setDoubleTeamTarget] = useState('')
+  const [oppPlayers, setOppPlayers] = useState<any[]>([])
+  const [oppName, setOppName] = useState('')
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -102,6 +105,16 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         if(!cfg)return
         const week = cfg.current_week + 1
         setCurrentWeek(week)
+        // Double Team targets the SCHEDULED opponent for this week's game
+        supabase.from('games').select('home_team,away_team')
+          .eq('week_number',week).or(`home_team.eq.${teamId},away_team.eq.${teamId}`).limit(1).single()
+          .then(({data:game})=>{
+            if(!game)return
+            const oppId = game.home_team===teamId ? game.away_team : game.home_team
+            supabase.from('teams').select('name').eq('id',oppId).single().then(({data:ot})=>ot&&setOppName(ot.name))
+            supabase.from('players').select('name,pos,usage').eq('team_id',oppId).eq('status','active')
+              .order('usage',{ascending:false}).then(({data})=>{ if(data)setOppPlayers(data) })
+          })
         supabase.from('gm_orders').select('*').eq('team_id',teamId).eq('week_number',week).single()
           .then(({data:ord})=>{
             if(!ord)return
@@ -113,6 +126,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
             setAtkStyle(ord.atk_style||'motion')
             setDefStyle(ord.def_style||'man')
             setTrainIntensity(ord.training_intensity||'normal')
+            setDoubleTeamTarget(ord.double_team_target||'')
             setLocked(ord.locked||false)
             if(ord.depth_chart) {
               // Extract ball_roles separately from depth_chart
@@ -133,7 +147,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       team_id:teamId, week_number:week,
       priority_1:pris[0], priority_2:pris[1], priority_3:pris[2],
       clutch_player:clutch, pace, three_rate:threeRate,
-      atk_style:atkStyle, def_style:defStyle,
+      atk_style:atkStyle, def_style:defStyle, double_team_target:doubleTeamTarget||null,
       depth_chart:{...dc, ball_roles:ballRoles},
       training_intensity:trainIntensity,
     },{onConflict:'team_id,week_number'})
@@ -350,6 +364,23 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
           </select>
           <p className="text-xs mt-1" style={{color:'#9c8e7a'}}>
             {isPT?DEF_STYLES.find(s=>s.value===defStyle)?.descPT:DEF_STYLES.find(s=>s.value===defStyle)?.descEN}
+          </p>
+        </div>
+        <div>
+          <label className="text-xs mb-1 block font-semibold" style={{color:'#6b5f4e'}}>
+            {isPT?'Double Team':'Double Team'}
+            <InfoTip text={isPT?'Escolhe o jogador mais perigoso do adversário desta semana para dobrar a marcação — reduz muito o lançamento e aumenta as perdas de bola dele, mas deixa os companheiros dele com lançamentos mais fáceis. Se ele não estiver em campo, não tem efeito nenhum.':'Pick this week\'s opponent\'s most dangerous player to double-team — sharply reduces his shooting and raises his turnovers, but leaves his teammates with easier looks. Has no effect at all if he\'s not on the floor.'} />
+          </label>
+          <select value={doubleTeamTarget} onChange={e=>setDoubleTeamTarget(e.target.value)}
+            className="w-full text-xs px-3 py-2 rounded-lg"
+            style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}>
+            <option value="">-- {isPT?'Nenhum':'None'} --</option>
+            {oppPlayers.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
+          </select>
+          <p className="text-xs mt-1" style={{color:'#9c8e7a'}}>
+            {oppName
+              ? (isPT?`Adversário desta semana: ${oppName}`:`This week's opponent: ${oppName}`)
+              : (isPT?'Sem jogo agendado esta semana.':'No game scheduled this week.')}
           </p>
         </div>
       </div>

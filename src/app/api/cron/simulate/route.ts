@@ -57,6 +57,17 @@ const { data: orders } = await supabaseAdmin.from('gm_orders').select('*').eq('w
 const orderMap: Record<string, any> = {}
 ;(orders||[]).forEach((o:any) => orderMap[o.team_id] = o)
 
+// Head Coach off_adjustment/def_adjustment sharpen or dull the atk/def style
+// matchup and Double Team swings inside simulateGame() — attach them to each
+// team's order object so no extra function signature is needed.
+const { data: headCoaches } = await supabaseAdmin.from('coaches').select('team_id,off_adjustment,def_adjustment').eq('role','head_coach')
+;(headCoaches||[]).forEach((c:any) => {
+if (orderMap[c.team_id]) {
+orderMap[c.team_id].off_adjustment = c.off_adjustment
+orderMap[c.team_id].def_adjustment = c.def_adjustment
+}
+})
+
 // Only the games actually scheduled for this week — nothing invented
 const { data: weekGames } = await supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
 
