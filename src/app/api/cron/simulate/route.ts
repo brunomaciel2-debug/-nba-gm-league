@@ -922,7 +922,7 @@ if (recovered) {
 const { data: openInj } = await supabaseAdmin.from('injury_log').select('id')
 .eq('player_id',p.id).eq('status','active').order('created_at',{ascending:false}).limit(1)
 if (openInj && openInj.length > 0) {
-await supabaseAdmin.from('injury_log').update({ status:'resolved', resolved_at:new Date().toISOString() }).eq('id',openInj[0].id)
+await supabaseAdmin.from('injury_log').update({ status:'resolved', healed_at:new Date().toISOString() }).eq('id',openInj[0].id)
 }
 }
 }

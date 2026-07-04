@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   await admin.from('injury_log').update({
     specialist_used: true, specialist_health_bonus: bonus,
-    ...(recovered ? { status: 'resolved', resolved_at: new Date().toISOString() } : {}),
+    ...(recovered ? { status: 'resolved', healed_at: new Date().toISOString() } : {}),
   }).eq('id', injury.id)
 
   await admin.from('franchise_finances').update({ balance: (fin.balance || 0) - cost }).eq('team_id', player.team_id)
