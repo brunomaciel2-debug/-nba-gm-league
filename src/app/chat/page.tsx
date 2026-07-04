@@ -1,8 +1,11 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useTranslation } from '@/components/I18nProvider'
 
 export default function ChatPage() {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const [myTeamId, setMyTeamId] = useState<string|null>(null)
   const [myUserId, setMyUserId] = useState<string|null>(null)
   const [myName, setMyName] = useState<string>('')
@@ -163,7 +166,7 @@ export default function ChatPage() {
   }
 
   const getTeamName = (id: string) => {
-    if (id === 'commissioner') return 'Commissioner'
+    if (id === 'commissioner') return isPT ? 'Comissário' : 'Commissioner'
     return teams.find(t => t.id === id)?.name || id
   }
 
@@ -176,18 +179,18 @@ export default function ChatPage() {
     const d = new Date(iso)
     const now = new Date()
     const diff = now.getTime() - d.getTime()
-    if (diff < 86400000) return d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12: false })
-    return d.toLocaleDateString('en-US', { month:'short', day:'numeric' })
+    if (diff < 86400000) return d.toLocaleTimeString(isPT?'pt-PT':'en-US', { hour:'numeric', minute:'2-digit', hour12: false })
+    return d.toLocaleDateString(isPT?'pt-PT':'en-US', { month:'short', day:'numeric' })
   }
 
   const fmtMsgTime = (iso: string) => {
     const d = new Date(iso)
-    return d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', hour12: false })
+    return d.toLocaleTimeString(isPT?'pt-PT':'en-US', { hour:'numeric', minute:'2-digit', hour12: false })
   }
 
   const fmtDate = (iso: string) => {
     const d = new Date(iso)
-    return d.toLocaleDateString('en-US', { month:'short', day:'numeric' })
+    return d.toLocaleDateString(isPT?'pt-PT':'en-US', { month:'short', day:'numeric' })
   }
 
   const groupedMessages: { date: string, msgs: any[] }[] = []
@@ -199,7 +202,7 @@ export default function ChatPage() {
   }
 
   const activeChannelName = activeChannel === 'general'
-    ? '🏀 General'
+    ? (isPT?'🏀 Geral':'🏀 General')
     : (() => {
         const parts = activeChannel.split('_')
         const otherId = parts.find(p => p !== myTeamId) || ''
@@ -210,7 +213,7 @@ export default function ChatPage() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen">
-      <div style={{color:'#5c554e'}}>Loading...</div>
+      <div style={{color:'#5c554e'}}>{t('common.loading')}</div>
     </div>
   )
 
@@ -218,9 +221,9 @@ export default function ChatPage() {
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center p-8 rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
         <div className="text-4xl mb-4">🔒</div>
-        <div className="text-xl font-black mb-2" style={{color:'#1a1512'}}>Login Required</div>
+        <div className="text-xl font-black mb-2" style={{color:'#1a1512'}}>{isPT?'Login Necessário':'Login Required'}</div>
         <a href="/login" className="text-sm font-bold px-4 py-2 rounded-lg"
-           style={{background:'#1a1512',color:'#fff',textDecoration:'none'}}>Sign In</a>
+           style={{background:'#1a1512',color:'#fff',textDecoration:'none'}}>{isPT?'Iniciar Sessão':'Sign In'}</a>
       </div>
     </div>
   )
@@ -239,19 +242,19 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto">
             {/* General */}
             <div className="px-3 pt-3 pb-1">
-              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>Channels</div>
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>{isPT?'Canais':'Channels'}</div>
               <button onClick={() => setActiveChannel('general')}
                 className="w-full text-left px-3 py-2 rounded-lg text-sm font-semibold"
                 style={{background: activeChannel==='general' ? '#3a3228' : 'transparent', color: activeChannel==='general' ? '#f5f1eb' : '#8a8279'}}>
-                🏀 General
+                🏀 {isPT?'Geral':'General'}
               </button>
             </div>
 
             {/* DMs com actividade */}
             <div className="px-3 pt-3">
-              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>Direct Messages</div>
+              <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>{isPT?'Mensagens Directas':'Direct Messages'}</div>
               {dmList.length === 0 && (
-                <div className="text-xs px-3 py-2" style={{color:'#5c554e'}}>No conversations yet</div>
+                <div className="text-xs px-3 py-2" style={{color:'#5c554e'}}>{isPT?'Ainda sem conversas':'No conversations yet'}</div>
               )}
               {dmList.map((dm: any) => {
                 const isActive = activeChannel === dm.id
@@ -306,7 +309,7 @@ export default function ChatPage() {
                 onMouseEnter={e => (e.currentTarget.style.background = '#3a3228')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#2a221c')}>
                 <span style={{fontSize:14}}>✏️</span>
-                New Message
+                {isPT?'Nova Mensagem':'New Message'}
                 <span style={{marginLeft:'auto', fontSize:10}}>{showNewDM ? '▲' : '▼'}</span>
               </button>
               {showNewDM && (
@@ -323,7 +326,7 @@ export default function ChatPage() {
                           ? <img src={t.logo_url} alt="" className="w-4 h-4 object-contain flex-shrink-0"/>
                           : <span className="w-4 h-4 flex-shrink-0"/>
                       }
-                      <span className="truncate">{t.id === 'commissioner' ? 'Commissioner' : t.name}</span>
+                      <span className="truncate">{t.id === 'commissioner' ? (isPT?'Comissário':'Commissioner') : t.name}</span>
                     </button>
                   ))}
                 </div>
@@ -334,7 +337,7 @@ export default function ChatPage() {
           {/* Identity */}
           <div className="px-4 py-3" style={{borderTop:'1px solid #3a3228'}}>
             <div className="text-xs font-bold" style={{color:'#f5f1eb'}}>{myName}</div>
-            <div className="text-xs" style={{color:'#5c554e'}}>{myRole === 'commissioner' ? 'Commissioner' : myTeamId}</div>
+            <div className="text-xs" style={{color:'#5c554e'}}>{myRole === 'commissioner' ? (isPT?'Comissário':'Commissioner') : myTeamId}</div>
           </div>
         </div>
 
@@ -348,7 +351,7 @@ export default function ChatPage() {
             {groupedMessages.length === 0 && (
               <div className="text-center py-12" style={{color:'#8a8279'}}>
                 <div className="text-3xl mb-2">💬</div>
-                <div className="text-sm">No messages yet. Say hello!</div>
+                <div className="text-sm">{isPT?'Ainda sem mensagens. Diz olá!':'No messages yet. Say hello!'}</div>
               </div>
             )}
             {groupedMessages.map(({ date, msgs }) => (
@@ -406,17 +409,17 @@ export default function ChatPage() {
                 value={input}
                 onChange={e=>setInput(e.target.value)}
                 onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()}
-                placeholder={`Message ${activeChannelName}`}
+                placeholder={isPT ? `Mensagem para ${activeChannelName}` : `Message ${activeChannelName}`}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm"
                 style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}
               />
               <button onClick={send} disabled={!input.trim()}
                 className="px-4 py-2.5 rounded-xl text-sm font-bold disabled:opacity-40"
                 style={{background:'#1d4ed8',color:'#fff'}}>
-                Send
+                {isPT?'Enviar':'Send'}
               </button>
             </div>
-            <div className="text-xs mt-1.5" style={{color:'#8a8279'}}>Press Enter to send</div>
+            <div className="text-xs mt-1.5" style={{color:'#8a8279'}}>{isPT?'Prime Enter para enviar':'Press Enter to send'}</div>
           </div>
         </div>
       </div>
