@@ -112,19 +112,48 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         // Attack/Defense Style) — it applies to every game that week, but
         // only actually does anything in the specific game against whichever
         // team the chosen player really plays for.
-        supabase.from('games').select('home_team,away_team')
-          .eq('week_number',week).or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
-          .then(({data:games})=>{
-            if(!games||!games.length)return
-            const oppIds = Array.from(new Set(games.map((g:any)=>g.home_team===teamId?g.away_team:g.home_team)))
-            Promise.all(oppIds.map(async (oppId:string)=>{
-              const [{data:ot},{data:ops}] = await Promise.all([
-                supabase.from('teams').select('name').eq('id',oppId).single(),
-                supabase.from('players').select('name,pos,usage').eq('team_id',oppId).eq('status','active').order('usage',{ascending:false}),
-              ])
-              return { teamId:oppId, teamName:ot?.name||oppId, players:ops||[] }
-            })).then(groups=>setOppGroups(groups))
+        //
+        // Pre-season friendlies are a DIFFERENT table (preseason_games, not
+        // games) and aren't tied to week_number at all — the cron resolves
+        // every pending one (status scheduled/accepted) on its next run,
+        // regardless of "week". Some friendly opponents are fictional World
+        // Teams, whose rosters live under players.world_team_id, not team_id.
+        Promise.all([
+          supabase.from('games').select('home_team,away_team')
+            .eq('week_number',week).or(`home_team.eq.${teamId},away_team.eq.${teamId}`),
+          supabase.from('preseason_games').select('home_team,away_team,home_type,away_type')
+            .eq('season','2025-26').in('status',['scheduled','accepted'])
+            .or(`home_team.eq.${teamId},away_team.eq.${teamId}`),
+        ]).then(([{data:realGames},{data:friendlies}])=>{
+          const entries: {oppId:string,oppType:'nba'|'world'}[] = []
+          ;(realGames||[]).forEach((g:any)=>{
+            const oppId = g.home_team===teamId?g.away_team:g.home_team
+            if(oppId) entries.push({oppId,oppType:'nba'})
           })
+          ;(friendlies||[]).forEach((g:any)=>{
+            const isHome = g.home_team===teamId
+            const oppId = isHome?g.away_team:g.home_team
+            const oppType = ((isHome?g.away_type:g.home_type)||'nba') as 'nba'|'world'
+            if(oppId) entries.push({oppId,oppType})
+          })
+          const seen = new Set<string>()
+          const uniqueOpps = entries.filter(e=>{ if(seen.has(e.oppId))return false; seen.add(e.oppId); return true })
+          if(!uniqueOpps.length){ setOppGroups([]); return }
+          Promise.all(uniqueOpps.map(async ({oppId,oppType})=>{
+            if(oppType==='world'){
+              const [{data:wt},{data:ops}] = await Promise.all([
+                supabase.from('world_teams').select('name').eq('id',oppId).single(),
+                supabase.from('players').select('name,pos,usage').eq('world_team_id',oppId).order('usage',{ascending:false}),
+              ])
+              return { teamId:oppId, teamName:wt?.name||oppId, players:ops||[] }
+            }
+            const [{data:ot},{data:ops}] = await Promise.all([
+              supabase.from('teams').select('name').eq('id',oppId).single(),
+              supabase.from('players').select('name,pos,usage').eq('team_id',oppId).eq('status','active').order('usage',{ascending:false}),
+            ])
+            return { teamId:oppId, teamName:ot?.name||oppId, players:ops||[] }
+          })).then(groups=>setOppGroups(groups))
+        })
         supabase.from('gm_orders').select('*').eq('team_id',teamId).eq('week_number',week).single()
           .then(({data:ord})=>{
             if(!ord)return

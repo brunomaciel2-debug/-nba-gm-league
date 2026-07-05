@@ -33,7 +33,28 @@ export async function simulatePreseasonGame(id: string) {
     if (!hp?.length || !ap?.length) {
       return { success: false as const, error: 'One of the teams has no active players' }
     }
-    const result = simulateGame(homeTeam, awayTeam, hp, ap)
+
+    // Pre-season exists to let GMs test tactics/rotations — so a friendly
+    // should actually respect each team's real Weekly Orders (Depth Chart,
+    // Priorities, Pace, Attack/Defense Style, Double Team, Lockdown
+    // Defender, Ball Role, Head Coach adjustments), same as a real game.
+    const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
+    const week = (cfg?.current_week || 0) + 1
+    const [{ data: orders }, { data: headCoaches }] = await Promise.all([
+      supabaseAdmin.from('gm_orders').select('*').eq('week_number', week).in('team_id', [pg.home_team, pg.away_team]),
+      supabaseAdmin.from('coaches').select('team_id,off_adjustment,def_adjustment').eq('role', 'head_coach').in('team_id', [pg.home_team, pg.away_team]),
+    ])
+    const orderMap: Record<string, any> = {}
+    ;(orders || []).forEach((o: any) => { orderMap[o.team_id] = o })
+    ;(headCoaches || []).forEach((c: any) => {
+      if (orderMap[c.team_id]) { orderMap[c.team_id].off_adjustment = c.off_adjustment; orderMap[c.team_id].def_adjustment = c.def_adjustment }
+    })
+    const hBallRoles = orderMap[pg.home_team]?.depth_chart?.ball_roles || {}
+    const aBallRoles = orderMap[pg.away_team]?.depth_chart?.ball_roles || {}
+    hp.forEach((p: any) => { p.ball_role = hBallRoles[p.name] })
+    ap.forEach((p: any) => { p.ball_role = aBallRoles[p.name] })
+
+    const result = simulateGame(homeTeam, awayTeam, hp, ap, orderMap[pg.home_team], orderMap[pg.away_team])
     homeScore = result.homeScore; awayScore = result.awayScore
     homeBox = result.homeBox; awayBox = result.awayBox; pbp = result.pbp
 
