@@ -182,6 +182,9 @@ export async function generatePowerRankings(week: number) {
     tradeNote: string
     formNote: string
     potentialNote: string
+    rosterNote: string
+    rosterQualityNorm: number
+    gamesPlayed: number
   }
 
   const teamContexts: TeamContext[] = teams.map((team: any) => {
@@ -264,6 +267,23 @@ export async function generatePowerRankings(week: number) {
     const extraPicks = teamExtraPicks[team.id] || 0
     const potentialNote = `top-5 rotation averages ${avgAge.toFixed(1)} years old, ${highPotentialCount} roster player(s) graded A/B potential, ${extraPicks} extra future first-round pick(s) banked`
 
+    // Roster quality — usage-weighted real_ovr across the top-8 rotation
+    // players. This is what actually separates title contenders from
+    // rebuilding teams BEFORE results exist (preseason, or any team's first
+    // handful of games, where wins/last-5/Elo are all still tied/degenerate
+    // and can't tell teams apart on their own — confirmed live: with every
+    // team at 0-0 and Elo still at the default 1500, the old formula had
+    // literally nothing to rank on and produced an arbitrary order). Bounds
+    // (73-85) calibrated from this season's actual top-8 weighted real_ovr
+    // spread across all 30 teams.
+    const top8ByUsage = [...roster].sort((a, b) => (b.usage || 0) - (a.usage || 0)).slice(0, 8)
+    const rosterQualityTotalW = top8ByUsage.reduce((s, p) => s + (p.usage || 50), 0) || 1
+    const rosterQuality = top8ByUsage.reduce((s, p) => s + (p.real_ovr || 70) * (p.usage || 50), 0) / rosterQualityTotalW
+    const rosterQualityNorm = clamp01((rosterQuality - 73) / 12)
+    const rosterNote = rosterQualityNorm >= 0.7 ? 'one of the most talent-loaded rosters in the league on paper'
+      : rosterQualityNorm >= 0.4 ? 'solid, playoff-caliber talent on paper'
+      : 'still fairly thin on top-end talent relative to the league'
+
     return {
       id: team.id,
       name: team.name,
@@ -289,19 +309,28 @@ export async function generatePowerRankings(week: number) {
       tradeNote,
       formNote,
       potentialNote,
+      rosterNote,
+      rosterQualityNorm,
+      gamesPlayed,
     }
   })
 
-  // Sort by composite score — grounded in real, current performance only
-  // (never predictive/speculative signals like upcoming schedule or future
-  // potential, which real power rankings only ever discuss in prose, never
-  // fold into the number): winPct (35%) + last5 (20%) + point differential
-  // (15%) + Elo (30%, already opponent-adjusted via updateElo()).
-  teamContexts.sort((a, b) => {
-    const scoreA = a.winPct * 0.35 + (a.last5Wins / 5) * 0.20 + clamp01((a.ppg - a.oppPpg + 20) / 40) * 0.15 + eloNorm(a.elo) * 0.30
-    const scoreB = b.winPct * 0.35 + (b.last5Wins / 5) * 0.20 + clamp01((b.ppg - b.oppPpg + 20) / 40) * 0.15 + eloNorm(b.elo) * 0.30
-    return scoreB - scoreA
-  })
+  // Sort by composite score, blended between roster talent and real results.
+  // Early in the season (few games played) results are still a coin-flip
+  // signal — record/last-5/Elo are all near-identical for every team, so
+  // roster quality (top-8 usage-weighted real_ovr) does most of the work,
+  // same way real "way-too-early" power rankings work. As games accumulate,
+  // results progressively take over — full trust in results by ~20 games,
+  // a quarter into the season. Results bucket itself stays grounded, never
+  // predictive: winPct (35%) + last5 (20%) + point differential (15%) +
+  // Elo (30%, already opponent-adjusted via updateElo()).
+  const scoreOf = (t: TeamContext) => {
+    const resultsWeight = clamp01(t.gamesPlayed / 20)
+    const rosterWeight = 1 - resultsWeight
+    const resultsScore = t.winPct * 0.35 + (t.last5Wins / 5) * 0.20 + clamp01((t.ppg - t.oppPpg + 20) / 40) * 0.15 + eloNorm(t.elo) * 0.30
+    return rosterWeight * t.rosterQualityNorm + resultsWeight * resultsScore
+  }
+  teamContexts.sort((a, b) => scoreOf(b) - scoreOf(a))
 
   // Generate comments via Claude API in batches of 5
   const rankings: any[] = []
@@ -324,6 +353,7 @@ TEAM ${i + idx + 1}: ${t.name}
 - Schedule ahead: ${t.scheduleNextNote}
 - Trade activity this week: ${t.tradeNote}
 - Star player recent form: ${t.formNote}
+- Roster talent level: ${t.rosterNote}
 - Roster outlook: ${t.potentialNote}
 - Previous ranking: ${t.prevRank ? `#${t.prevRank}` : 'first week'}
 `).join('\n')}
