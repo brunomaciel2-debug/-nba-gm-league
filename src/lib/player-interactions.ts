@@ -224,9 +224,24 @@ async function computeMonitorValue(reasonKey: string, teamId: string, playerId: 
   }
 }
 
+// player_interactions has no declared foreign key to players (raw CREATE
+// TABLE, no REFERENCES) so PostgREST can't do an embedded players!inner(...)
+// join — it 400s. Batch-fetch players separately instead, same pattern
+// used everywhere else in this codebase for cross-table reads.
+async function loadPlayersByIds(ids: number[]): Promise<Record<number, any>> {
+  if (!ids.length) return {}
+  const { data } = await supabaseAdmin.from('players').select('id,name,moral,team_id').in('id', Array.from(new Set(ids)))
+  const map: Record<number, any> = {}
+  ;(data || []).forEach((p: any) => { map[p.id] = p })
+  return map
+}
+
 export async function resolveMonitoredInteractions(week: number) {
-  const { data: due } = await supabaseAdmin.from('player_interactions').select('*, players!inner(name,moral,team_id)').eq('status', 'monitoring').lte('deadline_week', week)
+  const { data: due } = await supabaseAdmin.from('player_interactions').select('*').eq('status', 'monitoring').lte('deadline_week', week)
+  const duePlayers = await loadPlayersByIds((due || []).map((i: any) => i.player_id))
+
   for (const inter of (due || [])) {
+    const player = duePlayers[inter.player_id]
     const value = await computeMonitorValue(inter.reason_key, inter.team_id, inter.player_id, inter.created_week, inter.deadline_week)
     const target = inter.demand_target || 1
     const pct = (value / target) * 100
@@ -235,14 +250,14 @@ export async function resolveMonitoredInteractions(week: number) {
     const { data: type } = await supabaseAdmin.from('player_interaction_types').select('*').eq('reason_key', inter.reason_key).single()
     const delta = outcome === 'met' ? (type?.moral_met ?? 20) : outcome === 'partial' ? (type?.moral_partial ?? 5) : (type?.moral_ignored ?? -15)
 
-    const currentMoral = (inter as any).players?.moral ?? 80
+    const currentMoral = player?.moral ?? 80
     const newMoral = Math.max(0, Math.min(100, currentMoral + delta))
     await supabaseAdmin.from('players').update({ moral: newMoral }).eq('id', inter.player_id)
     await supabaseAdmin.from('player_interactions').update({
       status: 'resolved', outcome, current_progress: value, moral_after: newMoral, resolved_week: week, updated_at: new Date().toISOString(),
     }).eq('id', inter.id)
 
-    const playerName = (inter as any).players?.name || 'Player'
+    const playerName = player?.name || 'Player'
     const lang = await getTeamLang(inter.team_id)
     const resolutionText = buildResolutionText(lang, playerName, outcome, delta)
     const notif = notifInteractionResolved(lang, playerName, resolutionText)
@@ -251,17 +266,20 @@ export async function resolveMonitoredInteractions(week: number) {
 
   // Immediate-type interactions the GM never answered — auto-resolve as Dismiss
   // rather than leave them stuck open forever.
-  const { data: expired } = await supabaseAdmin.from('player_interactions').select('*, players!inner(name,moral,team_id)').eq('status', 'pending_response').lte('deadline_week', week)
+  const { data: expired } = await supabaseAdmin.from('player_interactions').select('*').eq('status', 'pending_response').lte('deadline_week', week)
+  const expiredPlayers = await loadPlayersByIds((expired || []).map((i: any) => i.player_id))
+
   for (const inter of (expired || [])) {
+    const player = expiredPlayers[inter.player_id]
     const { data: type } = await supabaseAdmin.from('player_interaction_types').select('*').eq('reason_key', inter.reason_key).single()
     const delta = type?.moral_dismiss ?? -12
-    const currentMoral = (inter as any).players?.moral ?? 80
+    const currentMoral = player?.moral ?? 80
     const newMoral = Math.max(0, Math.min(100, currentMoral + delta))
     await supabaseAdmin.from('players').update({ moral: newMoral }).eq('id', inter.player_id)
     await supabaseAdmin.from('player_interactions').update({
       status: 'resolved', outcome: 'dismiss', response_choice: 'dismiss', moral_after: newMoral, resolved_week: week, updated_at: new Date().toISOString(),
     }).eq('id', inter.id)
-    const playerName = (inter as any).players?.name || 'Player'
+    const playerName = player?.name || 'Player'
     const lang = await getTeamLang(inter.team_id)
     const resolutionText = buildResolutionText(lang, playerName, 'dismiss', delta)
     const notif = notifInteractionResolved(lang, playerName, resolutionText)

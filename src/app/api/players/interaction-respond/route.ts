@@ -24,13 +24,18 @@ export async function POST(req: NextRequest) {
   const { interactionId, choice } = await req.json()
   if (!['concede', 'compromise', 'dismiss'].includes(choice)) return NextResponse.json({ error: 'Invalid choice' }, { status: 400 })
 
-  const { data: interaction } = await admin.from('player_interactions').select('*, players!inner(name,moral,team_id)').eq('id', interactionId).single()
+  // No declared foreign key from player_interactions to players (raw table,
+  // no REFERENCES), so an embedded players!inner(...) select 400s — fetch
+  // the player separately instead.
+  const { data: interaction } = await admin.from('player_interactions').select('*').eq('id', interactionId).single()
   if (!interaction) return NextResponse.json({ error: 'Interaction not found' }, { status: 404 })
   if (interaction.status !== 'pending_response') return NextResponse.json({ error: 'This interaction is not awaiting a response' }, { status: 400 })
 
   const isOwner = gm.team_id === interaction.team_id
   const isCommissioner = gm.role === 'commissioner'
   if (!isOwner && !isCommissioner) return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
+
+  const { data: player } = await admin.from('players').select('name,moral').eq('id', interaction.player_id).single()
 
   const { data: type } = await admin.from('player_interaction_types').select('*').eq('reason_key', interaction.reason_key).single()
   if (!type) return NextResponse.json({ error: 'Unknown interaction type' }, { status: 500 })
@@ -40,8 +45,8 @@ export async function POST(req: NextRequest) {
   const delta = type[deltaField] ?? 0
   const partnerDelta = type[partnerDeltaField] ?? 0
 
-  const playerName = (interaction as any).players?.name || 'Player'
-  const currentMoral = (interaction as any).players?.moral ?? 80
+  const playerName = player?.name || 'Player'
+  const currentMoral = player?.moral ?? 80
   const newMoral = Math.max(0, Math.min(100, currentMoral + delta))
   await admin.from('players').update({ moral: newMoral }).eq('id', interaction.player_id)
 
