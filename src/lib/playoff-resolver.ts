@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { simulateGame } from '@/lib/game-simulator'
+import { getRefereeAvgRatings, pickTopTierReferee, rateRefereePerformance } from '@/lib/referees'
 
 const SEASON = '2025-26'
 
@@ -76,6 +77,14 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
   const { data: series } = await supabaseAdmin.from('playoff_series').select('*').eq('season', SEASON).neq('status', 'completed')
   if (!series?.length) return { processed: 0 }
 
+  // Officials Ranking — every playoff/play-in game is decisive by
+  // definition, so it always draws from the top tier of rated referees
+  // (see pickTopTierReferee()), not the single #1 every time — real
+  // playoffs rotate several top officials across different games.
+  const { data: refereesPool } = await supabaseAdmin.from('referees').select('id')
+  const refIds = (refereesPool || []).map((r: any) => r.id as string)
+  const avgRatings = await getRefereeAvgRatings()
+
   let processed = 0
   for (const s of series) {
     if (!s.team_high || !s.team_low) continue // still waiting on a previous round to fill this in
@@ -117,11 +126,15 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
     const aOrd = { ...(orderMap[awayTeamId] || {}), decisive: true, attRate: 0.97 }
     const result = simulateGame(ht, at, hp, ap, hOrd, aOrd)
 
+    const refereeId = refIds.length ? pickTopTierReferee(refIds, avgRatings) : null
+    const refereeRating = refereeId ? rateRefereePerformance(result.homeBox, result.awayBox, false, true) : null
+
     const { data: gameRec } = await supabaseAdmin.from('games').insert({
       week_number: week, game_number: gameNumber, home_team: homeTeamId, away_team: awayTeamId,
       home_score: result.homeScore, away_score: result.awayScore, status: 'final',
       played_at: new Date().toISOString(), game_type: 'playoff',
       attendance: Math.round((ht.arena_capacity || 18000) * 0.97), is_rivalry: false,
+      referee_id: refereeId, referee_rating: refereeRating,
     }).select().single()
 
     if (gameRec) {

@@ -71,6 +71,37 @@ export function rateRefereePerformance(homeBox: any[], awayBox: any[], isRivalry
   return Math.max(0, Math.min(10, Math.round(rating * 10) / 10))
 }
 
+// Officials Ranking meritocracy — season average per referee, computed
+// client-side (only ~40 referees — trivially small, same pattern as
+// teamContexts/coachBonus elsewhere). A referee with no rated games yet
+// defaults to 7.0 (the same neutral baseline rateRefereePerformance()
+// itself starts from), so rookies aren't unfairly buried at the bottom
+// before they've worked a single game. Shared by the regular-season
+// assignment below and the playoff/play-in resolver (every one of those
+// games is decisive by definition, so it always wants the best available).
+export async function getRefereeAvgRatings(): Promise<Record<string, number>> {
+  const { data: ratedGames } = await supabaseAdmin.from('games').select('referee_id,referee_rating').not('referee_rating', 'is', null)
+  const sums: Record<string, { sum: number, n: number }> = {}
+  ;(ratedGames || []).forEach((g: any) => {
+    const r = (sums[g.referee_id] ||= { sum: 0, n: 0 })
+    r.sum += g.referee_rating; r.n++
+  })
+  const avg: Record<string, number> = {}
+  Object.keys(sums).forEach(id => { avg[id] = sums[id].sum / sums[id].n })
+  return avg
+}
+
+// Picks a referee from the top tier (top half, at least 5) of all referees
+// by rating — meritocracy without literally always picking the single #1
+// (real playoffs rotate several top officials across different games, not
+// one person working every game of every series).
+export function pickTopTierReferee(refIds: string[], avgRatings: Record<string, number>): string {
+  const rated = [...refIds].sort((a, b) => (avgRatings[b] ?? 7.0) - (avgRatings[a] ?? 7.0))
+  const tierSize = Math.max(5, Math.floor(rated.length / 2))
+  const tier = rated.slice(0, tierSize)
+  return tier[Math.floor(Math.random() * tier.length)]
+}
+
 // Assigns a referee to every not-yet-officiated scheduled game, ahead of
 // time (so the calendar can show it before the game is played) — the real
 // season schedule already exists as `games` rows with status='scheduled'
@@ -95,18 +126,9 @@ export async function assignRefereesToScheduledGames(): Promise<{ assigned: numb
   if (!games.length) return { assigned: 0 }
 
   // Officials Ranking meritocracy: top-rated referees should land on the
-  // biggest games. Season average per referee, computed client-side (only
-  // ~40 referees — trivially small, same pattern as teamContexts/coachBonus
-  // elsewhere) — a referee with no rated games yet defaults to 7.0 (the
-  // same neutral baseline rateRefereePerformance() itself starts from), so
-  // rookies aren't unfairly buried at the bottom before they've worked a game.
-  const { data: ratedGames } = await supabaseAdmin.from('games').select('referee_id,referee_rating').not('referee_rating', 'is', null)
-  const ratingSums: Record<string, { sum: number, n: number }> = {}
-  ;(ratedGames || []).forEach((g: any) => {
-    const r = (ratingSums[g.referee_id] ||= { sum: 0, n: 0 })
-    r.sum += g.referee_rating; r.n++
-  })
-  const avgRating = (refId: string) => ratingSums[refId] ? ratingSums[refId].sum / ratingSums[refId].n : 7.0
+  // biggest games.
+  const avgRatings = await getRefereeAvgRatings()
+  const avgRating = (refId: string) => avgRatings[refId] ?? 7.0
 
   // Decisiveness proxy for assignment purposes — rivalry (real, permanent)
   // or a marquee calendar date (real per-game date, see schedule-generator.ts).
