@@ -12,6 +12,7 @@ import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-help
 import { rookieOptionSalary } from '@/lib/draft-constants'
 import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
+import { resolveSummerLeague } from '@/lib/summer-league'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -560,6 +561,14 @@ await resolveMonitoredInteractions(week)
 await refreshMonitoredProgress(week)
 await checkForNewInteractions(week)
 } catch(interErr) { console.warn('Player interactions step failed', interErr) }
+
+// ── SUMMER LEAGUE ──────────────────────────────────────
+// Weeks 2-3 (Jul 11-24): 30 teams field Rookies + Sophomores + young FAs in
+// an 11-day side tournament — never touches real stats/cap. One stage
+// (roster gen, then each round) advances per tick; see src/lib/summer-league.ts.
+if (getStatusForWeek(week) === 'summer-league') {
+  try { await resolveSummerLeague() } catch (slErr) { console.warn('Summer League step failed', slErr) }
+}
 
 // ── TRAINING SLOT FILL + UNLOCK ───────────────────────
 // Fills each unlocked training_slots row a little every week. The fill

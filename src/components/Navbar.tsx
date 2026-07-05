@@ -98,6 +98,7 @@ export default function Navbar() {
         { label: 'All-Star',                               href: '/all-star',  icon: 'ti-star' },
         { label: isPT ? 'Prémios'   : 'Awards',           href: '/awards',    icon: 'ti-award' },
         { label: 'Draft',                                  href: '/draft',     icon: 'ti-clipboard-list' },
+        { label: 'Summer League',                          href: '/summer-league', icon: 'ti-sun' },
         { label: 'Playoffs',                               href: '/playoffs',  icon: 'ti-tournament' },
       ],
     },

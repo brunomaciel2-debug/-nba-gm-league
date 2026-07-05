@@ -306,6 +306,22 @@ export function notifInteractionResolved(lang: 'en'|'pt', player: string, resolu
   }
 }
 
+export function notifSummerLeagueRosters(lang: 'en'|'pt', teamName: string) {
+  return {
+    subject: lang === 'pt' ? `🏀 Roster da Summer League definido` : `🏀 Summer League roster set`,
+    body: lang === 'pt'
+      ? `Já sabemos quem representa os ${teamName} na Summer League de Las Vegas — os teus Rookies e Sophomores lideram a equipa, completada com jovens agentes livres. Vê o separador Summer League para o calendário e os jogos.`
+      : `We know who's representing the ${teamName} at the Las Vegas Summer League — your Rookies and Sophomores lead the team, filled out with young free agents. Check the Summer League tab for the schedule and games.`,
+  }
+}
+
+export function notifSummerLeagueResult(lang: 'en'|'pt', teamName: string, resultText: string) {
+  return {
+    subject: lang === 'pt' ? `🏀 Summer League — resultado` : `🏀 Summer League — result`,
+    body: resultText,
+  }
+}
+
 export function notifDevelopment(lang: 'en'|'pt', player: string, attributes: string[]) {
   return {
     subject: lang === 'pt' ? `📈 ${player} evoluiu!` : `📈 ${player} has developed!`,
