@@ -178,8 +178,15 @@ if(!ops.length||!dps.length)return
 const u3=Math.random()<r3p(oo.three_rate||oo.threeRate||38)
 const shotProfile=SHOT_PROFILE_BY_ATK_STYLE[oo.atk_style]||SHOT_PROFILE_BY_ATK_STYLE.motion
 const isMid=!u3&&Math.random()<shotProfile.mid,isPost=!u3&&!isMid&&Math.random()<shotProfile.post
-const sc2=pS(ops,oo,u3,isC,fat,mom),def=wt(dps.map(p=>({p,w:(p.idef+p.pdef)/2*.5+20})))
-if(!sc2||!def)return
+const sc2=pS(ops,oo,u3,isC,fat,mom)
+if(!sc2)return
+// Lockdown Defender: a GM-assigned individual matchup, no penalty elsewhere
+// (unlike Double Team) — if the locked-down player has the ball and his
+// assigned defender is actually on the floor, that defender guards him,
+// full stop, instead of the usual random weighted pick.
+const lockDef=doo.lockdown_target&&sc2.name===doo.lockdown_target?dps.find((p:any)=>p.name===doo.lockdown_defender&&p.mins>0&&!p.ejected):null
+const def=lockDef||wt(dps.map(p=>({p,w:(p.idef+p.pdef)/2*.5+20})))
+if(!def)return
 const ss=st[sc2.id],ds2=st[def.id],fs=fat[sc2.id]/100
 fat[sc2.id]=Math.max(40,fat[sc2.id]-(14/sc2.stamina)*.7*1.2)
 fat[def.id]=Math.max(40,fat[def.id]-(14/def.stamina)*.7)
