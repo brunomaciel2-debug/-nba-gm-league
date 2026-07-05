@@ -121,8 +121,17 @@ const attRate = Math.min(0.98, baseAttRate + (Math.random() * 0.06 - 0.03))
 const attendance = Math.round((ht.arena_capacity || arenaCapacityMap[ht.id] || 18000) * attRate)
 const decisive = isPlayoffPhase || (inFightSet.has(ht.id) && inFightSet.has(at.id))
 
-const hOrd = { ...(orderMap[ht.id]||{}), attRate, isRivalry, decisive }
-const aOrd = { ...(orderMap[at.id]||{}), attRate, isRivalry, decisive }
+// Double Team / Lockdown Defender are set PER OPPONENT (a team can face
+// several different teams in one week and reasonably wants a different
+// special assignment against each), stored in gm_orders.special_assignments
+// keyed by opponent team_id — look up the assignment for THIS specific matchup.
+const htAssign = orderMap[ht.id]?.special_assignments?.[at.id] || {}
+const atAssign = orderMap[at.id]?.special_assignments?.[ht.id] || {}
+
+const hOrd = { ...(orderMap[ht.id]||{}), attRate, isRivalry, decisive,
+double_team_target: htAssign.double_team_target, lockdown_target: htAssign.lockdown_target, lockdown_defender: htAssign.lockdown_defender }
+const aOrd = { ...(orderMap[at.id]||{}), attRate, isRivalry, decisive,
+double_team_target: atAssign.double_team_target, lockdown_target: atAssign.lockdown_target, lockdown_defender: atAssign.lockdown_defender }
 const result = simulateGame(ht, at, hp, ap, hOrd, aOrd)
 
 const { data: gameRec } = await supabaseAdmin.from('games').update({

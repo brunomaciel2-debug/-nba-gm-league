@@ -87,10 +87,14 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   const [saved, setSaved] = useState(false)
   const [locked, setLocked] = useState(false)
   const [currentWeek, setCurrentWeek] = useState(0)
-  const [doubleTeamTarget, setDoubleTeamTarget] = useState('')
-  const [lockdownTarget, setLockdownTarget] = useState('')
-  const [lockdownDefender, setLockdownDefender] = useState('')
+  type Assignment = { double_team_target?:string, lockdown_target?:string, lockdown_defender?:string }
+  const [specialAssignments, setSpecialAssignments] = useState<Record<string,Assignment>>({})
+  const [activeOppTab, setActiveOppTab] = useState<string>('')
   const [oppGroups, setOppGroups] = useState<{teamId:string,teamName:string,players:any[]}[]>([])
+
+  const setAssignment = (oppId:string, patch: Partial<Assignment>) => {
+    setSpecialAssignments(prev => ({ ...prev, [oppId]: { ...prev[oppId], ...patch } }))
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -152,7 +156,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
               supabase.from('players').select('name,pos,usage').eq('team_id',oppId).eq('status','active').order('usage',{ascending:false}),
             ])
             return { teamId:oppId, teamName:ot?.name||oppId, players:ops||[] }
-          })).then(groups=>setOppGroups(groups))
+          })).then(groups=>{ setOppGroups(groups); if(groups.length) setActiveOppTab(prev=>prev||groups[0].teamId) })
         })
         supabase.from('gm_orders').select('*').eq('team_id',teamId).eq('week_number',week).single()
           .then(({data:ord})=>{
@@ -165,9 +169,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
             setAtkStyle(ord.atk_style||'motion')
             setDefStyle(ord.def_style||'man')
             setTrainIntensity(ord.training_intensity||'normal')
-            setDoubleTeamTarget(ord.double_team_target||'')
-            setLockdownTarget(ord.lockdown_target||'')
-            setLockdownDefender(ord.lockdown_defender||'')
+            setSpecialAssignments(ord.special_assignments||{})
             setLocked(ord.locked||false)
             if(ord.depth_chart) {
               // Extract ball_roles separately from depth_chart
@@ -188,8 +190,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       team_id:teamId, week_number:week,
       priority_1:pris[0], priority_2:pris[1], priority_3:pris[2],
       clutch_player:clutch, pace, three_rate:threeRate,
-      atk_style:atkStyle, def_style:defStyle, double_team_target:doubleTeamTarget||null,
-      lockdown_target:lockdownTarget||null, lockdown_defender:lockdownTarget?(lockdownDefender||null):null,
+      atk_style:atkStyle, def_style:defStyle, special_assignments:specialAssignments,
       depth_chart:{...dc, ball_roles:ballRoles},
       training_intensity:trainIntensity,
     },{onConflict:'team_id,week_number'})
@@ -410,73 +411,98 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         </div>
       </div>
 
-      {/* SPECIAL ASSIGNMENTS */}
+      {/* SPECIAL ASSIGNMENTS — one independent panel per opponent this week */}
       <div className="rounded-2xl overflow-hidden mb-6" style={{border:'1px solid #d4cdc5'}}>
         <div className="px-4 py-3" style={{background:'#ece7dd',borderBottom:'1px solid #d4cdc5'}}>
           <div className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>
             🎯 {isPT?'Atribuições Especiais':'Special Assignments'}
           </div>
           <div className="text-xs mt-0.5" style={{color:'#9c8e7a'}}>
-            {oppGroups.length>0
-              ? (isPT?`Adversários desta semana: ${oppGroups.map(g=>g.teamName).join(', ')}`:`This week's opponents: ${oppGroups.map(g=>g.teamName).join(', ')}`)
-              : (isPT?'Sem jogos agendados esta semana.':'No games scheduled this week.')}
+            {isPT?'Um Double Team e um Defensor de Marcação próprios para cada adversário desta semana.':'Your own Double Team and Lockdown Defender for each opponent this week.'}
           </div>
         </div>
-        <div className="grid sm:grid-cols-2 gap-px" style={{background:'#d4cdc5'}}>
-          <div className="p-4" style={{background:'#faf8f5'}}>
-            <label className="text-xs mb-1.5 flex items-center font-semibold" style={{color:'#7c2d12'}}>
-              🔒 {isPT?'Double Team':'Double Team'}
-              <InfoTip text={isPT?'Reduz muito o lançamento e aumenta as perdas de bola do jogador escolhido, mas deixa os companheiros dele com lançamentos mais fáceis — a tua defesa fica mais fina no resto do campo. Só tem efeito no jogo contra a equipa real desse jogador; nos outros fica inativo, sem penalização.':'Sharply reduces the chosen player\'s shooting and raises his turnovers, but leaves his teammates with easier looks — the rest of your defense is stretched thinner. Only does anything in the game against that player\'s real team; in the others it stays inactive, no penalty.'} />
-            </label>
-            <div className="text-xs font-semibold mb-1" style={{color:'#7c2d12'}}>
-              {isPT?'Jogador do adversário a dobrar':'Opponent player to double-team'}
-            </div>
-            <select value={doubleTeamTarget} onChange={e=>setDoubleTeamTarget(e.target.value)}
-              className="w-full text-xs px-3 py-2 rounded-lg"
-              style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}>
-              <option value="">-- {isPT?'Nenhum':'None'} --</option>
-              {oppGroups.map(g=>(
-                <optgroup key={g.teamId} label={`vs ${g.teamName}`}>
-                  {g.players.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
-                </optgroup>
-              ))}
-            </select>
-            <p className="text-xs mt-1.5" style={{color:'#9c8e7a'}}>
-              {isPT?'Alto risco, alta recompensa — condiciona a estrela, expõe o resto.':'High risk, high reward — locks down the star, exposes the rest.'}
-            </p>
+
+        {oppGroups.length===0 ? (
+          <div className="p-5 text-center text-xs" style={{color:'#9c8e7a',background:'#faf8f5'}}>
+            {isPT?'Sem jogos agendados esta semana.':'No games scheduled this week.'}
           </div>
-          <div className="p-4" style={{background:'#faf8f5'}}>
-            <label className="text-xs mb-1.5 flex items-center font-semibold" style={{color:'#0e7490'}}>
-              🛡️ {isPT?'Defensor de Marcação':'Lockdown Defender'}
-              <InfoTip text={isPT?'Designa um jogador teu para marcar sempre um jogador específico do adversário, em vez de depender de quem calhar a marcá-lo. Sem penalização no resto da defesa — o único "custo" é esse defensor deixar de estar livre para ajudas/ressaltos. Só resulta se ambos estiverem em campo no jogo certo.':'Assigns one of your players to always guard a specific opponent, instead of leaving it to whoever happens to switch onto him. No penalty elsewhere — the only cost is that defender being unavailable for help/rebounds. Only works if both are on the floor in the right game.'} />
-            </label>
-            <div className="text-xs font-semibold mb-1" style={{color:'#0e7490'}}>
-              1. {isPT?'Jogador do adversário a neutralizar':'Opponent player to neutralize'}
+        ) : (
+          <>
+            {/* Opponent tabs */}
+            <div className="flex gap-1.5 px-3 pt-3 flex-wrap" style={{background:'#faf8f5'}}>
+              {oppGroups.map(g=>{
+                const a = specialAssignments[g.teamId]
+                const hasAssignment = !!(a?.double_team_target || a?.lockdown_target)
+                const active = activeOppTab===g.teamId
+                return (
+                  <button key={g.teamId} onClick={()=>setActiveOppTab(g.teamId)}
+                    className="px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5"
+                    style={{
+                      background: active ? '#1a1512' : '#e8e2d6',
+                      color: active ? '#fff' : '#3d3731',
+                      border: '1px solid ' + (active ? '#1a1512' : '#d4cdc5'),
+                    }}>
+                    vs {g.teamName}
+                    {hasAssignment && <span style={{width:6,height:6,borderRadius:'50%',background:active?'#f59e0b':'#c2410c',display:'inline-block'}}/>}
+                  </button>
+                )
+              })}
             </div>
-            <select value={lockdownTarget} onChange={e=>{setLockdownTarget(e.target.value); if(!e.target.value) setLockdownDefender('')}}
-              className="w-full text-xs px-3 py-2 rounded-lg mb-2"
-              style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}>
-              <option value="">-- {isPT?'Nenhum':'None'} --</option>
-              {oppGroups.map(g=>(
-                <optgroup key={g.teamId} label={`vs ${g.teamName}`}>
-                  {g.players.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
-                </optgroup>
-              ))}
-            </select>
-            <div className="text-xs font-semibold mb-1" style={{color:lockdownTarget?'#0e7490':'#b8ada0'}}>
-              2. {isPT?'O TEU jogador que vai marcá-lo':'YOUR player who will guard him'}
-            </div>
-            <select value={lockdownDefender} onChange={e=>setLockdownDefender(e.target.value)} disabled={!lockdownTarget}
-              className="w-full text-xs px-3 py-2 rounded-lg disabled:opacity-50"
-              style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none',cursor:lockdownTarget?'pointer':'not-allowed'}}>
-              <option value="">-- {lockdownTarget?(isPT?'Escolhe o teu defensor':'Choose your defender'):(isPT?'Escolhe primeiro o alvo acima':'Pick the target above first')} --</option>
-              {players.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
-            </select>
-            <p className="text-xs mt-1.5" style={{color:'#9c8e7a'}}>
-              {isPT?'Baixo risco — o teu melhor defensor, sempre no jogador certo.':'Low risk — your best defender, always on the right man.'}
-            </p>
-          </div>
-        </div>
+
+            {oppGroups.filter(g=>g.teamId===activeOppTab).map(g=>{
+              const a = specialAssignments[g.teamId] || {}
+              return (
+                <div key={g.teamId} className="grid sm:grid-cols-2 gap-px mt-3" style={{background:'#d4cdc5'}}>
+                  <div className="p-4" style={{background:'#faf8f5'}}>
+                    <label className="text-xs mb-1.5 flex items-center font-semibold" style={{color:'#7c2d12'}}>
+                      🔒 {isPT?'Double Team':'Double Team'}
+                      <InfoTip text={isPT?'Reduz muito o lançamento e aumenta as perdas de bola do jogador escolhido, mas deixa os companheiros dele com lançamentos mais fáceis — a tua defesa fica mais fina no resto do campo.':'Sharply reduces the chosen player\'s shooting and raises his turnovers, but leaves his teammates with easier looks — the rest of your defense is stretched thinner.'} />
+                    </label>
+                    <div className="text-xs font-semibold mb-1" style={{color:'#7c2d12'}}>
+                      {isPT?`Jogador de ${g.teamName} a dobrar`:`${g.teamName} player to double-team`}
+                    </div>
+                    <select value={a.double_team_target||''} onChange={e=>setAssignment(g.teamId,{double_team_target:e.target.value})}
+                      className="w-full text-xs px-3 py-2 rounded-lg"
+                      style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}>
+                      <option value="">-- {isPT?'Nenhum':'None'} --</option>
+                      {g.players.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
+                    </select>
+                    <p className="text-xs mt-1.5" style={{color:'#9c8e7a'}}>
+                      {isPT?'Alto risco, alta recompensa — condiciona a estrela, expõe o resto.':'High risk, high reward — locks down the star, exposes the rest.'}
+                    </p>
+                  </div>
+                  <div className="p-4" style={{background:'#faf8f5'}}>
+                    <label className="text-xs mb-1.5 flex items-center font-semibold" style={{color:'#0e7490'}}>
+                      🛡️ {isPT?'Defensor de Marcação':'Lockdown Defender'}
+                      <InfoTip text={isPT?'Designa um jogador teu para marcar sempre um jogador específico do adversário, em vez de depender de quem calhar a marcá-lo. Sem penalização no resto da defesa.':'Assigns one of your players to always guard a specific opponent, instead of leaving it to whoever happens to switch onto him. No penalty elsewhere.'} />
+                    </label>
+                    <div className="text-xs font-semibold mb-1" style={{color:'#0e7490'}}>
+                      1. {isPT?`Jogador de ${g.teamName} a neutralizar`:`${g.teamName} player to neutralize`}
+                    </div>
+                    <select value={a.lockdown_target||''} onChange={e=>setAssignment(g.teamId,{lockdown_target:e.target.value, ...(e.target.value?{}:{lockdown_defender:''})})}
+                      className="w-full text-xs px-3 py-2 rounded-lg mb-2"
+                      style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}>
+                      <option value="">-- {isPT?'Nenhum':'None'} --</option>
+                      {g.players.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
+                    </select>
+                    <div className="text-xs font-semibold mb-1" style={{color:a.lockdown_target?'#0e7490':'#b8ada0'}}>
+                      2. {isPT?'O TEU jogador que vai marcá-lo':'YOUR player who will guard him'}
+                    </div>
+                    <select value={a.lockdown_defender||''} onChange={e=>setAssignment(g.teamId,{lockdown_defender:e.target.value})} disabled={!a.lockdown_target}
+                      className="w-full text-xs px-3 py-2 rounded-lg disabled:opacity-50"
+                      style={{background:'#e8e2d6',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none',cursor:a.lockdown_target?'pointer':'not-allowed'}}>
+                      <option value="">-- {a.lockdown_target?(isPT?'Escolhe o teu defensor':'Choose your defender'):(isPT?'Escolhe primeiro o alvo acima':'Pick the target above first')} --</option>
+                      {players.map(p=><option key={p.name} value={p.name}>{p.name} ({p.pos})</option>)}
+                    </select>
+                    <p className="text-xs mt-1.5" style={{color:'#9c8e7a'}}>
+                      {isPT?'Baixo risco — o teu melhor defensor, sempre no jogador certo.':'Low risk — your best defender, always on the right man.'}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )}
       </div>
 
       {/* TRAINING */}

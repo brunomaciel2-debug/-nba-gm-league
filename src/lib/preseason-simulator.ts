@@ -54,7 +54,14 @@ export async function simulatePreseasonGame(id: string) {
     hp.forEach((p: any) => { p.ball_role = hBallRoles[p.name] })
     ap.forEach((p: any) => { p.ball_role = aBallRoles[p.name] })
 
-    const result = simulateGame(homeTeam, awayTeam, hp, ap, orderMap[pg.home_team], orderMap[pg.away_team])
+    // Double Team / Lockdown Defender are set per opponent — look up the
+    // assignment for this specific friendly's matchup, same as a real game.
+    const htAssign = orderMap[pg.home_team]?.special_assignments?.[pg.away_team] || {}
+    const atAssign = orderMap[pg.away_team]?.special_assignments?.[pg.home_team] || {}
+    const hOrd = orderMap[pg.home_team] ? { ...orderMap[pg.home_team], double_team_target: htAssign.double_team_target, lockdown_target: htAssign.lockdown_target, lockdown_defender: htAssign.lockdown_defender } : undefined
+    const aOrd = orderMap[pg.away_team] ? { ...orderMap[pg.away_team], double_team_target: atAssign.double_team_target, lockdown_target: atAssign.lockdown_target, lockdown_defender: atAssign.lockdown_defender } : undefined
+
+    const result = simulateGame(homeTeam, awayTeam, hp, ap, hOrd, aOrd)
     homeScore = result.homeScore; awayScore = result.awayScore
     homeBox = result.homeBox; awayBox = result.awayBox; pbp = result.pbp
 
