@@ -4,6 +4,27 @@ import { getTeamLang, notifJerseySalesReport } from '@/lib/notifications-helpers
 
 const SEASON = '2025-26'
 
+// Real NBA media-market size — a star's jersey sales depend heavily on
+// market reach, not just talent (LeBron in LA outsells an equally good
+// player in Memphis by miles). Tiered from real Nielsen DMA/metro rankings:
+// Large = the traditional top-8 US media markets plus Toronto (the only
+// Canadian team — unique national-reach status of its own).
+const LARGE_MARKETS = new Set(['LAL','LAC','NYK','BKN','CHI','GSW','BOS','DAL','TOR'])
+const SMALL_MARKETS = new Set(['ORL','CHA','SAS','IND','CLE','MIL','UTA','NOP','MEM','OKC'])
+// Everything else (PHI, HOU, MIA, ATL, WAS, PHX, DET, MIN, DEN, SAC, POR) is mid-market.
+
+// Amplifies star power specifically — a scrub sitting near the fame floor
+// barely moves regardless of market, but the bonus a real star earns from
+// quality/form/awards/marketing gets multiplied up in a big market and
+// dampened in a small one, exactly the "exponentially more for stars"
+// effect real-world markets have (not a flat bonus for every player on
+// the roster, which wouldn't be real).
+export function marketMultiplier(teamId: string): number {
+  if (LARGE_MARKETS.has(teamId)) return 1.5
+  if (SMALL_MARKETS.has(teamId)) return 0.8
+  return 1.1
+}
+
 // Jersey sales are real-world power-law distributed — a handful of
 // megastars account for most of the money, everyone else is a rounding
 // error. fame 40 -> ~$1.1K/mo (nobody buys the 12th man's jersey),
@@ -17,20 +38,24 @@ export function jerseyRevenue(fame: number): number {
 
 // Deserved monthly fame target — quality, recent form vs. the player's own
 // season average (same comparison already built for Power Rankings/morale,
-// generalized here), team win%, a recent award bump, and an active
-// marketing campaign's intended boost (or backfire penalty, resolved
-// separately in resolveMonthlyMerchandising below).
+// generalized here), a recent award bump, and an active marketing
+// campaign's intended boost (or backfire penalty, resolved separately in
+// resolveMonthlyMerchandising below) — all of that "star power" is scaled
+// by the team's real market size (see marketMultiplier() above), since
+// that's specifically what makes a market big or small: how far a star's
+// name travels, not how good a bench player looks locally. Team win% is
+// kept outside the market scaling — winning creates buzz everywhere.
 export function fameTarget(opts: {
   realOvr: number, recentAvgPts: number | null, seasonAvgPts: number | null,
-  winPct: number, hasRecentAward: boolean, campaignAdjustment: number,
+  winPct: number, hasRecentAward: boolean, campaignAdjustment: number, marketMultiplier: number,
 }): number {
-  let target = 20 + Math.max(0, opts.realOvr - 60) * 1.1
+  let starBonus = Math.max(0, opts.realOvr - 60) * 1.1
   if (opts.recentAvgPts != null && opts.seasonAvgPts != null && opts.seasonAvgPts >= 2) {
-    target += Math.max(-10, Math.min(10, (opts.recentAvgPts / opts.seasonAvgPts - 1) * 25))
+    starBonus += Math.max(-10, Math.min(10, (opts.recentAvgPts / opts.seasonAvgPts - 1) * 25))
   }
-  target += (opts.winPct - 0.5) * 12
-  if (opts.hasRecentAward) target += 12
-  target += opts.campaignAdjustment
+  if (opts.hasRecentAward) starBonus += 12
+  starBonus += opts.campaignAdjustment
+  const target = 20 + starBonus * opts.marketMultiplier + (opts.winPct - 0.5) * 12
   return Math.max(5, Math.min(99, target))
 }
 
@@ -129,6 +154,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
 
     const target = fameTarget({
       realOvr: p.real_ovr || 70, recentAvgPts, seasonAvgPts, winPct, hasRecentAward, campaignAdjustment,
+      marketMultiplier: marketMultiplier(p.team_id),
     })
     const newFame = Math.round(Math.max(0, Math.min(100, (p.fame ?? 50) + (target - (p.fame ?? 50)) * DRIFT_RATE)))
     playerFameUpdates.push({ id: p.id, fame: newFame })
