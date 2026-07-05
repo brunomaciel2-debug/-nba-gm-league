@@ -4,6 +4,7 @@ import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useRouter } from 'next/navigation'
+import { useTranslation } from '@/components/I18nProvider'
 
 const CAP_LIMIT = 180_000_000
 const MAX_ROSTER = 15
@@ -16,12 +17,12 @@ function toggle(arr: string[], id: string): string[] {
 function PlayerPickPanel({
   label, teamInfo, players, picks, allTeams,
   selPlayers, selPicks, onTogglePlayer, onTogglePick,
-  isMyTeam = false, onSelectTeam, capAfter
+  isMyTeam = false, onSelectTeam, capAfter, isPT
 }: {
   label: string, teamInfo: any, players: any[], picks: any[], allTeams: any[],
   selPlayers: string[], selPicks: string[], onTogglePlayer: (id: string) => void,
   onTogglePick: (id: string) => void, isMyTeam?: boolean, onSelectTeam?: (id: string) => void,
-  capAfter?: number
+  capAfter?: number, isPT: boolean
 }) {
   const tc = teamInfo ? readableTeamColor(teamInfo.color) : '#5c554e'
   const totalSalary = players.filter(p => selPlayers.includes(p.id)).reduce((s, p) => s + (p.salary || 0), 0)
@@ -34,16 +35,16 @@ function PlayerPickPanel({
         {isMyTeam ? (
           <div className="flex items-center gap-2">
             {teamInfo?.logo_url && <img src={teamInfo.logo_url} alt="" className="w-6 h-6 object-contain" />}
-            <span className="font-bold" style={{ color: tc }}>{teamInfo?.name || 'Your Team'}</span>
-            <span className="text-xs ml-2" style={{ color: '#5c554e' }}>sends →</span>
+            <span className="font-bold" style={{ color: tc }}>{teamInfo?.name || (isPT ? 'A Tua Equipa' : 'Your Team')}</span>
+            <span className="text-xs ml-2" style={{ color: '#5c554e' }}>{isPT ? 'envia →' : 'sends →'}</span>
           </div>
         ) : (
           <div>
-            <div className="text-xs mb-2" style={{ color: '#5c554e' }}>{label} — select team:</div>
+            <div className="text-xs mb-2" style={{ color: '#5c554e' }}>{label} — {isPT ? 'escolhe a equipa:' : 'select team:'}</div>
             <select onChange={e => onSelectTeam?.(e.target.value)} value={teamInfo?.id || ''}
               className="w-full text-sm px-3 py-2 rounded-lg outline-none"
               style={{ background: '#ede8de', border: '1px solid #3a3228', color: '#1a1612' }}>
-              <option value="">— Choose team —</option>
+              <option value="">{isPT ? '— Escolhe uma equipa —' : '— Choose team —'}</option>
               {allTeams.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
@@ -54,15 +55,15 @@ function PlayerPickPanel({
             marginTop:6, fontSize:11, fontWeight:600,
             color: overCap ? '#dc2626' : '#15803d',
           }}>
-            Cap after trade: {capFmt(capAfter)} {overCap ? '❌ Over cap!' : '✓'}
+            {isPT ? 'Cap após a troca' : 'Cap after trade'}: {capFmt(capAfter)} {overCap ? (isPT ? '❌ Acima do cap!' : '❌ Over cap!') : '✓'}
           </div>
         )}
       </div>
 
       {teamInfo && (
         <div className="flex-1 overflow-y-auto p-3" style={{ background: '#ede8de', maxHeight: 420 }}>
-          <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#5c554e' }}>Players</div>
-          {players.length === 0 && <p className="text-xs mb-3" style={{ color: '#a89f97' }}>No players found.</p>}
+          <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: '#5c554e' }}>{isPT ? 'Jogadores' : 'Players'}</div>
+          {players.length === 0 && <p className="text-xs mb-3" style={{ color: '#a89f97' }}>{isPT ? 'Nenhum jogador encontrado.' : 'No players found.'}</p>}
           {players.map((p: any) => {
             const isSel = selPlayers.includes(p.id)
             return (
@@ -76,8 +77,8 @@ function PlayerPickPanel({
               </button>
             )
           })}
-          <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-4" style={{ color: '#5c554e' }}>Draft Picks</div>
-          {picks.length === 0 && <p className="text-xs" style={{ color: '#a89f97' }}>No picks available.</p>}
+          <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-4" style={{ color: '#5c554e' }}>{isPT ? 'Escolhas de Draft' : 'Draft Picks'}</div>
+          {picks.length === 0 && <p className="text-xs" style={{ color: '#a89f97' }}>{isPT ? 'Nenhuma escolha disponível.' : 'No picks available.'}</p>}
           <div className="flex flex-wrap gap-2">
             {picks.map((pk: any) => {
               const isSel = selPicks.includes(pk.id)
@@ -87,7 +88,7 @@ function PlayerPickPanel({
                   className="text-xs px-3 py-1.5 rounded-lg font-semibold transition-all"
                   style={{ background: isSel ? tc + '33' : '#faf8f5', border: '1px solid ' + (isSel ? tc : '#d4cdc5'), color: isSel ? tc : '#5c554e' }}>
                   {pk.season} R{pk.round}
-                  {!isOwn && <span className="ml-1" style={{ color: '#b45309' }}>(via {pk.original_team_id})</span>}
+                  {!isOwn && <span className="ml-1" style={{ color: '#b45309' }}>({isPT ? 'via' : 'via'} {pk.original_team_id})</span>}
                   {pk.protection !== 'unprotected' && <span className="ml-1" style={{ color: '#dc2626' }}>({pk.protection})</span>}
                 </button>
               )
@@ -100,7 +101,7 @@ function PlayerPickPanel({
         <div className="px-4 py-2.5 flex items-center justify-between"
              style={{ background: '#ddd7ca', borderTop: '1px solid #3a3228' }}>
           <span className="text-xs" style={{ color: '#5c554e' }}>
-            {selPlayers.length} player{selPlayers.length !== 1 ? 's' : ''} · {selPicks.length} pick{selPicks.length !== 1 ? 's' : ''}
+            {selPlayers.length} {isPT ? 'jogador'+(selPlayers.length !== 1 ? 'es' : '') : 'player'+(selPlayers.length !== 1 ? 's' : '')} · {selPicks.length} {isPT ? 'escolha'+(selPicks.length !== 1 ? 's' : '') : 'pick'+(selPicks.length !== 1 ? 's' : '')}
           </span>
           <span className="font-bold text-sm" style={{ color: tc }}>{capFmt(totalSalary)}</span>
         </div>
@@ -110,6 +111,8 @@ function PlayerPickPanel({
 }
 
 function ProposeTradePage() {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const { user, profile } = useAuth()
   const router = useRouter()
 
@@ -239,19 +242,19 @@ function ProposeTradePage() {
 
   if (!user) return (
     <div className="max-w-2xl mx-auto px-4 py-12 text-center">
-      <p className="mb-4" style={{ color: '#5c554e' }}>Sign in to propose a trade.</p>
-      <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#1d4ed8', color: '#e8e2d6' }}>Sign In</a>
+      <p className="mb-4" style={{ color: '#5c554e' }}>{isPT ? 'Inicia sessão para propores uma troca.' : 'Sign in to propose a trade.'}</p>
+      <a href="/login" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#1d4ed8', color: '#e8e2d6' }}>{isPT ? 'Iniciar Sessão' : 'Sign In'}</a>
     </div>
   )
 
   if (isCommissioner && !commTeamId) return (
     <div className="max-w-md mx-auto px-4 py-12">
-      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#6b5f4e'}}>← Trade Center</a>
-      <h2 className="text-lg font-bold mb-4" style={{color:'#1a1612'}}>Commissioner — Select Team to Propose As</h2>
+      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#6b5f4e'}}>← {isPT ? 'Centro de Trocas' : 'Trade Center'}</a>
+      <h2 className="text-lg font-bold mb-4" style={{color:'#1a1612'}}>{isPT ? 'Comissário — Escolhe a Equipa para Propor Como' : 'Commissioner — Select Team to Propose As'}</h2>
       <select onChange={e=>setCommTeamId(e.target.value)} defaultValue=""
         className="w-full text-sm px-3 py-3 rounded-xl outline-none"
         style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#1a1612'}}>
-        <option value="">— Choose a team —</option>
+        <option value="">{isPT ? '— Escolhe uma equipa —' : '— Choose a team —'}</option>
         {allTeams.map((t:any)=><option key={t.id} value={t.id}>{t.name}</option>)}
       </select>
     </div>
@@ -260,9 +263,9 @@ function ProposeTradePage() {
   if (submitted) return (
     <div className="max-w-lg mx-auto px-4 py-12 text-center">
       <div className="text-5xl mb-4">✅</div>
-      <h2 className="text-xl font-bold mb-2" style={{ color: '#1a1612' }}>Trade Proposal Sent!</h2>
-      <p className="mb-6" style={{ color: '#5c554e' }}>The GM(s) received a notification and can accept, reject or counter.</p>
-      <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#1d4ed8', color: '#e8e2d6' }}>← Back</a>
+      <h2 className="text-xl font-bold mb-2" style={{ color: '#1a1612' }}>{isPT ? 'Proposta de Troca Enviada!' : 'Trade Proposal Sent!'}</h2>
+      <p className="mb-6" style={{ color: '#5c554e' }}>{isPT ? 'O(s) GM(s) receberam uma notificação e podem aceitar, recusar ou fazer contraproposta.' : 'The GM(s) received a notification and can accept, reject or counter.'}</p>
+      <a href="/trade-center" className="px-4 py-2 rounded-lg text-sm font-bold no-underline" style={{ background: '#1d4ed8', color: '#e8e2d6' }}>← {isPT ? 'Voltar' : 'Back'}</a>
     </div>
   )
 
@@ -271,34 +274,34 @@ function ProposeTradePage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <a href="/trade-center" className="text-xs no-underline" style={{ color: '#5c554e' }}>← Trade Center</a>
-        <h1 className="text-xl font-bold" style={{ color: '#1a1612' }}>🔄 Propose Trade</h1>
+        <a href="/trade-center" className="text-xs no-underline" style={{ color: '#5c554e' }}>← {isPT ? 'Centro de Trocas' : 'Trade Center'}</a>
+        <h1 className="text-xl font-bold" style={{ color: '#1a1612' }}>🔄 {isPT ? 'Propor Troca' : 'Propose Trade'}</h1>
       </div>
 
       <div className={`grid gap-4 mb-6 ${show3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <PlayerPickPanel
-          label="Your Team" teamInfo={myTeam} players={myPlayers} picks={myPicks}
+          label={isPT ? 'A Tua Equipa' : 'Your Team'} teamInfo={myTeam} players={myPlayers} picks={myPicks}
           allTeams={allTeams} selPlayers={mySend} selPicks={myPicksSend}
           onTogglePlayer={id => setMySend(p => toggle(p, id))}
           onTogglePick={id => setMyPicksSend(p => toggle(p, id))}
-          isMyTeam
+          isMyTeam isPT={isPT}
           capAfter={myCapAfter}/>
 
         <PlayerPickPanel
-          label="Team 2" teamInfo={team2} players={t2Players} picks={t2Picks}
+          label={isPT ? 'Equipa 2' : 'Team 2'} teamInfo={team2} players={t2Players} picks={t2Picks}
           allTeams={allTeams.filter(t => t.id !== team3Id)} selPlayers={t2Recv} selPicks={t2PicksRecv}
           onTogglePlayer={id => setT2Recv(p => toggle(p, id))}
           onTogglePick={id => setT2PicksRecv(p => toggle(p, id))}
-          onSelectTeam={setTeam2Id}
+          onSelectTeam={setTeam2Id} isPT={isPT}
           capAfter={team2 ? t2CapAfter : undefined}/>
 
         {show3 && (
           <PlayerPickPanel
-            label="Team 3" teamInfo={team3} players={t3Players} picks={t3Picks}
+            label={isPT ? 'Equipa 3' : 'Team 3'} teamInfo={team3} players={t3Players} picks={t3Picks}
             allTeams={allTeams.filter(t => t.id !== team2Id)} selPlayers={t3Recv} selPicks={t3PicksRecv}
             onTogglePlayer={id => setT3Recv(p => toggle(p, id))}
             onTogglePick={id => setT3PicksRecv(p => toggle(p, id))}
-            onSelectTeam={setTeam3Id}/>
+            onSelectTeam={setTeam3Id} isPT={isPT}/>
         )}
       </div>
 
@@ -306,28 +309,28 @@ function ProposeTradePage() {
         <button onClick={() => { setShow3(!show3); if (show3) { setTeam3Id(''); setTeam3(null); setT3Recv([]); setT3PicksRecv([]) } }}
           className="text-xs px-4 py-2 rounded-lg font-semibold"
           style={{ background: show3 ? '#2a0a0a' : '#1e3a5f', color: show3 ? '#dc2626' : '#1d4ed8', border: '1px solid ' + (show3 ? '#5a1a1a' : '#1e3a5f') }}>
-          {show3 ? '✕ Remove 3rd Team' : '+ Add 3rd Team (3-way trade)'}
+          {show3 ? (isPT ? '✕ Remover 3ª Equipa' : '✕ Remove 3rd Team') : (isPT ? '+ Adicionar 3ª Equipa (troca a 3)' : '+ Add 3rd Team (3-way trade)')}
         </button>
       </div>
 
       {/* Trade calculator */}
       <div className="rounded-xl p-4 mb-4" style={{ background: '#ddd7ca', border: '1px solid #3a3228' }}>
-        <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#5c554e' }}>🧮 Trade Calculator</div>
+        <div className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#5c554e' }}>🧮 {isPT ? 'Calculadora de Troca' : 'Trade Calculator'}</div>
         <div className="grid grid-cols-3 gap-4 mb-3">
           <div className="rounded-lg p-3 text-center" style={{ background: '#ede8de' }}>
-            <div className="text-xs mb-1" style={{ color: '#5c554e' }}>You send</div>
+            <div className="text-xs mb-1" style={{ color: '#5c554e' }}>{isPT ? 'Envias' : 'You send'}</div>
             <div className="text-xl font-black" style={{ color: myTeam ? readableTeamColor(myTeam.color) : '#5c554e' }}>{capFmt(mySalarySent)}</div>
-            <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>{mySend.length} players · {myPicksSend.length} picks</div>
+            <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>{mySend.length} {isPT?'jogador'+(mySend.length!==1?'es':''):'player'+(mySend.length!==1?'s':'')} · {myPicksSend.length} {isPT?'escolha'+(myPicksSend.length!==1?'s':''):'pick'+(myPicksSend.length!==1?'s':'')}</div>
           </div>
           <div className="rounded-lg p-3 text-center" style={{ background: '#ede8de' }}>
-            <div className="text-xs mb-1" style={{ color: '#5c554e' }}>Salary diff</div>
+            <div className="text-xs mb-1" style={{ color: '#5c554e' }}>{isPT ? 'Diferença salarial' : 'Salary diff'}</div>
             <div className="text-xl font-black" style={{ color: salaryValid ? '#15803d' : '#dc2626' }}>{capFmt(diff)}</div>
-            <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>Max: {capFmt(maxDiff)}</div>
+            <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>{isPT?'Máx':'Max'}: {capFmt(maxDiff)}</div>
           </div>
           <div className="rounded-lg p-3 text-center" style={{ background: '#ede8de' }}>
-            <div className="text-xs mb-1" style={{ color: '#5c554e' }}>You receive</div>
+            <div className="text-xs mb-1" style={{ color: '#5c554e' }}>{isPT ? 'Recebes' : 'You receive'}</div>
             <div className="text-xl font-black" style={{ color: tc2 }}>{capFmt(totalIn)}</div>
-            <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>{t2Recv.length + t3Recv.length} players · {t2PicksRecv.length + t3PicksRecv.length} picks</div>
+            <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>{t2Recv.length + t3Recv.length} {isPT?'jogador'+((t2Recv.length+t3Recv.length)!==1?'es':''):'player'+((t2Recv.length+t3Recv.length)!==1?'s':'')} · {t2PicksRecv.length + t3PicksRecv.length} {isPT?'escolha'+((t2PicksRecv.length+t3PicksRecv.length)!==1?'s':''):'pick'+((t2PicksRecv.length+t3PicksRecv.length)!==1?'s':'')}</div>
           </div>
         </div>
 
@@ -337,7 +340,7 @@ function ProposeTradePage() {
                style={{ background: '#2a0a0a', border: '1px solid #5a1a1a' }}>
             <span>🚫</span>
             <span className="text-sm font-bold" style={{ color: '#dc2626' }}>
-              Cap violation: {myOverCap && `${myTeam?.name} would exceed $180M cap`}{myOverCap && t2OverCap && ' · '}{t2OverCap && `${team2?.name} would exceed $180M cap`}
+              {isPT ? 'Violação do cap' : 'Cap violation'}: {myOverCap && (isPT ? `${myTeam?.name} ultrapassaria o cap de $180M` : `${myTeam?.name} would exceed $180M cap`)}{myOverCap && t2OverCap && ' · '}{t2OverCap && (isPT ? `${team2?.name} ultrapassaria o cap de $180M` : `${team2?.name} would exceed $180M cap`)}
             </span>
           </div>
         )}
@@ -347,40 +350,41 @@ function ProposeTradePage() {
           <span className="text-lg">{isValid ? '✅' : '❌'}</span>
           <div>
             <span className="font-bold text-sm" style={{ color: isValid ? '#15803d' : '#dc2626' }}>
-              {isValid ? 'Trade is valid' : 'Trade is invalid'}
+              {isValid ? (isPT ? 'Troca válida' : 'Trade is valid') : (isPT ? 'Troca inválida' : 'Trade is invalid')}
             </span>
             <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>
-              {!hasPlayers && 'Select at least 1 player or pick on each side · '}
-              {!salaryValid && `Salary difference exceeds limit (±15% + $1M) · `}
-              {myOverCap && `Your team would exceed the $180M cap · `}
-              {t2OverCap && `${team2?.name} would exceed the $180M cap · `}
-              {!team2Id && 'Select a team to trade with · '}
-              {isValid && 'All checks passed. Ready to send.'}
+              {!hasPlayers && (isPT ? 'Seleciona pelo menos 1 jogador ou escolha em cada lado · ' : 'Select at least 1 player or pick on each side · ')}
+              {!salaryValid && (isPT ? 'Diferença salarial excede o limite (±15% + $1M) · ' : `Salary difference exceeds limit (±15% + $1M) · `)}
+              {myOverCap && (isPT ? 'A tua equipa ultrapassaria o cap de $180M · ' : `Your team would exceed the $180M cap · `)}
+              {t2OverCap && (isPT ? `${team2?.name} ultrapassaria o cap de $180M · ` : `${team2?.name} would exceed the $180M cap · `)}
+              {!team2Id && (isPT ? 'Seleciona uma equipa para trocar · ' : 'Select a team to trade with · ')}
+              {isValid && (isPT ? 'Todas as verificações passaram. Pronto para enviar.' : 'All checks passed. Ready to send.')}
             </div>
           </div>
         </div>
       </div>
 
       <div className="mb-4">
-        <label className="block text-xs font-semibold mb-1.5" style={{ color: '#5c554e' }}>Message (optional)</label>
+        <label className="block text-xs font-semibold mb-1.5" style={{ color: '#5c554e' }}>{isPT ? 'Mensagem (opcional)' : 'Message (optional)'}</label>
         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
           className="w-full px-4 py-2.5 rounded-xl text-sm outline-none resize-none"
           style={{ background: '#ede8de', border: '1px solid #3a3228', color: '#1a1612' }}
-          placeholder="Explain your offer..." />
+          placeholder={isPT ? 'Explica a tua oferta...' : 'Explain your offer...'} />
       </div>
 
       <button onClick={submitTrade} disabled={!isValid || submitting}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-all"
         style={{ background: isValid ? '#b45309' : '#f0ece5', color: isValid ? '#eee8df' : '#d4cdc5' }}>
-        {submitting ? 'Sending...' : 'Send Trade Proposal 🔄'}
+        {submitting ? (isPT?'A enviar...':'Sending...') : (isPT?'Enviar Proposta de Troca 🔄':'Send Trade Proposal 🔄')}
       </button>
     </div>
   )
 }
 
 export default function ProposeTradePageWrapper() {
+  const { t } = useTranslation()
   return (
-    <Suspense fallback={<div className="p-8 text-center" style={{ color: '#5c554e' }}>Loading...</div>}>
+    <Suspense fallback={<div className="p-8 text-center" style={{ color: '#5c554e' }}>{t('common.loading')}</div>}>
       <ProposeTradePage />
     </Suspense>
   )

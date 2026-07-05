@@ -2,35 +2,11 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
-
-const POSITIONS = [
-  {
-    value: 'featured_1',
-    label: '📌 Featured Left',
-    desc: 'Left column highlight below the hero. Good for important news, injury reports, trade summaries.',
-    preview: 'Left column · Below hero · 1 article max',
-    color: '#1d4ed8',
-    bg: '#0a1a3a',
-  },
-  {
-    value: 'featured_2',
-    label: '📌 Featured Right',
-    desc: 'Right column highlight below the hero. Good for standings updates, weekly recaps, GM moves.',
-    preview: 'Right column · Below hero · 1 article max',
-    color: '#15803d',
-    bg: '#0a2a10',
-  },
-  {
-    value: 'news',
-    label: '📰 Latest News',
-    desc: 'Regular news feed below the featured sections. Multiple articles can be here.',
-    preview: 'News feed · Multiple articles · Chronological',
-    color: '#5c554e',
-    bg: '#e8e2d9',
-  },
-]
+import { useTranslation } from '@/components/I18nProvider'
 
 export default function NewArticlePage() {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const { user, profile } = useAuth()
   const [title,    setTitle]    = useState('')
   const [excerpt,  setExcerpt]  = useState('')
@@ -43,8 +19,35 @@ export default function NewArticlePage() {
   const [saved,    setSaved]    = useState(false)
   const [error,    setError]    = useState('')
 
+  const POSITIONS = [
+    {
+      value: 'featured_1',
+      label: isPT ? '📌 Destaque Esquerda' : '📌 Featured Left',
+      desc: isPT ? 'Destaque na coluna esquerda abaixo do hero. Bom para notícias importantes, relatórios de lesões, resumos de trocas.' : 'Left column highlight below the hero. Good for important news, injury reports, trade summaries.',
+      preview: isPT ? 'Coluna esquerda · Abaixo do hero · Máx. 1 artigo' : 'Left column · Below hero · 1 article max',
+      color: '#1d4ed8',
+      bg: '#0a1a3a',
+    },
+    {
+      value: 'featured_2',
+      label: isPT ? '📌 Destaque Direita' : '📌 Featured Right',
+      desc: isPT ? 'Destaque na coluna direita abaixo do hero. Bom para atualizações de classificação, resumos semanais, movimentos de GM.' : 'Right column highlight below the hero. Good for standings updates, weekly recaps, GM moves.',
+      preview: isPT ? 'Coluna direita · Abaixo do hero · Máx. 1 artigo' : 'Right column · Below hero · 1 article max',
+      color: '#15803d',
+      bg: '#0a2a10',
+    },
+    {
+      value: 'news',
+      label: isPT ? '📰 Últimas Notícias' : '📰 Latest News',
+      desc: isPT ? 'Feed de notícias regular abaixo das secções de destaque. Podem estar vários artigos aqui.' : 'Regular news feed below the featured sections. Multiple articles can be here.',
+      preview: isPT ? 'Feed de notícias · Vários artigos · Cronológico' : 'News feed · Multiple articles · Chronological',
+      color: '#5c554e',
+      bg: '#e8e2d9',
+    },
+  ]
+
   const save = async () => {
-    if (!title || !content) { setError('Title and content are required.'); return }
+    if (!title || !content) { setError(isPT ? 'Título e conteúdo são obrigatórios.' : 'Title and content are required.'); return }
     setSaving(true); setError('')
     const { error: err } = await supabase.from('articles').insert({
       title, excerpt, content,
@@ -69,14 +72,14 @@ export default function NewArticlePage() {
     <div className="max-w-3xl mx-auto px-4 py-6">
       <div className="flex items-center gap-3 mb-6">
         <a href="/admin" className="text-xs no-underline" style={{color:'#6b5f4e'}}>← Admin</a>
-        <h1 className="text-xl font-bold" style={{color:'#1a1612'}}>✍️ New Article</h1>
+        <h1 className="text-xl font-bold" style={{color:'#1a1612'}}>✍️ {isPT?'Novo Artigo':'New Article'}</h1>
       </div>
 
       {/* Position selector */}
       <div className="mb-6">
         <label className="block text-xs font-semibold uppercase tracking-widest mb-3"
                style={{color:'#6b5f4e'}}>
-          Where should this article appear?
+          {isPT ? 'Onde deve aparecer este artigo?' : 'Where should this article appear?'}
         </label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
           {POSITIONS.map(pos => (
@@ -101,7 +104,7 @@ export default function NewArticlePage() {
       {/* Homepage preview */}
       <div className="mb-6 rounded-xl overflow-hidden" style={{border:'1px solid #d4cec3'}}>
         <div className="px-4 py-2 text-xs font-semibold" style={{background:'#ddd7ca',color:'#6b5f4e',borderBottom:'1px solid #d4cec3'}}>
-          Homepage layout preview
+          {isPT ? 'Pré-visualização do layout da página inicial' : 'Homepage layout preview'}
         </div>
         <div className="p-3" style={{background:'#ede8de'}}>
           {/* Hero */}
@@ -110,7 +113,7 @@ export default function NewArticlePage() {
                        border:'1px solid '+(position==='hero'?'#b45309':'#d4cdc5'),
                        color:position==='hero'?'#b45309':'#a89f97',height:48,
                        display:'flex',alignItems:'center',justifyContent:'center'}}>
-            🏆 Hero Banner {position==='hero'&&'← This article'}
+            🏆 {isPT?'Banner Principal':'Hero Banner'} {position==='hero'&&(isPT?'← Este artigo':'← This article')}
           </div>
           {/* Featured columns */}
           <div className="grid grid-cols-2 gap-2 mb-2">
@@ -120,7 +123,7 @@ export default function NewArticlePage() {
                            border:'1px solid '+(position===pos?POSITIONS.find(p=>p.value===pos)!.color:'#b8ae9e'),
                            color:position===pos?POSITIONS.find(p=>p.value===pos)!.color:'#b8ae9e',height:36,
                            display:'flex',alignItems:'center',justifyContent:'center'}}>
-                📌 Featured {i+1} {position===pos&&'← Here'}
+                📌 {isPT?'Destaque':'Featured'} {i+1} {position===pos&&(isPT?'← Aqui':'← Here')}
               </div>
             ))}
           </div>
@@ -130,7 +133,7 @@ export default function NewArticlePage() {
                        border:'1px solid '+(position==='news'?'#5c554e':'#d4cdc5'),
                        color:position==='news'?'#5c554e':'#a89f97',height:28,
                        display:'flex',alignItems:'center',justifyContent:'center'}}>
-            📰 News Feed {position==='news'&&'← This article'}
+            📰 {isPT?'Feed de Notícias':'News Feed'} {position==='news'&&(isPT?'← Este artigo':'← This article')}
           </div>
         </div>
       </div>
@@ -140,23 +143,23 @@ export default function NewArticlePage() {
         {error && <div className="mb-4 p-3 rounded-lg text-sm" style={{background:'#fee2e2',color:'#dc2626'}}>{error}</div>}
 
         <div className="mb-4">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Title *</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>{isPT?'Título':'Title'} *</label>
           <input value={title} onChange={e=>setTitle(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
             style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}}
-            placeholder="Article title..." />
+            placeholder={isPT?'Título do artigo...':'Article title...'} />
         </div>
 
         <div className="mb-4">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Excerpt</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>{isPT?'Resumo':'Excerpt'}</label>
           <input value={excerpt} onChange={e=>setExcerpt(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
             style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}}
-            placeholder="Short summary shown on the homepage..." />
+            placeholder={isPT?'Resumo curto mostrado na página inicial...':'Short summary shown on the homepage...'} />
         </div>
 
         <div className="mb-4">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Cover Image URL</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>{isPT?'URL da Imagem de Capa':'Cover Image URL'}</label>
           <input value={imageUrl} onChange={e=>setImageUrl(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
             style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}}
@@ -169,30 +172,30 @@ export default function NewArticlePage() {
         </div>
 
         <div className="mb-4">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Tags (comma separated)</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>{isPT?'Etiquetas (separadas por vírgula)':'Tags (comma separated)'}</label>
           <input value={tags} onChange={e=>setTags(e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
             style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612'}}
-            placeholder="Trade, Injury, Week Recap..." />
+            placeholder={isPT?'Troca, Lesão, Resumo da Semana...':'Trade, Injury, Week Recap...'} />
         </div>
 
         <div className="mb-6">
-          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>Content *</label>
+          <label className="block text-xs font-semibold mb-1.5" style={{color:'#6b5f4e'}}>{isPT?'Conteúdo':'Content'} *</label>
           <textarea value={content} onChange={e=>setContent(e.target.value)} rows={10}
             className="w-full px-4 py-3 rounded-xl text-sm outline-none resize-none"
             style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#1a1612',lineHeight:1.6}}
-            placeholder="Write your article here..." />
+            placeholder={isPT?'Escreve o teu artigo aqui...':'Write your article here...'} />
         </div>
 
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={published} onChange={e=>setPublished(e.target.checked)} />
-            <span className="text-sm" style={{color:'#6b5f4e'}}>Publish immediately</span>
+            <span className="text-sm" style={{color:'#6b5f4e'}}>{isPT?'Publicar imediatamente':'Publish immediately'}</span>
           </label>
           <button onClick={save} disabled={saving}
             className="px-8 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 transition-all"
             style={{background:saved?'#0a5a20':'#1d4ed8',color:saved?'#15803d':'#e8e2d6'}}>
-            {saving?'Saving...':saved?'✓ Saved!':'Save Article'}
+            {saving?(isPT?'A guardar...':'Saving...'):saved?(isPT?'✓ Guardado!':'✓ Saved!'):(isPT?'Guardar Artigo':'Save Article')}
           </button>
         </div>
       </div>

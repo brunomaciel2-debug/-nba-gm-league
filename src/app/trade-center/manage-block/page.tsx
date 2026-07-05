@@ -2,8 +2,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
+import { useTranslation } from '@/components/I18nProvider'
 
 export default function ManageTradeBlockPage() {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const { user, profile } = useAuth()
   const [players, setPlayers]   = useState<any[]>([])
   const [onBlock, setOnBlock]   = useState<Set<string>>(new Set())
@@ -46,10 +49,12 @@ export default function ManageTradeBlockPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#6b5f4e'}}>← Trade Center</a>
-      <h1 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>📋 Manage Trade Block</h1>
+      <a href="/trade-center" className="text-xs no-underline mb-4 block" style={{color:'#6b5f4e'}}>← {isPT?'Centro de Trocas':'Trade Center'}</a>
+      <h1 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>📋 {isPT?'Gerir Trade Block':'Manage Trade Block'}</h1>
       <p className="text-xs mb-6" style={{color:'#6b5f4e'}}>
-        Add players to the trade block to signal your willingness to trade them. Other GMs will see this.
+        {isPT
+          ? 'Adiciona jogadores ao trade block para sinalizares que estás disposto a trocá-los. Os outros GMs vão ver isto.'
+          : 'Add players to the trade block to signal your willingness to trade them. Other GMs will see this.'}
       </p>
       <div className="flex flex-col gap-2">
         {players.map(p=>{
@@ -65,12 +70,12 @@ export default function ManageTradeBlockPage() {
                 <button onClick={()=>toggle(p.id)} disabled={saving[p.id]}
                   className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
                   style={{background:isOn?'#5a4a00':'#d4cdc5',color:isOn?'#b45309':'#5c554e'}}>
-                  {saving[p.id]?'...':isOn?'📋 On Block':'Add to Block'}
+                  {saving[p.id]?'...':isOn?(isPT?'📋 No Block':'📋 On Block'):(isPT?'Adicionar ao Block':'Add to Block')}
                 </button>
               </div>
               {isOn && (
                 <input value={notes[p.id]||''} onChange={e=>setNotes(n=>({...n,[p.id]:e.target.value}))}
-                  placeholder="Note for other GMs (optional)..."
+                  placeholder={isPT?'Nota para outros GMs (opcional)...':'Note for other GMs (optional)...'}
                   className="mt-2 w-full px-3 py-1.5 rounded-lg text-xs outline-none"
                   style={{background:'#ede8de',border:'1px solid #d4cec3',color:'#3d3529'}} />
               )}

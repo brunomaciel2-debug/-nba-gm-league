@@ -112,7 +112,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         .order('scheduled_date'),
     ])
 
-  if (!team) return <div className="p-8 text-center" style={{color:'#6b5f4e'}}>Team not found.</div>
+  if (!team) return <div className="p-8 text-center" style={{color:'#6b5f4e'}}>Team not found. / Equipa não encontrada.</div>
 
   const t = team as any
   const color = readableTeamColor(t.color)

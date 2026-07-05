@@ -24,7 +24,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   const phase = getStatusForWeek(nextWeek)
   const faClosed = nextWeek >= 39 // 2 weeks before the play-in (week 41) — roster freeze
 
-  if (!player) return <div className="p-8 text-center" style={{ color:'#5c554e' }}>Player not found.</div>
+  if (!player) return <div className="p-8 text-center" style={{ color:'#5c554e' }}>Player not found. / Jogador não encontrado.</div>
 
   const p = player as any
   const team = p.teams as any
