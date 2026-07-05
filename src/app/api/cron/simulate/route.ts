@@ -69,10 +69,11 @@ orderMap[c.team_id].def_adjustment = c.def_adjustment
 })
 
 // Conference standings — used to detect "decisive" games. Playoffs/play-in
-// always count; a regular-season game only counts if BOTH teams are still
-// realistically in the mix for their conference's playoff/play-in seeding
-// (rank 4-12 of 15 — covers the seeding fight for 4-6 and the play-in
-// bubble 7-10, plus the fight to avoid being fully out of it).
+// always count. In the regular season, this reflects the real Play-In
+// Tournament structure: ranks 7-10 (of 15) ARE the Play-In zone itself —
+// always high-stakes. Ranks 4-6 are fighting to avoid falling into it,
+// ranks 11-13 are fighting to climb into it. 1-3 are settled enough and
+// 14-15 are mathematically buried — neither counts as decisive.
 const simPhase = getStatusForWeek(week)
 const isPlayoffPhase = simPhase === 'playoffs' || simPhase === 'play-in'
 const byConf: Record<string, any[]> = {}
@@ -84,7 +85,7 @@ const aPct = (a.wins||0)/Math.max(1,(a.wins||0)+(a.losses||0))
 const bPct = (b.wins||0)/Math.max(1,(b.wins||0)+(b.losses||0))
 return bPct - aPct
 })
-ranked.forEach((t, i) => { const rank = i+1; if (rank>=4 && rank<=12) inFightSet.add(t.id) })
+ranked.forEach((t, i) => { const rank = i+1; if (rank>=4 && rank<=13) inFightSet.add(t.id) })
 })
 
 // Only the games actually scheduled for this week — nothing invented
@@ -98,6 +99,14 @@ supabaseAdmin.from('players').select('*').eq('team_id', ht.id).eq('status','acti
 supabaseAdmin.from('players').select('*').eq('team_id', at.id).eq('status','active'),
 ])
 if (!hp || !ap) continue
+
+// Ball Role (Dominant/Balanced/Off-Ball) is a per-player GM choice stored
+// in gm_orders.depth_chart.ball_roles, keyed by player name — stamp it
+// directly onto each player object so simulateGame() can read p.ball_role.
+const hBallRoles = orderMap[ht.id]?.depth_chart?.ball_roles || {}
+const aBallRoles = orderMap[at.id]?.depth_chart?.ball_roles || {}
+hp.forEach((p:any) => { p.ball_role = hBallRoles[p.name] })
+ap.forEach((p:any) => { p.ball_role = aBallRoles[p.name] })
 
 // Attendance/rivalry/decisive computed BEFORE the game now, so home crowd,
 // rivalry intensity, and decisive-game clutch can actually feed into the

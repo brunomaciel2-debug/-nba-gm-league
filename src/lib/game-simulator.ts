@@ -38,6 +38,20 @@ if(pref==="high")return pace>=75?1.06:pace<=55?0.94:1.0
 return pace<=55?1.06:pace>=75?0.94:1.0
 }
 
+// Attack Style now genuinely shapes shot selection, not just the matchup
+// multiplier. "mid" is the flat chance a non-3 shot is a mid-ranger; "post"
+// is the chance of a post-up among what's left. Post-Up really generates
+// post shots; Transition wants easy paint looks with almost no post-ups
+// (no time to work the block); Isolation leans on self-created mid-range;
+// Pick & Roll leans paint (the roll man) and mid (the pull-up jumper).
+const SHOT_PROFILE_BY_ATK_STYLE:Record<string,{mid:number,post:number}>={
+motion:     {mid:0.30,post:0.15},
+post:       {mid:0.20,post:0.45},
+iso:        {mid:0.40,post:0.20},
+pickroll:   {mid:0.35,post:0.08},
+transition: {mid:0.15,post:0.05},
+}
+
 // A Head Coach's off_adjustment/def_adjustment sharpens a matchup that
 // already favors their side, or dulls one that doesn't — same ±30% cap
 // pattern used for the Physio's rehab_speed effect on injury recovery.
@@ -150,6 +164,9 @@ return wt(pool.map((p:any)=>{
 const f=fat[p.id]/100;let w=u3?p.three*1.8+p.usage*.3:p.usage*1.4+(p.layup+p.dunk)/2*.4
 if(u3&&p.three<50)w*=.2;const pi=pris.indexOf(p.name)
 if(!u3){if(pi===0)w*=2.2;else if(pi===1)w*=1.55;else if(pi===2)w*=1.25}else{if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}
+// Ball Role (GM-set, per player): Dominant genuinely runs the ball through
+// them more. Off-Ball's payoff is in accuracy (below), not shot volume.
+if(p.ball_role==='dominant')w*=1.2
 return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
 }))
 }
@@ -159,7 +176,8 @@ function simFT(p:any,n:number,fat:Record<string,number>){let m=0;for(let i=0;i<n
 function simP(ot:any,dt:any,ops:any[],dps:any[],oo:any,doo:any,sc:any,st:any,fat:any,mom:any,ls:any,part:any,isC:boolean,os:"home"|"away",ds:"home"|"away",q:number,tl:number,pbp:any[]){
 if(!ops.length||!dps.length)return
 const u3=Math.random()<r3p(oo.three_rate||oo.threeRate||38)
-const isMid=!u3&&Math.random()<.30,isPost=!u3&&!isMid&&Math.random()<.15
+const shotProfile=SHOT_PROFILE_BY_ATK_STYLE[oo.atk_style]||SHOT_PROFILE_BY_ATK_STYLE.motion
+const isMid=!u3&&Math.random()<shotProfile.mid,isPost=!u3&&!isMid&&Math.random()<shotProfile.post
 const sc2=pS(ops,oo,u3,isC,fat,mom),def=wt(dps.map(p=>({p,w:(p.idef+p.pdef)/2*.5+20})))
 if(!sc2||!def)return
 const ss=st[sc2.id],ds2=st[def.id],fs=fat[sc2.id]/100
@@ -198,7 +216,8 @@ const pressureMult=isC?(decisive?(.75+(sc2.pressure/100)*.45):(.82+(sc2.pressure
 if(Math.random()<.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015+(isDoubled?0.04:0)){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:p.stl*.5+20})));if(Math.random()<st3.stl/100*.7)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
 if(!u3&&Math.random()<def.blk/100*.065*(doo.def_style==='zone23'?.5:1)){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
 ss.fga++;if(u3)ss.tpa++
-const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult))
+const offBallMult=(u3&&sc2.ball_role==='off_ball')?1.08:1.0
+const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult))
 const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100
