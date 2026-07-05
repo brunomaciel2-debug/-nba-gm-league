@@ -4,6 +4,12 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { homeWinProb, fmtPct } from '@/lib/elo-helper'
+import { getMarqueeWeekInfo } from '@/lib/marquee-dates'
+
+const MARQUEE_ICON: Record<string, string> = {
+  'Christmas Day': '🎄', 'Thanksgiving': '🦃', 'MLK Day': '✊🏾',
+  "Presidents' Day": '🎩', 'NBA Cup Championship': '🏆', 'Opening Night': '🎬',
+}
 
 export default function GamePreviewModal({ game, teams, isPT, onClose }: {
   game: any, teams: Record<string, any>, isPT: boolean, onClose: () => void
@@ -14,6 +20,7 @@ export default function GamePreviewModal({ game, teams, isPT, onClose }: {
 
   const home = teams[game.home_team]
   const away = teams[game.away_team]
+  const marquee = game.week_number > 0 ? getMarqueeWeekInfo(game.week_number) : { marquee: false }
 
   useEffect(() => {
     (async () => {
@@ -49,6 +56,12 @@ export default function GamePreviewModal({ game, teams, isPT, onClose }: {
           </h2>
           <button onClick={onClose} style={{ color: '#8a8279', fontSize: 20 }}>✕</button>
         </div>
+
+        {marquee.marquee && (
+          <div className="text-center text-xs font-bold px-2 py-1 rounded-lg mb-4" style={{ background: '#fef9c3', color: '#b45309' }}>
+            {MARQUEE_ICON[marquee.label || ''] || '⭐'} {marquee.label}
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex-1 text-center">

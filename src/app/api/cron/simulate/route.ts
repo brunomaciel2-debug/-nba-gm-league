@@ -14,6 +14,7 @@ import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MU
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
 import { resolveSummerLeague } from '@/lib/summer-league'
 import { assignRefereesToScheduledGames } from '@/lib/referees'
+import { getMarqueeWeekInfo } from '@/lib/marquee-dates'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -100,6 +101,11 @@ return bPct - aPct
 ranked.forEach((t, i) => { const rank = i+1; if (rank>=4 && rank<=13) inFightSet.add(t.id) })
 })
 
+// Marquee NBA calendar weeks (Christmas, MLK Day, Thanksgiving, Opening
+// Night, NBA Cup Championship, Presidents' Day) — nationally televised,
+// consistently sold-out. Computed once per batch, same as isPlayoffPhase.
+const marquee = getMarqueeWeekInfo(week)
+
 // Only the games actually scheduled for this week — nothing invented
 const { data: weekGames } = await supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
 
@@ -128,10 +134,10 @@ ap.forEach((p:any) => { p.ball_role = aBallRoles[p.name] })
 // own attRate/isRivalry/decisive, not whatever the last game happened to set.
 const isRivalry = ht.rival_team_id === at.id || at.rival_team_id === ht.id
 const htWinPct = (ht.wins||0) / Math.max(1, (ht.wins||0)+(ht.losses||0))
-const baseAttRate = 0.65 + htWinPct * 0.20 + (isRivalry ? 0.08 : 0)
+const baseAttRate = 0.65 + htWinPct * 0.20 + (isRivalry ? 0.08 : 0) + (marquee.marquee ? 0.15 : 0)
 const attRate = Math.min(0.98, baseAttRate + (Math.random() * 0.06 - 0.03))
 const attendance = Math.round((ht.arena_capacity || arenaCapacityMap[ht.id] || 18000) * attRate)
-const decisive = isPlayoffPhase || (inFightSet.has(ht.id) && inFightSet.has(at.id))
+const decisive = isPlayoffPhase || marquee.marquee || (inFightSet.has(ht.id) && inFightSet.has(at.id))
 
 // Double Team / Lockdown Defender are set PER OPPONENT (a team can face
 // several different teams in one week and reasonably wants a different

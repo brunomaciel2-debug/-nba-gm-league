@@ -5,6 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 import GamePreviewModal from '@/components/GamePreviewModal'
+import { getMarqueeWeekInfo } from '@/lib/marquee-dates'
+
+const MARQUEE_ICON: Record<string, string> = {
+  'Christmas Day': '🎄', 'Thanksgiving': '🦃', 'MLK Day': '✊🏾',
+  "Presidents' Day": '🎩', 'NBA Cup Championship': '🏆', 'Opening Night': '🎬',
+}
 type Filter = 'all' | 'home' | 'away' | 'played' | 'upcoming'
 const PRESEASON_START = new Date('2025-10-02')
 const PRESEASON_END   = new Date('2025-10-17')
@@ -325,6 +331,7 @@ export default function TeamSchedule({
                 const oppScore=isHome2?g.away_score:g.home_score
                 const won=isPlayed&&myScore>oppScore
                 const typeBadge=TYPE_BADGE[g.game_type||'regular']||TYPE_BADGE.regular
+                const marquee = g.week_number>0 ? getMarqueeWeekInfo(g.week_number) : {marquee:false}
                 const isPreviewable = !isPlayed && g.game_type!=='preseason'
                 return (
                   <div key={g.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
@@ -345,6 +352,12 @@ export default function TeamSchedule({
                       <span className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0"
                             style={{background:typeBadge.bg,color:typeBadge.color,fontSize:10}}>
                         {typeBadge.label}
+                      </span>
+                    )}
+                    {marquee.marquee&&(
+                      <span className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0"
+                            style={{background:'#fef9c3',color:'#b45309',fontSize:10}}>
+                        {MARQUEE_ICON[marquee.label||'']||'⭐'} {marquee.label}
                       </span>
                     )}
                     <div className="flex-1 flex items-center gap-2 min-w-0">
