@@ -338,7 +338,7 @@ export async function generatePowerRankings(week: number) {
   for (let i = 0; i < teamContexts.length; i += 5) {
     const batch = teamContexts.slice(i, i + 5)
 
-    const prompt = `You are a seasoned NBA journalist writing the weekly Power Rankings column. Write a sharp, accurate, 2-sentence comment for each of these teams. Be critical when needed, optimistic when warranted. Sound human — like a columnist with opinions, not a data report. Reference players by name, mention specific recent performances, streaks, or injuries when relevant. When the data below mentions a tough or soft schedule (past or upcoming), a recent trade, a player over/under-performing expectations, or the team's youth/draft capital, weave it in naturally when it's the most interesting angle for that team — don't force all of it into every comment. Do NOT invent facts not present in the data below. Do NOT mention OVR ratings or numerical attributes. Do NOT start every sentence the same way.
+    const prompt = `You are a seasoned NBA journalist writing the weekly Power Rankings column. Write a sharp, accurate, 2-sentence comment for each of these teams, IN BOTH ENGLISH AND EUROPEAN PORTUGUESE (Portugal, not Brazil) — two independent, natural-sounding comments conveying the same analysis, not a literal translation of each other. Be critical when needed, optimistic when warranted. Sound human — like a columnist with opinions, not a data report. Reference players by name, mention specific recent performances, streaks, or injuries when relevant. When the data below mentions a tough or soft schedule (past or upcoming), a recent trade, a player over/under-performing expectations, or the team's youth/draft capital, weave it in naturally when it's the most interesting angle for that team — don't force all of it into every comment. Do NOT invent facts not present in the data below. Do NOT mention OVR ratings or numerical attributes. Do NOT start every sentence the same way.
 
 Week ${week} data:
 
@@ -360,7 +360,7 @@ TEAM ${i + idx + 1}: ${t.name}
 
 Respond ONLY with a JSON array, no markdown, no explanation:
 [
-  {"team_id": "TEAM_ID", "comment": "2-sentence comment here"},
+  {"team_id": "TEAM_ID", "comment_en": "2-sentence comment in English", "comment_pt": "2-sentence comment in European Portuguese"},
   ...
 ]
 
@@ -376,7 +376,7 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
+          max_tokens: 1800,
           messages: [{ role: 'user', content: prompt }],
         }),
       })
@@ -384,13 +384,14 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
       const data = await response.json()
       const text = data.content?.[0]?.text || '[]'
       const clean = text.replace(/```json|```/g, '').trim()
-      const comments: { team_id: string, comment: string }[] = JSON.parse(clean)
+      const comments: { team_id: string, comment_en: string, comment_pt: string }[] = JSON.parse(clean)
 
       for (let j = 0; j < batch.length; j++) {
         const team = batch[j]
         const rank = i + j + 1
         const commentData = comments.find(c => c.team_id === team.id)
-        const comment = commentData?.comment || `${team.name} sit at ${team.record}${team.starPlayer ? ` with ${team.starPlayer} leading the charge` : ''} and continue their season.`
+        const comment = commentData?.comment_en || `${team.name} sit at ${team.record}${team.starPlayer ? ` with ${team.starPlayer} leading the charge` : ''} and continue their season.`
+        const commentPt = commentData?.comment_pt || `${team.name} estão em ${team.record}${team.starPlayer ? `, com ${team.starPlayer} à frente` : ''} e continuam a sua época.`
 
         const prevRank = team.prevRank
         const trend = !prevRank ? 'new'
@@ -406,6 +407,7 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
           previous_rank: prevRank,
           trend,
           comment,
+          comment_pt: commentPt,
           wins: team.wins,
           losses: team.losses,
           last5: team.last5,
@@ -424,6 +426,7 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
           season: '2025-26', week_number: week, team_id: team.id,
           rank, previous_rank: prevRank, trend,
           comment: `${team.name} are ${team.record} on the season with a ${team.last5} record in their last five games.`,
+          comment_pt: `${team.name} estão em ${team.record} na época, com um registo de ${team.last5} nos últimos cinco jogos.`,
           wins: team.wins, losses: team.losses, last5: team.last5, ppg: team.ppg, opp_ppg: team.oppPpg,
         })
       }

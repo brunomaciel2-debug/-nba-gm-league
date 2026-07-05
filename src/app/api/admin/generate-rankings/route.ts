@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   for (let i = 0; i < teamScores.length; i += 6) {
     const batch = teamScores.slice(i, i + 6)
 
-    const prompt = `You are a seasoned NBA journalist writing the Pre-Season Power Rankings. This is BEFORE the season starts — no games have been played yet. Write a sharp, accurate 2-sentence preview for each team based on their roster quality, coaching staff and facilities. Be opinionated and direct. Sound like a real columnist with opinions, not a data report.
+    const prompt = `You are a seasoned NBA journalist writing the Pre-Season Power Rankings. This is BEFORE the season starts — no games have been played yet. Write a sharp, accurate 2-sentence preview for each team based on their roster quality, coaching staff and facilities, IN BOTH ENGLISH AND EUROPEAN PORTUGUESE (Portugal, not Brazil) — two independent, natural-sounding comments conveying the same analysis, not a literal translation of each other. Be opinionated and direct. Sound like a real columnist with opinions, not a data report.
 
 ${batch.map((t, idx) => `
 TEAM ${i + idx + 1}: ${t.name}
@@ -87,7 +87,7 @@ TEAM ${i + idx + 1}: ${t.name}
 `).join('\n')}
 
 Respond ONLY with a valid JSON array, no markdown, no explanation:
-[{"team_id":"TEAM_ID","comment":"2-sentence comment"},...]
+[{"team_id":"TEAM_ID","comment_en":"2-sentence comment in English","comment_pt":"2-sentence comment in European Portuguese"},...]
 
 Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
 
@@ -101,7 +101,7 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 1200,
+          max_tokens: 2000,
           messages: [{ role: 'user', content: prompt }],
         }),
       })
@@ -109,19 +109,21 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
       const data = await response.json()
       const text = data.content?.[0]?.text || '[]'
       const clean = text.replace(/```json|```/g, '').trim()
-      const comments: { team_id: string, comment: string }[] = JSON.parse(clean)
+      const comments: { team_id: string, comment_en: string, comment_pt: string }[] = JSON.parse(clean)
 
       for (let j = 0; j < batch.length; j++) {
         const team = batch[j]
         const rank = i + j + 1
         const commentData = comments.find(c => c.team_id === team.id)
-        const comment = commentData?.comment ||
+        const comment = commentData?.comment_en ||
           `${team.name} enter the season with a roster averaging ${team.avgOvr} OVR and a ${team.coachScore >= 75 ? 'strong' : 'developing'} coaching staff.`
+        const commentPt = commentData?.comment_pt ||
+          `${team.name} entram na época com um plantel a rondar os ${team.avgOvr} OVR e um corpo técnico ${team.coachScore >= 75 ? 'forte' : 'ainda em desenvolvimento'}.`
 
         rankings.push({
           season: '2025-26', week_number: 0,
           team_id: team.id, rank, previous_rank: null, trend: 'new',
-          comment, wins: 0, losses: 0, last5: 'N/A',
+          comment, comment_pt: commentPt, wins: 0, losses: 0, last5: 'N/A',
           ppg: null, opp_ppg: null,
         })
       }
@@ -132,6 +134,7 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
           season: '2025-26', week_number: 0,
           team_id: team.id, rank: i + j + 1, previous_rank: null, trend: 'new',
           comment: `${team.name} enter the season with a roster averaging ${team.avgOvr} OVR and a ${team.coachScore >= 75 ? 'strong' : 'developing'} coaching staff.`,
+          comment_pt: `${team.name} entram na época com um plantel a rondar os ${team.avgOvr} OVR e um corpo técnico ${team.coachScore >= 75 ? 'forte' : 'ainda em desenvolvimento'}.`,
           wins: 0, losses: 0, last5: 'N/A', ppg: null, opp_ppg: null,
         })
       }

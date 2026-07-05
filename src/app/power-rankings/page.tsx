@@ -72,7 +72,7 @@ export default function PowerRankingsPage() {
                     {r.ppg&&<span style={{fontSize:10,color:'#8a8279'}}>{r.ppg} PPG</span>}
                     <span style={{fontSize:10,color:'#8a8279',marginLeft:'auto'}}>{r.team?.conference} · {r.team?.division}</span>
                   </div>
-                  <p style={{fontSize:12,color:'#3d3731',lineHeight:1.7,margin:0,fontStyle:'italic'}}>"{r.comment}"</p>
+                  <p style={{fontSize:12,color:'#3d3731',lineHeight:1.7,margin:0,fontStyle:'italic'}}>"{isPT && r.comment_pt ? r.comment_pt : r.comment}"</p>
                 </div>
               </div>
             )
