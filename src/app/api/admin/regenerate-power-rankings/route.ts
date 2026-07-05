@@ -4,7 +4,7 @@ import { generatePowerRankings } from '@/lib/generate-power-rankings'
 // Manual trigger to (re)generate a specific week's Power Rankings — useful
 // to refresh a week whose comments were written without a working
 // ANTHROPIC_API_KEY (falls back to generic text), without waiting for the
-// next scheduled cron tick.
+// next scheduled cron tick. (redeploy trigger)
 export async function POST(req: NextRequest) {
   try {
     const { secret, week } = await req.json()
