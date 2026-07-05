@@ -3,10 +3,27 @@ import { createClient } from '@supabase/supabase-js'
 import { getTeamLang } from '@/lib/notifications-helpers'
 import { notify } from '@/lib/notifications'
 import { notifInteractionResolved } from '@/lib/notifications-helpers'
-import { buildResolutionText } from '@/lib/interaction-constants'
+import { buildResolutionText, buildCommitmentText } from '@/lib/interaction-constants'
 import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY } from '@/lib/injury-constants'
+import { computeCommitment } from '@/lib/player-interactions'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+// These reasons no longer resolve the moment the GM clicks Concede/Compromise
+// — a click alone isn't proof of anything. Instead the response records a
+// commitment and the system verifies real data over the next 2 weeks before
+// any morale change happens (player-interactions.ts: computeCommitment /
+// computeMonitorValue). Dismiss always stays instant for every reason —
+// refusing to engage is itself the complete, self-evident action, nothing to
+// verify. wants_specialist_for_injury and general_frustration also stay
+// instant: the former already performs a real, atomic action synchronously
+// below; the latter isn't a real demand, just an open-ended check-in.
+const REASONS_REQUIRING_PROOF = new Set([
+  'conflict_with_teammate', 'wants_veteran_mentor', 'unhappy_with_team_record',
+  'wants_front_office_aggression', 'wants_leadership_recognition',
+  'wants_contract_extension_talks', 'feels_underpaid', 'feels_development_neglected',
+  'homesickness_family', 'media_pressure_stress', 'personal_crisis',
+])
 
 // Immediate-type Player Interactions: the GM answers right away with one of
 // 3 standard choices. Each has its own moral outcome, pulled from the
@@ -40,12 +57,36 @@ export async function POST(req: NextRequest) {
   const { data: type } = await admin.from('player_interaction_types').select('*').eq('reason_key', interaction.reason_key).single()
   if (!type) return NextResponse.json({ error: 'Unknown interaction type' }, { status: 500 })
 
+  const playerName = player?.name || 'Player'
+
+  // Concede/Compromise on these reasons only records a commitment — the real
+  // moral change waits for resolveMonitoredInteractions to verify it against
+  // actual data, exactly like the always-monitored reasons.
+  if (choice !== 'dismiss' && REASONS_REQUIRING_PROOF.has(interaction.reason_key)) {
+    const { data: cfg } = await admin.from('season_config').select('current_week').eq('id', 1).single()
+    const week = (cfg?.current_week || 0) + 1
+    const { demandTarget, baselineValue, monitorWeeks } = await computeCommitment(
+      interaction.reason_key, choice as 'concede' | 'compromise', interaction.team_id, interaction.player_id, interaction.partner_player_id, week
+    )
+    const deadlineWeek = week + monitorWeeks
+    await admin.from('player_interactions').update({
+      status: 'monitoring', response_choice: choice, demand_target: demandTarget, baseline_value: baselineValue,
+      current_progress: baselineValue, deadline_week: deadlineWeek, updated_at: new Date().toISOString(),
+    }).eq('id', interactionId)
+
+    const lang = await getTeamLang(interaction.team_id)
+    const commitText = buildCommitmentText(lang, playerName, deadlineWeek)
+    const notif = notifInteractionResolved(lang, playerName, commitText)
+    await notify(interaction.team_id, 'player_interaction', notif.subject, notif.body, { interaction_id: interactionId, player_id: interaction.player_id })
+
+    return NextResponse.json({ success: true, monitoring: true, deadlineWeek })
+  }
+
   const deltaField = choice === 'concede' ? 'moral_concede' : choice === 'compromise' ? 'moral_compromise' : 'moral_dismiss'
   const partnerDeltaField = choice === 'concede' ? 'moral_concede_partner' : choice === 'compromise' ? 'moral_compromise_partner' : 'moral_dismiss_partner'
   const delta = type[deltaField] ?? 0
   const partnerDelta = type[partnerDeltaField] ?? 0
 
-  const playerName = player?.name || 'Player'
   const currentMoral = player?.moral ?? 80
   const newMoral = Math.max(0, Math.min(100, currentMoral + delta))
   await admin.from('players').update({ moral: newMoral }).eq('id', interaction.player_id)

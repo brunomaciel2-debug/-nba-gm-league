@@ -56,7 +56,12 @@ export default function PlayerInteractions({ teamId, teamColor }: { teamId: stri
       body: JSON.stringify({ interactionId, choice }),
     })
     const json = await res.json()
-    if (res.ok) { setMsg(isPT?'✅ Resposta registada.':'✅ Response recorded.'); await load() }
+    if (res.ok) {
+      setMsg(json.monitoring
+        ? (isPT?`✅ Compromisso registado — vais saber o resultado real na semana ${json.deadlineWeek}.`:`✅ Commitment recorded — you'll know the real outcome in week ${json.deadlineWeek}.`)
+        : (isPT?'✅ Resposta registada.':'✅ Response recorded.'))
+      await load()
+    }
     else setMsg(json.error || (isPT?'Erro':'Error'))
     setBusyId(null)
   }

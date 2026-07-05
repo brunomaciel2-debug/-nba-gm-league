@@ -53,45 +53,54 @@ export function buildComplaintText(reasonKey: string, lang: 'en'|'pt', ctx: Comp
       return t(`${p} sente uma boa ligação em campo com ${ctx.partnerName} e pede para serem titulares juntos com mais frequência nas próximas 2 semanas.`,
         `${p} feels real chemistry on the floor with ${ctx.partnerName} and is asking to start alongside him more often over the next 2 weeks.`)
     case 'conflict_with_teammate':
-      return t(`Há tensão no balneário entre ${p} e ${ctx.partnerName}. ${p} quer que tomes uma posição sobre a situação.`,
-        `There's locker room tension between ${p} and ${ctx.partnerName}. ${p} wants you to take a stance on it.`)
+      return t(`Há tensão no balneário entre ${p} e ${ctx.partnerName}. ${p} quer que tomes uma posição — e vai reparar se a mantiveres nas próximas 2 semanas.`,
+        `There's locker room tension between ${p} and ${ctx.partnerName}. ${p} wants you to take a stance — and he'll notice whether you actually hold it over the next 2 weeks.`)
     case 'wants_veteran_mentor':
-      return t(`${p} sente falta de orientação de um jogador mais experiente no plantel.`,
-        `${p} feels like he's missing guidance from a more experienced player on the roster.`)
+      return t(`${p} sente falta de orientação de um jogador mais experiente no plantel. Quer ser titular ao lado de ${ctx.partnerName} com mais frequência nas próximas 2 semanas.`,
+        `${p} feels like he's missing guidance from a more experienced player. He wants to start alongside ${ctx.partnerName} more often over the next 2 weeks.`)
     case 'unhappy_with_team_record':
-      return t(`${p} está frustrado com o registo da equipa e questiona a direção do projeto.`,
-        `${p} is frustrated with the team's record and is questioning the direction of the project.`)
+      return t(`${p} está frustrado com o registo da equipa e quer ver melhorias reais nas próximas 2 semanas — não só palavras.`,
+        `${p} is frustrated with the team's record and wants to see real improvement over the next 2 weeks — not just words.`)
     case 'wants_leadership_recognition':
-      return t(`${p} sente que o seu papel de liderança no balneário não é reconhecido.`,
-        `${p} feels his leadership role in the locker room isn't being recognized.`)
+      return t(`${p} sente que o seu papel de liderança no balneário não é reconhecido. Quer ver isso refletido num papel de destaque nas próximas 2 semanas.`,
+        `${p} feels his leadership role in the locker room isn't being recognized. He wants to see that reflected in a featured role over the next 2 weeks.`)
     case 'wants_contract_extension_talks':
-      return t(`${p} está preocupado com o futuro contratual dele e quer garantias sobre uma extensão.`,
-        `${p} is anxious about his contract situation and wants assurances about an extension.`)
+      return t(`${p} está preocupado com o futuro contratual dele e quer garantias sobre uma extensão. Vai reparar se uma proposta real chegar nas próximas 2 semanas.`,
+        `${p} is anxious about his contract situation and wants assurances about an extension. He'll notice if a real offer actually comes over the next 2 weeks.`)
     case 'feels_underpaid':
-      return t(`${p} acha que o salário dele não reflete o valor real dele para a equipa.`,
-        `${p} feels his salary doesn't reflect his real value to the team.`)
+      return t(`${p} acha que o salário dele não reflete o valor real dele para a equipa. Vai reparar se isso mudar de facto nas próximas 2 semanas.`,
+        `${p} feels his salary doesn't reflect his real value to the team. He'll notice if that actually changes over the next 2 weeks.`)
     case 'feels_development_neglected':
-      return t(`${p} sente que o seu desenvolvimento tem sido negligenciado pela equipa técnica.`,
-        `${p} feels his development has been neglected by the coaching staff.`)
+      return t(`${p} sente que o seu desenvolvimento tem sido negligenciado pela equipa técnica. Quer ver investimento real nele nas próximas 2 semanas.`,
+        `${p} feels his development has been neglected by the coaching staff. He wants to see real investment in him over the next 2 weeks.`)
     case 'wants_specialist_for_injury':
       return t(`${p} está frustrado com a lentidão da recuperação e pede que a equipa invista num especialista externo.`,
         `${p} is frustrated with how slowly he's recovering and is asking the team to invest in an outside specialist.`)
     case 'homesickness_family':
-      return t(`${p} está a passar por saudades de casa/família e isso está a afetar o seu bem-estar.`,
-        `${p} is dealing with homesickness/family matters, and it's affecting his well-being.`)
+      return t(`${p} está a passar por saudades de casa/família e isso está a afetar o seu bem-estar. Precisa de sentir um alívio real na carga nas próximas 2 semanas.`,
+        `${p} is dealing with homesickness/family matters, and it's affecting his well-being. He needs to feel a real reduction in his load over the next 2 weeks.`)
     case 'media_pressure_stress':
-      return t(`${p} sente-se sob pressão excessiva da imprensa e do escrutínio público.`,
-        `${p} feels under excessive pressure from the media and public scrutiny.`)
+      return t(`${p} sente-se sob pressão excessiva da imprensa e do escrutínio público. Precisa de sentir menos peso sobre os ombros nas próximas 2 semanas.`,
+        `${p} feels under excessive pressure from the media and public scrutiny. He needs to feel less weight on his shoulders over the next 2 weeks.`)
     case 'personal_crisis':
-      return t(`${p} está a atravessar um momento pessoal difícil e precisa de compreensão da parte da organização.`,
-        `${p} is going through a difficult personal moment and needs understanding from the organization.`)
+      return t(`${p} está a atravessar um momento pessoal difícil e precisa de compreensão real da parte da organização nas próximas 2 semanas.`,
+        `${p} is going through a difficult personal moment and needs the organization to show real understanding over the next 2 weeks.`)
     case 'wants_front_office_aggression':
-      return t(`${p} quer ver a direção a ser mais agressiva no mercado (contratações/trocas) para reforçar a equipa.`,
-        `${p} wants to see the front office be more aggressive in the market (signings/trades) to strengthen the team.`)
+      return t(`${p} quer ver a direção a ser mais agressiva no mercado (contratações/trocas) para reforçar a equipa nas próximas 2 semanas.`,
+        `${p} wants to see the front office be more aggressive in the market (signings/trades) to strengthen the team over the next 2 weeks.`)
     default:
       return t(`${p} está genericamente descontente e quer falar contigo sobre a situação dele na equipa.`,
         `${p} is generally unhappy and wants to talk to you about his situation on the team.`)
   }
+}
+
+// Shown the moment a GM picks Concede/Compromise on a reason that now
+// requires real proof — no moral change happens yet, only after the system
+// verifies the commitment was actually kept.
+export function buildCommitmentText(lang: 'en'|'pt', playerName: string, deadlineWeek: number): string {
+  return lang === 'pt'
+    ? `Assumiste um compromisso com ${playerName}. A moral só muda depois de verificares — na semana ${deadlineWeek} — se isso aconteceu de facto.`
+    : `You made a commitment to ${playerName}. Morale only changes once it's verified — in week ${deadlineWeek} — that it actually happened.`
 }
 
 // Live progress line shown in the Interactions tab while a monitored demand is open.
@@ -114,15 +123,16 @@ export function buildResolutionText(lang: 'en'|'pt', playerName: string, outcome
   }
   const label = outcomeLabel[outcome]
   let extra = ''
-  // "Concede" here is a real commitment (an agreement to talk), never a
-  // guaranteed contract change — it doesn't bypass the real negotiation in
-  // ContractExtensionPanel, which still checks fairness/ambition/loyalty on
-  // its own. Point the GM at the actual mechanism instead of implying this
-  // click alone changed his deal.
-  if (outcome === 'concede' && (reasonKey === 'wants_contract_extension_talks' || reasonKey === 'feels_underpaid')) {
+  // These two are verified against the real contract_extension_offers table
+  // (met = an offer went through and was accepted, partial = an offer was
+  // made but he turned it down, ignored = no real offer ever came) — never a
+  // guaranteed contract change bypassing ContractExtensionPanel's own
+  // fairness/ambition/loyalty negotiation. Remind the GM where the actual
+  // lever lives, especially useful on "ignored"/"partial".
+  if ((outcome === 'partial' || outcome === 'ignored') && (reasonKey === 'wants_contract_extension_talks' || reasonKey === 'feels_underpaid')) {
     extra = lang === 'pt'
-      ? ' Isto é só a conversa — vai à página dele e usa a Extensão de Contrato para fazeres uma proposta real.'
-      : " This is just the conversation — go to his player page and use Contract Extension to make a real offer."
+      ? ' Vai à página dele e usa a Extensão de Contrato para fazeres uma proposta real.'
+      : ' Go to his player page and use Contract Extension to make a real offer.'
   }
   return lang === 'pt'
     ? `${label?.pt || outcome} com ${playerName}. Moral: ${sign}${moralDelta}.${extra}`

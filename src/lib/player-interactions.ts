@@ -31,6 +31,13 @@ async function getOrdersInRange(teamId: string, fromWeek: number, toWeek: number
   return data || []
 }
 
+async function getTeamWinPct(teamId: string): Promise<{ winPct: number, gamesPlayed: number }> {
+  const { data: team } = await supabaseAdmin.from('teams').select('wins,losses').eq('id', teamId).single()
+  const gamesPlayed = (team?.wins || 0) + (team?.losses || 0)
+  const winPct = gamesPlayed > 0 ? Math.round((team!.wins || 0) / gamesPlayed * 100) : 50
+  return { winPct, gamesPlayed }
+}
+
 interface ReasonCandidate {
   reasonKey: string
   weight: number
@@ -88,8 +95,12 @@ async function evaluateEligibleReasons(player: any, teamId: string, week: number
     out.push({ reasonKey: 'wants_to_play_with_teammate', weight: w('wants_to_play_with_teammate'), demandTarget: 50, baselineValue: 0, partnerPlayerId: partner.id })
     out.push({ reasonKey: 'conflict_with_teammate', weight: w('conflict_with_teammate'), demandTarget: null, baselineValue: null, partnerPlayerId: partner.id })
 
-    if ((player.age || 25) <= 23 && !teammates.some((t: any) => (t.age || 0) >= 30)) {
-      out.push({ reasonKey: 'wants_veteran_mentor', weight: w('wants_veteran_mentor'), demandTarget: null, baselineValue: null, partnerPlayerId: null })
+    // Needs a REAL veteran teammate to pair him with — you can't monitor
+    // pairing with a mentor who isn't on the roster, and there'd be nothing
+    // the GM could actually do about the complaint otherwise.
+    const veteranTeammate = teammates.find((t: any) => (t.age || 0) >= 30)
+    if ((player.age || 25) <= 23 && veteranTeammate) {
+      out.push({ reasonKey: 'wants_veteran_mentor', weight: w('wants_veteran_mentor'), demandTarget: null, baselineValue: null, partnerPlayerId: veteranTeammate.id })
     }
     // Only eligible when he could ACTUALLY receive a new deal under the real
     // extension rule (contracts/extend/route.ts: contract_years <= 2) — a
@@ -187,16 +198,67 @@ export async function checkForNewInteractions(week: number) {
 export async function refreshMonitoredProgress(week: number) {
   const { data: monitoring } = await supabaseAdmin.from('player_interactions').select('*').eq('status', 'monitoring').lt('deadline_week', week + 1)
   for (const inter of (monitoring || [])) {
-    const value = await computeMonitorValue(inter.reason_key, inter.team_id, inter.player_id, inter.created_week, Math.min(week, inter.deadline_week), inter.partner_player_id)
-    await supabaseAdmin.from('player_interactions').update({ current_progress: value, updated_at: new Date().toISOString() }).eq('id', inter.id)
+    const fromWeek = Math.max(1, inter.deadline_week - 2)
+    const value = await computeMonitorValue(inter, fromWeek, Math.min(week, inter.deadline_week))
+    // updated_at is intentionally left untouched here — for reasons verified
+    // against timestamped tables (contract offers, training log) it doubles
+    // as "the moment the GM committed," and must survive repeated refreshes.
+    await supabaseAdmin.from('player_interactions').update({ current_progress: value }).eq('id', inter.id)
   }
 }
 
-async function computeMonitorValue(reasonKey: string, teamId: string, playerId: number, fromWeek: number, toWeek: number, partnerPlayerId?: number | null): Promise<number> {
+// For reasons that now require real proof before any moral change (see
+// interaction-respond/route.ts), this computes the baseline/target the
+// moment the GM commits to Concede/Compromise — using real data as it
+// stands right now, not whatever was true when the complaint was raised.
+export async function computeCommitment(reasonKey: string, choice: 'concede' | 'compromise', teamId: string, playerId: number, partnerPlayerId: number | null, week: number): Promise<{ demandTarget: number, baselineValue: number, monitorWeeks: number }> {
+  const monitorWeeks = 2
+  switch (reasonKey) {
+    case 'conflict_with_teammate': {
+      const partnerStats = partnerPlayerId ? await getRecentBoxStats(partnerPlayerId, Math.max(1, week - 2), week - 1) : null
+      const avgMins = partnerStats?.avgMins || 0
+      if (choice === 'concede') {
+        // "Side with him" — success means the OTHER guy's minutes really drop.
+        return { demandTarget: Math.max(2, Math.round(avgMins * 0.20)), baselineValue: avgMins, monitorWeeks }
+      }
+      // "Mediate" — success means keeping the peace: the other guy's minutes stay stable.
+      return { demandTarget: 100, baselineValue: avgMins, monitorWeeks }
+    }
+    case 'unhappy_with_team_record':
+    case 'wants_front_office_aggression': {
+      const { winPct } = await getTeamWinPct(teamId)
+      return { demandTarget: 15, baselineValue: winPct, monitorWeeks }
+    }
+    case 'wants_veteran_mentor':
+    case 'wants_leadership_recognition':
+    case 'wants_contract_extension_talks':
+    case 'feels_underpaid':
+    case 'feels_development_neglected':
+      return { demandTarget: 100, baselineValue: 0, monitorWeeks }
+    case 'homesickness_family':
+    case 'media_pressure_stress':
+    case 'personal_crisis':
+      return { demandTarget: 50, baselineValue: 0, monitorWeeks }
+    default:
+      return { demandTarget: 100, baselineValue: 0, monitorWeeks }
+  }
+}
+
+async function computeMonitorValue(inter: any, fromWeek: number, toWeek: number): Promise<number> {
+  const reasonKey: string = inter.reason_key
+  const teamId: string = inter.team_id
+  const playerId: number = inter.player_id
+  const partnerPlayerId: number | null = inter.partner_player_id
+  const responseChoice: string | null = inter.response_choice
+  const baselineValue: number = inter.baseline_value || 0
+  const demandTarget: number = inter.demand_target || 0
+  const committedAt: string = inter.updated_at || new Date(0).toISOString()
+
   const { data: player } = await supabaseAdmin.from('players').select('name').eq('id', playerId).single()
   const name = player?.name
   switch (reasonKey) {
-    case 'wants_to_play_with_teammate': {
+    case 'wants_to_play_with_teammate':
+    case 'wants_veteran_mentor': {
       if (!partnerPlayerId) return 0
       const { data: games } = await supabaseAdmin.from('games').select('id').gte('week_number', fromWeek).lte('week_number', toWeek).eq('status', 'final')
       const gameIds = (games || []).map((g: any) => g.id)
@@ -233,7 +295,12 @@ async function computeMonitorValue(reasonKey: string, teamId: string, playerId: 
       const weeksLockdown = orders.filter((o: any) => Object.values(o.special_assignments || {}).some((a: any) => a?.lockdown_defender === name)).length
       return orders.length ? Math.round(weeksLockdown / orders.length * 100) : 0
     }
-    case 'wants_more_rest': {
+    case 'wants_more_rest':
+    case 'homesickness_family':
+    case 'media_pressure_stress':
+    case 'personal_crisis': {
+      // Same real accommodation, whatever the underlying reason: did the GM
+      // actually lighten his load, rather than just say comforting words?
       const orders = await getOrdersInRange(teamId, fromWeek, toWeek)
       const weeksLighter = orders.filter((o: any) => ['rest', 'light'].includes(o.training_intensity) || (o.pace || 70) <= 65).length
       return orders.length ? Math.round(weeksLighter / orders.length * 100) : 0
@@ -242,6 +309,45 @@ async function computeMonitorValue(reasonKey: string, teamId: string, playerId: 
       const orders = await getOrdersInRange(teamId, fromWeek, toWeek)
       const weeksRaised = orders.filter((o: any) => (o.three_rate || 38) >= 45).length
       return orders.length ? Math.round(weeksRaised / orders.length * 100) : 0
+    }
+    case 'conflict_with_teammate': {
+      if (!partnerPlayerId) return 0
+      const { avgMins: partnerNow } = await getRecentBoxStats(partnerPlayerId, fromWeek, toWeek)
+      if (responseChoice === 'concede') {
+        const drop = baselineValue - partnerNow
+        return Math.max(0, Math.round(drop))
+      }
+      // Mediate: a stability score peaking at 100 when unchanged, decaying as
+      // the partner's minutes drift away from where they were.
+      const deviationPct = Math.abs(partnerNow - baselineValue) / Math.max(baselineValue, 1) * 100
+      return Math.max(0, Math.round(100 - deviationPct * 4))
+    }
+    case 'unhappy_with_team_record':
+    case 'wants_front_office_aggression': {
+      if (reasonKey === 'wants_front_office_aggression') {
+        const { data: trades } = await supabaseAdmin.from('franchise_transactions').select('id').eq('team_id', teamId).eq('type', 'trade').gte('created_at', committedAt)
+        if (trades && trades.length) return demandTarget || 15
+      }
+      const { winPct } = await getTeamWinPct(teamId)
+      return Math.round(winPct - baselineValue)
+    }
+    case 'wants_leadership_recognition': {
+      const orders = await getOrdersInRange(teamId, fromWeek, toWeek)
+      const weeksFeatured = orders.filter((o: any) => o.clutch_player === name || [o.priority_1, o.priority_2, o.priority_3].includes(name)).length
+      return orders.length ? Math.round(weeksFeatured / orders.length * 100) : 0
+    }
+    case 'wants_contract_extension_talks':
+    case 'feels_underpaid': {
+      // One extension offer per player per season (contracts/extend/route.ts),
+      // so any offer found here is necessarily the real, relevant one.
+      const { data: offers } = await supabaseAdmin.from('contract_extension_offers').select('status,resolved_at').eq('player_id', playerId).eq('season', '2025-26').gte('resolved_at', committedAt)
+      const offer = offers?.[0]
+      if (!offer) return 0
+      return offer.status === 'accepted' ? 100 : 50
+    }
+    case 'feels_development_neglected': {
+      const { data: logs } = await supabaseAdmin.from('training_log').select('id').eq('player_id', playerId).gte('created_at', committedAt)
+      return logs && logs.length ? 100 : 0
     }
     default:
       return 0
@@ -266,7 +372,8 @@ export async function resolveMonitoredInteractions(week: number) {
 
   for (const inter of (due || [])) {
     const player = duePlayers[inter.player_id]
-    const value = await computeMonitorValue(inter.reason_key, inter.team_id, inter.player_id, inter.created_week, inter.deadline_week, inter.partner_player_id)
+    const fromWeek = Math.max(1, inter.deadline_week - 2)
+    const value = await computeMonitorValue(inter, fromWeek, inter.deadline_week)
     const target = inter.demand_target || 1
     const pct = (value / target) * 100
     const outcome = pct >= 100 ? 'met' : pct >= 50 ? 'partial' : 'ignored'
@@ -278,11 +385,24 @@ export async function resolveMonitoredInteractions(week: number) {
     const newMoral = Math.max(0, Math.min(100, currentMoral + delta))
     await supabaseAdmin.from('players').update({ moral: newMoral }).eq('id', inter.player_id)
 
-    // Pairing-type interactions (e.g. wants_to_play_with_teammate) genuinely
-    // benefit both players when the pairing actually happened for real —
-    // the partner wasn't the one complaining, so only the upside carries
-    // over to him, never the penalty for a request he didn't make.
-    if (inter.partner_player_id && outcome === 'met') {
+    if (inter.reason_key === 'conflict_with_teammate' && inter.partner_player_id) {
+      // Asymmetric on purpose: "sided with him" actually working means the
+      // OTHER guy's minutes really got cut — that should hurt his morale,
+      // not help it. "Mediated" success means the peace held for both.
+      const { data: partnerPlayer } = await supabaseAdmin.from('players').select('moral').eq('id', inter.partner_player_id).single()
+      if (partnerPlayer) {
+        const partnerDelta = inter.response_choice === 'concede'
+          ? (outcome === 'met' ? -10 : 0)
+          : (outcome === 'met' ? 5 : -3)
+        const partnerNewMoral = Math.max(0, Math.min(100, (partnerPlayer.moral || 80) + partnerDelta))
+        await supabaseAdmin.from('players').update({ moral: partnerNewMoral }).eq('id', inter.partner_player_id)
+      }
+    } else if (inter.partner_player_id && outcome === 'met') {
+      // Pairing-type interactions (e.g. wants_to_play_with_teammate,
+      // wants_veteran_mentor) genuinely benefit both players when the
+      // pairing actually happened for real — the partner wasn't the one
+      // complaining, so only the upside carries over to him, never the
+      // penalty for a request he didn't make.
       const { data: partnerPlayer } = await supabaseAdmin.from('players').select('moral').eq('id', inter.partner_player_id).single()
       if (partnerPlayer) {
         const partnerNewMoral = Math.max(0, Math.min(100, (partnerPlayer.moral || 80) + delta))
