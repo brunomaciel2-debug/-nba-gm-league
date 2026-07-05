@@ -15,6 +15,7 @@ import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInte
 import { resolveSummerLeague } from '@/lib/summer-league'
 import { resolvePlayoffSeries } from '@/lib/playoff-resolver'
 import { assignRefereesToScheduledGames, rateRefereePerformance } from '@/lib/referees'
+import { resolveMonthlyMerchandising } from '@/lib/merchandising'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
@@ -966,6 +967,16 @@ notes:`Month ${monthNum} ${conf} Player of the Month`
 },{onConflict:'season,award_type,period'})
 }
 }
+
+// ── MERCHANDISING (jersey sales) ────────────────────
+// Same isEndOfMonth/monthNum cadence as Player of the Month above — fame
+// drifts monthly toward a deserved target (quality/form/wins/awards/any
+// active marketing campaign) and turns into real jersey revenue, posted
+// straight to the balance sheet. See src/lib/merchandising.ts.
+try {
+const merchResult = await resolveMonthlyMerchandising(week)
+console.log(`Merchandising resolved: ${merchResult.players} players, ${merchResult.teams} teams with revenue`)
+} catch (merchErr) { console.warn('Merchandising resolution failed:', merchErr) }
 }
 
 if (isEndOfSeason) {

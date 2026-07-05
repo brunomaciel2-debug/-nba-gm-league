@@ -442,3 +442,13 @@ export function notifRosterMinimumRisk(lang: 'en'|'pt', rosterSize: number, spot
       : `Your team has ${rosterSize} players and only $${(capSpace/1_000_000).toFixed(1)}M in cap space. You need ${spotsNeeded} more player${spotsNeeded !== 1 ? 's' : ''} to reach the ${minRoster}-player minimum, and your remaining cap space may not be enough.`,
   }
 }
+
+export function notifJerseySalesReport(lang: 'en'|'pt', monthNum: number, topPlayerName: string, topPlayerRevenue: number, totalRevenue: number) {
+  const fmt = (n: number) => '$' + (n >= 1000000 ? (n/1000000).toFixed(1)+'M' : (n/1000).toFixed(0)+'K')
+  return {
+    subject: lang === 'pt' ? `👕 Relatório de Merchandising — Mês ${monthNum}` : `👕 Merchandising Report — Month ${monthNum}`,
+    body: lang === 'pt'
+      ? `A equipa faturou ${fmt(totalRevenue)} em venda de jerseys este mês. ${topPlayerName} liderou as vendas, sozinho responsável por ${fmt(topPlayerRevenue)}.`
+      : `The team made ${fmt(totalRevenue)} in jersey sales this month. ${topPlayerName} led the way, alone responsible for ${fmt(topPlayerRevenue)}.`,
+  }
+}

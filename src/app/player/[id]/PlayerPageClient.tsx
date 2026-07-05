@@ -188,6 +188,7 @@ export default function PlayerPageClient({ player, stats, injuries, contracts, p
                   {label: isPT?'Salário 2025-26':'2025-26 Salary', val: capFmt(currentContract.salary)},
                   {label: isPT?'Contrato':'Contract', val: `${contracts.length}${isPT?'ano(s)':'yr'}`},
                   {label: isPT?'Valor Total':'Total Value', val: capFmt(totalValue)},
+                  ...(p.fame != null ? [{label: isPT?'👕 Fama':'👕 Fame', val: `${p.fame}/100`}] : []),
                 ].map(item=>(
                   <div key={item.label}>
                     <div className="text-xs" style={{color:'#8a8279'}}>{item.label}</div>

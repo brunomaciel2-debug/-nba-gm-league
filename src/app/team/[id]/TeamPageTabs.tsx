@@ -11,13 +11,14 @@ import ArenaView from './ArenaView'
 import TrainingTab from './TrainingTab'
 import FacilitiesTab from './FacilitiesTab'
 import FinancesTab from './FinancesTab'
+import MerchandisingTab from './MerchandisingTab'
 import SponsorsTab from './SponsorsTab'
 import GoalsTab from './GoalsTab'
 import ScoutingTab from './ScoutingTab'
 import PlayerInteractions from './PlayerInteractions'
 import { useTranslation } from '@/components/I18nProvider'
 
-type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors' | 'goals' | 'scouting' | 'interactions'
+type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'sponsors' | 'goals' | 'scouting' | 'interactions'
 
 function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: boolean }) {
   return (
@@ -38,7 +39,7 @@ export default function TeamPageTabs({
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const searchParams = useSearchParams()
-  const VALID_TABS: Tab[] = ['roster','schedule','contracts','draft','training','facilities','finances','sponsors','goals','scouting','interactions']
+  const VALID_TABS: Tab[] = ['roster','schedule','contracts','draft','training','facilities','finances','merchandising','sponsors','goals','scouting','interactions']
   const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'roster'
   const [tab, setTab] = useState<Tab>(initialTab)
 
@@ -51,6 +52,7 @@ export default function TeamPageTabs({
     { key: 'training',   label: isPT ? 'Treino'          : 'Training',    icon: '🏋️' },
     { key: 'facilities', label: isPT ? 'Instalações'     : 'Facilities',  icon: '🏟️' },
     { key: 'finances',   label: isPT ? 'Finanças'        : 'Finances',    icon: '💵' },
+    { key: 'merchandising', label: isPT ? 'Merchandising' : 'Merchandising', icon: '👕' },
     { key: 'sponsors',   label: isPT ? 'Patrocinadores'  : 'Sponsors',    icon: '💰' },
     { key: 'goals',      label: isPT ? 'Objetivos'       : 'Goals',       icon: '🎯' },
     { key: 'interactions', label: isPT ? 'Interações'    : 'Interactions', icon: '💬' },
@@ -133,6 +135,7 @@ export default function TeamPageTabs({
         {tab === 'training'   && <TrainingTab teamId={teamId} teamColor={teamColor} players={players} />}
         {tab === 'facilities' && <FacilitiesTab teamId={teamId} teamColor={teamColor} arenaName={arenaName} arenaCapacity={arenaCapacity} />}
         {tab === 'finances'   && <FinancesTab teamId={teamId} teamColor={teamColor} />}
+        {tab === 'merchandising' && <MerchandisingTab teamId={teamId} teamColor={teamColor} players={players} />}
         {tab === 'scouting'   && <ScoutingTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'goals'      && <GoalsTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'sponsors'   && <SponsorsTab teamId={teamId} teamColor={teamColor}/>}
