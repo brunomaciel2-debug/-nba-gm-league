@@ -227,7 +227,12 @@ export default function GamePage({ params }: { params: { id: string } }) {
           {game.played_at ? fmtDate(game.played_at) : ''}
           {game.week_number > 0 && ` · ${isPT ? 'Semana' : 'Week'} ${game.week_number}`}
           {game.attendance > 0 && ` · ${game.attendance.toLocaleString()} ${isPT ? 'adeptos' : 'fans'}`}
-          {referee?.name && ` · ${isPT ? 'Árbitro' : 'Ref'}: ${referee.name}`}
+          {referee?.name && (
+            <>
+              {' · '}{isPT ? 'Árbitro' : 'Ref'}: <Link href={`/referees/${game.referee_id}`} style={{ color: '#8a8279', textDecoration: 'underline' }}>{referee.name}</Link>
+              {game.status === 'final' && game.referee_rating != null && ` (${game.referee_rating.toFixed(1)}/10)`}
+            </>
+          )}
         </div>
         <div className="flex items-center justify-between gap-4">
           {/* Home */}

@@ -14,7 +14,7 @@ import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MU
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
 import { resolveSummerLeague } from '@/lib/summer-league'
 import { resolvePlayoffSeries } from '@/lib/playoff-resolver'
-import { assignRefereesToScheduledGames } from '@/lib/referees'
+import { assignRefereesToScheduledGames, rateRefereePerformance } from '@/lib/referees'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
@@ -195,10 +195,16 @@ const aOrd = { ...(orderMap[at.id]||{}), attRate, isRivalry, decisive, referee, 
 double_team_target: atAssign.double_team_target, lockdown_target: atAssign.lockdown_target, lockdown_defender: atAssign.lockdown_defender }
 const result = simulateGame(ht, at, hp, ap, hOrd, aOrd)
 
+// Officials Ranking — graded from what actually happened in this game
+// (foul symmetry, total fouls, technicals), not from the referee's hidden
+// trait numbers directly; see rateRefereePerformance() in src/lib/referees.ts.
+const refereeIdForGame = referee?.id || sg.referee_id || null
+const refereeRating = refereeIdForGame ? rateRefereePerformance(result.homeBox, result.awayBox, isRivalry, decisive) : null
+
 const { data: gameRec } = await supabaseAdmin.from('games').update({
 home_score: result.homeScore, away_score: result.awayScore,
 status: 'final', played_at: new Date().toISOString(),
-attendance, is_rivalry: isRivalry, referee_id: referee?.id || sg.referee_id || null,
+attendance, is_rivalry: isRivalry, referee_id: refereeIdForGame, referee_rating: refereeRating,
 }).eq('id', sg.id).select().single()
 if (!gameRec) continue
 gamesSimulated++

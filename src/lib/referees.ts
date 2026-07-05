@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { getMarqueeInfoForDate } from '@/lib/marquee-dates'
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr]
@@ -17,7 +18,7 @@ async function fetchAllUnassignedGames(): Promise<any[]> {
   while (true) {
     // Explicit deterministic order — the round partition below depends on
     // processing games in a stable, repeatable sequence.
-    const { data } = await supabaseAdmin.from('games').select('id,week_number,home_team,away_team')
+    const { data } = await supabaseAdmin.from('games').select('id,week_number,home_team,away_team,scheduled_date')
       .eq('status', 'scheduled').is('referee_id', null).order('id').range(from, from + PAGE - 1)
     if (!data || !data.length) break
     games.push(...data)
@@ -25,6 +26,49 @@ async function fetchAllUnassignedGames(): Promise<any[]> {
     from += PAGE
   }
   return games
+}
+
+// Officials Ranking — grades a referee's actual performance from what
+// really happened in the game (foul symmetry, total foul count, technical
+// fouls), never from his hidden trait numbers directly. Those traits
+// (foul_rate/home_bias/crowd_error_rate/technical_impatience, read in
+// src/lib/game-simulator.ts) already shaped these real box-score outcomes
+// with randomness — grading the outcome is what makes this a genuine
+// evaluation instead of a restatement of a hidden stat.
+export function rateRefereePerformance(homeBox: any[], awayBox: any[], isRivalry: boolean, decisive: boolean): number {
+  const sum = (rows: any[], key: string) => rows.reduce((s, b) => s + (b[key] || 0), 0)
+  const homePF = sum(homeBox, 'pf'), awayPF = sum(awayBox, 'pf')
+  const homeFTA = sum(homeBox, 'fta'), awayFTA = sum(awayBox, 'fta')
+  const totalTech = sum(homeBox, 'tech_fouls') + sum(awayBox, 'tech_fouls')
+  const totalPF = homePF + awayPF
+  const pfDiff = Math.abs(homePF - awayPF)
+  const ftaDiff = Math.abs(homeFTA - awayFTA)
+
+  let rating = 7.0
+
+  // Foul-call symmetry — the real complaint is a lopsided whistle, not
+  // total foul count.
+  if (pfDiff > 8) rating -= Math.min(2.5, (pfDiff - 8) * 0.15)
+  if (ftaDiff > 10) rating -= Math.min(2.0, (ftaDiff - 10) * 0.1)
+
+  // Total foul count sanity — way too few (ignored contact) or way too
+  // many (over-officiated, stopped the game constantly) both read badly.
+  if (totalPF < 30) rating -= Math.min(1.5, (30 - totalPF) * 0.08)
+  else if (totalPF > 55) rating -= Math.min(1.5, (totalPF - 55) * 0.06)
+
+  // Technical fouls — losing control of the game's temperature.
+  if (totalTech >= 3) rating -= Math.min(2, (totalTech - 2) * 0.6)
+
+  // Handling a hard assignment (rivalry/decisive) cleanly is genuinely
+  // more impressive than the same clean game in a meaningless matchup.
+  const clean = pfDiff <= 6 && ftaDiff <= 8 && totalTech <= 1
+  if ((isRivalry || decisive) && clean) rating += 0.5
+
+  // A little real subjectivity — two GMs read the same game differently.
+  // Flavor layered on top of the real signal above, never replacing it.
+  rating += Math.random() * 0.6 - 0.3
+
+  return Math.max(0, Math.min(10, Math.round(rating * 10) / 10))
 }
 
 // Assigns a referee to every not-yet-officiated scheduled game, ahead of
@@ -50,6 +94,35 @@ export async function assignRefereesToScheduledGames(): Promise<{ assigned: numb
   const games = await fetchAllUnassignedGames()
   if (!games.length) return { assigned: 0 }
 
+  // Officials Ranking meritocracy: top-rated referees should land on the
+  // biggest games. Season average per referee, computed client-side (only
+  // ~40 referees — trivially small, same pattern as teamContexts/coachBonus
+  // elsewhere) — a referee with no rated games yet defaults to 7.0 (the
+  // same neutral baseline rateRefereePerformance() itself starts from), so
+  // rookies aren't unfairly buried at the bottom before they've worked a game.
+  const { data: ratedGames } = await supabaseAdmin.from('games').select('referee_id,referee_rating').not('referee_rating', 'is', null)
+  const ratingSums: Record<string, { sum: number, n: number }> = {}
+  ;(ratedGames || []).forEach((g: any) => {
+    const r = (ratingSums[g.referee_id] ||= { sum: 0, n: 0 })
+    r.sum += g.referee_rating; r.n++
+  })
+  const avgRating = (refId: string) => ratingSums[refId] ? ratingSums[refId].sum / ratingSums[refId].n : 7.0
+
+  // Decisiveness proxy for assignment purposes — rivalry (real, permanent)
+  // or a marquee calendar date (real per-game date, see schedule-generator.ts).
+  // Lighter-weight than cron/simulate's full standings-based decisive check,
+  // which needs weekly-fresh standings not available this far ahead when
+  // pre-assigning the whole remaining season in one pass — an honest
+  // simplification, not a hidden gap.
+  const { data: teamsForRivalry } = await supabaseAdmin.from('teams').select('id,rival_team_id')
+  const rivalMap: Record<string, string> = {}
+  ;(teamsForRivalry || []).forEach((t: any) => { if (t.rival_team_id) rivalMap[t.id] = t.rival_team_id })
+  const isDecisiveForAssignment = (g: any): boolean => {
+    const isRivalry = rivalMap[g.home_team] === g.away_team || rivalMap[g.away_team] === g.home_team
+    const marquee = g.scheduled_date ? getMarqueeInfoForDate(g.scheduled_date, g.week_number).marquee : false
+    return isRivalry || marquee
+  }
+
   const byWeek: Record<number, any[]> = {}
   for (const g of games) {
     if (!byWeek[g.week_number]) byWeek[g.week_number] = []
@@ -73,13 +146,18 @@ export async function assignRefereesToScheduledGames(): Promise<{ assigned: numb
     }
 
     for (const round of rounds) {
-      const pool = shuffle(refIds)
-      for (let i = 0; i < round.length; i++) {
+      // Shuffle first so referees of equal (often default 7.0) rating don't
+      // always land in the same relative order, then sort by rating so the
+      // best available referees genuinely land on the round's biggest games.
+      const shuffledPool: string[] = shuffle(refIds)
+      const pool = shuffledPool.sort((a, b) => avgRating(b) - avgRating(a))
+      const orderedGames = [...round].sort((a, b) => Number(isDecisiveForAssignment(b)) - Number(isDecisiveForAssignment(a)))
+      for (let i = 0; i < orderedGames.length; i++) {
         // Falls back to reuse only if a single round somehow has more games
         // than the whole referee pool — never happens with a real
         // NBA-sized round (max 15 simultaneous games for 30 teams).
         const refereeId = pool[i % pool.length]
-        await supabaseAdmin.from('games').update({ referee_id: refereeId }).eq('id', round[i].id)
+        await supabaseAdmin.from('games').update({ referee_id: refereeId }).eq('id', orderedGames[i].id)
         assigned++
       }
     }

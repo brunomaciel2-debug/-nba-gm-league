@@ -54,7 +54,7 @@ export default function RefereeProfilePage({ params }: { params: { id: string } 
       // No declared foreign key from games.referee_id to referees — fetch
       // games separately rather than risk an embedded-join 400.
       const { data: gamesData } = await supabase.from('games')
-        .select('id,home_team,away_team,home_score,away_score,status,played_at,week_number')
+        .select('id,home_team,away_team,home_score,away_score,status,played_at,week_number,referee_rating')
         .eq('referee_id', params.id)
         .order('played_at', { ascending: false })
       setGames(gamesData || [])
@@ -84,6 +84,9 @@ export default function RefereeProfilePage({ params }: { params: { id: string } 
   const upcoming = games.filter((g: any) => g.status !== 'final')
   const traitLabel = (tm: typeof REFEREE_TRAIT_META[number]) => isPT ? tm.labelPT : tm.labelEN
   const TRAIT_TIPS = isPT ? TRAIT_TIPS_PT : TRAIT_TIPS_EN
+  const ratedGames = played.filter((g: any) => g.referee_rating != null)
+  const avgRating = ratedGames.length ? ratedGames.reduce((s: number, g: any) => s + g.referee_rating, 0) / ratedGames.length : null
+  const ratingColor = (v: number) => v >= 8 ? '#15803d' : v >= 6.5 ? '#1a1512' : v >= 5 ? '#b45309' : '#dc2626'
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
@@ -103,6 +106,12 @@ export default function RefereeProfilePage({ params }: { params: { id: string } 
             {played.length} {isPT ? 'jogo(s) apitado(s) esta época' : 'game(s) officiated this season'}
           </p>
         </div>
+        {avgRating != null && (
+          <div className="ml-auto text-center flex-shrink-0">
+            <div className="text-2xl font-black" style={{ color: ratingColor(avgRating) }}>{avgRating.toFixed(1)}</div>
+            <div className="text-xs" style={{ color: '#8a8279' }}>{isPT ? 'média (júri)' : 'avg (jury)'}</div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl p-4 mb-6 flex flex-col gap-3" style={{ background: '#faf8f5', border: '1px solid #d4cdc5' }}>
@@ -126,6 +135,9 @@ export default function RefereeProfilePage({ params }: { params: { id: string } 
               <span className="text-xs w-16 flex-shrink-0" style={{ color: '#8a8279' }}>{isPT ? 'Sem' : 'Wk'} {g.week_number}</span>
               <span className="text-sm flex-1" style={{ color: '#1a1512' }}>{home?.name || g.home_team} vs {away?.name || g.away_team}</span>
               <span className="text-sm font-bold" style={{ color: '#1a1512' }}>{g.home_score}-{g.away_score}</span>
+              {g.referee_rating != null && (
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: ratingColor(g.referee_rating), background: ratingColor(g.referee_rating) + '18' }}>{g.referee_rating.toFixed(1)}</span>
+              )}
             </Link>
           )
         })}

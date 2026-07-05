@@ -84,6 +84,7 @@ export default function Navbar() {
         { label: isPT ? 'Free Agents'      : 'Free Agents',     href: '/free-agents',    icon: 'ti-user-plus' },
         { label: isPT ? 'Líderes da Liga'  : 'League Leaders',  href: '/league-leaders', icon: 'ti-trophy' },
         { label: isPT ? 'Power Rankings'   : 'Power Rankings',  href: '/power-rankings', icon: 'ti-trending-up' },
+        { label: isPT ? 'Ranking de Arbitragem' : 'Officials Ranking', href: '/officials-ranking', icon: 'ti-gavel' },
         { label: isPT ? 'Calendário'       : 'Schedule',        href: '/schedule',       icon: 'ti-calendar' },
         { label: isPT ? 'Classificação'    : 'Standings',       href: '/standings',      icon: 'ti-list-numbers' },
         { label: isPT ? 'Equipas'          : 'Teams',           href: '/teams',          icon: 'ti-users' },
