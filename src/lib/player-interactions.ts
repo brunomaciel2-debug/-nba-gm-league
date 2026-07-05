@@ -82,14 +82,21 @@ async function evaluateEligibleReasons(player: any, teamId: string, week: number
   const { data: teammates } = await supabaseAdmin.from('players').select('id,name,age,real_ovr,salary').eq('team_id', teamId).eq('status', 'active').neq('id', player.id)
   if (teammates && teammates.length) {
     const partner = teammates[Math.floor(Math.random() * teammates.length)]
-    out.push({ reasonKey: 'wants_to_play_with_teammate', weight: w('wants_to_play_with_teammate'), demandTarget: null, baselineValue: null, partnerPlayerId: partner.id })
+    // Monitored, not a free immediate click: checks whether the two actually
+    // started together in real games during the window (box_scores), same
+    // verification discipline as every other monitored reason.
+    out.push({ reasonKey: 'wants_to_play_with_teammate', weight: w('wants_to_play_with_teammate'), demandTarget: 50, baselineValue: 0, partnerPlayerId: partner.id })
     out.push({ reasonKey: 'conflict_with_teammate', weight: w('conflict_with_teammate'), demandTarget: null, baselineValue: null, partnerPlayerId: partner.id })
 
     if ((player.age || 25) <= 23 && !teammates.some((t: any) => (t.age || 0) >= 30)) {
       out.push({ reasonKey: 'wants_veteran_mentor', weight: w('wants_veteran_mentor'), demandTarget: null, baselineValue: null, partnerPlayerId: null })
     }
+    // Only eligible when he could ACTUALLY receive a new deal under the real
+    // extension rule (contracts/extend/route.ts: contract_years <= 2) — a
+    // player buried under 3+ years left has no real remedy the GM can offer,
+    // so this complaint would otherwise ask for something impossible.
     const similarOvrTeammate = teammates.find((t: any) => Math.abs((t.real_ovr || 0) - (player.real_ovr || 0)) <= 3 && (t.salary || 0) >= (player.salary || 1) * 1.4)
-    if (similarOvrTeammate) {
+    if (similarOvrTeammate && (player.contract_years || 0) <= 2) {
       out.push({ reasonKey: 'feels_underpaid', weight: w('feels_underpaid'), demandTarget: null, baselineValue: null, partnerPlayerId: null })
     }
   }
@@ -106,7 +113,10 @@ async function evaluateEligibleReasons(player: any, teamId: string, week: number
   if ((player.age || 25) >= 28 && (player.nba_experience || 0) >= 6) {
     out.push({ reasonKey: 'wants_leadership_recognition', weight: w('wants_leadership_recognition'), demandTarget: null, baselineValue: null, partnerPlayerId: null })
   }
-  if ((player.contract_years || 0) <= 1) {
+  // Must match the real extension rule exactly (contracts/extend/route.ts:
+  // ELIGIBLE_YEARS_LEFT = 2) — otherwise this complaint could fire for a
+  // player the GM has no actual way to extend yet.
+  if ((player.contract_years || 0) <= 2) {
     out.push({ reasonKey: 'wants_contract_extension_talks', weight: w('wants_contract_extension_talks'), demandTarget: null, baselineValue: null, partnerPlayerId: null })
   }
   if ((player.age || 25) <= 24) {
@@ -177,15 +187,29 @@ export async function checkForNewInteractions(week: number) {
 export async function refreshMonitoredProgress(week: number) {
   const { data: monitoring } = await supabaseAdmin.from('player_interactions').select('*').eq('status', 'monitoring').lt('deadline_week', week + 1)
   for (const inter of (monitoring || [])) {
-    const value = await computeMonitorValue(inter.reason_key, inter.team_id, inter.player_id, inter.created_week, Math.min(week, inter.deadline_week))
+    const value = await computeMonitorValue(inter.reason_key, inter.team_id, inter.player_id, inter.created_week, Math.min(week, inter.deadline_week), inter.partner_player_id)
     await supabaseAdmin.from('player_interactions').update({ current_progress: value, updated_at: new Date().toISOString() }).eq('id', inter.id)
   }
 }
 
-async function computeMonitorValue(reasonKey: string, teamId: string, playerId: number, fromWeek: number, toWeek: number): Promise<number> {
+async function computeMonitorValue(reasonKey: string, teamId: string, playerId: number, fromWeek: number, toWeek: number, partnerPlayerId?: number | null): Promise<number> {
   const { data: player } = await supabaseAdmin.from('players').select('name').eq('id', playerId).single()
   const name = player?.name
   switch (reasonKey) {
+    case 'wants_to_play_with_teammate': {
+      if (!partnerPlayerId) return 0
+      const { data: games } = await supabaseAdmin.from('games').select('id').gte('week_number', fromWeek).lte('week_number', toWeek).eq('status', 'final')
+      const gameIds = (games || []).map((g: any) => g.id)
+      if (!gameIds.length) return 0
+      const [{ data: mine }, { data: theirs }] = await Promise.all([
+        supabaseAdmin.from('box_scores').select('game_id,is_starter').eq('player_id', playerId).in('game_id', gameIds),
+        supabaseAdmin.from('box_scores').select('game_id,is_starter').eq('player_id', partnerPlayerId).in('game_id', gameIds),
+      ])
+      if (!mine?.length) return 0
+      const theirStartsByGame = new Set((theirs || []).filter((b: any) => b.is_starter).map((b: any) => b.game_id))
+      const sharedStarts = mine.filter((b: any) => b.is_starter && theirStartsByGame.has(b.game_id)).length
+      return Math.round(sharedStarts / mine.length * 100)
+    }
     case 'wants_more_minutes': {
       const { avgMins } = await getRecentBoxStats(playerId, fromWeek, toWeek)
       return avgMins
@@ -242,7 +266,7 @@ export async function resolveMonitoredInteractions(week: number) {
 
   for (const inter of (due || [])) {
     const player = duePlayers[inter.player_id]
-    const value = await computeMonitorValue(inter.reason_key, inter.team_id, inter.player_id, inter.created_week, inter.deadline_week)
+    const value = await computeMonitorValue(inter.reason_key, inter.team_id, inter.player_id, inter.created_week, inter.deadline_week, inter.partner_player_id)
     const target = inter.demand_target || 1
     const pct = (value / target) * 100
     const outcome = pct >= 100 ? 'met' : pct >= 50 ? 'partial' : 'ignored'
@@ -253,13 +277,26 @@ export async function resolveMonitoredInteractions(week: number) {
     const currentMoral = player?.moral ?? 80
     const newMoral = Math.max(0, Math.min(100, currentMoral + delta))
     await supabaseAdmin.from('players').update({ moral: newMoral }).eq('id', inter.player_id)
+
+    // Pairing-type interactions (e.g. wants_to_play_with_teammate) genuinely
+    // benefit both players when the pairing actually happened for real —
+    // the partner wasn't the one complaining, so only the upside carries
+    // over to him, never the penalty for a request he didn't make.
+    if (inter.partner_player_id && outcome === 'met') {
+      const { data: partnerPlayer } = await supabaseAdmin.from('players').select('moral').eq('id', inter.partner_player_id).single()
+      if (partnerPlayer) {
+        const partnerNewMoral = Math.max(0, Math.min(100, (partnerPlayer.moral || 80) + delta))
+        await supabaseAdmin.from('players').update({ moral: partnerNewMoral }).eq('id', inter.partner_player_id)
+      }
+    }
+
     await supabaseAdmin.from('player_interactions').update({
       status: 'resolved', outcome, current_progress: value, moral_after: newMoral, resolved_week: week, updated_at: new Date().toISOString(),
     }).eq('id', inter.id)
 
     const playerName = player?.name || 'Player'
     const lang = await getTeamLang(inter.team_id)
-    const resolutionText = buildResolutionText(lang, playerName, outcome, delta)
+    const resolutionText = buildResolutionText(lang, playerName, outcome, delta, inter.reason_key)
     const notif = notifInteractionResolved(lang, playerName, resolutionText)
     await notify(inter.team_id, 'player_interaction', notif.subject, notif.body, { interaction_id: inter.id, player_id: inter.player_id })
   }
@@ -281,7 +318,7 @@ export async function resolveMonitoredInteractions(week: number) {
     }).eq('id', inter.id)
     const playerName = player?.name || 'Player'
     const lang = await getTeamLang(inter.team_id)
-    const resolutionText = buildResolutionText(lang, playerName, 'dismiss', delta)
+    const resolutionText = buildResolutionText(lang, playerName, 'dismiss', delta, inter.reason_key)
     const notif = notifInteractionResolved(lang, playerName, resolutionText)
     await notify(inter.team_id, 'player_interaction', notif.subject, notif.body, { interaction_id: inter.id, player_id: inter.player_id })
   }

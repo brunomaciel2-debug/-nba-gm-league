@@ -50,8 +50,8 @@ export function buildComplaintText(reasonKey: string, lang: 'en'|'pt', ctx: Comp
       return t(`${p} sente que a equipa não lhe dá lançamentos de 3 suficientes para o seu talento e pede mais liberdade de lançamento nas próximas 2 semanas.`,
         `${p} feels the team isn't feeding his 3-point shooting enough and wants more green light over the next 2 weeks.`)
     case 'wants_to_play_with_teammate':
-      return t(`${p} sente uma boa ligação em campo com ${ctx.partnerName} e pede para jogarem mais juntos.`,
-        `${p} feels real chemistry on the floor with ${ctx.partnerName} and is asking to play alongside him more.`)
+      return t(`${p} sente uma boa ligação em campo com ${ctx.partnerName} e pede para serem titulares juntos com mais frequência nas próximas 2 semanas.`,
+        `${p} feels real chemistry on the floor with ${ctx.partnerName} and is asking to start alongside him more often over the next 2 weeks.`)
     case 'conflict_with_teammate':
       return t(`Há tensão no balneário entre ${p} e ${ctx.partnerName}. ${p} quer que tomes uma posição sobre a situação.`,
         `There's locker room tension between ${p} and ${ctx.partnerName}. ${p} wants you to take a stance on it.`)
@@ -102,7 +102,7 @@ export function buildProgressText(lang: 'en'|'pt', demandTarget: number, current
     : `Asked for ${demandTarget} · current tracking: ${currentProgress} · ${weeksLeft} week${weeksLeft!==1?'s':''} left`
 }
 
-export function buildResolutionText(lang: 'en'|'pt', playerName: string, outcome: MonitoredOutcome | ResponseChoice, moralDelta: number): string {
+export function buildResolutionText(lang: 'en'|'pt', playerName: string, outcome: MonitoredOutcome | ResponseChoice, moralDelta: number, reasonKey?: string): string {
   const sign = moralDelta >= 0 ? '+' : ''
   const outcomeLabel: Record<string, {pt:string,en:string}> = {
     met:        { pt: 'Cumpriste o que ele pediu', en: 'You delivered on what he asked' },
@@ -113,7 +113,18 @@ export function buildResolutionText(lang: 'en'|'pt', playerName: string, outcome
     dismiss:    { pt: 'Decidiste não ceder', en: 'You decided not to give in' },
   }
   const label = outcomeLabel[outcome]
+  let extra = ''
+  // "Concede" here is a real commitment (an agreement to talk), never a
+  // guaranteed contract change — it doesn't bypass the real negotiation in
+  // ContractExtensionPanel, which still checks fairness/ambition/loyalty on
+  // its own. Point the GM at the actual mechanism instead of implying this
+  // click alone changed his deal.
+  if (outcome === 'concede' && (reasonKey === 'wants_contract_extension_talks' || reasonKey === 'feels_underpaid')) {
+    extra = lang === 'pt'
+      ? ' Isto é só a conversa — vai à página dele e usa a Extensão de Contrato para fazeres uma proposta real.'
+      : " This is just the conversation — go to his player page and use Contract Extension to make a real offer."
+  }
   return lang === 'pt'
-    ? `${label?.pt || outcome} com ${playerName}. Moral: ${sign}${moralDelta}.`
-    : `${label?.en || outcome} with ${playerName}. Morale: ${sign}${moralDelta}.`
+    ? `${label?.pt || outcome} com ${playerName}. Moral: ${sign}${moralDelta}.${extra}`
+    : `${label?.en || outcome} with ${playerName}. Morale: ${sign}${moralDelta}.${extra}`
 }

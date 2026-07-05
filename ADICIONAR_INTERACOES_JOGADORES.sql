@@ -70,7 +70,7 @@ VALUES
   ('wants_lockdown_role',           'playing_time', 'monitored', 'lockdown_role',      2, false, 8,  20, 5, -15, null, null, null, null, null, null),
   ('wants_more_rest',               'coaching',     'monitored', 'training_intensity', 2, false, 10, 20, 5, -15, null, null, null, null, null, null),
   ('wants_more_three_rate',         'coaching',     'monitored', 'three_rate',         2, false, 8,  20, 5, -15, null, null, null, null, null, null),
-  ('wants_to_play_with_teammate',   'team_fit',     'immediate', null,                 null, true, 10, null, null, null, 18, 6, -12, 18, 0, 0),
+  ('wants_to_play_with_teammate',   'team_fit',     'monitored', 'shared_starts',      2, true, 10, 20, 5, -15, null, null, null, null, null, null),
   ('conflict_with_teammate',        'team_fit',     'immediate', null,                 null, true, 8,  null, null, null, 18, 6, -12, -10, 6, 0),
   ('wants_veteran_mentor',          'team_fit',     'immediate', null,                 null, false, 6, null, null, null, 15, 5, -10, null, null, null),
   ('unhappy_with_team_record',      'culture',      'immediate', null,                 null, false, 10, null, null, null, 15, 5, -10, null, null, null),

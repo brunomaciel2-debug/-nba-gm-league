@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
   }).eq('id', interactionId)
 
   const lang = await getTeamLang(interaction.team_id)
-  const resolutionText = buildResolutionText(lang, playerName, choice, delta)
+  const resolutionText = buildResolutionText(lang, playerName, choice, delta, interaction.reason_key)
   const notif = notifInteractionResolved(lang, playerName, resolutionText)
   await notify(interaction.team_id, 'player_interaction', notif.subject, notif.body, { interaction_id: interactionId, player_id: interaction.player_id })
 
