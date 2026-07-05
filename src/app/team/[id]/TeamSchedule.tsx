@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 import GamePreviewModal from '@/components/GamePreviewModal'
-import { getMarqueeWeekInfo } from '@/lib/marquee-dates'
+import { getMarqueeWeekInfo, getMarqueeLabelText } from '@/lib/marquee-dates'
 
 const MARQUEE_ICON: Record<string, string> = {
   'Christmas Day': '🎄', 'Thanksgiving': '🦃', 'MLK Day': '✊🏾',
@@ -357,7 +357,7 @@ export default function TeamSchedule({
                     {marquee.marquee&&(
                       <span className="text-xs font-bold px-1.5 py-0.5 rounded flex-shrink-0"
                             style={{background:'#fef9c3',color:'#b45309',fontSize:10}}>
-                        {MARQUEE_ICON[marquee.label||'']||'⭐'} {marquee.label}
+                        {MARQUEE_ICON[marquee.label||'']||'⭐'} {getMarqueeLabelText(marquee.label||'', isPT)}
                       </span>
                     )}
                     <div className="flex-1 flex items-center gap-2 min-w-0">

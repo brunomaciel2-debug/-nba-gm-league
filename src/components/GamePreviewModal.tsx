@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { homeWinProb, fmtPct } from '@/lib/elo-helper'
-import { getMarqueeWeekInfo } from '@/lib/marquee-dates'
+import { getMarqueeWeekInfo, getMarqueeLabelText } from '@/lib/marquee-dates'
 
 const MARQUEE_ICON: Record<string, string> = {
   'Christmas Day': '🎄', 'Thanksgiving': '🦃', 'MLK Day': '✊🏾',
@@ -59,7 +59,7 @@ export default function GamePreviewModal({ game, teams, isPT, onClose }: {
 
         {marquee.marquee && (
           <div className="text-center text-xs font-bold px-2 py-1 rounded-lg mb-4" style={{ background: '#fef9c3', color: '#b45309' }}>
-            {MARQUEE_ICON[marquee.label || ''] || '⭐'} {marquee.label}
+            {MARQUEE_ICON[marquee.label || ''] || '⭐'} {getMarqueeLabelText(marquee.label || '', isPT)}
           </div>
         )}
 

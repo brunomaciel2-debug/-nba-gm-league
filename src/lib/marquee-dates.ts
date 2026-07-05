@@ -46,3 +46,19 @@ export function getMarqueeWeekInfo(week: number): { marquee: boolean, label?: st
   }
   return { marquee: false }
 }
+
+// `label` above is a stable English key (also used to look up an icon in the
+// UI) — this translates it for display without changing that key.
+const MARQUEE_LABEL_PT: Record<string, string> = {
+  'Christmas Day': 'Semana de Natal',
+  'Thanksgiving': 'Semana de Ação de Graças',
+  'MLK Day': 'Semana do MLK Day',
+  "Presidents' Day": 'Semana do Presidents\' Day',
+  'NBA Cup Championship': 'Final da NBA Cup',
+  'Opening Night': 'Noite de Abertura',
+}
+
+export function getMarqueeLabelText(label: string, isPT: boolean): string {
+  if (!isPT) return label
+  return MARQUEE_LABEL_PT[label] || label
+}

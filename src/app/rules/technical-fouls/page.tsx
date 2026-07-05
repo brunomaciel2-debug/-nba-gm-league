@@ -1,5 +1,4 @@
 'use client'
-import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
 
 function RuleCard({ icon, title, desc }: { icon: string, title: string, desc: string }) {
@@ -44,10 +43,6 @@ export default function TechnicalFoulsRulesPage() {
       <p style={{ fontSize:13, color:'#8a8279', marginBottom:6 }}>
         {isPT?'Como as faltas técnicas acontecem, quando levam a expulsão, e quando se acumulam em suspensões.':'How technical fouls happen, when they lead to ejection, and when they add up to suspensions.'}
       </p>
-      <Link href="/referees" className="text-xs no-underline font-semibold" style={{color:'#c8102e'}}>
-        {isPT ? 'Ver a pool de árbitros →' : 'See the referee pool →'}
-      </Link>
-      <div style={{ marginBottom: 18 }} />
       <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
         {rules.map((r,i) => <RuleCard key={i} icon={r.icon} title={r.title} desc={r.desc} />)}
       </div>
