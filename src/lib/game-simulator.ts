@@ -77,10 +77,15 @@ turnovers: s.to||0, plus_minus: 0,
 // A player's 2nd technical foul in the same game is an automatic ejection —
 // same real-world NBA rule. Rolled once per quarter per active player,
 // weighted by their trash_talk attribute (hot-headed players pick up more).
-function rollTechs(offense:any[],defense:any[],offSide:"home"|"away",defSide:"home"|"away",offTeam:any,sc:any,st:any,q:number,pbp:any[]){
+// The assigned referee's technical_impatience scales the whole base rate
+// directly (impatient with complaining players = quick whistle); a rivalry/
+// decisive game adds the same flat heat regardless of who's officiating.
+function rollTechs(offense:any[],defense:any[],offSide:"home"|"away",defSide:"home"|"away",offTeam:any,sc:any,st:any,q:number,pbp:any[],referee?:any,chippy?:boolean){
+const refTechMult=referee?.6+(referee.technical_impatience/100)*.8:1
+const chippyMult=chippy?1.3:1
 for(const p of offense){
 if(p.mins<=0||p.ejected)continue
-const chance=0.003+((p.trash_talk??50)/100)*0.012
+const chance=(0.003+((p.trash_talk??50)/100)*0.012)*refTechMult*chippyMult
 if(Math.random()>=chance)continue
 const s=st[p.id]
 s.tf=(s.tf||0)+1;s.pf=(s.pf||0)+1
@@ -116,11 +121,13 @@ let isGT=false,gtW=""
 const pbp:any[]=[],hb:any[]=[],ab:any[]=[]
 ;[...hp,...ap].forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=Math.min(100,Math.max(40,p.health??100));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
 const pa=(ho.pace+ao.pace)/2,ppq=Math.round(23+pa/100*4)
+const gameReferee=ho.referee||ao.referee
+const gameChippy=!!(ho.isRivalry||ao.isRivalry||ho.decisive||ao.decisive)
 for(let q=0;q<4;q++){
 part.home=0;part.away=0
 let side="home"
-rollTechs(hp,ap,"home","away",ht,sc,st,q,pbp)
-rollTechs(ap,hp,"away","home",at,sc,st,q,pbp)
+rollTechs(hp,ap,"home","away",ht,sc,st,q,pbp,gameReferee,gameChippy)
+rollTechs(ap,hp,"away","home",at,sc,st,q,pbp,gameReferee,gameChippy)
 for(let i=0;i<ppq*2;i++){
 const tl=Math.max(0,Math.round(720*(1-i/(ppq*2))))
 const diff=Math.abs(sc.home-sc.away)
@@ -219,9 +226,20 @@ const homeBoost=os==="home"?1.00+attRate*0.12:1.0
 const crowdMult=1+((sc2.crowd_effect??50)-50)/50*0.06*attRate
 const decisive=!!(oo.decisive||doo.decisive)
 const pressureMult=isC?(decisive?(.75+(sc2.pressure/100)*.45):(.82+(sc2.pressure/100)*.32)):1
+// Referee crew chief (same one for both sides — assigned to the game ahead
+// of time, not rolled per possession): foul_rate scales how often fouls
+// actually get whistled, home_bias tilts that rate slightly toward whichever
+// side is home, crowd_error_rate makes him call noticeably more once the
+// building is genuinely packed (attRate>0.75) — real home-crowd data, not an
+// invented number.
+const ref=oo.referee||doo.referee
+const refFoulRate=ref?(.7+(ref.foul_rate/100)*.6):1
+const refHomeSkew=ref?((ref.home_bias-50)/50)*.08:0
+const refCrowdErr=ref?1+Math.max(0,attRate-0.75)*(ref.crowd_error_rate/100)*1.2:1
+const refFoulMult=ref?refFoulRate*(1+(os==='home'?refHomeSkew:-refHomeSkew))*refCrowdErr:1
 
 if(Math.random()<.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015+(isDoubled?0.04:0)){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:p.stl*.5+20})));if(Math.random()<st3.stl/100*.7)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
-if(!u3&&Math.random()<def.blk/100*.065*(doo.def_style==='zone23'?.5:1)){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
+if(!u3&&Math.random()<def.blk/100*.065*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
 ss.fga++;if(u3)ss.tpa++
 const offBallMult=(u3&&sc2.ball_role==='off_ball')?1.08:1.0
 const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult))
@@ -229,7 +247,7 @@ const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100
 if(lsi.length>=3){if(r2>=3)mom[sc2.id]=Math.min(3,mom[sc2.id]+(makes?1:0)*st4*2);else if(r2<=1)mom[sc2.id]=Math.max(-3,mom[sc2.id]+(makes?0:-1)*st4*2);else mom[sc2.id]*=.6}
-if(Math.random()<sc2.draw_foul/100*.10){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+if(Math.random()<sc2.draw_foul/100*.10*refFoulMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
 if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<.55){const ast=wt(ap2.map(p=>({p,w:p.assist_role*2})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:p.off_reb*.6+10})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom);if(re){st[re.id].fga++;if(Math.random()<.5){st[re.id].fgm++;sc[os]+=2;st[re.id].pts+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`OFF rebound ${rb.name} → ${re.name} scores! 2pts`,home_score:sc.home,away_score:sc.away})}}}else{const rb=wt(dps.map(p=>({p,w:p.def_reb*.6+10})));st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
 }

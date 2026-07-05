@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
+import GamePreviewModal from '@/components/GamePreviewModal'
 type Filter = 'all' | 'home' | 'away' | 'played' | 'upcoming'
 const PRESEASON_START = new Date('2025-10-02')
 const PRESEASON_END   = new Date('2025-10-17')
@@ -40,6 +41,7 @@ export default function TeamSchedule({
   const [allPreseasonGames, setAllPreseasonGames] = useState<any[]>([])
   const [seasonStatus, setSeasonStatus] = useState<string>('pre-season')
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
+  const [previewGame, setPreviewGame] = useState<any>(null)
 
   const isPreseasonPeriod = seasonStatus === 'pre-season'
 
@@ -323,9 +325,11 @@ export default function TeamSchedule({
                 const oppScore=isHome2?g.away_score:g.home_score
                 const won=isPlayed&&myScore>oppScore
                 const typeBadge=TYPE_BADGE[g.game_type||'regular']||TYPE_BADGE.regular
+                const isPreviewable = !isPlayed && g.game_type!=='preseason'
                 return (
                   <div key={g.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
-                       style={{background:i%2===0?'#faf8f5':'#f5f1eb',border:'1px solid #e2dcd5'}}>
+                       onClick={()=>{if(isPreviewable)setPreviewGame(g)}}
+                       style={{background:i%2===0?'#faf8f5':'#f5f1eb',border:'1px solid #e2dcd5',cursor:isPreviewable?'pointer':'default'}}>
                     <div className="w-24 flex-shrink-0">
                       <div className="text-xs font-bold" style={{color:'#1a1512'}}>{g.played_at?fmtDate(g.played_at):'TBD'}</div>
                       {g.week_number>0&&<div className="text-xs" style={{color:'#8a8279'}}>{isPT?'Sem':'Wk'} {g.week_number}</div>}
@@ -345,7 +349,7 @@ export default function TeamSchedule({
                     )}
                     <div className="flex-1 flex items-center gap-2 min-w-0">
                       {oppTeam?.logo_url&&<img src={oppTeam.logo_url} alt={opp} className="w-5 h-5 object-contain flex-shrink-0"/>}
-                      <Link href={worldTeamIds.has(opp)?`/world/${opp}`:`/team/${opp}`} className="text-sm font-semibold hover:underline truncate" style={{color:oppColor}}>
+                      <Link href={worldTeamIds.has(opp)?`/world/${opp}`:`/team/${opp}`} onClick={e=>e.stopPropagation()} className="text-sm font-semibold hover:underline truncate" style={{color:oppColor}}>
                         {oppTeam?.name||opp}
                       </Link>
                     </div>
@@ -544,6 +548,10 @@ export default function TeamSchedule({
             </button>
           </div>
         </div>
+      )}
+
+      {previewGame && (
+        <GamePreviewModal game={previewGame} teams={teams} isPT={isPT} onClose={()=>setPreviewGame(null)} />
       )}
     </div>
   )

@@ -13,6 +13,7 @@ import { rookieOptionSalary } from '@/lib/draft-constants'
 import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
 import { resolveSummerLeague } from '@/lib/summer-league'
+import { assignRefereesToScheduledGames } from '@/lib/referees'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -58,6 +59,15 @@ POR:19393,SAC:17583,SAS:18418,TOR:19800,UTA:18306,WAS:20356,
 const { data: orders } = await supabaseAdmin.from('gm_orders').select('*').eq('week_number', week)
 const orderMap: Record<string, any> = {}
 ;(orders||[]).forEach((o:any) => orderMap[o.team_id] = o)
+
+// Referees are pre-assigned to scheduled games ahead of time (so they show
+// up on the calendar before the game is played) — see src/lib/referees.ts.
+// This call is just a safety net for anything that slipped through without
+// one; the real assignment already happened earlier.
+await assignRefereesToScheduledGames()
+const { data: refereesPool } = await supabaseAdmin.from('referees').select('*')
+const refereeById: Record<string, any> = {}
+;(refereesPool||[]).forEach((r:any) => refereeById[r.id] = r)
 
 // Head Coach off_adjustment/def_adjustment sharpen or dull the atk/def style
 // matchup and Double Team swings inside simulateGame() — attach them to each
@@ -130,16 +140,22 @@ const decisive = isPlayoffPhase || (inFightSet.has(ht.id) && inFightSet.has(at.i
 const htAssign = orderMap[ht.id]?.special_assignments?.[at.id] || {}
 const atAssign = orderMap[at.id]?.special_assignments?.[ht.id] || {}
 
-const hOrd = { ...(orderMap[ht.id]||{}), attRate, isRivalry, decisive,
+// Already assigned ahead of time by assignRefereesToScheduledGames() above —
+// just read it. Random fallback only for the rare case a game still has none.
+const referee = sg.referee_id
+? refereeById[sg.referee_id]
+: (refereesPool||[])[Math.floor(Math.random() * Math.max(1,(refereesPool||[]).length))]
+
+const hOrd = { ...(orderMap[ht.id]||{}), attRate, isRivalry, decisive, referee,
 double_team_target: htAssign.double_team_target, lockdown_target: htAssign.lockdown_target, lockdown_defender: htAssign.lockdown_defender }
-const aOrd = { ...(orderMap[at.id]||{}), attRate, isRivalry, decisive,
+const aOrd = { ...(orderMap[at.id]||{}), attRate, isRivalry, decisive, referee,
 double_team_target: atAssign.double_team_target, lockdown_target: atAssign.lockdown_target, lockdown_defender: atAssign.lockdown_defender }
 const result = simulateGame(ht, at, hp, ap, hOrd, aOrd)
 
 const { data: gameRec } = await supabaseAdmin.from('games').update({
 home_score: result.homeScore, away_score: result.awayScore,
 status: 'final', played_at: new Date().toISOString(),
-attendance, is_rivalry: isRivalry,
+attendance, is_rivalry: isRivalry, referee_id: referee?.id || sg.referee_id || null,
 }).eq('id', sg.id).select().single()
 if (!gameRec) continue
 gamesSimulated++

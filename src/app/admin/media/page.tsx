@@ -34,8 +34,8 @@ function LogoRow({ item, table, onSave, saving, saved, isPT }: {
 }
 
 function PhotoRow({ item, type, onSave, saving, saved, isPT }: {
-  item:any, type:'player'|'staff'|'prospect',
-  onSave:(id:string,url:string,type:'player'|'staff'|'prospect')=>void,
+  item:any, type:'player'|'staff'|'prospect'|'referee',
+  onSave:(id:string,url:string,type:'player'|'staff'|'prospect'|'referee')=>void,
   saving:string|null, saved:string|null, isPT:boolean
 }) {
   const [url, setUrl] = React.useState(item.photo_url||'')
@@ -110,7 +110,7 @@ function SponsorImageRow({ teamId, tier, option, existing, onSave, saving, saved
 
 type MainTab = 'logos'|'photos'|'jerseys'
 type LogoSection = 'nba'|'gleague'|'world'|'others'
-type PhotoSection = 'players'|'staff'
+type PhotoSection = 'players'|'staff'|'referees'
 
 export default function AdminMediaPage() {
   const { t } = useTranslation()
@@ -131,6 +131,7 @@ export default function AdminMediaPage() {
   const [photoItems,setPhotoItems]=useState<any[]>([])
   const [staffItems,setStaffItems]=useState<any[]>([])
   const [prospectItems,setProspectItems]=useState<any[]>([])
+  const [refereeItems,setRefereeItems]=useState<any[]>([])
   const [sponsorImages,setSponsorImages]=useState<any[]>([])
 
   useEffect(()=>{
@@ -138,6 +139,7 @@ export default function AdminMediaPage() {
     supabase.from('gleague_teams').select('id,name,logo_url').order('name').then(({data})=>{if(data)setGlTeams(data)})
     supabase.from('world_teams').select('id,name,logo_url,continent').order('continent').order('name').then(({data})=>{if(data)setWorldTeams(data)})
     supabase.from('prospects').select('id,name,pos,college,photo_url,season').eq('season','2027').order('name').then(({data})=>{if(data)setProspectItems(data)})
+    supabase.from('referees').select('id,name,photo_url').order('name').then(({data})=>{if(data)setRefereeItems(data)})
   },[])
 
   useEffect(()=>{
@@ -176,11 +178,14 @@ export default function AdminMediaPage() {
     setSaving(null);setSaved(id);setTimeout(()=>setSaved(null),1500)
   }
 
-  const savePhoto=async(id:string,url:string,type:'player'|'staff'|'prospect')=>{
+  const savePhoto=async(id:string,url:string,type:'player'|'staff'|'prospect'|'referee')=>{
     setSaving(id)
     if(type==='prospect'){
       await supabase.from('prospects').update({photo_url:url}).eq('id',id)
       setProspectItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+    } else if(type==='referee'){
+      await supabase.from('referees').update({photo_url:url}).eq('id',id)
+      setRefereeItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
     } else {
       const table=type==='player'?'players':'coaches'
       await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table,id:type==='player'?Number(id):id,photo_url:url})})
@@ -279,6 +284,7 @@ export default function AdminMediaPage() {
           <div style={{display:'flex',gap:8,marginBottom:20}}>
             <button onClick={()=>setPhotoSec('players')} style={subBtnStyle(photoSec==='players','#c8102e')}>🏀 {isPT?'Jogadores':'Players'}</button>
             <button onClick={()=>setPhotoSec('staff')} style={subBtnStyle(photoSec==='staff','#c8102e')}>👔 {isPT?'Staff':'Staff'}</button>
+            <button onClick={()=>setPhotoSec('referees')} style={subBtnStyle(photoSec==='referees','#c8102e')}>👨‍⚖️ {isPT?'Árbitros':'Referees'}</button>
           </div>
           <div style={{display:'flex',gap:20}}>
             <div style={{width:200,flexShrink:0,background:'#f5f1eb',borderRadius:10,padding:'12px 8px',maxHeight:'80vh',overflowY:'auto',border:'1px solid #d4cdc5'}}>
@@ -303,8 +309,16 @@ export default function AdminMediaPage() {
                   <button style={sideBtn(selStaffTeam==='FA')} onClick={()=>setSelStaffTeam('FA')}>{isPT?'Staff Livre':'Staff FA'}</button>
                 </>
               )}
+              {photoSec==='referees'&&(
+                <div style={{fontSize:11,color:'#8a8279',padding:'6px 6px'}}>
+                  {isPT?`Pool de ${refereeItems.length} árbitros — sem agrupamento por equipa.`:`Pool of ${refereeItems.length} referees — no team grouping.`}
+                </div>
+              )}
             </div>
             <div style={{flex:1}}>
+              {photoSec==='referees'&&(
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>{refereeItems.map(r=><PhotoRow key={r.id} item={r} type="referee" onSave={savePhoto} saving={saving} saved={saved} isPT={isPT}/>)}</div>
+              )}
               {photoSec==='players'&&(
                 <>
                   {!selPlayerTeam&&<div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>{isPT?'Selecciona uma equipa na barra lateral':'Select a team in the sidebar'}</div>}

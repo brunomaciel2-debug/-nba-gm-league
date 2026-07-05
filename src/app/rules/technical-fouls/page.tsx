@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
 
 function RuleCard({ icon, title, desc }: { icon: string, title: string, desc: string }) {
@@ -25,6 +26,7 @@ export default function TechnicalFoulsRulesPage() {
     { icon:'🏆', title:'Suspensão — Playoffs', desc:'Nos playoffs, o contador reinicia e o limite é mais apertado: 7 faltas técnicas para a primeira suspensão, com a mesma lógica de mais 1 jogo a cada 2 adicionais.' },
     { icon:'📬', title:'És Sempre Avisado', desc:'Sempre que um jogador teu sofre uma falta técnica, recebes uma notificação a dizer que técnica é essa da época e quantas faltam para a próxima suspensão. Se a suspensão for mesmo aplicada, a notificação diz isso diretamente.' },
     { icon:'🔒', title:'Enquanto Suspenso', desc:'Um jogador suspenso fica automaticamente indisponível para jogar — volta a estar disponível assim que cumprir os jogos de suspensão que a equipa tiver nessa semana.' },
+    { icon:'👨‍⚖️', title:'O Árbitro Também Conta', desc:'Cada jogo real é atribuído a um árbitro de uma pool de 40 árbitros reais da NBA — com antecedência, já visível no calendário. A impaciência dele com reclamações mexe mesmo na frequência de faltas técnicas, sobretudo em jogos de rivalidade ou decisivos. Vê o perfil dele para veres as características todas.' },
   ] : [
     { icon:'🟨', title:'How a Technical Foul Happens', desc:'Every quarter, each player on the court has a small chance of picking up a technical foul — players with a higher Trash Talk attribute risk more. It\'s random, but more likely for hot-headed players.' },
     { icon:'📋', title:'Counts Twice', desc:'A technical foul adds to the player\'s personal foul total (PF) AND to the technical foul total (TECH), shown as separate columns in the box score. The opposing team always gets 1 free throw.' },
@@ -33,14 +35,19 @@ export default function TechnicalFoulsRulesPage() {
     { icon:'🏆', title:'Suspension — Playoffs', desc:'In the playoffs, the counter resets and the threshold is stricter: 7 technical fouls for the first suspension, with the same +1-game-per-2-more logic.' },
     { icon:'📬', title:'You\'re Always Notified', desc:'Whenever one of your players picks up a technical, you get a notification saying which one it is for the season and how many more until the next suspension. If a suspension actually triggers, the notification says so directly.' },
     { icon:'🔒', title:'While Suspended', desc:'A suspended player automatically becomes unavailable to play — he returns once his team has played through the number of suspended games he owes.' },
+    { icon:'👨‍⚖️', title:'The Referee Matters Too', desc:"Every real game is assigned a referee from a pool of 40 real NBA officials — ahead of time, already visible on the calendar. His impatience with players who complain genuinely changes how often technicals actually get called, especially in rivalry or decisive games. Check his profile to see all his traits." },
   ]
 
   return (
     <div style={{ maxWidth:800, margin:'0 auto', padding:'24px 16px' }}>
       <h1 style={{ fontSize:24, fontWeight:900, color:'#1a1512', margin:0, marginBottom:6 }}>🟨 {isPT?'Regras de Faltas Técnicas':'Technical Foul Rules'}</h1>
-      <p style={{ fontSize:13, color:'#8a8279', marginBottom:24 }}>
+      <p style={{ fontSize:13, color:'#8a8279', marginBottom:6 }}>
         {isPT?'Como as faltas técnicas acontecem, quando levam a expulsão, e quando se acumulam em suspensões.':'How technical fouls happen, when they lead to ejection, and when they add up to suspensions.'}
       </p>
+      <Link href="/referees" className="text-xs no-underline font-semibold" style={{color:'#c8102e'}}>
+        {isPT ? 'Ver a pool de árbitros →' : 'See the referee pool →'}
+      </Link>
+      <div style={{ marginBottom: 18 }} />
       <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
         {rules.map((r,i) => <RuleCard key={i} icon={r.icon} title={r.title} desc={r.desc} />)}
       </div>

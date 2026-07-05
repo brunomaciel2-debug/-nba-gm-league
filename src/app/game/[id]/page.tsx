@@ -13,6 +13,13 @@ export default async function GamePage({ params }: { params: { id: string } }) {
 
   if (!game) notFound()
 
+  // No declared foreign key from games.referee_id to referees (same
+  // convention as team_id elsewhere) — fetch the name separately rather
+  // than risk an embedded-join 400.
+  const { data: referee } = game.referee_id
+    ? await supabase.from('referees').select('name').eq('id', game.referee_id).single()
+    : { data: null }
+
   const { data: boxScores } = await supabase
     .from('box_scores')
     .select('*, player:players(id,name,pos,photo_url)')
@@ -192,6 +199,7 @@ export default async function GamePage({ params }: { params: { id: string } }) {
           {game.played_at ? fmtDate(game.played_at) : ''}
           {game.week_number > 0 && ` · Week ${game.week_number}`}
           {game.attendance > 0 && ` · ${game.attendance.toLocaleString()} fans`}
+          {referee?.name && ` · Ref: ${referee.name}`}
         </div>
         <div className="flex items-center justify-between gap-4">
           {/* Home */}
