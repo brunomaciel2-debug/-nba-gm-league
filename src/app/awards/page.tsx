@@ -146,7 +146,7 @@ export default function AwardsPage() {
   useEffect(()=>{
     // Load all awards at once
     supabase.from('awards')
-      .select('*, players(id,name,pos,photo_url,team_id,teams(id,name,color,logo_url)), coaches(id,name,role,team_id,teams(id,name,color,logo_url))')
+      .select('*, players(id,name,pos,photo_url,team_id,teams:teams!players_team_id_fkey(id,name,color,logo_url)), coaches(id,name,role,team_id,teams(id,name,color,logo_url))')
       .eq('season','2025-26').order('award_type').order('created_at',{ascending:false})
       .then(({data})=>{setAwards(data||[]);setLoading(false)})
   },[])

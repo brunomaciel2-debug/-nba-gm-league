@@ -34,7 +34,7 @@ export default function LeagueLeadersMini() {
       const results = await Promise.all(['pts','ast','reb'].map(async stat => {
         const { data } = await supabase
           .from('player_stats')
-          .select('player_id, games, pts, ast, reb, players(id, name, pos, photo_url, team_id, teams(id, name, color))')
+          .select('player_id, games, pts, ast, reb, players(id, name, pos, photo_url, team_id, teams:teams!players_team_id_fkey(id, name, color))')
           .gte('games', minGames)
           .order(stat, { ascending: false })
           .limit(5)

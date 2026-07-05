@@ -12,7 +12,7 @@ export default function LeagueLeadersPage() {
   const [loading,setLoading] = useState(true)
 
   useEffect(()=>{
-    supabase.from('player_stats').select('*, players(id,name,pos,team_id,photo_url,teams(color,logo_url))').eq('season','2025-26').gt('games',0).order('pts',{ascending:false}).limit(300)
+    supabase.from('player_stats').select('*, players(id,name,pos,team_id,photo_url,teams:teams!players_team_id_fkey(color,logo_url))').eq('season','2025-26').gt('games',0).order('pts',{ascending:false}).limit(300)
       .then(({data:stats})=>{
         setRows((stats||[]).map((s:any)=>({
           ...s, pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—',
