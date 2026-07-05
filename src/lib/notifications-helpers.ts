@@ -290,6 +290,22 @@ export function notifRivalWin(lang: 'en'|'pt', rivalName: string) {
   }
 }
 
+export function notifPlayerDiscontent(lang: 'en'|'pt', player: string, complaintText: string) {
+  return {
+    subject: lang === 'pt' ? `😟 ${player} quer falar contigo` : `😟 ${player} wants to talk`,
+    body: lang === 'pt'
+      ? `${complaintText}\n\nVê o separador "Interações com Jogadores" da tua equipa para responder.`
+      : `${complaintText}\n\nCheck your team's "Player Interactions" tab to respond.`,
+  }
+}
+
+export function notifInteractionResolved(lang: 'en'|'pt', player: string, resolutionText: string) {
+  return {
+    subject: lang === 'pt' ? `📋 Interação com ${player} resolvida` : `📋 Interaction with ${player} resolved`,
+    body: resolutionText,
+  }
+}
+
 export function notifDevelopment(lang: 'en'|'pt', player: string, attributes: string[]) {
   return {
     subject: lang === 'pt' ? `📈 ${player} evoluiu!` : `📈 ${player} has developed!`,

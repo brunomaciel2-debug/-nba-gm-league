@@ -11,6 +11,7 @@ import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
 import { rookieOptionSalary } from '@/lib/draft-constants'
 import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
+import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -549,6 +550,16 @@ await supabaseAdmin.from('attribute_development').insert(devLogs)
 }
 }
 } catch(devErr) { console.warn('Development step failed', devErr) }
+
+// ── PLAYER INTERACTIONS ────────────────────────────────
+// Real, actionable morale system: an unhappy player raises a specific,
+// credible reason instead of a silent "low morale" stat. See
+// src/lib/player-interactions.ts for the eligibility/monitoring logic.
+try {
+await resolveMonitoredInteractions(week)
+await refreshMonitoredProgress(week)
+await checkForNewInteractions(week)
+} catch(interErr) { console.warn('Player interactions step failed', interErr) }
 
 // ── TRAINING SLOT FILL + UNLOCK ───────────────────────
 // Fills each unlocked training_slots row a little every week. The fill

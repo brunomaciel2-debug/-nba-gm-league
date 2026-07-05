@@ -113,6 +113,7 @@ export default function Navbar() {
         { label: isPT ? 'Regras do Draft'            : 'Draft Rules',         href: '/rules/draft',    icon: 'ti-clipboard-list' },
         { label: isPT ? 'Regras de Faltas Técnicas'  : 'Technical Foul Rules',href: '/rules/technical-fouls', icon: 'ti-flag' },
         { label: isPT ? 'Regras de Lesões'           : 'Injury Rules',        href: '/rules/injuries', icon: 'ti-first-aid-kit' },
+        { label: isPT ? 'Interações com Jogadores'   : 'Player Interactions', href: '/rules/interactions', icon: 'ti-message-circle' },
         { label: isPT ? 'Guia das Ordens Semanais'  : 'Weekly Orders Guide',  href: '/rules/orders',   icon: 'ti-clipboard-list' },
         { label: isPT ? 'Guia de Scouting'          : 'Scouting Guide',       href: '/rules/scouting', icon: 'ti-search' },
         { label: isPT ? 'Objetivos de Patrocínio'   : 'Sponsor Objectives',   href: '/rules/sponsors', icon: 'ti-target-arrow' },

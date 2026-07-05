@@ -13,9 +13,10 @@ import FinancesTab from './FinancesTab'
 import SponsorsTab from './SponsorsTab'
 import GoalsTab from './GoalsTab'
 import ScoutingTab from './ScoutingTab'
+import PlayerInteractions from './PlayerInteractions'
 import { useTranslation } from '@/components/I18nProvider'
 
-type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors' | 'goals' | 'scouting'
+type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'sponsors' | 'goals' | 'scouting' | 'interactions'
 
 function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: boolean }) {
   return (
@@ -48,6 +49,7 @@ export default function TeamPageTabs({
     { key: 'finances',   label: isPT ? 'Finanças'        : 'Finances',    icon: '💵' },
     { key: 'sponsors',   label: isPT ? 'Patrocinadores'  : 'Sponsors',    icon: '💰' },
     { key: 'goals',      label: isPT ? 'Objetivos'       : 'Goals',       icon: '🎯' },
+    { key: 'interactions', label: isPT ? 'Interações'    : 'Interactions', icon: '💬' },
   ]
 
   useEffect(() => {
@@ -130,6 +132,7 @@ export default function TeamPageTabs({
         {tab === 'scouting'   && <ScoutingTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'goals'      && <GoalsTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'sponsors'   && <SponsorsTab teamId={teamId} teamColor={teamColor}/>}
+        {tab === 'interactions' && <PlayerInteractions teamId={teamId} teamColor={teamColor}/>}
       </div>
     </div>
   )

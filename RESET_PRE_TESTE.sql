@@ -27,6 +27,7 @@ TRUNCATE TABLE gm_orders CASCADE;
 TRUNCATE TABLE inbox_messages CASCADE;
 TRUNCATE TABLE attribute_development CASCADE;
 TRUNCATE TABLE injury_log CASCADE;
+TRUNCATE TABLE player_interactions CASCADE;
 TRUNCATE TABLE transactions CASCADE;
 TRUNCATE TABLE awards CASCADE;
 TRUNCATE TABLE weekly_highlights CASCADE;
@@ -73,6 +74,7 @@ TRUNCATE TABLE world_teams CASCADE;
 TRUNCATE TABLE season_events CASCADE;
 TRUNCATE TABLE site_config CASCADE;
 TRUNCATE TABLE injury_types CASCADE;
+TRUNCATE TABLE player_interaction_types CASCADE;
 TRUNCATE TABLE season_config CASCADE;
 
 -- FASE 2: restaurar tudo a partir do Ponto de Origem
@@ -95,6 +97,7 @@ INSERT INTO gm_orders SELECT * FROM gm_orders_preteste;
 INSERT INTO inbox_messages SELECT * FROM inbox_messages_preteste;
 INSERT INTO attribute_development SELECT * FROM attribute_development_preteste;
 INSERT INTO injury_log SELECT * FROM injury_log_preteste;
+INSERT INTO player_interactions SELECT * FROM player_interactions_preteste;
 INSERT INTO transactions SELECT * FROM transactions_preteste;
 INSERT INTO awards SELECT * FROM awards_preteste;
 INSERT INTO weekly_highlights SELECT * FROM weekly_highlights_preteste;
@@ -141,6 +144,7 @@ INSERT INTO world_teams SELECT * FROM world_teams_preteste;
 INSERT INTO season_events SELECT * FROM season_events_preteste;
 INSERT INTO site_config SELECT * FROM site_config_preteste;
 INSERT INTO injury_types SELECT * FROM injury_types_preteste;
+INSERT INTO player_interaction_types SELECT * FROM player_interaction_types_preteste;
 INSERT INTO season_config SELECT * FROM season_config_preteste;
 
 SET session_replication_role = DEFAULT;

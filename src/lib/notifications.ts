@@ -257,7 +257,12 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   }
 
   // ── 6. LOW MORALE ALERTS ──────────────────────────────
-  const lowMoralePlayers = (players||[]).filter((p:any) => p.moral < 40)
+  // Players who already have an open Player Interaction get the specific,
+  // actionable notification from that system instead — showing both here
+  // too would just be redundant noise for the same player.
+  const { data: openInteractionPlayers } = await supabase.from('player_interactions').select('player_id').in('status', ['pending_response','monitoring'])
+  const openInteractionPlayerIds = new Set((openInteractionPlayers||[]).map((i:any) => i.player_id))
+  const lowMoralePlayers = (players||[]).filter((p:any) => p.moral < 40 && !openInteractionPlayerIds.has(p.id))
   const lowMoraleByTeam: Record<string,any[]> = {}
   for (const p of lowMoralePlayers) {
     if (!lowMoraleByTeam[p.team_id]) lowMoraleByTeam[p.team_id] = []

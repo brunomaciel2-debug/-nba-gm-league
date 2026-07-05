@@ -28,6 +28,7 @@ TRUNCATE TABLE gm_orders_preteste CASCADE;
 TRUNCATE TABLE inbox_messages_preteste CASCADE;
 TRUNCATE TABLE attribute_development_preteste CASCADE;
 TRUNCATE TABLE injury_log_preteste CASCADE;
+TRUNCATE TABLE player_interactions_preteste CASCADE;
 TRUNCATE TABLE transactions_preteste CASCADE;
 TRUNCATE TABLE awards_preteste CASCADE;
 TRUNCATE TABLE weekly_highlights_preteste CASCADE;
@@ -74,6 +75,7 @@ TRUNCATE TABLE world_teams_preteste CASCADE;
 TRUNCATE TABLE season_events_preteste CASCADE;
 TRUNCATE TABLE site_config_preteste CASCADE;
 TRUNCATE TABLE injury_types_preteste CASCADE;
+TRUNCATE TABLE player_interaction_types_preteste CASCADE;
 TRUNCATE TABLE season_config_preteste CASCADE;
 
 -- FASE 2: copiar o estado atual para as copias de seguranca
@@ -96,6 +98,7 @@ INSERT INTO gm_orders_preteste SELECT * FROM gm_orders;
 INSERT INTO inbox_messages_preteste SELECT * FROM inbox_messages;
 INSERT INTO attribute_development_preteste SELECT * FROM attribute_development;
 INSERT INTO injury_log_preteste SELECT * FROM injury_log;
+INSERT INTO player_interactions_preteste SELECT * FROM player_interactions;
 INSERT INTO transactions_preteste SELECT * FROM transactions;
 INSERT INTO awards_preteste SELECT * FROM awards;
 INSERT INTO weekly_highlights_preteste SELECT * FROM weekly_highlights;
@@ -142,6 +145,7 @@ INSERT INTO world_teams_preteste SELECT * FROM world_teams;
 INSERT INTO season_events_preteste SELECT * FROM season_events;
 INSERT INTO site_config_preteste SELECT * FROM site_config;
 INSERT INTO injury_types_preteste SELECT * FROM injury_types;
+INSERT INTO player_interaction_types_preteste SELECT * FROM player_interaction_types;
 INSERT INTO season_config_preteste SELECT * FROM season_config;
 
 -- awards nao tem copia de seguranca (fica sempre vazia no RESET, por desenho)
