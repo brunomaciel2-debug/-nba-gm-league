@@ -5,6 +5,30 @@ import { supabase } from '@/lib/supabase'
 import { REFEREE_TRAIT_META } from '@/lib/referee-traits'
 import { useTranslation } from '@/components/I18nProvider'
 
+// What each trait actually does in the simulator — the real formulas from
+// src/lib/game-simulator.ts, not decorative labels.
+const TRAIT_TIPS_EN: Record<string, string> = {
+  foul_rate: 'How often this referee whistles a foul at all — scales the base foul rate from 0.7x (rarely calls anything) to 1.3x (calls everything) at the extremes.',
+  crowd_error_rate: 'Extra fouls/errors specifically once the arena is genuinely packed (attendance above ~75%) — a ref who gets rattled by a loud, sold-out crowd, not a flat modifier.',
+  technical_impatience: 'How quickly this referee reaches for a technical foul — scales the whole technical-foul rate from 0.6x (very tolerant) to 1.4x (short fuse), even higher in rivalry or decisive games.',
+  home_bias: 'Tilts foul-calling up to ±8% in favor of whichever side is home — a ref who (consciously or not) gives the home crowd a break.',
+}
+const TRAIT_TIPS_PT: Record<string, string> = {
+  foul_rate: 'Com que frequência este árbitro marca falta, de um modo geral — varia a taxa base de faltas de 0.7x (marca poucas) a 1.3x (marca quase tudo) nos extremos.',
+  crowd_error_rate: 'Faltas/erros extra especificamente quando a arena está mesmo cheia (assistência acima de ~75%) — um árbitro que se deixa afetar por uma casa cheia e barulhenta, não um modificador fixo.',
+  technical_impatience: 'Com que rapidez este árbitro marca falta técnica — varia a taxa de técnicas de 0.6x (muito tolerante) a 1.4x (pavio curto), ainda mais alto em jogos de rivalidade ou decisivos.',
+  home_bias: 'Inclina as marcações de falta até ±8% a favor de quem joga em casa — um árbitro que (consciente ou não) facilita à equipa da casa.',
+}
+
+function Tooltip({ text }: { text: string }) {
+  return (
+    <span className="relative group inline-flex ml-1.5 cursor-help align-middle">
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full flex-shrink-0 text-xs font-bold" style={{ background: '#cec7bc', color: '#5c554e', lineHeight: 1, fontSize: 9 }}>i</span>
+      <span className="absolute left-0 top-full mt-1 z-50 px-2.5 py-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{ background: '#1a1512', color: '#f5f1eb', width: 240, whiteSpace: 'normal', lineHeight: 1.5, fontWeight: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>{text}</span>
+    </span>
+  )
+}
+
 function TraitBar({ value, color }: { value: number, color: string }) {
   return (
     <div style={{ width: 100, height: 8, borderRadius: 4, background: '#e8e2d6', overflow: 'hidden' }}>
@@ -59,6 +83,7 @@ export default function RefereeProfilePage({ params }: { params: { id: string } 
   const played = games.filter((g: any) => g.status === 'final')
   const upcoming = games.filter((g: any) => g.status !== 'final')
   const traitLabel = (tm: typeof REFEREE_TRAIT_META[number]) => isPT ? tm.labelPT : tm.labelEN
+  const TRAIT_TIPS = isPT ? TRAIT_TIPS_PT : TRAIT_TIPS_EN
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
@@ -83,7 +108,7 @@ export default function RefereeProfilePage({ params }: { params: { id: string } 
       <div className="rounded-xl p-4 mb-6 flex flex-col gap-3" style={{ background: '#faf8f5', border: '1px solid #d4cdc5' }}>
         {REFEREE_TRAIT_META.map(tm => (
           <div key={tm.key} className="flex items-center gap-3">
-            <span className="text-xs w-40 flex-shrink-0" style={{ color: '#5c554e' }}>{traitLabel(tm)}</span>
+            <span className="text-xs w-40 flex-shrink-0 flex items-center" style={{ color: '#5c554e' }}>{traitLabel(tm)}<Tooltip text={TRAIT_TIPS[tm.key]} /></span>
             <TraitBar value={referee[tm.key]} color={tm.color} />
             <span className="text-xs font-bold" style={{ color: '#1a1512' }}>{referee[tm.key]}</span>
           </div>
