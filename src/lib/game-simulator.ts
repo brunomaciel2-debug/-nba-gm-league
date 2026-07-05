@@ -114,12 +114,17 @@ if(ho.depth_chart)applyDC(hp,ho.depth_chart)
 if(ao.depth_chart)applyDC(ap,ao.depth_chart)
 // fat[] is seeded from each player's weekly health (not a flat 100) so a
 // player who's still banged up starts the game already worn down — it then
-// degrades further as the game itself wears on, same as before.
+// degrades further as the game itself wears on, same as before. A team
+// coming off a real back-to-back (ho.backToBack/ao.backToBack, set from the
+// game's actual scheduled_date in cron/simulate) takes an extra flat hit on
+// top of that, seeded per-side since only one team may be on the second
+// half of a back-to-back.
 const sc={home:0,away:0},st:Record<string,any>={},fat:Record<string,number>={},mom:Record<string,number>={},ls:Record<string,number[]>={},part={home:0,away:0}
 const tol={home:{used:0,q:{0:0,1:0,2:0,3:0}} as any,away:{used:0,q:{0:0,1:0,2:0,3:0}} as any}
 let isGT=false,gtW=""
 const pbp:any[]=[],hb:any[]=[],ab:any[]=[]
-;[...hp,...ap].forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=Math.min(100,Math.max(40,p.health??100));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
+const seed=(ps:any[],ord:any)=>ps.forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=Math.min(100,Math.max(40,(p.health??100)-(ord.backToBack?12:0)));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
+seed(hp,ho);seed(ap,ao)
 const pa=(ho.pace+ao.pace)/2,ppq=Math.round(23+pa/100*4)
 const gameReferee=ho.referee||ao.referee
 const gameChippy=!!(ho.isRivalry||ao.isRivalry||ho.decisive||ao.decisive)

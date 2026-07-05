@@ -1,4 +1,26 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { getWeekDates } from '@/lib/season-week-helper'
+
+// Maps a game's round-within-week index to a day offset from that week's
+// start date. Every within-week gap is 2 days (no back-to-backs inside a
+// week); the only 1-day gap possible is the seam between round 3 of one
+// week (offset 6, the week's last day) and round 0 of the next week
+// (offset 0 of the next 7-day block) — a single realistic back-to-back,
+// never a 3rd consecutive day. This makes "3 games in 3 straight days"
+// structurally impossible, without any extra validation code.
+const ROUND_DAY_OFFSETS = [0, 2, 4, 6]
+function dateForRound(weekStartDate: Date, roundIdx: number): Date {
+  const offset = ROUND_DAY_OFFSETS[roundIdx % 4] + 7 * Math.floor(roundIdx / 4)
+  const d = new Date(weekStartDate)
+  d.setDate(d.getDate() + offset)
+  return d
+}
+// Plain local Y-M-D string — NOT toISOString(), which converts to UTC and
+// can roll the date back a day depending on the server's timezone offset.
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 // Generates a real, complete 82-game NBA-style regular season schedule:
 // - 4 games vs each of the 4 division rivals (16 games)
@@ -96,21 +118,26 @@ export async function generateRegularSeasonSchedule(opts: { startWeek: number; e
   }
 
   const totalWeeks = endWeek - startWeek + 1
-  const weekBuckets: GameSlot[][] = Array.from({ length: totalWeeks }, () => [])
+  // weekRounds[w] = array of rounds; each round = array of games in it —
+  // preserved (instead of flattened) so each game's round index can be
+  // mapped to a real calendar date below.
+  const weekRounds: GameSlot[][][] = Array.from({ length: totalWeeks }, () => [])
   const remaining = [...allGames]
   let weekIdx = 0
   const MAX_ROUNDS_PER_WEEK = 4
   while (remaining.length > 0) {
     for (let round = 0; round < MAX_ROUNDS_PER_WEEK && remaining.length > 0; round++) {
       const usedThisRound = new Set<string>()
+      const roundGames: GameSlot[] = []
       for (let i = 0; i < remaining.length; i++) {
         const g = remaining[i]
         if (usedThisRound.has(g.home) || usedThisRound.has(g.away)) continue
         usedThisRound.add(g.home); usedThisRound.add(g.away)
-        weekBuckets[weekIdx % totalWeeks].push(g)
+        roundGames.push(g)
         remaining.splice(i, 1)
         i--
       }
+      weekRounds[weekIdx % totalWeeks].push(roundGames)
     }
     weekIdx++
     if (weekIdx > totalWeeks * 3) break // safety valve, shouldn't be needed
@@ -128,11 +155,23 @@ export async function generateRegularSeasonSchedule(opts: { startWeek: number; e
   let inserted = 0
   for (let w = 0; w < totalWeeks; w++) {
     const week = startWeek + w
-    const rows = weekBuckets[w].map((g, i) => ({
-      week_number: week, game_number: i + 1,
-      home_team: g.home, away_team: g.away,
-      status: 'scheduled', game_type: 'regular',
-    }))
+    const weekStart = getWeekDates(week).start
+    let gameNumber = 0
+    const rows: any[] = []
+    weekRounds[w].forEach((roundGames, roundIdx) => {
+      const gameDate = dateForRound(weekStart, roundIdx)
+      const scheduledDate = ymd(gameDate)
+      const dayOfWeek = WEEKDAY_NAMES[gameDate.getDay()]
+      for (const g of roundGames) {
+        gameNumber++
+        rows.push({
+          week_number: week, game_number: gameNumber,
+          home_team: g.home, away_team: g.away,
+          status: 'scheduled', game_type: 'regular',
+          scheduled_date: scheduledDate, day_of_week: dayOfWeek,
+        })
+      }
+    })
     if (rows.length > 0) {
       const { error } = await supabaseAdmin.from('games').insert(rows)
       if (error) return { success: false as const, error: error.message }

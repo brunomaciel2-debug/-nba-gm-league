@@ -5,11 +5,11 @@ import { getWeekDates } from '@/lib/season-week-helper'
 // (SEASON_WEEK_START epoch) already used throughout this app for Summer
 // League/referee scheduling, not real wall-clock time.
 //
-// games rows have no literal calendar date for scheduled (unplayed) games —
-// only week_number (day_of_week turned out unreliable, confirmed while
-// building the referee system: a whole week's games can share one label).
-// So the honest, schema-respecting choice is to flag the entire week whose
-// date range contains the holiday, not a hand-picked subset of games.
+// getMarqueeWeekInfo() below is a week-level check, kept as a fallback for
+// any game row without a real scheduled_date. Regular-season games now do
+// carry a real per-game scheduled_date (see schedule-generator.ts) — use
+// getMarqueeInfoForDate() for those, so only the game actually on the
+// holiday gets flagged, not every game in that whole week.
 function nthWeekdayOfMonth(year: number, month: number, weekday: number, n: number): Date {
   const d = new Date(year, month, 1)
   let count = 0
@@ -45,6 +45,25 @@ export function getMarqueeWeekInfo(week: number): { marquee: boolean, label?: st
     d.setDate(d.getDate() + 1)
   }
   return { marquee: false }
+}
+
+// Per-game version — now that regular-season games carry a real
+// `scheduled_date` (see schedule-generator.ts), marquee status can be
+// checked against the ONE date a specific game is actually played on,
+// instead of flagging every game in a whole week. Opening Night is the
+// literal first calendar day of the regular season (week 17's start date),
+// so only the handful of games actually scheduled that day get the badge —
+// not all ~4 games a team plays across the whole of week 17.
+export function getMarqueeInfoForDate(date: Date | string, week?: number): { marquee: boolean, label?: string } {
+  const d = typeof date === 'string' ? new Date(date + 'T00:00:00') : date
+  if (week === 17) {
+    const open = getWeekDates(17).start
+    if (d.getFullYear() === open.getFullYear() && d.getMonth() === open.getMonth() && d.getDate() === open.getDate()) {
+      return { marquee: true, label: 'Opening Night' }
+    }
+  }
+  const label = isMarqueeDate(d)
+  return label ? { marquee: true, label } : { marquee: false }
 }
 
 // `label` above is a stable English key (also used to look up an icon in the

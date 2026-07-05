@@ -15,7 +15,7 @@ import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInte
 import { resolveSummerLeague } from '@/lib/summer-league'
 import { resolvePlayoffSeries } from '@/lib/playoff-resolver'
 import { assignRefereesToScheduledGames } from '@/lib/referees'
-import { getMarqueeWeekInfo } from '@/lib/marquee-dates'
+import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -104,7 +104,10 @@ ranked.forEach((t, i) => { const rank = i+1; if (rank>=4 && rank<=13) inFightSet
 
 // Marquee NBA calendar weeks (Christmas, MLK Day, Thanksgiving, Opening
 // Night, NBA Cup Championship, Presidents' Day) — nationally televised,
-// consistently sold-out. Computed once per batch, same as isPlayoffPhase.
+// consistently sold-out. Fallback only, for a game row with no real
+// scheduled_date — real regular-season games are checked per-game below
+// via getMarqueeInfoForDate(), since a whole week's games no longer all
+// share the same marquee status now that each has its own real date.
 const marquee = getMarqueeWeekInfo(week)
 
 // Only the games actually scheduled for this week — nothing invented
@@ -135,10 +138,31 @@ ap.forEach((p:any) => { p.ball_role = aBallRoles[p.name] })
 // own attRate/isRivalry/decisive, not whatever the last game happened to set.
 const isRivalry = ht.rival_team_id === at.id || at.rival_team_id === ht.id
 const htWinPct = (ht.wins||0) / Math.max(1, (ht.wins||0)+(ht.losses||0))
-const baseAttRate = 0.65 + htWinPct * 0.20 + (isRivalry ? 0.08 : 0) + (marquee.marquee ? 0.15 : 0)
+// Per-game marquee check (falls back to the whole-week check only if this
+// row somehow has no real scheduled_date) — this is what actually fixes
+// "every game in the marquee week gets the boost", not just the week label.
+const gMarquee = sg.scheduled_date ? getMarqueeInfoForDate(sg.scheduled_date, week) : marquee
+const baseAttRate = 0.65 + htWinPct * 0.20 + (isRivalry ? 0.08 : 0) + (gMarquee.marquee ? 0.15 : 0)
 const attRate = Math.min(0.98, baseAttRate + (Math.random() * 0.06 - 0.03))
 const attendance = Math.round((ht.arena_capacity || arenaCapacityMap[ht.id] || 18000) * attRate)
-const decisive = isPlayoffPhase || marquee.marquee || (inFightSet.has(ht.id) && inFightSet.has(at.id))
+const decisive = isPlayoffPhase || gMarquee.marquee || (inFightSet.has(ht.id) && inFightSet.has(at.id))
+
+// Genuine back-to-back detection, now that games carry a real scheduled_date:
+// did this team already have a game the calendar day right before this one?
+// Checked per side since only one team may be on the second half of a
+// back-to-back — feeds an extra fatigue hit in simulateGame()'s fat[] seed.
+let htBackToBack = false, atBackToBack = false
+if (sg.scheduled_date) {
+const prevDate = new Date(sg.scheduled_date + 'T00:00:00')
+prevDate.setDate(prevDate.getDate() - 1)
+const prevDateStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth()+1).padStart(2,'0')}-${String(prevDate.getDate()).padStart(2,'0')}`
+const [{ data: htPrev }, { data: atPrev }] = await Promise.all([
+supabaseAdmin.from('games').select('id').eq('scheduled_date', prevDateStr).or(`home_team.eq.${ht.id},away_team.eq.${ht.id}`).limit(1),
+supabaseAdmin.from('games').select('id').eq('scheduled_date', prevDateStr).or(`home_team.eq.${at.id},away_team.eq.${at.id}`).limit(1),
+])
+htBackToBack = !!(htPrev && htPrev.length)
+atBackToBack = !!(atPrev && atPrev.length)
+}
 
 // Double Team / Lockdown Defender are set PER OPPONENT (a team can face
 // several different teams in one week and reasonably wants a different
@@ -153,9 +177,9 @@ const referee = sg.referee_id
 ? refereeById[sg.referee_id]
 : (refereesPool||[])[Math.floor(Math.random() * Math.max(1,(refereesPool||[]).length))]
 
-const hOrd = { ...(orderMap[ht.id]||{}), attRate, isRivalry, decisive, referee,
+const hOrd = { ...(orderMap[ht.id]||{}), attRate, isRivalry, decisive, referee, backToBack: htBackToBack,
 double_team_target: htAssign.double_team_target, lockdown_target: htAssign.lockdown_target, lockdown_defender: htAssign.lockdown_defender }
-const aOrd = { ...(orderMap[at.id]||{}), attRate, isRivalry, decisive, referee,
+const aOrd = { ...(orderMap[at.id]||{}), attRate, isRivalry, decisive, referee, backToBack: atBackToBack,
 double_team_target: atAssign.double_team_target, lockdown_target: atAssign.lockdown_target, lockdown_defender: atAssign.lockdown_defender }
 const result = simulateGame(ht, at, hp, ap, hOrd, aOrd)
 

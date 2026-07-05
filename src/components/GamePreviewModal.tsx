@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { homeWinProb, fmtPct } from '@/lib/elo-helper'
-import { getMarqueeWeekInfo, getMarqueeLabelText } from '@/lib/marquee-dates'
+import { getMarqueeInfoForDate, getMarqueeLabelText } from '@/lib/marquee-dates'
 
 const MARQUEE_ICON: Record<string, string> = {
   'Christmas Day': '🎄', 'Thanksgiving': '🦃', 'MLK Day': '✊🏾',
@@ -20,7 +20,8 @@ export default function GamePreviewModal({ game, teams, isPT, onClose }: {
 
   const home = teams[game.home_team]
   const away = teams[game.away_team]
-  const marquee = game.week_number > 0 ? getMarqueeWeekInfo(game.week_number) : { marquee: false }
+  const gameDate = game.played_at || (game.scheduled_date ? game.scheduled_date + 'T12:00:00' : null)
+  const marquee = (game.week_number > 0 && gameDate) ? getMarqueeInfoForDate(gameDate, game.week_number) : { marquee: false }
 
   useEffect(() => {
     (async () => {
@@ -81,6 +82,11 @@ export default function GamePreviewModal({ game, teams, isPT, onClose }: {
           </div>
         </div>
 
+        {gameDate && (
+          <div className="text-center text-xs mb-1" style={{ color: '#8a8279' }}>
+            📅 {new Date(gameDate).toLocaleDateString(isPT ? 'pt-PT' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+          </div>
+        )}
         {home?.arena && (
           <div className="text-center text-xs mb-4" style={{ color: '#8a8279' }}>🏟️ {home.arena}</div>
         )}

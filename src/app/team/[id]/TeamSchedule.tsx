@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 import GamePreviewModal from '@/components/GamePreviewModal'
-import { getMarqueeWeekInfo, getMarqueeLabelText } from '@/lib/marquee-dates'
+import { getMarqueeInfoForDate, getMarqueeLabelText } from '@/lib/marquee-dates'
 
 const MARQUEE_ICON: Record<string, string> = {
   'Christmas Day': '🎄', 'Thanksgiving': '🦃', 'MLK Day': '✊🏾',
@@ -90,9 +90,11 @@ export default function TeamSchedule({
     if (filter==='away')     return g.away_team===teamId
     return true
   })
+  const effDate = (g:any) => g.played_at || (g.scheduled_date ? g.scheduled_date+'T12:00:00' : null)
   const byMonth: Record<string,any[]> = {}
   for (const g of filtered) {
-    const d = g.played_at ? new Date(g.played_at) : null
+    const iso = effDate(g)
+    const d = iso ? new Date(iso) : null
     const key = d ? d.toLocaleDateString(isPT?'pt-PT':'en-US',{month:'long',year:'numeric'}) : 'TBD'
     if (!byMonth[key]) byMonth[key]=[]
     byMonth[key].push(g)
@@ -320,7 +322,7 @@ export default function TeamSchedule({
           </div>
           <div className="flex flex-col gap-1.5">
             {byMonth[month]
-              .sort((a,b)=>new Date(a.played_at||0).getTime()-new Date(b.played_at||0).getTime())
+              .sort((a,b)=>new Date(effDate(a)||0).getTime()-new Date(effDate(b)||0).getTime())
               .map((g,i)=>{
                 const isHome2=g.home_team===teamId
                 const opp=isHome2?g.away_team:g.home_team
@@ -331,14 +333,15 @@ export default function TeamSchedule({
                 const oppScore=isHome2?g.away_score:g.home_score
                 const won=isPlayed&&myScore>oppScore
                 const typeBadge=TYPE_BADGE[g.game_type||'regular']||TYPE_BADGE.regular
-                const marquee = g.week_number>0 ? getMarqueeWeekInfo(g.week_number) : {marquee:false}
+                const gEffDate = effDate(g)
+                const marquee = g.week_number>0 && gEffDate ? getMarqueeInfoForDate(gEffDate, g.week_number) : {marquee:false}
                 const isPreviewable = !isPlayed && g.game_type!=='preseason'
                 return (
                   <div key={g.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
                        onClick={()=>{if(isPreviewable)setPreviewGame(g)}}
                        style={{background:i%2===0?'#faf8f5':'#f5f1eb',border:'1px solid #e2dcd5',cursor:isPreviewable?'pointer':'default'}}>
                     <div className="w-24 flex-shrink-0">
-                      <div className="text-xs font-bold" style={{color:'#1a1512'}}>{g.played_at?fmtDate(g.played_at):'TBD'}</div>
+                      <div className="text-xs font-bold" style={{color:'#1a1512'}}>{gEffDate?fmtDate(gEffDate):'TBD'}</div>
                       {g.week_number>0&&<div className="text-xs" style={{color:'#8a8279'}}>{isPT?'Sem':'Wk'} {g.week_number}</div>}
                       {g.played_at&&!isPlayed&&<div className="text-xs" style={{color:'#b45309'}}>{fmtTime(g.played_at)}</div>}
                     </div>
