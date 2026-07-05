@@ -22,6 +22,9 @@ const TIPS_EN: Record<string,string> = {
   scouting_evaluation:'Evaluation — raw talent-judging ability. Drives weekly scouting points.',
   scouting_network:'Network — contacts across college programs, agents and international leagues.',
   scouting_experience:'Experience — years spent evaluating talent.',
+  morale_management:'Morale Management — speeds up (or unlocks, below 50) weekly morale recovery for every player on the roster.',
+  team_cohesion:'Team Cohesion — real on-court chemistry: more assisted baskets, fewer unforced turnovers.',
+  composure_coaching:'Composure — how much less a team tightens up in clutch, decisive, and rivalry moments.',
 }
 const TIPS_PT: Record<string,string> = {
   off_adjustment:'Ajuste Ofensivo — capacidade de ler a defesa adversária e adaptar o ataque em tempo real.',
@@ -42,6 +45,9 @@ const TIPS_PT: Record<string,string> = {
   scouting_evaluation:'Avaliação — capacidade bruta de julgamento de talento. Impulsiona os pontos de scouting semanais.',
   scouting_network:'Rede de Contactos — contactos em programas universitários, agentes e ligas internacionais.',
   scouting_experience:'Experiência — anos passados a avaliar talento.',
+  morale_management:'Gestão de Moral — acelera (ou desbloqueia, abaixo de 50) a recuperação semanal de moral de todo o plantel.',
+  team_cohesion:'Coesão de Equipa — química real em campo: mais cestos assistidos, menos perdas de bola.',
+  composure_coaching:'Gestão de Pressão — quanto menos a equipa se contrai em momentos clutch, decisivos e de rivalidade.',
 }
 
 const ROLE_INFO_EN: Record<string,{label:string,color:string,icon:string}> = {
@@ -50,6 +56,7 @@ const ROLE_INFO_EN: Record<string,{label:string,color:string,icon:string}> = {
   trainer:        {label:'Trainer',         color:'#15803d',icon:'ti-activity'},
   physio:         {label:'Physio',          color:'#6d28d9',icon:'ti-heart-rate-monitor'},
   scout:          {label:'Scout',           color:'#0e7490',icon:'ti-search'},
+  mental_coach:   {label:'Mental Coach',    color:'#9333ea',icon:'ti-brain'},
 }
 const ROLE_INFO_PT: Record<string,{label:string,color:string,icon:string}> = {
   head_coach:     {label:'Head Coach',        color:'#b45309',icon:'ti-whistle'},
@@ -57,6 +64,7 @@ const ROLE_INFO_PT: Record<string,{label:string,color:string,icon:string}> = {
   trainer:        {label:'Preparador Físico', color:'#15803d',icon:'ti-activity'},
   physio:         {label:'Fisioterapeuta',    color:'#6d28d9',icon:'ti-heart-rate-monitor'},
   scout:          {label:'Olheiro',           color:'#0e7490',icon:'ti-search'},
+  mental_coach:   {label:'Mental Coach',      color:'#9333ea',icon:'ti-brain'},
 }
 const ATK_EN: Record<string,string> = {motion:'Motion',pickroll:'Pick & Roll',transition:'Fast Break',iso:'Isolation',post:'Post-Up'}
 const ATK_PT: Record<string,string> = {motion:'Motion',pickroll:'Pick & Roll',transition:'Contra-Ataque',iso:'Isolamento',post:'Jogo de Poste'}
@@ -200,6 +208,19 @@ export default function StaffPageClient({coach,team}:{coach:any,team:any}) {
                 {isPT?'Pontos de scouting semanais estimados:':'Estimated weekly scouting points:'} <strong style={{color:'#0e7490'}}>{Math.round((coach.scouting_evaluation||0)*0.5+(coach.scouting_experience||0)*0.3+(coach.scouting_network||0)*0.2)}</strong>.
               </div>
               {team&&<Link href="/scouting" className="inline-block mt-3 text-xs font-bold px-3 py-1.5 rounded-lg no-underline" style={{background:'#0e7490',color:'#fff'}}>{isPT?'Ir para Scouting →':'Go to Scouting →'}</Link>}
+            </div>
+          )}
+          {coach.role==='mental_coach'&&(
+            <div className="rounded-xl p-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+              <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e'}}>{isPT?'Atributos':'Attributes'}</div>
+              <StatRow label={isPT?'Gestão de Moral':'Morale Management'}    value={coach.morale_management}  color="#9333ea" tip={TIPS.morale_management} />
+              <StatRow label={isPT?'Coesão de Equipa':'Team Cohesion'}      value={coach.team_cohesion}      color="#1d4ed8" tip={TIPS.team_cohesion} />
+              <StatRow label={isPT?'Gestão de Pressão':'Composure'}          value={coach.composure_coaching} color="#b45309" tip={TIPS.composure_coaching} />
+              <div className="mt-4 p-3 rounded-lg text-sm" style={{background:'#eee8df',color:'#5c554e',lineHeight:1.5}}>
+                {isPT
+                  ? <>{coach.morale_management>=75?'Consegue destravar jogadores presos em moral baixa (abaixo de 50) — a maioria dos treinadores não consegue.':'Um Mental Coach mais forte (75+) consegue destravar jogadores presos em moral baixa — este ainda não chega lá.'}</>
+                  : <>{coach.morale_management>=75?'Can unstick players trapped in low morale (below 50) — most coaches can\'t.':'A stronger Mental Coach (75+) can unstick players trapped in low morale — this one isn\'t quite there yet.'}</>}
+              </div>
             </div>
           )}
         </div>

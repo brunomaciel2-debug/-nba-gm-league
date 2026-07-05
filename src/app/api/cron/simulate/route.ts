@@ -82,6 +82,18 @@ orderMap[c.team_id].def_adjustment = c.def_adjustment
 }
 })
 
+// Mental Coach — team_cohesion/composure_coaching ride along on the same
+// orderMap object, same mechanism as the Head Coach adjustments above, so
+// they flow into hOrd/aOrd (and from there into simP()) with no extra
+// plumbing. Applied even to a team with no submitted orders — an empty
+// {} is created for them so the bonus still lands.
+const { data: mentalCoachesGame } = await supabaseAdmin.from('coaches').select('team_id,team_cohesion,composure_coaching').eq('role','mental_coach')
+;(mentalCoachesGame||[]).forEach((c:any) => {
+orderMap[c.team_id] = orderMap[c.team_id] || {}
+orderMap[c.team_id].cohesion = c.team_cohesion
+orderMap[c.team_id].composure = c.composure_coaching
+})
+
 // Conference standings — used to detect "decisive" games. Playoffs/play-in
 // always count. In the regular season, this reflects the real Play-In
 // Tournament structure: ranks 7-10 (of 15) ARE the Play-In zone itself —
@@ -1087,6 +1099,15 @@ const { data: physios } = await supabaseAdmin.from('coaches').select('team_id,re
 const physioMap: Record<string,number> = {}
 ;(physios||[]).forEach((c:any) => physioMap[c.team_id]=c.rehab_speed)
 
+// Mental Coach — morale_management genuinely changes the weekly morale
+// recovery below, not just flavor text: below 50 a player never recovered
+// at all before, no matter what — a strong Mental Coach (75+) is the one
+// thing that can unstick a player spiraling in bad morale, and scales the
+// recovery rate itself on top of that.
+const { data: mentalCoaches } = await supabaseAdmin.from('coaches').select('team_id,morale_management').eq('role','mental_coach')
+const moraleMgmtMap: Record<string,number> = {}
+;(mentalCoaches||[]).forEach((c:any) => moraleMgmtMap[c.team_id]=c.morale_management)
+
 const injuredIds = (allP2||[]).filter((p:any) => p.status==='injured').map((p:any) => p.id)
 const { data: openInjuries } = injuredIds.length > 0 ? await supabaseAdmin
 .from('injury_log').select('player_id,severity,specialist_used').eq('status','active').in('player_id',injuredIds) : { data: [] as any[] }
@@ -1100,7 +1121,9 @@ const mod = IMOD[iMap[p.team_id]||'normal']||1.0
 const durB = ((p.durability||75)-75)/100*0.5
 let hGain = 3*recDays*mod*(1+durB)
 if (p.status==='injured') hGain *= physioRecoveryMultiplier(physioMap[p.team_id]) * (boostMap[p.id]||1)
-const mGain = (p.moral||80)<50?0:0.5*recDays
+const moraleMgmt = moraleMgmtMap[p.team_id] ?? 60
+const canUnstick = moraleMgmt >= 75
+const mGain = ((p.moral||80)<50 && !canUnstick) ? 0 : 0.5*recDays*(0.7+moraleMgmt/100*0.6)
 const nh = Math.min(100, Math.round((p.health||100)+hGain))
 const nm = Math.min(100, Math.round((p.moral||80)+mGain))
 const recovered = p.status==='injured' && nh>=50

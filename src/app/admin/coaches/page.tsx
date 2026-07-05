@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
 
 const ROLE_COLORS: Record<string,string> = {
-  head_coach:'#b45309', assistant_coach:'#1d4ed8', trainer:'#15803d', physio:'#6d28d9'
+  head_coach:'#b45309', assistant_coach:'#1d4ed8', trainer:'#15803d', physio:'#6d28d9', mental_coach:'#9333ea'
 }
 const ATK: Record<string,string> = {motion:'Motion',pickroll:'P&R',transition:'Trans',iso:'Iso',post:'Post'}
 const DEF: Record<string,string> = {man:'Man',zone23:'Zone',press:'Press',pack:'Pack'}
@@ -74,7 +74,7 @@ export default function CoachesAdminPage() {
     if (!isPT) return role.replace(/_/g,' ')
     const map: Record<string,string> = {
       head_coach:'Head Coach', assistant_coach:'Ass. Treinador',
-      trainer:'Preparador Físico', physio:'Fisioterapeuta', scout:'Olheiro'
+      trainer:'Preparador Físico', physio:'Fisioterapeuta', scout:'Olheiro', mental_coach:'Mental Coach'
     }
     return map[role] || role.replace(/_/g,' ')
   }
@@ -97,6 +97,9 @@ export default function CoachesAdminPage() {
     Rec:'Recovery Boost — increases daily health recovery between games',
     Inj:'Injury Prevention — reduces base injury probability each 10pts above 60 = -5%',
     Rehab:'Rehab Speed — reduces injury recovery time; 80+ cuts absence by ~30%',
+    Mor:'Morale Management — speeds up (or unlocks, below 50) weekly morale recovery',
+    Coh:'Team Cohesion — more assisted baskets, fewer unforced turnovers',
+    Comp:'Composure — dampens how much clutch/decisive moments cost the team',
   }
   const COL_TIPS_PT: Record<string,string> = {
     OA:'Ajuste Ofensivo — lê a defesa adversária em tempo real',
@@ -115,6 +118,9 @@ export default function CoachesAdminPage() {
     Rec:'Recuperação — aumenta recuperação diária de saúde entre jogos',
     Inj:'Prev. Lesões — reduz probabilidade base; cada 10pts acima de 60 = -5%',
     Rehab:'Velocidade de Rehab — reduz recuperação; 80+ corta ausência ~30%',
+    Mor:'Gestão de Moral — acelera (ou desbloqueia, abaixo de 50) a recuperação semanal de moral',
+    Coh:'Coesão de Equipa — mais cestos assistidos, menos perdas de bola',
+    Comp:'Gestão de Pressão — reduz quanto os momentos decisivos/clutch custam à equipa',
   }
   const COL_TIPS = isPT ? COL_TIPS_PT : COL_TIPS_EN
 
@@ -137,6 +143,9 @@ export default function CoachesAdminPage() {
     {key:'Rec',   label:'Rec'},
     {key:'Inj',   label:'Inj'},
     {key:'Rehab', label:'Rehab'},
+    {key:'Mor',   label:isPT?'Moral':'Mor'},
+    {key:'Coh',   label:isPT?'Coesão':'Coh'},
+    {key:'Comp',  label:isPT?'Pressão':'Comp'},
   ]
 
   return (
@@ -197,6 +206,9 @@ export default function CoachesAdminPage() {
                           <td className="px-2 py-1.5 text-center">{c.recovery_boost||'—'}</td>
                           <td className="px-2 py-1.5 text-center">{c.injury_prevent||'—'}</td>
                           <td className="px-2 py-1.5 text-center" style={{color:c.rehab_speed>=80?'#6d28d9':'#5c554e'}}>{c.rehab_speed||'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:c.morale_management>=80?'#9333ea':'#5c554e'}}>{c.morale_management||'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:c.team_cohesion>=80?'#1d4ed8':'#5c554e'}}>{c.team_cohesion||'—'}</td>
+                          <td className="px-2 py-1.5 text-center" style={{color:c.composure_coaching>=80?'#b45309':'#5c554e'}}>{c.composure_coaching||'—'}</td>
                         </tr>
                       )
                     })}
@@ -223,6 +235,7 @@ export default function CoachesAdminPage() {
               <div className="text-xs mt-1" style={{color:'#6b5f4e'}}>
                 {c.role==='physio'?`Rehab: ${c.rehab_speed}`:
                  c.role==='trainer'?`${isPT?'Cond':'Cond'}: ${c.conditioning} · ${isPT?'Rec':'Rec'}: ${c.recovery_boost}`:
+                 c.role==='mental_coach'?`${isPT?'Moral':'Mor'}: ${c.morale_management} · ${isPT?'Coesão':'Coh'}: ${c.team_cohesion}`:
                  `OFF: ${c.off_adjustment} · DEF: ${c.def_adjustment}`}
               </div>
             </div>

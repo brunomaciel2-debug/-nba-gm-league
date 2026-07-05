@@ -81,12 +81,13 @@ function SortTh({ label, active, dir, onClick, isPT }: { label: string, active: 
   )
 }
 
-const ROLE_COLORS: Record<string,string> = { head_coach:'#b45309', assistant_coach:'#1d4ed8', trainer:'#15803d', physio:'#6d28d9', scout:'#0e7490' }
+const ROLE_COLORS: Record<string,string> = { head_coach:'#b45309', assistant_coach:'#1d4ed8', trainer:'#15803d', physio:'#6d28d9', scout:'#0e7490', mental_coach:'#9333ea' }
 
 function staffRating(c: any) {
   if (c.role === 'physio') return c.rehab_speed || 0
   if (c.role === 'trainer') return Math.round(((c.conditioning||0)+(c.recovery_boost||0)+(c.injury_prevent||0))/3)
   if (c.role === 'scout') return Math.round(((c.scouting_evaluation||0)+(c.scouting_network||0)+(c.scouting_experience||0))/3)
+  if (c.role === 'mental_coach') return Math.round(((c.morale_management||0)+(c.team_cohesion||0)+(c.composure_coaching||0))/3)
   return Math.round(((c.off_adjustment||0)+(c.def_adjustment||0)+(c.off_development||0)+(c.def_development||0)+(c.tactical_dev||0))/5)
 }
 
@@ -154,7 +155,7 @@ export default function FreeAgentsPage() {
 
   const roleLabel = (role: string) => {
     if (!isPT) return role.replace(/_/g,' ').split(' ').map((w:string)=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ')
-    const map: Record<string,string> = { head_coach:'Head Coach', assistant_coach:'Ass. Treinador', trainer:'Preparador Físico', physio:'Fisioterapeuta', scout:'Olheiro' }
+    const map: Record<string,string> = { head_coach:'Head Coach', assistant_coach:'Ass. Treinador', trainer:'Preparador Físico', physio:'Fisioterapeuta', scout:'Olheiro', mental_coach:'Mental Coach' }
     return map[role] || role
   }
 

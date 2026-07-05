@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
 
-const ROLE_ORDER = ['head_coach','assistant_coach','trainer','physio','scout']
+const ROLE_ORDER = ['head_coach','assistant_coach','trainer','physio','scout','mental_coach']
 
 const ATK_LABELS_EN: Record<string,string> = { motion:'Motion',pickroll:'Pick & Roll',transition:'Fast Break',iso:'Isolation',post:'Post-Up' }
 const ATK_LABELS_PT: Record<string,string> = { motion:'Motion',pickroll:'Pick & Roll',transition:'Contra-Ataque',iso:'Isolamento',post:'Poste' }
@@ -57,6 +57,7 @@ export default function CoachingStaff({ staff }: { staff: any[] }) {
     trainer:         {label: isPT?'Preparador Físico':'Trainer',       color:'#15803d',icon:'💪'},
     physio:          {label: isPT?'Fisioterapeuta':'Physio',           color:'#6d28d9',icon:'🏥'},
     scout:           {label: isPT?'Olheiro':'Scout',                   color:'#0e7490',icon:'🔍'},
+    mental_coach:    {label: isPT?'Mental Coach':'Mental Coach',       color:'#9333ea',icon:'🧠'},
   }
 
   const ATK = isPT ? ATK_LABELS_PT : ATK_LABELS_EN
@@ -146,6 +147,13 @@ export default function CoachingStaff({ staff }: { staff: any[] }) {
                     <StatBar label={isPT?'Avaliação':'Evaluation'} value={c.scouting_evaluation} color="#0e7490" />
                     <StatBar label={isPT?'Rede Contactos':'Network'}   value={c.scouting_network}    color="#1d4ed8" />
                     <StatBar label={isPT?'Experiência':'Experience'}   value={c.scouting_experience} color="#6d28d9" />
+                  </>
+                )}
+                {c.role==='mental_coach' && (
+                  <>
+                    <StatBar label={isPT?'Gestão de Moral':'Morale Mgmt'}     value={c.morale_management}  color="#9333ea" />
+                    <StatBar label={isPT?'Coesão de Equipa':'Team Cohesion'}  value={c.team_cohesion}      color="#1d4ed8" />
+                    <StatBar label={isPT?'Gestão de Pressão':'Composure'}     value={c.composure_coaching} color="#b45309" />
                   </>
                 )}
               </div>
