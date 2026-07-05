@@ -72,6 +72,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   }
 
   const [players, setPlayers] = useState<any[]>([])
+  const [injuredNames, setInjuredNames] = useState<Set<string>>(new Set())
   const [team, setTeam] = useState<any>(null)
   const [pris, setPris] = useState(['','',''])
   const [clutch, setClutch] = useState('')
@@ -103,8 +104,16 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       setIsAuthorized(gm?.role==='commissioner' || gm?.team_id===teamId)
     })
     supabase.from('teams').select('*').eq('id',teamId).single().then(({data})=>data&&setTeam(data))
-    supabase.from('players').select('name,pos,usage').eq('team_id',teamId).eq('status','active')
-      .order('name',{ascending:true}).then(({data})=>{ if(data)setPlayers(data) })
+    supabase.from('players').select('id,name,pos,usage').eq('team_id',teamId).eq('status','active')
+      .order('name',{ascending:true}).then(async ({data})=>{
+        if(!data)return
+        setPlayers(data)
+        // No declared foreign key from injury_log to players — fetch active
+        // injuries separately and cross-reference by id, same no-embed
+        // pattern used everywhere else this session.
+        const { data: injuries } = await supabase.from('injury_log').select('player_id').eq('status','active').in('player_id', data.map((p:any)=>p.id))
+        setInjuredNames(new Set(data.filter((p:any)=>(injuries||[]).some((i:any)=>i.player_id===p.id)).map((p:any)=>p.name)))
+      })
     supabase.from('season_config').select('current_week').eq('id',1).single()
       .then(({data:cfg})=>{
         if(!cfg)return
@@ -182,8 +191,15 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       })
   }, [teamId])
 
+  // A real injured player can never actually suit up — block the save
+  // entirely rather than let it through with a dismissible warning.
+  const assignedInjuredNames = Array.from(new Set(
+    Object.values(dc).flatMap((p:any) => [p?.s?.name, p?.b1?.name, p?.b2?.name])
+      .filter((name:any) => name && injuredNames.has(name))
+  ))
+
   const save = async () => {
-    if(locked)return
+    if(locked || assignedInjuredNames.length>0)return
     setSaving(true)
     const week = currentWeek || ((await supabase.from('season_config').select('current_week').eq('id',1).single()).data?.current_week || 0) + 1
     await supabase.from('gm_orders').upsert({
@@ -522,7 +538,18 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         ))}
       </div>
 
-      <button onClick={save} disabled={saving||locked}
+      {assignedInjuredNames.length>0&&(
+        <div className="rounded-xl p-4 mb-4" style={{background:'#fee2e2',border:'1px solid #dc2626'}}>
+          <div className="text-sm font-bold mb-1" style={{color:'#dc2626'}}>
+            {isPT?'🚑 Não podes escalar jogadores lesionados':"🚑 You can't dress injured players"}
+          </div>
+          <div className="text-xs" style={{color:'#991b1b'}}>
+            {isPT?'Remove da rotação: ':'Remove from the rotation: '}{assignedInjuredNames.join(', ')}
+          </div>
+        </div>
+      )}
+
+      <button onClick={save} disabled={saving||locked||assignedInjuredNames.length>0}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-colors"
         style={{background:saved?'#dcfce7':locked?'#fee2e2':'#1d4ed8',color:saved?'#15803d':locked?'#dc2626':'#fff'}}>
         {saving?(isPT?'A guardar...':'Saving...')

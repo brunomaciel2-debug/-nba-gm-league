@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyTradeAccepted, notifyTradeRejected, notifyPlayerArrival } from '@/lib/notifications'
+import { resolveInteractionsForTradedPlayer } from '@/lib/player-interactions'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -77,6 +78,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
+  const currentWeek = (cfg?.current_week || 0) + 1
+
   // Execute player and pick movement for each team
   for (const teamEntry of teams) {
     const playersOut: string[] = teamEntry.players_out || []
@@ -93,6 +97,12 @@ export async function POST(req: NextRequest) {
 
       const { data: player } = await supabaseAdmin.from('players').select('name,salary').eq('id', playerId).single()
       await supabaseAdmin.from('players').update({ team_id: destTeamId }).eq('id', playerId)
+
+      // Any open Player Interaction referencing this player (his own complaint,
+      // or someone else's "wants to play with him" partner) is now stale —
+      // the roster context it was raised about no longer exists.
+      try { await resolveInteractionsForTradedPlayer(Number(playerId), currentWeek) }
+      catch (interErr) { console.warn('Interaction cleanup after trade failed', interErr) }
 
       // Notify destination team of arrival
       await notifyPlayerArrival(destTeamId, player?.name || 'A player', teamNameMap[teamEntry.team_id] || teamEntry.team_id)

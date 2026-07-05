@@ -12,6 +12,7 @@ export type ResolutionType = 'monitored' | 'immediate'
 export type InteractionStatus = 'pending_response' | 'monitoring' | 'resolved'
 export type ResponseChoice = 'concede' | 'compromise' | 'dismiss'
 export type MonitoredOutcome = 'met' | 'partial' | 'ignored'
+export type ClosedOutcome = 'traded'
 
 export interface ComplaintCtx {
   playerName: string
@@ -111,7 +112,7 @@ export function buildProgressText(lang: 'en'|'pt', demandTarget: number, current
     : `Asked for ${demandTarget} · current tracking: ${currentProgress} · ${weeksLeft} week${weeksLeft!==1?'s':''} left`
 }
 
-export function buildResolutionText(lang: 'en'|'pt', playerName: string, outcome: MonitoredOutcome | ResponseChoice, moralDelta: number, reasonKey?: string): string {
+export function buildResolutionText(lang: 'en'|'pt', playerName: string, outcome: MonitoredOutcome | ResponseChoice | ClosedOutcome, moralDelta: number, reasonKey?: string): string {
   const sign = moralDelta >= 0 ? '+' : ''
   const outcomeLabel: Record<string, {pt:string,en:string}> = {
     met:        { pt: 'Cumpriste o que ele pediu', en: 'You delivered on what he asked' },
@@ -120,6 +121,7 @@ export function buildResolutionText(lang: 'en'|'pt', playerName: string, outcome
     concede:    { pt: 'Decidiste ceder ao pedido dele', en: 'You decided to give in to his request' },
     compromise: { pt: 'Optaste por um meio-termo', en: 'You chose a middle ground' },
     dismiss:    { pt: 'Decidiste não ceder', en: 'You decided not to give in' },
+    traded:     { pt: `A situação com ${playerName} ficou encerrada — foi trocado`, en: `The situation with ${playerName} is closed — he was traded` },
   }
   const label = outcomeLabel[outcome]
   let extra = ''
@@ -133,6 +135,11 @@ export function buildResolutionText(lang: 'en'|'pt', playerName: string, outcome
     extra = lang === 'pt'
       ? ' Vai à página dele e usa a Extensão de Contrato para fazeres uma proposta real.'
       : ' Go to his player page and use Contract Extension to make a real offer.'
+  }
+  // "traded" already names the player in its own label — the generic
+  // "... with {playerName}" suffix used by every other outcome doesn't fit.
+  if (outcome === 'traded') {
+    return lang === 'pt' ? `${label!.pt}. Moral: ${sign}${moralDelta}.` : `${label!.en}. Morale: ${sign}${moralDelta}.`
   }
   return lang === 'pt'
     ? `${label?.pt || outcome} com ${playerName}. Moral: ${sign}${moralDelta}.${extra}`

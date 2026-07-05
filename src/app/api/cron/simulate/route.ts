@@ -13,6 +13,7 @@ import { rookieOptionSalary } from '@/lib/draft-constants'
 import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
 import { resolveSummerLeague } from '@/lib/summer-league'
+import { resolvePlayoffSeries } from '@/lib/playoff-resolver'
 import { assignRefereesToScheduledGames } from '@/lib/referees'
 import { getMarqueeWeekInfo } from '@/lib/marquee-dates'
 
@@ -592,6 +593,18 @@ if (getStatusForWeek(week) === 'summer-league') {
   try { await resolveSummerLeague() } catch (slErr) { console.warn('Summer League step failed', slErr) }
 }
 
+// ── PLAYOFF BRACKET ────────────────────────────────────
+// The bracket page/playoff_series rows already existed as a live-updating
+// PREVIEW of seeding — nothing ever actually created real playoff games or
+// advanced the bracket. Advances every still-open series by one game per
+// tick (play-in included); see src/lib/playoff-resolver.ts.
+if (['play-in', 'playoffs'].includes(getStatusForWeek(week))) {
+  try {
+    const poResult = await resolvePlayoffSeries(week)
+    console.log(`Playoff bracket — games simulated: ${poResult.processed}`)
+  } catch (poErr) { console.warn('Playoff bracket step failed', poErr) }
+}
+
 // ── TRAINING SLOT FILL + UNLOCK ───────────────────────
 // Fills each unlocked training_slots row a little every week. The fill
 // rate blends the whole relevant coaching staff, not just one person:
@@ -1106,6 +1119,36 @@ try {
 const prResult = await generatePowerRankings(week)
 console.log(`Power Rankings generated: ${prResult.generated} teams`)
 } catch(prErr) { console.warn('Power Rankings generation failed:', prErr) }
+
+// ── FAN REPUTATION DRIFT (popularity + fan_satisfaction) ──
+// Both were read elsewhere (popularity by fa-market-scoring.ts, 15% weight
+// on FA decisions; fan_satisfaction by check-sponsor-objectives.ts as a
+// sponsor-objective condition) but never written anywhere — permanently
+// stuck at their seeded value. Nudge both toward a real win%-based target
+// every week, same exponential-drift idea already used for Elo.
+try {
+const { data: allTeamsForRep } = await supabaseAdmin.from('teams').select('id,wins,losses,popularity').not('id','in','(ALL,RVS,ROO,SOP)')
+const { data: allFinances } = await supabaseAdmin.from('franchise_finances').select('team_id,fan_satisfaction')
+const financeMap: Record<string,number> = {}
+;(allFinances||[]).forEach((f:any) => { financeMap[f.team_id] = f.fan_satisfaction ?? 50 })
+
+const ranked = [...(allTeamsForRep||[])].sort((a,b) => (b.wins/(b.wins+b.losses||1)) - (a.wins/(a.wins+a.losses||1)))
+const playoffPositionSet = new Set(ranked.slice(0, Math.ceil(ranked.length/2)).map((t:any) => t.id))
+
+for (const t of (allTeamsForRep||[])) {
+const played = (t.wins||0) + (t.losses||0)
+const winPct = played > 0 ? (t.wins||0)/played : 0.5
+const popTarget = Math.min(100, Math.max(0, 40 + winPct*45 + (playoffPositionSet.has(t.id) ? 15 : 0)))
+const newPopularity = Math.round((t.popularity ?? 50) + (popTarget - (t.popularity ?? 50)) * 0.08)
+await supabaseAdmin.from('teams').update({ popularity: newPopularity }).eq('id', t.id)
+
+const satTarget = Math.min(100, Math.max(0, 50 + (winPct-0.5)*100))
+const currentSat = financeMap[t.id] ?? 50
+const newSat = Math.round(currentSat + (satTarget - currentSat) * 0.15)
+await supabaseAdmin.from('franchise_finances').update({ fan_satisfaction: newSat }).eq('team_id', t.id)
+}
+console.log(`Fan reputation drift applied to ${(allTeamsForRep||[]).length} teams`)
+} catch(repErr) { console.warn('Fan reputation drift failed:', repErr) }
 
 // ── POST-SIM NOTIFICATIONS ────────────────────────────
 try {

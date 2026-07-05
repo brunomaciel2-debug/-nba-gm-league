@@ -117,6 +117,11 @@ export default function StaffPageClient({coach,team}:{coach:any,team:any}) {
               {team&&<Link href={`/team/${coach.team_id}`} className="no-underline flex items-center gap-1.5" style={{color:tc}}>{(team as any).logo_url&&<img src={(team as any).logo_url} alt="" className="w-4 h-4 object-contain"/>}{(team as any).name}</Link>}
               {!team&&<span className="text-xs px-2 py-0.5 rounded font-semibold" style={{background:'#15803d',color:'#fff'}}>Free Agent</span>}
             </div>
+            {!team&&(
+              <Link href={`/trade-center/staff-offer?coach=${coach.id}`} className="inline-block mt-3 text-xs font-bold px-4 py-2 rounded-lg no-underline" style={{background:'#c8102e',color:'#fff'}}>
+                {isPT?'📨 Enviar Proposta':'📨 Send Offer'}
+              </Link>
+            )}
           </div>
           <div className="text-right">
             <div className="text-2xl font-black" style={{color:'#1a1512'}}>${(coach.salary/1000000).toFixed(2)}M</div>

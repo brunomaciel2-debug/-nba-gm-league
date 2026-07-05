@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import RosterTable from './RosterTable'
 import TeamSchedule from './TeamSchedule'
 import ContractsTable from './ContractsTable'
@@ -36,7 +37,10 @@ export default function TeamPageTabs({
 }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
-  const [tab, setTab] = useState<Tab>('roster')
+  const searchParams = useSearchParams()
+  const VALID_TABS: Tab[] = ['roster','schedule','contracts','draft','training','facilities','finances','sponsors','goals','scouting','interactions']
+  const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'roster'
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   const TABS: { key: Tab, label: string, icon: string }[] = [
     { key: 'roster',     label: isPT ? 'Plantel'         : 'Roster',      icon: '👥' },

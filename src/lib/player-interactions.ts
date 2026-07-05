@@ -443,3 +443,28 @@ export async function resolveMonitoredInteractions(week: number) {
     await notify(inter.team_id, 'player_interaction', notif.subject, notif.body, { interaction_id: inter.id, player_id: inter.player_id })
   }
 }
+
+// Called right after a trade actually moves a player — an open interaction
+// (as the complainer or as someone else's partner) referencing a player who
+// just left the team is now stale: the roster context it was raised about
+// no longer exists. Resolve it neutrally — no moral swing either way, since
+// this isn't a response to how the GM handled the complaint.
+export async function resolveInteractionsForTradedPlayer(playerId: number, week: number) {
+  const { data: openInteractions } = await supabaseAdmin.from('player_interactions').select('*')
+    .in('status', ['pending_response', 'monitoring'])
+    .or(`player_id.eq.${playerId},partner_player_id.eq.${playerId}`)
+  if (!openInteractions?.length) return
+
+  for (const inter of openInteractions) {
+    const { data: player } = await supabaseAdmin.from('players').select('name,moral').eq('id', inter.player_id).single()
+    await supabaseAdmin.from('player_interactions').update({
+      status: 'resolved', outcome: 'traded', moral_after: player?.moral ?? inter.moral_before, resolved_week: week, updated_at: new Date().toISOString(),
+    }).eq('id', inter.id)
+
+    const playerName = player?.name || 'Player'
+    const lang = await getTeamLang(inter.team_id)
+    const resolutionText = buildResolutionText(lang, playerName, 'traded', 0, inter.reason_key)
+    const notif = notifInteractionResolved(lang, playerName, resolutionText)
+    await notify(inter.team_id, 'player_interaction', notif.subject, notif.body, { interaction_id: inter.id, player_id: inter.player_id })
+  }
+}
