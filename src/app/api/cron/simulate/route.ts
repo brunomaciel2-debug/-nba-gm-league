@@ -1089,7 +1089,7 @@ await supabaseAdmin.from('players').update(update).eq('id', r.id)
 try {
 const isMonday = new Date().getDay() === 1
 const recDays = isMonday ? 3 : 2
-const { data: allP2 } = await supabaseAdmin.from('players').select('id,health,moral,durability,team_id,status').in('status',['active','injured'])
+const { data: allP2 } = await supabaseAdmin.from('players').select('id,health,moral,durability,team_id,status,usage').in('status',['active','injured'])
 const { data: ords2 } = await supabaseAdmin.from('gm_orders').select('team_id,training_intensity').eq('week_number',week)
 const iMap: Record<string,string> = {}
 ;(ords2||[]).forEach((o:any) => iMap[o.team_id]=o.training_intensity||'normal')
@@ -1099,14 +1099,67 @@ const { data: physios } = await supabaseAdmin.from('coaches').select('team_id,re
 const physioMap: Record<string,number> = {}
 ;(physios||[]).forEach((c:any) => physioMap[c.team_id]=c.rehab_speed)
 
-// Mental Coach — morale_management genuinely changes the weekly morale
-// recovery below, not just flavor text: below 50 a player never recovered
-// at all before, no matter what — a strong Mental Coach (75+) is the one
-// thing that can unstick a player spiraling in bad morale, and scales the
-// recovery rate itself on top of that.
+// Mental Coach — morale_management now scales how fast a player's morale
+// drifts toward what it actually "deserves" each week (see moraleTarget()
+// below), not just a one-way recovery. A strong Mental Coach settles a
+// team on the right number faster, for better or worse.
 const { data: mentalCoaches } = await supabaseAdmin.from('coaches').select('team_id,morale_management').eq('role','mental_coach')
 const moraleMgmtMap: Record<string,number> = {}
 ;(mentalCoaches||[]).forEach((c:any) => moraleMgmtMap[c.team_id]=c.morale_management)
+
+// Deserved morale target — winning, actually playing the minutes/role you
+// deserve, and recent form above/below your own season average now all
+// genuinely move morale every week. None of this touched morale before.
+const { data: teamsForMorale } = await supabaseAdmin.from('teams').select('id,wins,losses').not('id','in','(ALL,RVS,ROO,SOP)')
+const winPctMap: Record<string,number> = {}
+;(teamsForMorale||[]).forEach((t:any) => { const gp=(t.wins||0)+(t.losses||0); winPctMap[t.id] = gp>0 ? (t.wins||0)/gp : 0.5 })
+
+const activeIds = (allP2||[]).map((p:any) => p.id)
+const rosterByTeam: Record<string, any[]> = {}
+;(allP2||[]).forEach((p:any) => { (rosterByTeam[p.team_id] ||= []).push(p) })
+// "Deserves to start" = top-5 by usage on their own roster — real, already-
+// tracked role importance, not a separate invented ranking.
+const deservedStarterSet = new Set<string>()
+Object.values(rosterByTeam).forEach((roster: any[]) => {
+[...roster].sort((a,b)=>(b.usage||0)-(a.usage||0)).slice(0,5).forEach((p:any)=>deservedStarterSet.add(p.id))
+})
+
+// box_scores has no timestamp of its own — order via the real games.played_at
+// through the existing FK embed (same games!inner(...) pattern already used
+// a few blocks up for technical-foul history), not a nonexistent column.
+const { data: recentBoxAll } = activeIds.length ? await supabaseAdmin.from('box_scores')
+.select('player_id,is_starter,pts,games!inner(played_at)').in('player_id',activeIds).eq('games.status','final')
+.order('played_at',{foreignTable:'games',ascending:false}).limit(3000) : { data: [] as any[] }
+const recentByPlayer: Record<string, any[]> = {}
+;(recentBoxAll||[]).forEach((b:any) => { const arr=(recentByPlayer[b.player_id] ||= []); if (arr.length<5) arr.push(b) })
+
+const { data: seasonStatsAll } = activeIds.length ? await supabaseAdmin.from('player_stats')
+.select('player_id,pts,games').eq('season','2025-26').in('player_id',activeIds) : { data: [] as any[] }
+const seasonAvgById: Record<string, number> = {}
+;(seasonStatsAll||[]).forEach((s:any) => { if (s.games>0) seasonAvgById[s.player_id] = s.pts/s.games })
+
+// Neutral 50 baseline, shifted by team win% (±15), whether recent playing
+// time actually matches the role this player's usage says they deserve
+// (±12/+8), and recent scoring vs. their own season average (±12) — same
+// "recent vs. season average" comparison already built for Power Rankings'
+// player-form note, just applied to every player instead of just stars.
+const moraleTarget = (p: any): number => {
+const winPct = winPctMap[p.team_id] ?? 0.5
+let target = 50 + (winPct - 0.5) * 30
+const recent = recentByPlayer[p.id]
+if (recent && recent.length >= 2) {
+const starterRate = recent.filter((b:any) => b.is_starter).length / recent.length
+const deserves = deservedStarterSet.has(p.id)
+if (deserves && starterRate < 0.4) target -= 12
+else if (!deserves && starterRate >= 0.6) target += 8
+const recentAvgPts = recent.reduce((s:number,b:any) => s+(b.pts||0), 0) / recent.length
+const seasonAvg = seasonAvgById[p.id]
+if (seasonAvg && seasonAvg >= 2) {
+target += Math.max(-12, Math.min(12, (recentAvgPts / seasonAvg - 1) * 30))
+}
+}
+return Math.max(15, Math.min(92, target))
+}
 
 const injuredIds = (allP2||[]).filter((p:any) => p.status==='injured').map((p:any) => p.id)
 const { data: openInjuries } = injuredIds.length > 0 ? await supabaseAdmin
@@ -1122,10 +1175,10 @@ const durB = ((p.durability||75)-75)/100*0.5
 let hGain = 3*recDays*mod*(1+durB)
 if (p.status==='injured') hGain *= physioRecoveryMultiplier(physioMap[p.team_id]) * (boostMap[p.id]||1)
 const moraleMgmt = moraleMgmtMap[p.team_id] ?? 60
-const canUnstick = moraleMgmt >= 75
-const mGain = ((p.moral||80)<50 && !canUnstick) ? 0 : 0.5*recDays*(0.7+moraleMgmt/100*0.6)
+const driftRate = Math.min(0.22, Math.max(0.06, 0.10 * (0.6 + moraleMgmt/100*0.8)))
+const target = moraleTarget(p)
 const nh = Math.min(100, Math.round((p.health||100)+hGain))
-const nm = Math.min(100, Math.round((p.moral||80)+mGain))
+const nm = Math.max(0, Math.min(100, Math.round((p.moral||80) + (target-(p.moral||80))*driftRate)))
 const recovered = p.status==='injured' && nh>=50
 if (nh!==(p.health||100)||nm!==(p.moral||80)||recovered) {
 await supabaseAdmin.from('players').update({

@@ -135,8 +135,12 @@ export async function generatePowerRankings(week: number) {
   const starIds = Object.values(teamRosterMap).map(roster => roster[0]?.id).filter(Boolean)
   const teamFormMap: Record<string, { recent: number, season: number } > = {}
   if (starIds.length) {
+    // box_scores has no timestamp column of its own — order via the real
+    // games.played_at through the FK embed, not a nonexistent column (this
+    // was silently returning nothing before, always falling back to "not
+    // enough recent data yet").
     const [{ data: recentBox }, { data: seasonStats }] = await Promise.all([
-      supabase.from('box_scores').select('player_id,pts,created_at').in('player_id', starIds).order('created_at', { ascending: false }),
+      supabase.from('box_scores').select('player_id,pts,games!inner(played_at)').in('player_id', starIds).eq('games.status', 'final').order('played_at', { foreignTable: 'games', ascending: false }),
       supabase.from('player_stats').select('player_id,pts,games').eq('season', currentSeason).in('player_id', starIds),
     ])
     const seasonAvgById: Record<string, number> = {}
