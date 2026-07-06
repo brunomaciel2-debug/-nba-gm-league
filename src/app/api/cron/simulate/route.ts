@@ -928,8 +928,12 @@ notes: `Week ${week} ${conf} Player of the Week`
 
 if (isEndOfMonth) {
 const monthNum = Math.floor(week/4)
+// `games` has no `season` column (single-season table) — the .eq('season',...)
+// filter here silently matched zero rows every time, so Player of the
+// Month never actually had any month-box data to work with. Found live
+// while testing the merchandising month-end resolver, which copied this
+// exact (broken) query shape.
 const { data: monthGameIds } = await supabaseAdmin.from('games').select('id')
-.eq('season','2025-26')
 .gte('week_number', (monthNum-1)*4+1)
 .lte('week_number', monthNum*4)
 const { data: monthBoxes } = await supabaseAdmin

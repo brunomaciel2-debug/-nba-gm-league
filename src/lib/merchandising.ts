@@ -117,8 +117,12 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
 
   // This month's games only — same window the Awards block already uses
   // for Player of the Month, so "recent form" here means "this month".
+  // `games` has no `season` column (single-season table, confirmed live) —
+  // filtering on it silently returns nothing and was found live while
+  // testing this exact query shape, copied from the Awards block below,
+  // which had the same bug.
   const { data: monthGames } = await supabaseAdmin.from('games').select('id')
-    .eq('season', SEASON).gte('week_number', monthStartWeek).lte('week_number', monthEndWeek)
+    .gte('week_number', monthStartWeek).lte('week_number', monthEndWeek)
   const monthGameIds = (monthGames || []).map((g: any) => g.id)
   const { data: monthBoxes } = monthGameIds.length ? await supabaseAdmin.from('box_scores')
     .select('player_id,pts').in('player_id', playerIds).in('game_id', monthGameIds) : { data: [] as any[] }
