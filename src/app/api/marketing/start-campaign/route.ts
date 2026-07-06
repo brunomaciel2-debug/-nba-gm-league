@@ -3,15 +3,17 @@ import { createClient } from '@supabase/supabase-js'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-// Small/Medium/Large budget tiers, same "tiered choice" pattern as the
-// Practice Facility grades — every $40K committed = +1 intended fame
-// target point, capped at +30 (see fameTarget()/resolveMonthlyMerchandising()
-// in src/lib/merchandising.ts, which resolves this into a real success or
-// backfire outcome at the next month-end tick).
+// Small/Medium/Large ad-campaign budget tiers, same "tiered choice"
+// pattern as the Practice Facility grades — this buys ads/promo using the
+// player's image to sell more jerseys FOR ONE MONTH (a real sales boost %
+// on top of whatever he'd normally sell), never a change to his hidden
+// fame. See resolveMonthlyMerchandising() in src/lib/merchandising.ts,
+// which resolves this into a real sales bump or a wasted-money backfire
+// depending on whether the player is actually still performing that month.
 const BUDGET_TIERS: Record<string, { cost: number, boost: number }> = {
-  small:  { cost: 250000,  boost: 8 },
-  medium: { cost: 750000,  boost: 18 },
-  large:  { cost: 2000000, boost: 30 },
+  small:  { cost: 250000,  boost: 25 },
+  medium: { cost: 750000,  boost: 50 },
+  large:  { cost: 2000000, boost: 90 },
 }
 
 export async function POST(req: NextRequest) {
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
   })
   const { data: campaign, error } = await admin.from('marketing_campaigns').insert({
     team_id: teamId, player_id: playerId, budget: tierConfig.cost,
-    fame_boost_target: tierConfig.boost, start_week: startWeek, status: 'active',
+    sales_boost_pct: tierConfig.boost, start_week: startWeek, status: 'active',
   }).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

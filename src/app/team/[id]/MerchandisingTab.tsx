@@ -12,19 +12,10 @@ const fmt = (n: number) => {
 }
 
 const TIERS = [
-  { key: 'small',  cost: 250000,  boost: 8,  color: '#1d4ed8' },
-  { key: 'medium', cost: 750000,  boost: 18, color: '#b45309' },
-  { key: 'large',  cost: 2000000, boost: 30, color: '#6d28d9' },
+  { key: 'small',  cost: 250000,  boost: 25, color: '#1d4ed8' },
+  { key: 'medium', cost: 750000,  boost: 50, color: '#b45309' },
+  { key: 'large',  cost: 2000000, boost: 90, color: '#6d28d9' },
 ]
-
-function FameBar({ fame }: { fame: number }) {
-  const color = fame >= 85 ? '#6d28d9' : fame >= 65 ? '#b45309' : fame >= 45 ? '#15803d' : '#8a8279'
-  return (
-    <div style={{ width: 80, height: 7, borderRadius: 4, background: '#e2dcd5', overflow: 'hidden', flexShrink: 0 }}>
-      <div style={{ width: `${fame}%`, height: '100%', background: color, borderRadius: 4 }} />
-    </div>
-  )
-}
 
 export default function MerchandisingTab({ teamId, teamColor, players }: { teamId: string, teamColor: string, players: any[] }) {
   const { profile } = useAuth()
@@ -59,7 +50,11 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
   const topSellers = [...latestReports].sort((a: any, b: any) => b.revenue - a.revenue).slice(0, 8)
 
   const monthTotals: Record<number, number> = {}
-  reports.forEach((r: any) => { monthTotals[r.month_num] = (monthTotals[r.month_num] || 0) + r.revenue })
+  const monthUnits: Record<number, number> = {}
+  reports.forEach((r: any) => {
+    monthTotals[r.month_num] = (monthTotals[r.month_num] || 0) + r.revenue
+    monthUnits[r.month_num] = (monthUnits[r.month_num] || 0) + r.units_sold
+  })
   const months = Object.keys(monthTotals).map(Number).sort((a, b) => b - a)
 
   const startCampaign = async (tierKey: string) => {
@@ -83,8 +78,8 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
     <div>
       <div className="mb-4 p-3 rounded-lg text-xs" style={{ background: '#faf8f5', border: '1px solid #d4cdc5', color: '#5c554e', lineHeight: 1.6 }}>
         👕 {isPT
-          ? 'A venda de jerseys (online, alcance nacional — não depende dos bilhetes ou concessões da arena) é real e entra diretamente no balanço da equipa todos os meses. Quanto mais famoso o jogador — qualidade, forma recente, vitórias, prémios — mais vende.'
-          : "Jersey sales (online, national reach — separate from arena tickets/concessions) are real and post straight to the team's balance sheet every month. The more famous the player — quality, recent form, wins, awards — the more he sells."}
+          ? 'A venda de jerseys (online, alcance nacional — não depende dos bilhetes ou concessões da arena) é real e entra diretamente no balanço da equipa todos os meses. Quão popular um jogador é — qualidade, consistência, mercado da equipa, prémios — nunca se vê diretamente; só o resultado real, as vendas, aqui em baixo.'
+          : "Jersey sales (online, national reach — separate from arena tickets/concessions) are real and post straight to the team's balance sheet every month. How popular a player is — quality, consistency, team market, awards — is never shown directly; only the real result, sales, shown below."}
       </div>
 
       <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8a8279' }}>
@@ -103,14 +98,11 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
                 <span className="text-xs font-black w-5 text-right flex-shrink-0" style={{ color: i === 0 ? '#b45309' : '#9c8e7a' }}>{i + 1}</span>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate" style={{ color: '#1a1512' }}>{p?.name || r.player_id}</div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <FameBar fame={r.fame_at_time} />
-                    <span className="text-xs" style={{ color: '#8a8279' }}>{isPT ? 'Fama' : 'Fame'} {r.fame_at_time}</span>
-                  </div>
+                  {r.campaign_note && <div className="text-xs mt-0.5" style={{ color: r.campaign_note.includes('backfired') || r.campaign_note.includes('falhou') ? '#dc2626' : '#15803d' }}>📣 {r.campaign_note}</div>}
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <div className="text-sm font-black" style={{ color: '#15803d' }}>{fmt(r.revenue)}</div>
-                  <div className="text-xs" style={{ color: '#8a8279' }}>{r.units_sold.toLocaleString()} {isPT ? 'jerseys' : 'jerseys'}</div>
+                  <div className="text-sm font-black" style={{ color: '#15803d' }}>{r.units_sold.toLocaleString()} {isPT ? 'jerseys' : 'jerseys'}</div>
+                  <div className="text-xs" style={{ color: '#8a8279' }}>{fmt(r.revenue)}</div>
                 </div>
               </div>
             )
@@ -121,19 +113,19 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
       {isGM && (
         <>
           <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8a8279' }}>
-            {isPT ? 'Campanha de Marketing' : 'Marketing Campaign'}
+            {isPT ? 'Campanha de Anúncios' : 'Ad Campaign'}
           </h2>
           <div className="rounded-xl p-4 mb-6" style={{ background: '#faf8f5', border: '1px solid #d4cdc5' }}>
             <p className="text-xs mb-3" style={{ color: '#5c554e', lineHeight: 1.6 }}>
               {isPT
-                ? '⚠️ O timing importa: se o jogador cair de forma, se lesionar, ou não jogar durante a campanha, o investimento pode falhar (dinheiro gasto sem retorno).'
-                : '⚠️ Timing matters: if the player slumps, gets hurt, or barely plays during the campaign, the investment can backfire (money spent, no return).'}
+                ? 'Investe em anúncios com a imagem de um jogador para venderes mais jerseys dele este mês — uma boa forma de testar se um jogador surpreendente é mesmo marketable. ⚠️ O timing importa: se ele cair de forma, se lesionar, ou não jogar durante a campanha, o dinheiro é desperdiçado (não há vendas extra).'
+                : "Invest in ads featuring a player's image to sell more of his jerseys this month — a good way to test whether a surprising breakout player is genuinely marketable. ⚠️ Timing matters: if he slumps, gets hurt, or barely plays during the campaign, the money is wasted (no extra sales)."}
             </p>
             <select value={selectedPlayer} onChange={e => setSelectedPlayer(e.target.value)}
               className="w-full px-3 py-2 rounded-lg text-sm mb-3" style={{ background: '#ede8de', border: '1px solid #d4cdc5', color: '#1a1512' }}>
               <option value="">{isPT ? '— Escolher jogador —' : '— Pick a player —'}</option>
               {players.filter((p: any) => !activeCampaignPlayerIds.has(p.id)).map((p: any) => (
-                <option key={p.id} value={p.id}>{p.name} ({isPT ? 'Fama' : 'Fame'}: {p.fame ?? 50})</option>
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
             <div className="grid grid-cols-3 gap-2">
@@ -143,7 +135,7 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
                   style={{ background: tier.color + '18', border: `2px solid ${tier.color}` }}>
                   <div className="text-xs font-bold uppercase" style={{ color: tier.color }}>{tier.key}</div>
                   <div className="text-sm font-black" style={{ color: '#1a1512' }}>{fmt(tier.cost)}</div>
-                  <div className="text-xs" style={{ color: '#8a8279' }}>+{tier.boost} {isPT ? 'fama' : 'fame'}</div>
+                  <div className="text-xs" style={{ color: '#8a8279' }}>+{tier.boost}% {isPT ? 'vendas' : 'sales'}</div>
                 </button>
               ))}
             </div>
@@ -184,7 +176,10 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
             {months.map((m, i) => (
               <div key={m} className="flex items-center justify-between px-4 py-2.5" style={{ background: i % 2 === 0 ? '#ece7dd' : '#e8e2d6', borderBottom: '1px solid #d4cdc5' }}>
                 <span className="text-sm" style={{ color: '#1a1512' }}>{isPT ? 'Mês' : 'Month'} {m}</span>
-                <span className="text-sm font-bold" style={{ color: '#15803d' }}>{fmt(monthTotals[m])}</span>
+                <div className="text-right">
+                  <div className="text-sm font-bold" style={{ color: '#15803d' }}>{fmt(monthTotals[m])}</div>
+                  <div className="text-xs" style={{ color: '#8a8279' }}>{(monthUnits[m]||0).toLocaleString()} {isPT ? 'jerseys' : 'jerseys'}</div>
+                </div>
               </div>
             ))}
           </div>

@@ -15,14 +15,23 @@ const SMALL_MARKETS = new Set(['ORL','CHA','SAS','IND','CLE','MIL','UTA','NOP','
 
 // Amplifies star power specifically — a scrub sitting near the fame floor
 // barely moves regardless of market, but the bonus a real star earns from
-// quality/form/awards/marketing gets multiplied up in a big market and
-// dampened in a small one, exactly the "exponentially more for stars"
-// effect real-world markets have (not a flat bonus for every player on
-// the roster, which wouldn't be real).
+// quality/form/awards gets multiplied up in a big market and dampened in a
+// small one.
 export function marketMultiplier(teamId: string): number {
   if (LARGE_MARKETS.has(teamId)) return 1.5
   if (SMALL_MARKETS.has(teamId)) return 0.8
   return 1.1
+}
+
+// Truly transcendent talent (think LeBron, Doncic, Ant Edwards, Curry —
+// real_ovr in the low-to-mid 90s+) carries its own fame wherever it goes —
+// these players make the FRANCHISE popular, not the other way around, so
+// their market multiplier has a real floor instead of being dragged down
+// by a small market the way a merely-very-good player's would be.
+const TRANSCENDENT_OVR = 93
+function effectiveMarketMultiplier(realOvr: number, teamId: string): number {
+  const base = marketMultiplier(teamId)
+  return realOvr >= TRANSCENDENT_OVR ? Math.max(base, 1.3) : base
 }
 
 // Jersey sales are real-world power-law distributed — a handful of
@@ -38,35 +47,59 @@ export function jerseyRevenue(fame: number): number {
 
 // Deserved monthly fame target — quality, recent form vs. the player's own
 // season average (same comparison already built for Power Rankings/morale,
-// generalized here), a recent award bump, and an active marketing
-// campaign's intended boost (or backfire penalty, resolved separately in
-// resolveMonthlyMerchandising below) — all of that "star power" is scaled
-// by the team's real market size (see marketMultiplier() above), since
+// generalized here), team win%, and a recent award bump — all of that
+// "star power" (except team win%) is scaled by real market size, since
 // that's specifically what makes a market big or small: how far a star's
-// name travels, not how good a bench player looks locally. Team win% is
-// kept outside the market scaling — winning creates buzz everywhere.
+// name travels, not how good a bench player looks locally.
+//
+// fame is a HIDDEN attribute (never shown to the GM directly — only its
+// real-world effect, jersey sales, is observable) and moves in small,
+// residual monthly steps (see DRIFT_RATE below) — a single hot month barely
+// registers; real fan-favorite status only builds from sustained
+// consistency over many months, same as in real life.
 export function fameTarget(opts: {
   realOvr: number, recentAvgPts: number | null, seasonAvgPts: number | null,
-  winPct: number, hasRecentAward: boolean, campaignAdjustment: number, marketMultiplier: number,
+  winPct: number, hasRecentAward: boolean, marketMultiplier: number,
 }): number {
   let starBonus = Math.max(0, opts.realOvr - 60) * 1.1
   if (opts.recentAvgPts != null && opts.seasonAvgPts != null && opts.seasonAvgPts >= 2) {
     starBonus += Math.max(-10, Math.min(10, (opts.recentAvgPts / opts.seasonAvgPts - 1) * 25))
   }
   if (opts.hasRecentAward) starBonus += 12
-  starBonus += opts.campaignAdjustment
   const target = 20 + starBonus * opts.marketMultiplier + (opts.winPct - 0.5) * 12
   return Math.max(5, Math.min(99, target))
 }
 
-const DRIFT_RATE = 0.18 // monthly cadence — faster than a weekly drift would be
+// Residual monthly movement — deliberately slow. A single great or bad
+// month should barely move the needle; real fan-favorite status has to be
+// earned through sustained performance over many months.
+const DRIFT_RATE = 0.07
 
-// Month-end resolver: drifts every active player's fame toward its deserved
-// target, records a real jersey-sales report per player, rolls the team
-// total into a real franchise_transactions/balance update (same pattern as
-// the existing medical-bill expense insert in cron/simulate/route.ts), and
-// resolves any marketing campaign that started this month into a real
-// success or backfire outcome.
+// Ad campaign — spends money to run ads/promo using a player's image to
+// sell MORE JERSEYS for one month. This does NOT touch the player's
+// underlying (hidden) fame — it's a temporary sales push, not a way to buy
+// popularity. Whether it actually works still depends on real timing: the
+// player has to still be performing when the campaign runs, or the money's
+// wasted. This is also how a GM "tests" whether a surprising breakout
+// player is genuinely marketable, without it ever changing his real,
+// slow-moving fame number.
+function resolveCampaignSalesBoost(campaign: any, hadGamesThisMonth: boolean, stillGood: boolean): { multiplier: number, status: string, note: string } {
+  if (hadGamesThisMonth && stillGood) {
+    return { multiplier: 1 + campaign.sales_boost_pct / 100, status: 'completed', note: 'Ad campaign landed — real sales bump this month.' }
+  }
+  if (!hadGamesThisMonth) {
+    return { multiplier: 1, status: 'backfired', note: "Ad campaign backfired — player barely played, the ads had nothing to sell." }
+  }
+  return { multiplier: 1, status: 'backfired', note: 'Ad campaign backfired — player slumped well below his season form.' }
+}
+
+// Month-end resolver: drifts every active player's hidden fame toward its
+// deserved target, resolves any ad campaign that started this month into a
+// real sales boost or a wasted-money backfire, records a real jersey-sales
+// report per player (units + revenue — what the GM actually sees), rolls
+// the team total into a real franchise_transactions/balance update (same
+// pattern as the existing medical-bill expense insert in
+// cron/simulate/route.ts), and notifies each team of the month's top seller.
 export async function resolveMonthlyMerchandising(week: number): Promise<{ teams: number, players: number }> {
   const monthNum = Math.floor(week / 4)
   const monthStartWeek = (monthNum - 1) * 4 + 1
@@ -123,47 +156,39 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
     const winPct = winPctByTeam[p.team_id] ?? 0.5
     const hasRecentAward = awardedPlayerSet.has(p.id)
 
+    // Fame itself — quality/form/wins/awards/market only. No campaign
+    // influence here: an ad campaign sells more jerseys, it doesn't buy
+    // popularity.
+    const target = fameTarget({
+      realOvr: p.real_ovr || 70, recentAvgPts, seasonAvgPts, winPct, hasRecentAward,
+      marketMultiplier: effectiveMarketMultiplier(p.real_ovr || 70, p.team_id),
+    })
+    const newFame = Math.round(Math.max(0, Math.min(100, (p.fame ?? 50) + (target - (p.fame ?? 50)) * DRIFT_RATE)))
+    playerFameUpdates.push({ id: p.id, fame: newFame })
+
+    let revenue = jerseyRevenue(newFame)
+    let campaignNote: string | null = null
+
     // A campaign only resolves if it actually started THIS month (a fresh
     // campaign started mid-month elsewhere would still be "active" but not
     // due for resolution yet) — matches the 1-month campaign duration.
     const campaign = campaignByPlayer[p.id]
     const campaignDueThisMonth = campaign && campaign.start_week >= monthStartWeek && campaign.start_week <= monthEndWeek
-    let campaignAdjustment = 0
     if (campaignDueThisMonth) {
-      // Timing risk: still traded/still on this roster is implicit (we're
-      // iterating this team's current active players); a real slump this
-      // month relative to the player's own season average is what makes a
-      // campaign backfire — the GM bet on him staying good and lost.
+      const hadGamesThisMonth = !!(monthStat && monthStat.games > 0)
       const stillGood = recentAvgPts != null && seasonAvgPts != null && seasonAvgPts >= 2
         ? recentAvgPts >= seasonAvgPts * 0.9
-        : true // no games this month (e.g. injured/inactive) reads as a bad sign below, not "true" — handled next
-      const hadGamesThisMonth = !!(monthStat && monthStat.games > 0)
-      if (hadGamesThisMonth && stillGood) {
-        campaignAdjustment = campaign.fame_boost_target
-        campaignUpdates.push({ id: campaign.id, status: 'completed', result_note: 'Campaign landed — player performed as expected.' })
-      } else if (!hadGamesThisMonth) {
-        // No minutes this month at all (injury, buried on the bench, etc.)
-        // — worst possible timing, the campaign never had anything to work with.
-        campaignAdjustment = -campaign.fame_boost_target * 0.5
-        campaignUpdates.push({ id: campaign.id, status: 'backfired', result_note: 'Campaign backfired — player barely played this month.' })
-      } else {
-        campaignAdjustment = -campaign.fame_boost_target * 0.3
-        campaignUpdates.push({ id: campaign.id, status: 'backfired', result_note: 'Campaign backfired — player slumped well below his season form.' })
-      }
+        : true
+      const { multiplier, status, note } = resolveCampaignSalesBoost(campaign, hadGamesThisMonth, stillGood)
+      revenue = Math.round(revenue * multiplier)
+      campaignNote = note
+      campaignUpdates.push({ id: campaign.id, status, result_note: note })
     }
 
-    const target = fameTarget({
-      realOvr: p.real_ovr || 70, recentAvgPts, seasonAvgPts, winPct, hasRecentAward, campaignAdjustment,
-      marketMultiplier: marketMultiplier(p.team_id),
-    })
-    const newFame = Math.round(Math.max(0, Math.min(100, (p.fame ?? 50) + (target - (p.fame ?? 50)) * DRIFT_RATE)))
-    playerFameUpdates.push({ id: p.id, fame: newFame })
-
-    const revenue = jerseyRevenue(newFame)
     const units = Math.round(revenue / 35)
     reportRows.push({
       season: SEASON, month_num: monthNum, team_id: p.team_id, player_id: p.id,
-      units_sold: units, revenue, fame_at_time: newFame,
+      units_sold: units, revenue, fame_at_time: newFame, campaign_note: campaignNote,
     })
     revenueByTeam[p.team_id] = (revenueByTeam[p.team_id] || 0) + revenue
     if (!topSellerByTeam[p.team_id] || revenue > topSellerByTeam[p.team_id].revenue) {
