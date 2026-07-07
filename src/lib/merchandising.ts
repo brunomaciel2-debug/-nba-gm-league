@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notifications'
 import { getTeamLang, notifJerseySalesReport } from '@/lib/notifications-helpers'
+import { legacyFameFloor } from '@/lib/merchandising-legacy-rank'
 
 const SEASON = '2025-26'
 
@@ -117,6 +118,7 @@ export function jerseyRevenue(fame: number): number {
 export function fameTarget(opts: {
   realOvr: number, recentAvgPts: number | null, seasonAvgPts: number | null,
   winPct: number, hasRecentAward: boolean, marketMultiplier: number, nationalityMultiplier?: number,
+  legacyFloor?: number | null,
 }): number {
   const base = starPower(opts.realOvr)
   let modul = 0
@@ -131,17 +133,21 @@ export function fameTarget(opts: {
   // versa) still gets real credit for the audience he does have.
   const reachMultiplier = opts.marketMultiplier * (opts.nationalityMultiplier || 1)
   const marketBonus = (reachMultiplier - 1) * base * 0.25
-  const target = 8 + base + marketBonus + modul
+  const qualityTarget = 8 + base + marketBonus + modul
+  // A real-world legacy/name-recognition floor (see merchandising-legacy-
+  // rank.ts) — a player is at least as famous as his real reputation says,
+  // but genuine in-game brilliance can still push him higher.
+  const target = opts.legacyFloor != null ? Math.max(qualityTarget, opts.legacyFloor) : qualityTarget
   return Math.max(3, Math.min(99, target))
 }
 
 // Initial seed — same formula as the monthly target, evaluated with neutral
 // inputs (no form/award/win-record data yet). Kept as one shared formula so
 // the day-one fame value and the ongoing drift target can never diverge.
-export function initialFame(realOvr: number, teamMarketMultiplier: number, nationalityMult: number = 1): number {
+export function initialFame(realOvr: number, teamMarketMultiplier: number, nationalityMult: number = 1, legacyFloor: number | null = null): number {
   return Math.round(fameTarget({
     realOvr, recentAvgPts: null, seasonAvgPts: null, winPct: 0.5,
-    hasRecentAward: false, marketMultiplier: teamMarketMultiplier, nationalityMultiplier: nationalityMult,
+    hasRecentAward: false, marketMultiplier: teamMarketMultiplier, nationalityMultiplier: nationalityMult, legacyFloor,
   }))
 }
 
@@ -254,6 +260,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
       realOvr: p.real_ovr || 70, recentAvgPts, seasonAvgPts, winPct, hasRecentAward,
       marketMultiplier: effectiveMarketMultiplier(p.real_ovr || 70, p.team_id),
       nationalityMultiplier: nationalityMultiplier(p.nationality),
+      legacyFloor: legacyFameFloor(p.name),
     })
     const newFame = Math.round(Math.max(0, Math.min(100, (p.fame ?? 50) + (target - (p.fame ?? 50)) * DRIFT_RATE)))
     playerFameUpdates.push({ id: p.id, fame: newFame })
