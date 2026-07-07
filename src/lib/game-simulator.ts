@@ -2,6 +2,25 @@
 // Extracted from src/app/api/cron/simulate/route.ts so it can be reused
 // by the preseason/friendly-game simulator without duplicating this logic.
 
+import { familiarityBoost, TacticalMods } from './tactical-constants'
+
+const NEUTRAL_TACTICAL_MODS: TacticalMods = {
+  toMult: 1, astMult: 1, midMult: 1, postMult: 1, threeMult: 1, rimMult: 1,
+  offRebMult: 1, defRebMult: 1, foulDrawMult: 1, clutchMult: 1, paceMult: 1,
+  vsManMult: 1, vsZoneMult: 1, vsPressMult: 1, vsPackMult: 1,
+  bigThreeMult: 1, lobMult: 1,
+}
+// Games without tactical data attached (friendlies, or before the system
+// existed for a save) fall back to a neutral-40 familiarity and no node
+// bonuses at all — same "absent = neutral" convention as cohesion/composure.
+function tacticalMatchupMult(oo: any, defStyle: string): number {
+  const fam = oo.tacticalFamiliarity ?? 40
+  const mods: TacticalMods = oo.tacticalMods || NEUTRAL_TACTICAL_MODS
+  const vsKey = defStyle === 'man' ? 'vsManMult' : defStyle === 'zone23' ? 'vsZoneMult' : defStyle === 'press' ? 'vsPressMult' : defStyle === 'pack' ? 'vsPackMult' : null
+  const vsMult = vsKey ? (mods as any)[vsKey] : 1
+  return (1 + familiarityBoost(fam)) * vsMult
+}
+
 function rnd(a:number,b:number){return Math.floor(Math.random()*(b-a+1))+a}
 function wt(pool:Array<{p:any,w:number}>){
 const t=pool.reduce((s,x)=>s+x.w,0);let r=Math.random()*t
@@ -219,11 +238,20 @@ fat[def.id]=Math.max(40,fat[def.id]-(14/def.stamina)*.7)
 // Real matchup: this attacking style vs. this defensive style, adjusted by
 // each side's Pace synergy and dampened/sharpened by each Head Coach's
 // off_adjustment/def_adjustment.
-const matchupBase=(ATK_DEF_MATCHUP[oo.atk_style]?.[doo.def_style]??1.0)*paceSynergy(oo.atk_style,oo.pace||70)*paceSynergy(doo.def_style,doo.pace||70)
+const tacticalMods:TacticalMods=oo.tacticalMods||NEUTRAL_TACTICAL_MODS
+// The defending side's OWN tactical development (their trained rebounding-
+// related nodes) still shapes how well THEY box out on D, independent of
+// which side is attacking this particular possession.
+const defTacticalMods:TacticalMods=doo.tacticalMods||NEUTRAL_TACTICAL_MODS
+const matchupBase=(ATK_DEF_MATCHUP[oo.atk_style]?.[doo.def_style]??1.0)*paceSynergy(oo.atk_style,(oo.pace||70)*tacticalMods.paceMult)*paceSynergy(doo.def_style,doo.pace||70)
 const mDev=matchupBase-1
 const offDamp=coachDampen(oo.off_adjustment),defDamp=coachDampen(doo.def_adjustment)
 const dampenFactor=Math.max(0,1+(mDev>0?offDamp-defDamp:defDamp-offDamp))
-const matchupMult=1+mDev*dampenFactor
+// Tactical System Familiarity: how well-drilled the offense is in ITS OWN
+// chosen system claws back (or, if neglected, gives up) a real chunk of the
+// on-paper matchup — "even with a real counter" a highly-familiar team can
+// partly overcome it, per src/lib/tactical-constants.ts.
+const matchupMult=(1+mDev*dampenFactor)*tacticalMatchupMult(oo,doo.def_style)
 
 // Double Team: a GM can commit extra defenders to the opponent's most
 // dangerous player. Smothers him if he's the one shooting, but stretches
@@ -245,8 +273,10 @@ const crowdMult=1+((sc2.crowd_effect??50)-50)/50*0.06*attRate
 const decisive=!!(oo.decisive||doo.decisive)
 // Mental Coach's composure_coaching dampens exactly how much clutch/decisive
 // pressure costs the shooter's team — a great one keeps a team composed
-// late in close games instead of tightening up.
-const pressureMult=isC?(decisive?(.75+(sc2.pressure/100)*.45):(.82+(sc2.pressure/100)*.32))+composureDampen(oo.composure):1
+// late in close games instead of tightening up. Tactical clutchMult (from
+// mastered "closer instinct"/"4th quarter burst"-type nodes) sharpens the
+// decisive-moment case specifically.
+const pressureMult=isC?(decisive?(.75+(sc2.pressure/100)*.45)*tacticalMods.clutchMult:(.82+(sc2.pressure/100)*.32))+composureDampen(oo.composure):1
 // Referee crew chief (same one for both sides — assigned to the game ahead
 // of time, not rolled per possession): foul_rate scales how often fouls
 // actually get whistled, home_bias tilts that rate slightly toward whichever
@@ -263,16 +293,21 @@ const refFoulMult=ref?refFoulRate*(1+(os==='home'?refHomeSkew:-refHomeSkew))*ref
 // same calibration scale as every other multiplier here.
 const moralMult=.92+(sc2.moral??80)/100*.08
 
-if(Math.random()<(.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015+(isDoubled?0.04:0))*(1-cohesionDampen(oo.cohesion,0.2))){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:p.stl*.5+20})));if(Math.random()<st3.stl/100*.7)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
+if(Math.random()<(.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015+(isDoubled?0.04:0))*(1-cohesionDampen(oo.cohesion,0.2))*tacticalMods.toMult){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:p.stl*.5+20})));if(Math.random()<st3.stl/100*.7)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
 if(!u3&&Math.random()<def.blk/100*.065*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
 ss.fga++;if(u3)ss.tpa++
 const offBallMult=(u3&&sc2.ball_role==='off_ball')?1.08:1.0
-const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult))
+// Tactical shot-zone bonus — which multiplier applies depends on shot type;
+// bigThreeMult/lobMult add on top for a big man (C/PF) specifically, per
+// the Pick & Pop / Lob to the Screener node themes.
+const isBig=sc2.pos==='C'||sc2.pos==='PF'
+const tacticalShotMult=u3?tacticalMods.threeMult*(isBig?tacticalMods.bigThreeMult:1):isPost?tacticalMods.postMult:isMid?tacticalMods.midMult:tacticalMods.rimMult*(isBig?tacticalMods.lobMult:1)
+const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult))
 const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100
 if(lsi.length>=3){if(r2>=3)mom[sc2.id]=Math.min(3,mom[sc2.id]+(makes?1:0)*st4*2);else if(r2<=1)mom[sc2.id]=Math.max(-3,mom[sc2.id]+(makes?0:-1)*st4*2);else mom[sc2.id]*=.6}
-if(Math.random()<sc2.draw_foul/100*.10*refFoulMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
-if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<.55+cohesionDampen(oo.cohesion,0.12)){const ast=wt(ap2.map(p=>({p,w:p.assist_role*2})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
-else{if(Math.random()<.27){const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:p.off_reb*.6+10})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom);if(re){st[re.id].fga++;if(Math.random()<.5){st[re.id].fgm++;sc[os]+=2;st[re.id].pts+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`OFF rebound ${rb.name} → ${re.name} scores! 2pts`,home_score:sc.home,away_score:sc.away})}}}else{const rb=wt(dps.map(p=>({p,w:p.def_reb*.6+10})));st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
+if(Math.random()<sc2.draw_foul/100*.10*refFoulMult*tacticalMods.foulDrawMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.55+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wt(ap2.map(p=>({p,w:p.assist_role*2})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
+else{if(Math.random()<.27){const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:p.off_reb*.6*tacticalMods.offRebMult+10})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom);if(re){st[re.id].fga++;if(Math.random()<.5){st[re.id].fgm++;sc[os]+=2;st[re.id].pts+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`OFF rebound ${rb.name} → ${re.name} scores! 2pts`,home_score:sc.home,away_score:sc.away})}}}else{const rb=wt(dps.map(p=>({p,w:p.def_reb*.6*defTacticalMods.defRebMult+10})));st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
 }

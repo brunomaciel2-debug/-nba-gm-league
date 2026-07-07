@@ -120,6 +120,7 @@ export default function Navbar() {
         { label: isPT ? 'Guia de Scouting'          : 'Scouting Guide',       href: '/rules/scouting', icon: 'ti-search' },
         { label: isPT ? 'Objetivos de Patrocínio'   : 'Sponsor Objectives',   href: '/rules/sponsors', icon: 'ti-target-arrow' },
         { label: isPT ? 'Regras de Merchandising'   : 'Merchandising Rules',  href: '/rules/merchandising', icon: 'ti-shirt' },
+        { label: isPT ? 'Familiaridade Tática'      : 'Tactical Familiarity', href: '/rules/tactical-systems', icon: 'ti-brain' },
       ],
     },
   ]

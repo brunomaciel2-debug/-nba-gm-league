@@ -17,6 +17,8 @@ import { resolvePlayoffSeries } from '@/lib/playoff-resolver'
 import { assignRefereesToScheduledGames, rateRefereePerformance } from '@/lib/referees'
 import { resolveMonthlyMerchandising } from '@/lib/merchandising'
 import { resolveAllStarWeekend } from '@/lib/allstar-resolver'
+import { resolveWeeklyTacticalDevelopment, getAllTeamsTacticalState } from '@/lib/tactical-resolver'
+import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
@@ -95,6 +97,21 @@ orderMap[c.team_id] = orderMap[c.team_id] || {}
 orderMap[c.team_id].cohesion = c.team_cohesion
 orderMap[c.team_id].composure = c.composure_coaching
 })
+
+// Tactical System Familiarity — weekly tech-tree fill/decay per team (see
+// src/lib/tactical-resolver.ts), then attach each team's CURRENT active
+// system's familiarity + mastered-node effects onto orderMap so they flow
+// into simP() the same way cohesion/composure do above.
+try {
+await resolveWeeklyTacticalDevelopment(week)
+const tacticalState = await getAllTeamsTacticalState()
+for (const teamId of Object.keys(orderMap)) {
+const activeSystem: OffSystem = orderMap[teamId]?.atk_style || 'motion'
+const progressByNodeId = tacticalState[teamId]?.[activeSystem] || {}
+orderMap[teamId].tacticalFamiliarity = computeFamiliarity(progressByNodeId, activeSystem)
+orderMap[teamId].tacticalMods = computeTacticalMods(progressByNodeId, activeSystem)
+}
+} catch (tacticalErr) { console.warn('Tactical development resolution failed:', tacticalErr) }
 
 // Conference standings — used to detect "decisive" games. Playoffs/play-in
 // always count. In the regular season, this reflects the real Play-In
