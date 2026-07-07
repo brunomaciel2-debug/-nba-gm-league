@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { getTeamLang, notifDraftPickResult, notifDraftConfirmExpired, notifRookieOptionAutoDeclined } from './notifications-helpers'
-import { NEXT_DRAFT, rookieYear1Salary } from './draft-constants'
+import { rookieYear1Salary } from './draft-constants'
+import { getNextDraftSeason, getPlayoffFinishOrder } from './draft-lottery'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -26,6 +27,7 @@ const SHARED_ATTRS = [
 // list (draft_orders), falls back to a random pick if a team never submitted or
 // their list runs out, and converts the chosen prospect into a real player row.
 export async function resolveDraftRound(round: 1 | 2, force: boolean): Promise<{ resolved: number, alreadyDone?: boolean }> {
+  const NEXT_DRAFT = await getNextDraftSeason()
   const { data: picks } = await admin
     .from('draft_picks')
     .select('id,team_id,original_team_id,status')
@@ -50,17 +52,22 @@ export async function resolveDraftRound(round: 1 | 2, force: boolean): Promise<{
   const teamMap: Record<string, any> = {}
   ;(teamsData || []).forEach((t: any) => { teamMap[t.id] = t })
 
-  // Round 1 order comes from the real Draft Lottery (src/lib/draft-lottery.ts)
-  // when it has run — only the top 4 picks are actually shuffled by the
-  // weighted draw, so most of the order still tracks the standings closely.
-  // Falls back to plain worst-record-first (identical to the Mock Draft
-  // preview) if the lottery hasn't resolved yet, so this never regresses.
+  // Round 1 order combines two real NBA mechanisms: the Draft Lottery
+  // (src/lib/draft-lottery.ts) sets picks 1-14 for the non-playoff teams —
+  // only the top 4 are actually shuffled by the weighted draw, so most of
+  // that order still tracks the standings closely — and the 16 playoff
+  // teams fill picks 15-30 by furthest elimination round reached (the
+  // champion always picks 30th/last), via getPlayoffFinishOrder(). Falls
+  // back to plain worst-record-first (identical to the Mock Draft preview)
+  // for whichever half's data isn't ready yet, so this never regresses.
   let pickNumberByTeam: Record<string, number> | null = null
   if (round === 1) {
     const { data: lotteryRows } = await admin.from('draft_lottery_results').select('team_id,resulting_pick').eq('season', NEXT_DRAFT)
-    if (lotteryRows?.length) {
+    const finishOrder = await getPlayoffFinishOrder()
+    if (lotteryRows?.length || Object.keys(finishOrder).length) {
       pickNumberByTeam = {}
-      lotteryRows.forEach((r: any) => { pickNumberByTeam![r.team_id] = r.resulting_pick })
+      lotteryRows?.forEach((r: any) => { pickNumberByTeam![r.team_id] = r.resulting_pick })
+      Object.entries(finishOrder).forEach(([teamId, rank]) => { pickNumberByTeam![teamId] = 14 + rank })
     }
   }
 

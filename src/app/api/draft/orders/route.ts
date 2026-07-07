@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { isDraftSubmissionOpen } from '@/lib/season-week-helper'
-import { NEXT_DRAFT } from '@/lib/draft-constants'
+import { getNextDraftSeason } from '@/lib/draft-lottery'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
 
   const { data: gm } = await admin.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
   if (!gm?.team_id) return NextResponse.json({ error: 'No team assigned' }, { status: 403 })
+  const NEXT_DRAFT = await getNextDraftSeason()
 
   const { round, rankedProspectIds } = await req.json()
   if (![1, 2].includes(round)) return NextResponse.json({ error: 'Invalid round' }, { status: 400 })
@@ -56,6 +57,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
   const { data: gm } = await admin.from('gm_profiles').select('team_id').eq('id', user.id).single()
   if (!gm?.team_id) return NextResponse.json({ error: 'No team' }, { status: 403 })
+  const NEXT_DRAFT = await getNextDraftSeason()
 
   const round = Number(req.nextUrl.searchParams.get('round'))
   const { data } = await admin.from('draft_orders').select('*').eq('team_id', gm.team_id).eq('season', NEXT_DRAFT).eq('round', round).maybeSingle()

@@ -5,7 +5,11 @@
 // cap this game is built around. Every number here is a flat, pre-decided
 // dollar figure looked up by pick number, nothing computed at signing time.
 
-export const NEXT_DRAFT = '2027' // draft class season — bump this once the 2027 class is actually drafted
+// Fallback default only — the real, current value lives in the
+// `draft_config` table (see getNextDraftSeason()/setNextDraftSeason() in
+// draft-lottery.ts) and updates automatically every time a new Draft Class
+// is uploaded through /admin/draft-class, no code change ever needed.
+export const DEFAULT_DRAFT_SEASON = '2027'
 
 function linearScale(highPick1: number, lowPick30: number): number[] {
   const arr: number[] = []

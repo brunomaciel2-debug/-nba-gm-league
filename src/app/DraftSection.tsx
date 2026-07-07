@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
-import { NEXT_DRAFT } from '@/lib/draft-constants'
 import { isDraftSubmissionOpen } from '@/lib/season-week-helper'
 
 function ScrollTable({ children }: { children: React.ReactNode }) {
@@ -98,6 +97,12 @@ export default function DraftSection() {
   const [boardMsg,setBoardMsg]=useState('')
 
   useEffect(()=>{
+    // NEXT_DRAFT used to be a hardcoded constant — now it lives in
+    // draft_config (updated automatically whenever a new Draft Class is
+    // uploaded through /admin/draft-class), so the client reads it with a
+    // plain query, same as any other config row.
+    supabase.from('draft_config').select('next_draft_season').eq('id',1).maybeSingle().then(({data:dc})=>{
+    const NEXT_DRAFT = dc?.next_draft_season || '2027'
     supabase.auth.getUser().then(async({data:{user}})=>{
       if(!user)return
       const{data:gm}=await supabase.from('gm_profiles').select('role,team_id').eq('id',user.id).single()
@@ -134,6 +139,7 @@ export default function DraftSection() {
       setStandings([...(t||[])].sort((a,b)=>a.wins-b.wins||b.losses-a.losses))
       const map:Record<string,any>={};for(const team of(t||[]))map[team.id]=team;setTeams(map)
       setResults(r||[]); setDraftPicks(dp||[]); setLotteryResults(lot||[]); setLoading(false)
+    })
     })
   },[])
 

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { resolveOffers } from '@/lib/resolve-offers-core'
 import { resolveStaffOffers } from '@/lib/resolve-staff-offers-core'
 import { resolveFreeAgencyMarket } from '@/lib/resolve-free-agency-core'
 import { resolveDraftRound, sweepExpiredDraftConfirmations, sweepExpiredRookieOptions } from '@/lib/draft-resolver'
-import { resolveDraftLottery } from '@/lib/draft-lottery'
+import { resolveDraftLottery, resolveDraftClassReminder } from '@/lib/draft-lottery'
+
+const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 // Vercel's Hobby plan only allows 2 recurring cron jobs total, so every
 // "resolve pending decisions" concern in the app (flat-rate FA pickups,
@@ -24,7 +27,12 @@ async function runAll() {
   const draftRound2 = await resolveDraftRound(2, false)
   const confirmSweep = await sweepExpiredDraftConfirmations()
   const optionSweep = await sweepExpiredRookieOptions()
-  return { offers, staffOffers, freeAgency, lottery, draftRound1, draftRound2, confirmSweep, optionSweep }
+
+  const { data: cfg } = await admin.from('season_config').select('current_week').eq('id', 1).single()
+  const currentWeek = (cfg?.current_week || 0) + 1
+  const draftClassReminder = await resolveDraftClassReminder(currentWeek)
+
+  return { offers, staffOffers, freeAgency, lottery, draftRound1, draftRound2, confirmSweep, optionSweep, draftClassReminder }
 }
 
 export async function GET(req: NextRequest) {
