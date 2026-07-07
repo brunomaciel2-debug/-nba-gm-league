@@ -16,6 +16,7 @@ import { resolveSummerLeague } from '@/lib/summer-league'
 import { resolvePlayoffSeries } from '@/lib/playoff-resolver'
 import { assignRefereesToScheduledGames, rateRefereePerformance } from '@/lib/referees'
 import { resolveMonthlyMerchandising } from '@/lib/merchandising'
+import { resolveAllStarWeekend } from '@/lib/allstar-resolver'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
@@ -981,6 +982,15 @@ try {
 const merchResult = await resolveMonthlyMerchandising(week)
 console.log(`Merchandising resolved: ${merchResult.players} players, ${merchResult.teams} teams with revenue`)
 } catch (merchErr) { console.warn('Merchandising resolution failed:', merchErr) }
+
+// ── ALL-STAR WEEKEND ─────────────────────────────────
+// Self-guarded (checks current week + allstar_config.roster_announced
+// internally) — safe to call every week, only actually resolves once, right
+// after voting closes. See src/lib/allstar-resolver.ts.
+try {
+const asResult = await resolveAllStarWeekend()
+if (!asResult.skipped) console.log(`All-Star Weekend resolved: ${asResult.total} roster spots, ${asResult.auto_votes} auto-votes`)
+} catch (asErr) { console.warn('All-Star Weekend resolution failed:', asErr) }
 }
 
 if (isEndOfSeason) {

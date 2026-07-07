@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
+import { VOTING_OPENS_WEEK, VOTING_CLOSES_WEEK, ALLSTAR_WEEK, minGamesByWeek, expectedGamesByWeek } from '@/lib/allstar-constants'
 
 const POSITIONS = ['PG','SG','SF','PF','C']
 const CONFS = ['Eastern','Western']
@@ -21,8 +22,8 @@ export default function AllStarPage() {
   const [tab,       setTab]       = useState<'vote'|'results'>('vote')
   const [roster,    setRoster]    = useState<any[]>([])
 
-  const VOTING_OPENS  = 11
-  const VOTING_CLOSES = 12
+  const VOTING_OPENS  = VOTING_OPENS_WEEK
+  const VOTING_CLOSES = VOTING_CLOSES_WEEK
 
   useEffect(() => {
     const load = async () => {
@@ -31,7 +32,7 @@ export default function AllStarPage() {
           supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast)').eq('status','active'),
           supabase.from('teams').select('id,name,conference,color,logo_url').not('id','in','(ALL,RVS)'),
           supabase.from('season_config').select('current_week').eq('id',1).single(),
-          supabase.from('allstar_roster').select('*, players(name,pos,photo_url,team_id)').eq('season','2025-26'),
+          supabase.from('allstar_roster').select('*, players!allstar_roster_player_id_fkey(name,pos,photo_url,team_id)').eq('season','2025-26'),
         ])
         if(r1.status==='fulfilled'&&r1.value.data)setPlayers(r1.value.data)
         if(r2.status==='fulfilled'&&r2.value.data)setTeams(Object.fromEntries(r2.value.data.map((t:any)=>[t.id,t])))
@@ -46,8 +47,8 @@ export default function AllStarPage() {
   const votingOpen   = curWeek >= VOTING_OPENS && curWeek <= VOTING_CLOSES
   const votingClosed = curWeek >  VOTING_CLOSES
   const announced    = roster.length > 0
-  const expectedGames = Math.max(1, Math.round((Math.min(curWeek,13)/26)*82))
-  const minGames = curWeek===0 ? 0 : Math.floor(expectedGames*0.75)
+  const minGames = minGamesByWeek(curWeek)
+  const expectedGames = expectedGamesByWeek(curWeek)
 
   const confPlayers = (conf:string, pos:string) =>
     players.filter(p=>{
@@ -88,7 +89,7 @@ export default function AllStarPage() {
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold mb-1" style={{color:'#b45309'}}>⭐ {isPT?'All-Star Weekend 2025-26':'All-Star Weekend 2025-26'}</h1>
-            <p className="text-sm" style={{color:'#8a6a00'}}>{isPT?'Semana 14 · Caloiros vs Veteranos (Sáb) · Este vs Oeste (Dom)':'Week 14 · Rookies vs Sophomores (Sat) · East vs West (Sun)'}</p>
+            <p className="text-sm" style={{color:'#8a6a00'}}>{isPT?`Semana ${ALLSTAR_WEEK} · Caloiros vs Veteranos (Sáb) · Este vs Oeste (Dom)`:`Week ${ALLSTAR_WEEK} · Rookies vs Sophomores (Sat) · East vs West (Sun)`}</p>
           </div>
           <div className="text-right">
             {!ready?(
