@@ -80,6 +80,10 @@ TRUNCATE TABLE site_config CASCADE;
 TRUNCATE TABLE injury_types CASCADE;
 TRUNCATE TABLE player_interaction_types CASCADE;
 TRUNCATE TABLE season_config CASCADE;
+-- jersey_sales_reports/marketing_campaigns nao tem copia de seguranca (ficam
+-- sempre vazias no RESET, por desenho, tal como awards)
+TRUNCATE TABLE jersey_sales_reports CASCADE;
+TRUNCATE TABLE marketing_campaigns CASCADE;
 
 -- FASE 2: restaurar tudo a partir do Ponto de Origem
 INSERT INTO box_scores SELECT * FROM box_scores_preteste;

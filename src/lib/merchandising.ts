@@ -29,28 +29,54 @@ export function marketMultiplier(teamId: string): number {
 // their market multiplier has a real floor instead of being dragged down
 // by a small market the way a merely-very-good player's would be.
 const TRANSCENDENT_OVR = 93
-function effectiveMarketMultiplier(realOvr: number, teamId: string): number {
+export function effectiveMarketMultiplier(realOvr: number, teamId: string): number {
   const base = marketMultiplier(teamId)
   return realOvr >= TRANSCENDENT_OVR ? Math.max(base, 1.3) : base
 }
 
-// Jersey sales are real-world power-law distributed — a handful of
-// megastars account for most of the money, everyone else is a rounding
-// error. fame 40 -> ~$1.1K/mo (nobody buys the 12th man's jersey),
-// fame 70 -> ~$25K/mo (good starter), fame 85 -> ~$115K/mo (real star),
-// fame 97+ -> ~$400K+/mo (global superstar) — genuinely significant,
-// comparable to the ~$450K/mo the existing Finances projections already
-// use for ticket sales.
-export function jerseyRevenue(fame: number): number {
-  return Math.round(410 * Math.exp(0.1 * (fame - 30)))
+// Quality-driven star power — the PRIMARY, dominant driver of fame. This
+// league's best players cluster tightly in real_ovr 92-98, yet real-world
+// popularity spreads MUCH wider across that same narrow band (a 94-ovr
+// All-Star and a 98-ovr generational talent are not equally famous) — so
+// the curve steepens hard past 90, while staying gentle below it (a merely-
+// very-good starter, ~85 ovr, must never out-rank a genuine superstar, ~96
+// ovr, just because of a bigger market or a hotter recent week — quality is
+// the foundation, market/form/awards only modulate on top of it).
+function starPower(realOvr: number): number {
+  if (realOvr <= 55) return 0
+  if (realOvr <= 80) return (realOvr - 55) * 1.0
+  if (realOvr <= 90) return 25 + (realOvr - 80) * 2.0
+  if (realOvr <= 95) return 45 + (realOvr - 90) * 5.0
+  return 70 + (realOvr - 95) * 8.0
 }
 
-// Deserved monthly fame target — quality, recent form vs. the player's own
-// season average (same comparison already built for Power Rankings/morale,
-// generalized here), team win%, and a recent award bump — all of that
-// "star power" (except team win%) is scaled by real market size, since
-// that's specifically what makes a market big or small: how far a star's
-// name travels, not how good a bench player looks locally.
+// Jersey sales are real-world power-law distributed — a bench player is
+// background noise, a top-10-15 seller (Kawhi tier, fame ~75-85) moves a
+// few thousand to ~10K units/month, and a true global superstar (LeBron/
+// Curry/Wemby tier, fame ~90+) moves tens of thousands/month — in line
+// with real reported NBA jersey sales volumes.
+const UNITS_BASE = 3.6
+const UNITS_K = 0.095
+// The team's real NET cut per jersey sold (post manufacturer/league
+// royalty split — NOT the ~$120 retail price a fan pays), calibrated so a
+// superstar's jersey income is a serious but not absurd revenue stream
+// next to the ~$450K/mo the existing Finances projections use for tickets.
+const NET_REVENUE_PER_JERSEY = 14
+
+export function jerseyUnitsSold(fame: number): number {
+  return Math.round(UNITS_BASE * Math.exp(UNITS_K * fame))
+}
+export function jerseyRevenue(fame: number): number {
+  return jerseyUnitsSold(fame) * NET_REVENUE_PER_JERSEY
+}
+
+// Deserved monthly fame target — quality is the dominant term; recent form
+// vs. the player's own season average (same comparison already built for
+// Power Rankings/morale, generalized here), team win%, a recent award bump,
+// and market size all modulate it by a smaller amount on top — they can
+// push a great player further into stardom or hold a modest one back a
+// little, but they can never flip the ranking between two players of
+// clearly different quality tiers.
 //
 // fame is a HIDDEN attribute (never shown to the GM directly — only its
 // real-world effect, jersey sales, is observable) and moves in small,
@@ -61,13 +87,26 @@ export function fameTarget(opts: {
   realOvr: number, recentAvgPts: number | null, seasonAvgPts: number | null,
   winPct: number, hasRecentAward: boolean, marketMultiplier: number,
 }): number {
-  let starBonus = Math.max(0, opts.realOvr - 60) * 1.1
+  const base = starPower(opts.realOvr)
+  let modul = 0
   if (opts.recentAvgPts != null && opts.seasonAvgPts != null && opts.seasonAvgPts >= 2) {
-    starBonus += Math.max(-10, Math.min(10, (opts.recentAvgPts / opts.seasonAvgPts - 1) * 25))
+    modul += Math.max(-6, Math.min(6, (opts.recentAvgPts / opts.seasonAvgPts - 1) * 15))
   }
-  if (opts.hasRecentAward) starBonus += 12
-  const target = 20 + starBonus * opts.marketMultiplier + (opts.winPct - 0.5) * 12
-  return Math.max(5, Math.min(99, target))
+  if (opts.hasRecentAward) modul += 6
+  modul += (opts.winPct - 0.5) * 6
+  const marketBonus = (opts.marketMultiplier - 1) * base * 0.25
+  const target = 8 + base + marketBonus + modul
+  return Math.max(3, Math.min(99, target))
+}
+
+// Initial seed — same formula as the monthly target, evaluated with neutral
+// inputs (no form/award/win-record data yet). Kept as one shared formula so
+// the day-one fame value and the ongoing drift target can never diverge.
+export function initialFame(realOvr: number, teamMarketMultiplier: number): number {
+  return Math.round(fameTarget({
+    realOvr, recentAvgPts: null, seasonAvgPts: null, winPct: 0.5,
+    hasRecentAward: false, marketMultiplier: teamMarketMultiplier,
+  }))
 }
 
 // Residual monthly movement — deliberately slow. A single great or bad
@@ -102,6 +141,18 @@ function resolveCampaignSalesBoost(campaign: any, hadGamesThisMonth: boolean, st
 // cron/simulate/route.ts), and notifies each team of the month's top seller.
 export async function resolveMonthlyMerchandising(week: number): Promise<{ teams: number, players: number }> {
   const monthNum = Math.floor(week / 4)
+
+  // Idempotency guard — if this month was already resolved (e.g. the cron
+  // fired twice), bail out instead of double-posting revenue to every team's
+  // balance. This was a real bug: month 4 was processed twice and credited
+  // every team's jersey revenue in duplicate before this guard existed.
+  const { count: alreadyDone } = await supabaseAdmin.from('jersey_sales_reports')
+    .select('id', { count: 'exact', head: true }).eq('season', SEASON).eq('month_num', monthNum)
+  if (alreadyDone && alreadyDone > 0) {
+    console.log(`Merchandising for month ${monthNum} already resolved (${alreadyDone} reports) — skipping.`)
+    return { teams: 0, players: 0 }
+  }
+
   const monthStartWeek = (monthNum - 1) * 4 + 1
   const monthEndWeek = monthNum * 4
 
@@ -170,7 +221,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
     const newFame = Math.round(Math.max(0, Math.min(100, (p.fame ?? 50) + (target - (p.fame ?? 50)) * DRIFT_RATE)))
     playerFameUpdates.push({ id: p.id, fame: newFame })
 
-    let revenue = jerseyRevenue(newFame)
+    let units = jerseyUnitsSold(newFame)
     let campaignNote: string | null = null
 
     // A campaign only resolves if it actually started THIS month (a fresh
@@ -184,12 +235,12 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
         ? recentAvgPts >= seasonAvgPts * 0.9
         : true
       const { multiplier, status, note } = resolveCampaignSalesBoost(campaign, hadGamesThisMonth, stillGood)
-      revenue = Math.round(revenue * multiplier)
+      units = Math.round(units * multiplier)
       campaignNote = note
       campaignUpdates.push({ id: campaign.id, status, result_note: note })
     }
 
-    const units = Math.round(revenue / 35)
+    const revenue = units * NET_REVENUE_PER_JERSEY
     reportRows.push({
       season: SEASON, month_num: monthNum, team_id: p.team_id, player_id: p.id,
       units_sold: units, revenue, fame_at_time: newFame, campaign_note: campaignNote,
