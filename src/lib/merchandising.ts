@@ -34,6 +34,37 @@ export function effectiveMarketMultiplier(realOvr: number, teamId: string): numb
   return realOvr >= TRANSCENDENT_OVR ? Math.max(base, 1.3) : base
 }
 
+// Jersey sales are online/national reach (already the whole premise of this
+// system) — for an international player that reach extends to a home
+// country that often follows him more intensely than the NBA's own US fans
+// do (Doncic in Slovenia, Jokic in Serbia, Giannis in Greece — basketball
+// is close to a national religion in these places). This is a REAL, distinct
+// driver from US team market size, so it applies on top of it, not instead
+// of it. Tiered by real basketball culture/passion relative to population,
+// not just country size — a huge but basketball-indifferent nation gets
+// nothing here, a small basketball-mad one gets a big multiplier.
+const NATIONALITY_BOOST: Record<string, number> = {
+  'Slovenia': 1.4, 'Serbia': 1.3, 'Lithuania': 1.3, 'Greece': 1.3, 'Latvia': 1.3,
+  'Montenegro': 1.25, 'Canada': 1.25, 'France': 1.2, 'Croatia': 1.2, 'Japan': 1.2,
+  'Turkey': 1.15, 'Spain': 1.15, 'Australia': 1.15, 'Germany': 1.15,
+  'Cameroon': 1.15, 'Nigeria': 1.15, 'Dominican Republic': 1.15, 'Puerto Rico': 1.15, 'Argentina': 1.15,
+  'Senegal': 1.1, 'Bahamas': 1.1, 'Italy': 1.1, 'Israel': 1.1, 'Brazil': 1.1,
+  'Great Britain': 1.05, 'New Zealand': 1.05, 'Georgia': 1.05, 'Czech Republic': 1.05, 'Finland': 1.05,
+}
+// Real player data uses a few different spellings for the same country
+// (e.g. seeded from different sources at different times) — normalize the
+// known ones so the boost still applies regardless of which spelling a
+// given player record happens to use.
+const NATIONALITY_ALIASES: Record<string, string> = {
+  'Dominican Rep.': 'Dominican Republic',
+  'England': 'Great Britain', 'United Kingdom': 'Great Britain',
+}
+export function nationalityMultiplier(nationality: string | null | undefined): number {
+  if (!nationality) return 1.0
+  const canonical = NATIONALITY_ALIASES[nationality] || nationality
+  return NATIONALITY_BOOST[canonical] || 1.0
+}
+
 // Quality-driven star power — the PRIMARY, dominant driver of fame. This
 // league's best players cluster tightly in real_ovr 92-98, yet real-world
 // popularity spreads MUCH wider across that same narrow band (a 94-ovr
@@ -85,7 +116,7 @@ export function jerseyRevenue(fame: number): number {
 // consistency over many months, same as in real life.
 export function fameTarget(opts: {
   realOvr: number, recentAvgPts: number | null, seasonAvgPts: number | null,
-  winPct: number, hasRecentAward: boolean, marketMultiplier: number,
+  winPct: number, hasRecentAward: boolean, marketMultiplier: number, nationalityMultiplier?: number,
 }): number {
   const base = starPower(opts.realOvr)
   let modul = 0
@@ -94,7 +125,12 @@ export function fameTarget(opts: {
   }
   if (opts.hasRecentAward) modul += 6
   modul += (opts.winPct - 0.5) * 6
-  const marketBonus = (opts.marketMultiplier - 1) * base * 0.25
+  // Market (US team reach) and nationality (home-country reach) are
+  // distinct, independent audiences, so they combine multiplicatively —
+  // a small-market player with a huge home-country following (or vice
+  // versa) still gets real credit for the audience he does have.
+  const reachMultiplier = opts.marketMultiplier * (opts.nationalityMultiplier || 1)
+  const marketBonus = (reachMultiplier - 1) * base * 0.25
   const target = 8 + base + marketBonus + modul
   return Math.max(3, Math.min(99, target))
 }
@@ -102,10 +138,10 @@ export function fameTarget(opts: {
 // Initial seed — same formula as the monthly target, evaluated with neutral
 // inputs (no form/award/win-record data yet). Kept as one shared formula so
 // the day-one fame value and the ongoing drift target can never diverge.
-export function initialFame(realOvr: number, teamMarketMultiplier: number): number {
+export function initialFame(realOvr: number, teamMarketMultiplier: number, nationalityMult: number = 1): number {
   return Math.round(fameTarget({
     realOvr, recentAvgPts: null, seasonAvgPts: null, winPct: 0.5,
-    hasRecentAward: false, marketMultiplier: teamMarketMultiplier,
+    hasRecentAward: false, marketMultiplier: teamMarketMultiplier, nationalityMultiplier: nationalityMult,
   }))
 }
 
@@ -157,7 +193,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
   const monthEndWeek = monthNum * 4
 
   const { data: players } = await supabaseAdmin.from('players')
-    .select('id,name,team_id,real_ovr,fame').eq('status', 'active').not('team_id', 'is', null)
+    .select('id,name,team_id,real_ovr,fame,nationality').eq('status', 'active').not('team_id', 'is', null)
   if (!players?.length) return { teams: 0, players: 0 }
   const playerIds = players.map((p: any) => p.id)
 
@@ -217,6 +253,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
     const target = fameTarget({
       realOvr: p.real_ovr || 70, recentAvgPts, seasonAvgPts, winPct, hasRecentAward,
       marketMultiplier: effectiveMarketMultiplier(p.real_ovr || 70, p.team_id),
+      nationalityMultiplier: nationalityMultiplier(p.nationality),
     })
     const newFame = Math.round(Math.max(0, Math.min(100, (p.fame ?? 50) + (target - (p.fame ?? 50)) * DRIFT_RATE)))
     playerFameUpdates.push({ id: p.id, fame: newFame })
