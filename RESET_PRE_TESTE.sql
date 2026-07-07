@@ -44,6 +44,9 @@ TRUNCATE TABLE fa_market_offers CASCADE;
 TRUNCATE TABLE draft_picks CASCADE;
 TRUNCATE TABLE draft_orders CASCADE;
 TRUNCATE TABLE draft_results CASCADE;
+-- draft_lottery_results nao tem copia de seguranca (fica sempre vazia no
+-- RESET, por desenho, tal como awards/jersey_sales_reports)
+TRUNCATE TABLE draft_lottery_results CASCADE;
 TRUNCATE TABLE prospects CASCADE;
 TRUNCATE TABLE training_slots CASCADE;
 TRUNCATE TABLE tactical_familiarity CASCADE;

@@ -28,7 +28,7 @@ function ScrollTable({ children }: { children: React.ReactNode }) {
   )
 }
 
-type DraftTab = 'class'|'mock'|'results'|'board'
+type DraftTab = 'class'|'lottery'|'mock'|'results'|'board'
 const POS_COLOR: Record<string,string> = {PG:'#1d4ed8',SG:'#6d28d9',SF:'#15803d',PF:'#b45309',C:'#dc2626'}
 const POSITIONS = ['All','PG','SG','SF','PF','C']
 const TOOLTIPS_EN: Record<string,string> = {
@@ -75,6 +75,7 @@ export default function DraftSection() {
   const [prospects,setProspects]=useState<any[]>([])
   const [standings,setStandings]=useState<any[]>([])
   const [results,setResults]=useState<any[]>([])
+  const [lotteryResults,setLotteryResults]=useState<any[]>([])
   const [teams,setTeams]=useState<Record<string,any>>({})
   const [draftPicks,setDraftPicks]=useState<any[]>([])
   const [loading,setLoading]=useState(true)
@@ -127,11 +128,12 @@ export default function DraftSection() {
       supabase.from('teams').select('id,name,logo_url,color,wins,losses').not('id','in','(ALL,RVS,ROO,SOP)'),
       supabase.from('draft_results').select('*, prospects(*), teams(id,name,logo_url,color)').eq('season',NEXT_DRAFT).order('pick_number'),
       supabase.from('draft_picks').select('*').eq('season',NEXT_DRAFT).eq('round',1).eq('status','owned'),
-    ]).then(([{data:p},{data:t},{data:r},{data:dp}])=>{
+      supabase.from('draft_lottery_results').select('*').eq('season',NEXT_DRAFT).order('resulting_pick'),
+    ]).then(([{data:p},{data:t},{data:r},{data:dp},{data:lot}])=>{
       setProspects(p||[])
       setStandings([...(t||[])].sort((a,b)=>a.wins-b.wins||b.losses-a.losses))
       const map:Record<string,any>={};for(const team of(t||[]))map[team.id]=team;setTeams(map)
-      setResults(r||[]); setDraftPicks(dp||[]); setLoading(false)
+      setResults(r||[]); setDraftPicks(dp||[]); setLotteryResults(lot||[]); setLoading(false)
     })
   },[])
 
@@ -184,6 +186,7 @@ export default function DraftSection() {
 
   const TABS = [
     {key:'class',   labelEN:'🎓 Draft Class',    labelPT:'🎓 Classe do Draft'},
+    {key:'lottery', labelEN:'🎱 Lottery',         labelPT:'🎱 Lottery'},
     {key:'mock',    labelEN:'📊 Mock Draft',      labelPT:'📊 Simulação de Draft'},
     {key:'results', labelEN:'🏆 Draft Results',   labelPT:'🏆 Resultados do Draft'},
     ...(!isCommissioner&&myTeamId?[{key:'board',labelEN:'📋 My Draft Board',labelPT:'📋 O Meu Quadro de Escolhas'}]:[]),
@@ -343,6 +346,54 @@ export default function DraftSection() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+
+          {tab==='lottery'&&(
+            <div>
+              {lotteryResults.length===0?(
+                <div className="rounded-2xl p-12 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
+                  <div className="text-5xl mb-4">🎱</div>
+                  <h3 className="text-lg font-black mb-2" style={{color:'#1a1512'}}>{isPT?'Sorteio Ainda Não Realizado':'Lottery Not Yet Drawn'}</h3>
+                  <p className="text-sm" style={{color:'#6b5f4e'}}>{isPT?'O sorteio das 14 equipas fora dos playoffs acontece assim que os playoffs terminam — antes da Ronda 1 do draft.':"The draw for the 14 non-playoff teams happens right after the playoffs finish — before Round 1 of the draft."}</p>
+                </div>
+              ):(
+                <>
+                  <div className="mb-4 p-3 rounded-lg text-xs" style={{background:'#faf8f5',border:'1px solid #d4cdc5',color:'#5c554e',lineHeight:1.6}}>
+                    🎱 {isPT
+                      ? 'Formato real da NBA desde 2019: as 3 piores equipas têm todas 14.0% de hipótese na 1ª escolha. Só as escolhas #1-4 são sorteadas — as restantes seguem a ordem de partida, por isso nenhuma equipa desce mais de 4 lugares.'
+                      : "Real NBA format since 2019: the 3 worst teams all share a 14.0% chance at the #1 pick. Only picks #1-4 are actually drawn — the rest follow the starting order, so no team ever falls more than 4 spots."}
+                  </div>
+                  <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
+                          {[isPT?'Escolha':'Pick',isPT?'Equipa':'Team',isPT?'Lugar de Partida':'Starting Seed',isPT?'Odds (1ª escolha)':'Odds (1st pick)'].map((h,i)=>(
+                            <th key={h} className={`px-3 py-2.5 font-bold text-xs ${i<=1?'text-left':'text-right'}`} style={{color:'#5c554e'}}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lotteryResults.map((r,i)=>{
+                          const team=teams[r.team_id]
+                          const movedUp=r.resulting_pick<r.original_seed
+                          const movedDown=r.resulting_pick>r.original_seed
+                          return (
+                            <tr key={r.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                              <td className="px-3 py-2.5 font-black text-sm" style={{color:'#b45309'}}>{r.resulting_pick}</td>
+                              <td className="px-3 py-2.5"><div className="flex items-center gap-2">{team?.logo_url&&<img src={team.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}<span className="text-xs font-semibold" style={{color:'#1a1512'}}>{team?.name}</span></div></td>
+                              <td className="px-3 py-2.5 text-left text-xs" style={{color:'#6b5f4e'}}>
+                                #{r.original_seed}{movedUp&&<span className="ml-1.5 font-bold" style={{color:'#15803d'}}>▲</span>}{movedDown&&<span className="ml-1.5 font-bold" style={{color:'#dc2626'}}>▼</span>}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-xs font-semibold" style={{color:'#5c554e'}}>{Number(r.odds_pct).toFixed(1)}%</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

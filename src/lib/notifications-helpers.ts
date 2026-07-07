@@ -147,6 +147,16 @@ export function notifDraftPickResult(lang: 'en'|'pt', prospectName: string, pick
   }
 }
 
+export function notifDraftLotteryResult(lang: 'en'|'pt', pickNumber: number, originalSeed: number, oddsPct: number) {
+  const movedUp = pickNumber < originalSeed
+  return {
+    subject: lang === 'pt' ? `🎱 Draft Lottery — vais escolher em #${pickNumber}` : `🎱 Draft Lottery — you'll pick #${pickNumber}`,
+    body: lang === 'pt'
+      ? `O sorteio da draft foi realizado. Tinhas ${oddsPct.toFixed(1)}% de hipótese na 1ª escolha (lugar de partida: #${originalSeed}) e vais escolher na posição #${pickNumber}.${movedUp ? ' Subiste na ordem — sorte tua!' : pickNumber > originalSeed ? ' Desceste alguns lugares em relação ao teu lugar de partida.' : ' Ficaste exatamente no teu lugar de partida.'}`
+      : `The draft lottery has been drawn. You had a ${oddsPct.toFixed(1)}% chance at the #1 pick (starting position #${originalSeed}), and you'll pick #${pickNumber}.${movedUp ? " You moved up — lucky draw!" : pickNumber > originalSeed ? ' You slid down a few spots from your starting position.' : ' You stayed exactly at your starting position.'}`,
+  }
+}
+
 export function notifDraftConfirmExpired(lang: 'en'|'pt', name: string) {
   return {
     subject: lang === 'pt' ? `⏰ Prazo expirado — ${name}` : `⏰ Confirmation window expired — ${name}`,

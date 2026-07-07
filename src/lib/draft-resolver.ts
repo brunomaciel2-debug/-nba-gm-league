@@ -50,8 +50,28 @@ export async function resolveDraftRound(round: 1 | 2, force: boolean): Promise<{
   const teamMap: Record<string, any> = {}
   ;(teamsData || []).forEach((t: any) => { teamMap[t.id] = t })
 
-  // Worst record picks first — identical sort to the Mock Draft preview.
+  // Round 1 order comes from the real Draft Lottery (src/lib/draft-lottery.ts)
+  // when it has run — only the top 4 picks are actually shuffled by the
+  // weighted draw, so most of the order still tracks the standings closely.
+  // Falls back to plain worst-record-first (identical to the Mock Draft
+  // preview) if the lottery hasn't resolved yet, so this never regresses.
+  let pickNumberByTeam: Record<string, number> | null = null
+  if (round === 1) {
+    const { data: lotteryRows } = await admin.from('draft_lottery_results').select('team_id,resulting_pick').eq('season', NEXT_DRAFT)
+    if (lotteryRows?.length) {
+      pickNumberByTeam = {}
+      lotteryRows.forEach((r: any) => { pickNumberByTeam![r.team_id] = r.resulting_pick })
+    }
+  }
+
   const sortedPicks = [...ownedPicks].sort((a: any, b: any) => {
+    if (pickNumberByTeam) {
+      const pa = pickNumberByTeam[a.original_team_id], pb = pickNumberByTeam[b.original_team_id]
+      // Lottery only covers the 14 non-playoff teams — playoff teams (picks
+      // 15-30) have no lottery row, so they fall back to worst-record-first
+      // among themselves, same as before.
+      if (pa != null || pb != null) return (pa ?? 999) - (pb ?? 999)
+    }
     const ta = teamMap[a.original_team_id], tb = teamMap[b.original_team_id]
     return ((ta?.wins ?? 0) - (tb?.wins ?? 0)) || ((tb?.losses ?? 0) - (ta?.losses ?? 0))
   })
