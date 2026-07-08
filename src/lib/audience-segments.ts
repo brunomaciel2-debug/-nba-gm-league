@@ -184,6 +184,38 @@ export const SLOT_VARIANT_KEYS: Record<string, string[]> = {
 
 export type ConcessionRevenueResult = { total: number, bySlot: Record<string, number> }
 
+// Variable cost of goods sold — restocking food/drink/merchandise from
+// suppliers, as a share of that slot's own real revenue (so it rises and
+// falls with actual consumption, which already varies by who's really in
+// the building that night — not a flat number). Food/drink runs a typical
+// ~28-35% cost-of-goods ratio; physical merchandise (jerseys, gear) runs
+// notably higher (~55%) since it's a manufactured good, not a markup on a
+// cheap ingredient. Fixed_per_game slots (suites/lounge/jumbotron/mascot)
+// are rental/advertising/experience fees, not goods sold — no COGS.
+export const COGS_RATE: Record<string, number> = {
+  food_stall_basic: 0.32,
+  food_stall_premium: 0.32,
+  bar: 0.28,
+  vending: 0.25,
+  restaurant_vip: 0.35,
+  franchise_store: 0.55,
+  fan_zone: 0.20,
+}
+
+// Real per-game supply cost — deducted alongside the concession revenue it's
+// tied to (see ConcessionRevenueResult.bySlot), same game, same cadence.
+export function computeConcessionSupplyCost(concessionRevenue: ConcessionRevenueResult): { total: number, bySlot: Record<string, number> } {
+  const bySlot: Record<string, number> = {}
+  let total = 0
+  for (const [slotId, revenue] of Object.entries(concessionRevenue.bySlot)) {
+    const rate = COGS_RATE[slotId]
+    if (!rate) continue // fixed_per_game slots: no COGS
+    bySlot[slotId] = Math.round(revenue * rate)
+    total += bySlot[slotId]
+  }
+  return { total, bySlot }
+}
+
 // Real per-game concession revenue — replaces ArenaBlueprint.tsx's client-side
 // estimate (which assumed a flat 13,000 fans regardless of the team's real
 // arena size or this game's actual attendance) with this game's real

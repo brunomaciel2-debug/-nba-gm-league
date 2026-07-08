@@ -11,19 +11,19 @@ type Transaction = {
 type Franchise = { balance: number }
 
 const CATEGORY_LABELS_EN: Record<string, string> = {
-  tickets:'Ticket Sales', concessions:'Concessions', suites:'Premium & Suites', sponsor:'Sponsors',
+  tickets:'Ticket Sales', concessions:'Concessions', supplies:'Concession Supplies', suites:'Premium & Suites', sponsor:'Sponsors',
   nba_subsidy:'NBA Subsidy', staff:'Coaching Staff', travel:'Away Travel', maintenance:'Facility Maintenance',
   operational:'Arena Staff', utilities:'Utilities', insurance:'Insurance', construction:'Construction',
   merchandise:'Jersey Sales', marketing:'Marketing Campaign', medical:'Medical Bill', other:'Other',
 }
 const CATEGORY_LABELS_PT: Record<string, string> = {
-  tickets:'Venda de Bilhetes', concessions:'Concessões', suites:'Camarotes Premium', sponsor:'Patrocínios',
+  tickets:'Venda de Bilhetes', concessions:'Concessões', supplies:'Reposição de Stock', suites:'Camarotes Premium', sponsor:'Patrocínios',
   nba_subsidy:'Subsídio NBA', staff:'Staff Técnico', travel:'Viagens Fora', maintenance:'Manutenção',
   operational:'Staff do Pavilhão', utilities:'Utilidades', insurance:'Seguros', construction:'Construção',
   merchandise:'Venda de Jerseys', marketing:'Campanha de Marketing', medical:'Despesas Médicas', other:'Outros',
 }
 const CATEGORY_ICONS: Record<string, string> = {
-  tickets:'🎟️', concessions:'🍔', suites:'⭐', sponsor:'🤝', nba_subsidy:'🏀',
+  tickets:'🎟️', concessions:'🍔', supplies:'📦', suites:'⭐', sponsor:'🤝', nba_subsidy:'🏀',
   staff:'👔', travel:'✈️', maintenance:'🔧', operational:'🏟️', utilities:'⚡',
   insurance:'🛡️', construction:'🏗️', merchandise:'👕', marketing:'📣', medical:'🏥', other:'📋',
 }

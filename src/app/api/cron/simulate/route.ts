@@ -21,7 +21,7 @@ import { resolveWeeklyTacticalDevelopment, getAllTeamsTacticalState } from '@/li
 import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 import { computeRosterQuality, normalizeRosterQuality } from '@/lib/roster-quality'
-import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
+import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, computeConcessionSupplyCost, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -287,9 +287,14 @@ concessionCounts[slotId] = variantKeys.reduce((s, k) => s + (homeConcessions[k] 
 }
 }
 const concessionResult = computeGameConcessionRevenue(attendanceResult.segments, concessionCounts)
-const totalGameRevenue = ticketRevenue + concessionResult.total
+// Variable cost of goods sold — restocking food/drink/merchandise, scaled
+// to this game's REAL concession revenue (which already reflects who's
+// actually in the building), not a flat number. Deducted the same game it's
+// earned, alongside monthly fixed utility costs (handled separately).
+const supplyCost = computeConcessionSupplyCost(concessionResult)
+const totalGameRevenue = ticketRevenue + concessionResult.total - supplyCost.total
 
-if (totalGameRevenue > 0) {
+if (totalGameRevenue !== 0) {
 const { data: fin } = await supabaseAdmin.from('franchise_finances').select('balance').eq('team_id', ht.id).single()
 if (fin) {
 await supabaseAdmin.from('franchise_finances').update({ balance: (fin.balance||0) + totalGameRevenue }).eq('team_id', ht.id)
@@ -301,6 +306,10 @@ description: `Ticket sales vs ${at.name}`, season: '2025-26', week_number: week,
 if (concessionResult.total > 0) rows.push({
 team_id: ht.id, type: 'revenue', category: 'concessions', amount: concessionResult.total,
 description: `Concessions vs ${at.name}`, season: '2025-26', week_number: week,
+})
+if (supplyCost.total > 0) rows.push({
+team_id: ht.id, type: 'expense', category: 'supplies', amount: supplyCost.total,
+description: `Concession supply restock vs ${at.name}`, season: '2025-26', week_number: week,
 })
 if (rows.length) await supabaseAdmin.from('franchise_transactions').insert(rows)
 }
