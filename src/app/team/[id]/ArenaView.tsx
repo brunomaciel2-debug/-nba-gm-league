@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
 import ArenaBlueprint from './ArenaBlueprint'
+import { getTeamSegmentMix, SEGMENTS } from '@/lib/audience-segments'
 
 type Section = { id:string, section:string, level:number, capacity:number, under_construction:boolean, construction_ends_at:string|null }
 type Config = { id:string, ticket_lower:number, ticket_upper:number, ticket_courtside:number, ticket_suite:number }
@@ -50,19 +51,22 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
   const [editTickets,setEditTickets] = useState(false)
   const [ticketDraft,setTicketDraft] = useState<Partial<Config>>({})
   const [tab,setTab]                 = useState<'sections'|'concessions'|'tickets'>('sections')
+  const [teamInfo,setTeamInfo]       = useState<{popularity:number}|null>(null)
 
   useEffect(()=>{
     Promise.all([
       supabase.from('arena_sections').select('*').eq('team_id',teamId),
       supabase.from('franchise_config').select('*').eq('team_id',teamId).single(),
       supabase.from('arena_concessions').select('*').eq('team_id',teamId).single(),
-    ]).then(([{data:s},{data:c},{data:co}])=>{
+      supabase.from('teams').select('popularity').eq('id',teamId).single(),
+    ]).then(([{data:s},{data:c},{data:co},{data:tm}])=>{
       const map:Record<string,Section>={}
       for(const sec of (s||[])) map[sec.section]=sec
       setSections(map)
       setConfig(c)
       setTicketDraft(c||{})
       setConcessions(co)
+      setTeamInfo(tm)
       setLoading(false)
     })
   },[teamId])
@@ -294,6 +298,7 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
           teamColor={teamColor}
           cash={cash}
           onBuild={handleBuildConcession}
+          estimatedAttendance={attendance}
         />
       )}
 
@@ -350,6 +355,32 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
                 ⚠️ {isPT?'Preços mais altos reduzem a assistência. Gere o equilíbrio entre receita e afluência de adeptos.':'Higher prices reduce attendance. Monitor the balance between revenue and fan turnout.'}
               </div>
             </div>
+
+            {teamInfo && (
+              <div style={{marginTop:14,background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12,padding:16}}>
+                <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#8a8279',marginBottom:10}}>
+                  {isPT?'Quem Está na Tua Arena':'Who\'s In Your Arena'}
+                </div>
+                {SEGMENTS.map(seg=>{
+                  const share = getTeamSegmentMix(teamId, teamInfo.popularity)[seg.id]
+                  const price = seg.tier==='lower'?config?.ticket_lower:seg.tier==='upper'?config?.ticket_upper:config?.ticket_courtside
+                  const priced_out = (price||0) > seg.comfortablePrice*2
+                  return (
+                    <div key={seg.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 0',borderBottom:'1px solid #e2dcd5'}}>
+                      <span style={{fontSize:11,flex:1,color:'#1a1512'}}>{seg.label}</span>
+                      <div style={{flex:2,height:6,background:'#e2dcd5',borderRadius:3,overflow:'hidden'}}>
+                        <div style={{width:`${Math.round(share*100)}%`,height:'100%',background:priced_out?'#dc2626':teamColor}}/>
+                      </div>
+                      <span style={{fontSize:10,fontWeight:700,color:'#5c554e',width:36,textAlign:'right'}}>{Math.round(share*100)}%</span>
+                      {priced_out && <span style={{fontSize:9,color:'#dc2626',fontWeight:700}}>{isPT?'excluído p/ preço':'priced out'}</span>}
+                    </div>
+                  )
+                })}
+                <div style={{fontSize:9,color:'#8a8279',marginTop:8,lineHeight:1.5}}>
+                  {isPT?'Quota de público esperada para este mercado. "Excluído p/ preço" significa que o preço atual do teu bilhete afasta esse público por completo.':'Expected audience share for this market. "Priced out" means your current ticket price puts that segment off entirely.'}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{padding:32,textAlign:'center',color:'#b0a89e',fontSize:13}}>

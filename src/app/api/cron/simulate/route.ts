@@ -21,6 +21,7 @@ import { resolveWeeklyTacticalDevelopment, getAllTeamsTacticalState } from '@/li
 import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 import { computeRosterQuality, normalizeRosterQuality } from '@/lib/roster-quality'
+import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -66,6 +67,17 @@ POR:19393,SAC:17583,SAS:18418,TOR:19800,UTA:18306,WAS:20356,
 const { data: orders } = await supabaseAdmin.from('gm_orders').select('*').eq('week_number', week)
 const orderMap: Record<string, any> = {}
 ;(orders||[]).forEach((o:any) => orderMap[o.team_id] = o)
+
+// Real arena economy — ticket prices + built concessions per team, used to
+// compute segmented attendance and post real per-game revenue below (see
+// src/lib/audience-segments.ts). Previously attendance ignored price
+// entirely and ticket/concession revenue was never posted anywhere.
+const { data: ticketConfigs } = await supabaseAdmin.from('franchise_config').select('*')
+const ticketConfigMap: Record<string, any> = {}
+;(ticketConfigs||[]).forEach((c:any) => ticketConfigMap[c.team_id] = c)
+const { data: allConcessions } = await supabaseAdmin.from('arena_concessions').select('*')
+const concessionsMap: Record<string, any> = {}
+;(allConcessions||[]).forEach((c:any) => concessionsMap[c.team_id] = c)
 
 // Referees are pre-assigned to scheduled games ahead of time (so they show
 // up on the calendar before the game is played) — see src/lib/referees.ts.
@@ -174,9 +186,23 @@ const htWinPct = (ht.wins||0) / Math.max(1, (ht.wins||0)+(ht.losses||0))
 // row somehow has no real scheduled_date) — this is what actually fixes
 // "every game in the marquee week gets the boost", not just the week label.
 const gMarquee = sg.scheduled_date ? getMarqueeInfoForDate(sg.scheduled_date, week) : marquee
-const baseAttRate = 0.65 + htWinPct * 0.20 + (isRivalry ? 0.08 : 0) + (gMarquee.marquee ? 0.15 : 0)
-const attRate = Math.min(0.98, baseAttRate + (Math.random() * 0.06 - 0.03))
-const attendance = Math.round((ht.arena_capacity || arenaCapacityMap[ht.id] || 18000) * attRate)
+// Real segmented audience model (src/lib/audience-segments.ts) — replaces
+// the old flat 0.65+winPct*0.20+... formula, which had zero price input (a
+// team could charge $1,000,000/ticket and still sell out). Same overall
+// win%/rivalry/marquee driver as before, now allocated across 4 fan
+// segments and gated by each segment's real price tolerance for the tier
+// they'd actually sit in — still collapses to one attRate/attendance number
+// so nothing downstream (simulateGame's crowd boost, etc.) needs to change.
+const ticketPrices = ticketConfigMap[ht.id] || { ticket_lower: 80, ticket_upper: 45, ticket_courtside: 500 }
+const attendanceResult = computeGameAttendance({
+teamId: ht.id, popularity: ht.popularity ?? 50,
+capacity: ht.arena_capacity || arenaCapacityMap[ht.id] || 18000,
+winPct: htWinPct, isRivalry, isMarquee: gMarquee.marquee,
+prices: { lower: ticketPrices.ticket_lower, upper: ticketPrices.ticket_upper, courtside: ticketPrices.ticket_courtside },
+randomJitter: Math.random() * 0.06 - 0.03,
+})
+const attendance = attendanceResult.attendance
+const attRate = attendanceResult.attRate
 const decisive = isPlayoffPhase || gMarquee.marquee || (inFightSet.has(ht.id) && inFightSet.has(at.id))
 
 // Genuine back-to-back detection, now that games carry a real scheduled_date:
@@ -245,6 +271,41 @@ is_triple_double: [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:numbe
 if (result.pbp.length > 0) {
 await supabaseAdmin.from('play_by_play').insert(result.pbp.map((p:any) => ({ ...p, game_id: gameRec.id })))
 }
+
+// Real per-game ticket + concession revenue — previously neither was ever
+// posted anywhere (the "$450K Ticket Sales"/"$0 Concessions" shown in
+// FinancesTab were hardcoded placeholders, identical for every team).
+try {
+const ticketRevenue = computeGameTicketRevenue(attendanceResult.segments, {
+lower: ticketPrices.ticket_lower, upper: ticketPrices.ticket_upper, courtside: ticketPrices.ticket_courtside,
+})
+const homeConcessions = concessionsMap[ht.id]
+const concessionCounts: Record<string, number> = {}
+if (homeConcessions) {
+for (const [slotId, variantKeys] of Object.entries(SLOT_VARIANT_KEYS)) {
+concessionCounts[slotId] = variantKeys.reduce((s, k) => s + (homeConcessions[k] || 0), 0)
+}
+}
+const concessionResult = computeGameConcessionRevenue(attendanceResult.segments, concessionCounts)
+const totalGameRevenue = ticketRevenue + concessionResult.total
+
+if (totalGameRevenue > 0) {
+const { data: fin } = await supabaseAdmin.from('franchise_finances').select('balance').eq('team_id', ht.id).single()
+if (fin) {
+await supabaseAdmin.from('franchise_finances').update({ balance: (fin.balance||0) + totalGameRevenue }).eq('team_id', ht.id)
+const rows = []
+if (ticketRevenue > 0) rows.push({
+team_id: ht.id, type: 'revenue', category: 'tickets', amount: ticketRevenue,
+description: `Ticket sales vs ${at.name}`, season: '2025-26', week_number: week,
+})
+if (concessionResult.total > 0) rows.push({
+team_id: ht.id, type: 'revenue', category: 'concessions', amount: concessionResult.total,
+description: `Concessions vs ${at.name}`, season: '2025-26', week_number: week,
+})
+if (rows.length) await supabaseAdmin.from('franchise_transactions').insert(rows)
+}
+}
+} catch (arenaRevErr) { console.warn('Arena revenue posting failed:', arenaRevErr) }
 
 // Update triple_doubles counter in player_stats
 const tdBox = [...result.homeBox, ...result.awayBox]

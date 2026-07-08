@@ -437,17 +437,22 @@ function SlotCard({slot,concessions,isGM,teamColor,cash,onBuild}:{
 
 const CAT_LABEL_PT: Record<string,string> = { food:'Comida', premium:'Premium', entertainment:'Entretenimento' }
 
-export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild}:{
+export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild,estimatedAttendance=13000}:{
   concessions:Concessions, isGM:boolean, teamColor:string, cash:number,
-  onBuild:(key:string,cost:number,monthly:number)=>void
+  onBuild:(key:string,cost:number,monthly:number)=>void, estimatedAttendance?:number
 }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
+  // Uses this team's real estimated attendance (passed in from ArenaView,
+  // derived from real arena capacity) instead of a flat assumed crowd size —
+  // this estimate now scales correctly for a 16,867-seat arena vs a
+  // 20,917-seat one, matching what actually gets posted to the balance
+  // sheet after each real game (see src/lib/audience-segments.ts).
   const totalRev = SLOTS.reduce((t,s)=>{
     const qty=s.variants.reduce((q,v)=>q+((concessions as any)[v.key]||0),0)
     if(!qty)return t
     if(s.fixed_per_game)return t+s.fixed_per_game*qty
-    return t+Math.round(13000*(s.adoption_rate/100)*s.avg_spend*qty)
+    return t+Math.round(estimatedAttendance*(s.adoption_rate/100)*s.avg_spend*qty)
   },0)
 
   const slot=(id:string)=>SLOTS.find(s=>s.id===id)!

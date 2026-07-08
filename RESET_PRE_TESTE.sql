@@ -48,6 +48,7 @@ TRUNCATE TABLE draft_results CASCADE;
 -- RESET, por desenho, tal como awards/jersey_sales_reports)
 TRUNCATE TABLE draft_lottery_results CASCADE;
 TRUNCATE TABLE draft_config CASCADE;
+TRUNCATE TABLE arena_audience_modifiers CASCADE;
 TRUNCATE TABLE prospects CASCADE;
 TRUNCATE TABLE training_slots CASCADE;
 TRUNCATE TABLE tactical_familiarity CASCADE;
@@ -129,6 +130,7 @@ INSERT INTO draft_picks SELECT * FROM draft_picks_preteste;
 INSERT INTO draft_orders SELECT * FROM draft_orders_preteste;
 INSERT INTO draft_results SELECT * FROM draft_results_preteste;
 INSERT INTO draft_config SELECT * FROM draft_config_preteste;
+INSERT INTO arena_audience_modifiers SELECT * FROM arena_audience_modifiers_preteste;
 INSERT INTO prospects SELECT * FROM prospects_preteste;
 INSERT INTO training_slots SELECT * FROM training_slots_preteste;
 INSERT INTO tactical_familiarity SELECT * FROM tactical_familiarity_preteste;
