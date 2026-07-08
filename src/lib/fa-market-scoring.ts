@@ -68,11 +68,22 @@ export function staffQualityScore(headCoach: CoachAttrs | null | undefined, assi
   return clamp(rating * 0.7 + (hasStar ? 100 : 0) * 0.3, 0, 100)
 }
 
-export function weightedOfferScore(components: { salaryScore: number, ambitionScore: number, popularityScore: number, staffQualityScore: number }): number {
+// Practice Facility grade's "FA bonus" (previously purely decorative —
+// grade B/A facilities promise free agents find the team more attractive,
+// but nothing ever read it). A direct, small addition on top of the 4
+// weighted factors above, not a reweighting of them — represents a real
+// but secondary allure (world-class training environment), same role the
+// franchise's popularity score already plays.
+export function facilityAttractivenessBonus(gymGradeFaBonus: number | null | undefined): number {
+  return gymGradeFaBonus || 0
+}
+
+export function weightedOfferScore(components: { salaryScore: number, ambitionScore: number, popularityScore: number, staffQualityScore: number, facilityBonus?: number }): number {
   return components.salaryScore * WEIGHT_SALARY
     + components.ambitionScore * WEIGHT_AMBITION
     + components.popularityScore * WEIGHT_POPULARITY
     + components.staffQualityScore * WEIGHT_STAFF
+    + (components.facilityBonus || 0)
 }
 
 // 1 day if there's no real competition (single offer, or a blowout win);

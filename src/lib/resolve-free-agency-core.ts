@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek } from './season-week-helper'
 import { getTeamLang, notifFAMarketWon, notifFAMarketLost } from './notifications-helpers'
-import { salaryScore, ambitionScore, popularityScore, staffQualityScore, weightedOfferScore, decisionDays } from './fa-market-scoring'
+import { salaryScore, ambitionScore, popularityScore, staffQualityScore, weightedOfferScore, decisionDays, facilityAttractivenessBonus } from './fa-market-scoring'
+import { getGymGradeBonus } from './facility-constants'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -42,13 +43,16 @@ export async function resolveFreeAgencyMarket(force: boolean) {
 
   // Batch-fetch every team/coach/roster involved once, instead of per-offer.
   const allTeamIds = Array.from(new Set(offers.map((o: any) => o.team_id)))
-  const [{ data: teamsData }, { data: coachesData }, { data: rosterData }] = await Promise.all([
+  const [{ data: teamsData }, { data: coachesData }, { data: rosterData }, { data: facilitiesData }] = await Promise.all([
     admin.from('teams').select('id,cap_used,elo,popularity').in('id', allTeamIds),
     admin.from('coaches').select('team_id,role,off_adjustment,def_adjustment,off_development,def_development,tactical_dev').in('team_id', allTeamIds),
     admin.from('players').select('id,team_id,real_ovr').in('team_id', allTeamIds).eq('status', 'active'),
+    admin.from('practice_facilities').select('team_id,gym_grade').in('team_id', allTeamIds),
   ])
   const teamMap: Record<string, any> = {}
   ;(teamsData || []).forEach((t: any) => { teamMap[t.id] = t })
+  const facilityFaBonusByTeam: Record<string, number> = {}
+  ;(facilitiesData || []).forEach((f: any) => { facilityFaBonusByTeam[f.team_id] = getGymGradeBonus(f.gym_grade).fa })
   const coachesByTeam: Record<string, any[]> = {}
   ;(coachesData || []).forEach((c: any) => { if (!coachesByTeam[c.team_id]) coachesByTeam[c.team_id] = []; coachesByTeam[c.team_id].push(c) })
   const rosterCountByTeam: Record<string, number> = {}
@@ -90,7 +94,8 @@ export async function resolveFreeAgencyMarket(force: boolean) {
       const amb = ambitionScore(player.ambition, player.real_ovr, rosterOvrs, team.elo || 1500)
       const pop = popularityScore(team.popularity)
       const staff = staffQualityScore(hc, ac, rosterOvrs)
-      const total = weightedOfferScore({ salaryScore: s, ambitionScore: amb, popularityScore: pop, staffQualityScore: staff })
+      const facilityBonus = facilityAttractivenessBonus(facilityFaBonusByTeam[o.team_id])
+      const total = weightedOfferScore({ salaryScore: s, ambitionScore: amb, popularityScore: pop, staffQualityScore: staff, facilityBonus })
       return { ...o, score: total }
     }).sort((a: any, b: any) => b.score - a.score)
 

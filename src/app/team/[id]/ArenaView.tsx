@@ -101,15 +101,15 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
   const handleBuildUpgrade=async()=>{
     if(!selected||!isGM)return
     setBuilding(true); setMsg('')
-    const ends=new Date(); ends.setDate(ends.getDate()+weeks*7)
-    const endsStr=ends.toISOString().split('T')[0]
-    await supabase.from('arena_sections').update({under_construction:true,construction_ends_at:endsStr}).eq('id',sections[selected].id)
-    await supabase.from('construction_queue').insert({
-      team_id:teamId, construction_type:'arena_section', reference_id:sections[selected].id,
-      name:selected, cost, duration_weeks:weeks,
-      started_at:new Date().toISOString().split('T')[0], ends_at:endsStr, status:'in_progress',
+    const { data: { session } } = await supabase.auth.getSession()
+    if(!session){ setMsg(isPT?'Não estás autenticado':'Not logged in'); setBuilding(false); return }
+    const res = await fetch('/api/arena/build-section', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body: JSON.stringify({ section:selected }),
     })
-    setSections(p=>({...p,[selected]:{...p[selected],under_construction:true,construction_ends_at:endsStr}}))
+    const json = await res.json()
+    if(!res.ok){ setMsg(json.error||(isPT?'Erro':'Error')); setBuilding(false); return }
+    setSections(p=>({...p,[selected]:{...p[selected],under_construction:true,construction_ends_at:json.endsAt}}))
     setMsg(isBuilt?(isPT?'Melhoria iniciada!':'Upgrade started!'):(isPT?'Construção iniciada!':'Construction started!'))
     setBuilding(false)
   }
@@ -124,9 +124,16 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
 
   const handleBuildConcession=async(key:string, unitCost:number, unitMonthly:number)=>{
     if(!concessions||!isGM||cash<unitCost)return
+    const { data: { session } } = await supabase.auth.getSession()
+    if(!session){ setMsg(isPT?'Não estás autenticado':'Not logged in'); return }
+    const res = await fetch('/api/arena/build-concession', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body: JSON.stringify({ variantKey:key }),
+    })
+    const json = await res.json()
+    if(!res.ok){ setMsg(json.error||(isPT?'Erro':'Error')); return }
     const current = (concessions as any)[key] || 0
     const newMonthly = (concessions.monthly_maintenance||0) + unitMonthly
-    await supabase.from('arena_concessions').update({[key]:current+1, monthly_maintenance:newMonthly}).eq('id',concessions.id)
     setConcessions(p=>p?{...p,[key]:current+1, monthly_maintenance:newMonthly}:p)
     setMsg(isPT?'Construído com sucesso!':'Built successfully!')
   }

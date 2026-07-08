@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import ArenaView from './ArenaView'
 import { useTranslation } from '@/components/I18nProvider'
+import { GYM_GRADE_BONUSES } from '@/lib/facility-constants'
 
 type GymGrade = 'F'|'E'|'D'|'C'|'B'|'A'
 type Facility = {
@@ -19,13 +20,17 @@ const UNLOCK_LABELS_PT: Record<string,string> = {
   Playmaking: 'Passe', Shooting: 'Lançamento', Mental: 'Mental', Analytics: 'Análise',
 }
 
+// Speed/recovery/risk/fa come straight from GYM_GRADE_BONUSES
+// (src/lib/facility-constants.ts) — the exact same numbers the real
+// training/health/injury/free-agency formulas now consume server-side, so
+// this display can never drift out of sync with what actually happens.
 const GYM_CONFIG: Record<GymGrade,{label:string,color:string,bg:string,speed:number,recovery:number,risk:number,fa:number,cost:number,unlocks:string[],descEN:string,descPT:string}> = {
-  F:{label:'Grade F',color:'#dc2626',bg:'#fee2e2',speed:5, recovery:-5, risk:0,  fa:0,  cost:50000,   unlocks:[],            descEN:'Temporary rented facility',       descPT:'Instalação alugada temporária'},
-  E:{label:'Grade E',color:'#b45309',bg:'#fef3c7',speed:7, recovery:0,  risk:0,  fa:0,  cost:150000,  unlocks:[],            descEN:'Entry-level NBA facility',         descPT:'Instalação básica de NBA'},
-  D:{label:'Grade D',color:'#ca8a04',bg:'#fefce8',speed:9, recovery:3,  risk:0,  fa:0,  cost:300000,  unlocks:['Playmaking'],descEN:'2 courts, video room',             descPT:'2 campos, sala de vídeo'},
-  C:{label:'Grade C',color:'#15803d',bg:'#dcfce7',speed:12,recovery:7,  risk:-5, fa:0,  cost:600000,  unlocks:['Shooting'],  descEN:'3 courts, physiotherapy',         descPT:'3 campos, fisioterapia'},
-  B:{label:'Grade B',color:'#1d4ed8',bg:'#dbeafe',speed:15,recovery:13, risk:-10,fa:5,  cost:1200000, unlocks:['Mental'],    descEN:'Hydrotherapy, cryotherapy',       descPT:'Hidroterapia, crioterapia'},
-  A:{label:'Grade A',color:'#6d28d9',bg:'#ede9fe',speed:19,recovery:20, risk:-18,fa:12, cost:2500000, unlocks:['Analytics'], descEN:'World class campus',              descPT:'Campus de classe mundial'},
+  F:{label:'Grade F',color:'#dc2626',bg:'#fee2e2',...GYM_GRADE_BONUSES.F,cost:50000,   unlocks:[],            descEN:'Temporary rented facility',       descPT:'Instalação alugada temporária'},
+  E:{label:'Grade E',color:'#b45309',bg:'#fef3c7',...GYM_GRADE_BONUSES.E,cost:150000,  unlocks:[],            descEN:'Entry-level NBA facility',         descPT:'Instalação básica de NBA'},
+  D:{label:'Grade D',color:'#ca8a04',bg:'#fefce8',...GYM_GRADE_BONUSES.D,cost:300000,  unlocks:['Playmaking'],descEN:'2 courts, video room',             descPT:'2 campos, sala de vídeo'},
+  C:{label:'Grade C',color:'#15803d',bg:'#dcfce7',...GYM_GRADE_BONUSES.C,cost:600000,  unlocks:['Shooting'],  descEN:'3 courts, physiotherapy',         descPT:'3 campos, fisioterapia'},
+  B:{label:'Grade B',color:'#1d4ed8',bg:'#dbeafe',...GYM_GRADE_BONUSES.B,cost:1200000, unlocks:['Mental'],    descEN:'Hydrotherapy, cryotherapy',       descPT:'Hidroterapia, crioterapia'},
+  A:{label:'Grade A',color:'#6d28d9',bg:'#ede9fe',...GYM_GRADE_BONUSES.A,cost:2500000, unlocks:['Analytics'], descEN:'World class campus',              descPT:'Campus de classe mundial'},
 }
 
 const UPGRADES: Partial<Record<GymGrade,{cost:number,weeks:number,next:GymGrade}>> = {
@@ -77,22 +82,29 @@ export default function FacilitiesTab({teamId,teamColor,arenaName,arenaCapacity,
     if(!facility||!isGM)return
     const upg=UPGRADES[facility.gym_grade]; if(!upg||cash<upg.cost)return
     setUpgrading(true)
-    const ends=new Date(); ends.setDate(ends.getDate()+upg.weeks*7)
-    const endsStr=ends.toISOString().split('T')[0]
-    await supabase.from('practice_facilities').update({gym_under_construction:true,gym_upgrade_ends_at:endsStr}).eq('id',facility.id)
-    await supabase.from('construction_queue').insert({
-      team_id:teamId, construction_type:'practice_facility', reference_id:facility.id,
-      name:`Gym ${facility.gym_grade} → ${upg.next}`, cost:upg.cost, duration_weeks:upg.weeks,
-      started_at:new Date().toISOString().split('T')[0], ends_at:endsStr, status:'in_progress',
+    const { data: { session } } = await supabase.auth.getSession()
+    if(!session){ setMsg(isPT?'Não estás autenticado':'Not logged in'); setUpgrading(false); return }
+    const res = await fetch('/api/facilities/build', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body: JSON.stringify({ action:'upgrade_gym' }),
     })
-    setFacility(p=>p?{...p,gym_under_construction:true,gym_upgrade_ends_at:endsStr}:p)
+    const json = await res.json()
+    if(!res.ok){ setMsg(json.error||(isPT?'Erro':'Error')); setUpgrading(false); return }
+    setFacility(p=>p?{...p,gym_under_construction:true,gym_upgrade_ends_at:json.endsAt}:p)
     setMsg(isPT?`Melhoria para ${upg.next} iniciada — pronta em ${upg.weeks} semanas.`:`Upgrade to ${upg.next} started — ready in ${upg.weeks} weeks.`)
     setUpgrading(false)
   }
 
   const handleBuild=async(key:string,cost:number,monthly:number)=>{
     if(!facility||!isGM||cash<cost)return
-    await supabase.from('practice_facilities').update({[key]:true,monthly_cost:facility.monthly_cost+monthly}).eq('id',facility.id)
+    const { data: { session } } = await supabase.auth.getSession()
+    if(!session){ setMsg(isPT?'Não estás autenticado':'Not logged in'); return }
+    const res = await fetch('/api/facilities/build', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body: JSON.stringify({ action:'build_extra', extraKey:key }),
+    })
+    const json = await res.json()
+    if(!res.ok){ setMsg(json.error||(isPT?'Erro':'Error')); return }
     setFacility(p=>p?{...p,[key]:true,monthly_cost:p.monthly_cost+monthly}:p)
     setMsg(isPT?'Construção concluída!':'Built successfully!')
   }

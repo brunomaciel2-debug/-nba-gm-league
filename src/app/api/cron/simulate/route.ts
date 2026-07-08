@@ -22,6 +22,7 @@ import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactic
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 import { computeRosterQuality, normalizeRosterQuality } from '@/lib/roster-quality'
 import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, computeConcessionSupplyCost, computeGameOperationsCost, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
+import { getGymGradeBonus } from '@/lib/facility-constants'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -460,6 +461,13 @@ const { data: injTypes } = await supabaseAdmin.from('injury_types').select('*')
 const SMOD: Record<string,number> = {minor:1.1,moderate:1.25,serious:1.5,severe:1.75,career_threatening:2.0}
 const SWEIGHTS: Record<string,number> = {minor:40,moderate:25,serious:15,severe:8,career_threatening:2}
 
+// Practice Facility grade's "Injury risk" reduction (previously purely
+// decorative) — real, physiotherapy/prevention-equipped facilities (grade
+// C+) genuinely lower how often a player gets hurt.
+const { data: facilitiesForInjury } = await supabaseAdmin.from('practice_facilities').select('team_id,gym_grade')
+const facilityInjuryRiskMap: Record<string,number> = {}
+;(facilitiesForInjury||[]).forEach((f:any) => facilityInjuryRiskMap[f.team_id] = getGymGradeBonus(f.gym_grade).risk)
+
 const { data: weekBoxes } = gamesCreated.length > 0 ? await supabaseAdmin
 .from('box_scores').select('player_id,mins,team_id,game_id')
 .in('game_id', gamesCreated) : { data: [] as any[] }
@@ -533,7 +541,8 @@ const pace = paceMap[p.team_id]||70
 const accum = oppAggroAccum[pid]
 const avgOppAggro = accum && accum.count > 0 ? accum.sum/accum.count : 1.0
 const fragile = fragileMap[pid]
-const injChance = 0.018 * (1/durFactor) * hFactor * (pace>80?1.3:1.0) * avgOppAggro * (fragile?1.2:1.0)
+const facilityRiskMod = 1 + (facilityInjuryRiskMap[p.team_id]||0)/100
+const injChance = 0.018 * (1/durFactor) * hFactor * (pace>80?1.3:1.0) * avgOppAggro * (fragile?1.2:1.0) * facilityRiskMod
 
 if (Math.random() < injChance && injTypes && injTypes.length > 0) {
 const weights = (injTypes as any[]).map(t => ({
@@ -791,7 +800,13 @@ else if (slotType === 'mental') quality = 0.6*g(hc?.mental_dev) + 0.4*g(ac?.ment
 else if (slotType === 'analytics') quality = 0.6*g(hc?.analytics) + 0.4*g(ac?.analytics)
 else quality = 60
 
-return Math.max(2, Math.min(15, 5 + (quality-60)*0.3))
+const coachDrivenGain = Math.max(2, Math.min(15, 5 + (quality-60)*0.3))
+// Practice Facility grade adds a real, secondary boost on top of the
+// coach-driven gain — the coaching staff is still the primary lever, the
+// gym grade (previously a purely decorative "+5% to +19%/wk" UI number)
+// now contributes a real fraction of it.
+const facilityBonus = getGymGradeBonus(facilityByTeam[teamId]?.gym_grade).speed * 0.3
+return coachDrivenGain + facilityBonus
 }
 
 const trainingUnlockMet = (slotType: string, teamId: string): boolean => {
@@ -1071,6 +1086,30 @@ notes:`Month ${monthNum} ${conf} Player of the Month`
 }
 }
 
+// ── FIXED FACILITY/CONCESSION MAINTENANCE (utilities) ────────────────
+// practice_facilities.monthly_cost and arena_concessions.monthly_maintenance
+// were real, editable numbers (rising every time a GM built something) but
+// were never actually deducted from any team's balance — buildings and
+// concession stands were effectively free to run forever. Real monthly
+// deduction, same cadence as Player of the Month/Merchandising above.
+try {
+const { data: allFacilitiesMonthly } = await supabaseAdmin.from('practice_facilities').select('team_id,monthly_cost')
+const { data: allConcessionsMonthly } = await supabaseAdmin.from('arena_concessions').select('team_id,monthly_maintenance')
+const monthlyCostByTeam: Record<string, number> = {}
+for (const f of (allFacilitiesMonthly||[])) monthlyCostByTeam[f.team_id] = (monthlyCostByTeam[f.team_id]||0) + (f.monthly_cost||0)
+for (const c of (allConcessionsMonthly||[])) monthlyCostByTeam[c.team_id] = (monthlyCostByTeam[c.team_id]||0) + (c.monthly_maintenance||0)
+for (const [teamId, cost] of Object.entries(monthlyCostByTeam)) {
+if (cost <= 0) continue
+const { data: fin } = await supabaseAdmin.from('franchise_finances').select('balance').eq('team_id', teamId).single()
+if (!fin) continue
+await supabaseAdmin.from('franchise_finances').update({ balance: (fin.balance||0) - cost }).eq('team_id', teamId)
+await supabaseAdmin.from('franchise_transactions').insert({
+team_id: teamId, type: 'expense', category: 'maintenance', amount: cost,
+description: `Monthly facility/concession maintenance — Month ${monthNum}`, season: '2025-26', week_number: week,
+})
+}
+} catch (maintErr) { console.warn('Monthly maintenance deduction failed:', maintErr) }
+
 // ── MERCHANDISING (jersey sales) ────────────────────
 // Same isEndOfMonth/monthNum cadence as Player of the Month above — fame
 // drifts monthly toward a deserved target (quality/form/wins/awards/any
@@ -1298,6 +1337,13 @@ const { data: physios } = await supabaseAdmin.from('coaches').select('team_id,re
 const physioMap: Record<string,number> = {}
 ;(physios||[]).forEach((c:any) => physioMap[c.team_id]=c.rehab_speed)
 
+// Practice Facility grade's "Recovery" bonus (previously a purely decorative
+// UI number) — a real, secondary multiplier on top of intensity/durability,
+// same role a good Physio already plays.
+const { data: facilitiesForRecovery } = await supabaseAdmin.from('practice_facilities').select('team_id,gym_grade')
+const facilityRecoveryMap: Record<string,number> = {}
+;(facilitiesForRecovery||[]).forEach((f:any) => facilityRecoveryMap[f.team_id] = getGymGradeBonus(f.gym_grade).recovery)
+
 // Mental Coach — morale_management now scales how fast a player's morale
 // drifts toward what it actually "deserves" each week (see moraleTarget()
 // below), not just a one-way recovery. A strong Mental Coach settles a
@@ -1371,7 +1417,8 @@ if (inj.specialist_used) boostMap[inj.player_id] = SPECIALIST_BOOST_MULTIPLIER_B
 for (const p of (allP2||[])) {
 const mod = IMOD[iMap[p.team_id]||'normal']||1.0
 const durB = ((p.durability||75)-75)/100*0.5
-let hGain = 3*recDays*mod*(1+durB)
+const facilityRecoveryB = (facilityRecoveryMap[p.team_id]||0)/100
+let hGain = 3*recDays*mod*(1+durB)*(1+facilityRecoveryB)
 if (p.status==='injured') hGain *= physioRecoveryMultiplier(physioMap[p.team_id]) * (boostMap[p.id]||1)
 const moraleMgmt = moraleMgmtMap[p.team_id] ?? 60
 const driftRate = Math.min(0.22, Math.max(0.06, 0.10 * (0.6 + moraleMgmt/100*0.8)))

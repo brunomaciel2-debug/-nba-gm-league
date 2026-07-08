@@ -149,20 +149,20 @@ export function computeGameAttendance(input: AttendanceInput): AttendanceResult 
 // Single source of truth for adoption_rate/avg_spend/fixed_per_game, moved
 // out of ArenaBlueprint.tsx so the server-side revenue calc and the client
 // display use the exact same numbers.
-export type SlotEconomics = { adoptionRate: number, avgSpend: number, fixedPerGame?: number }
+export type SlotEconomics = { adoptionRate: number, avgSpend: number, fixedPerGame?: number, cost: number, monthly: number, maxTotal: number }
 export const SLOT_ECONOMICS: Record<string, SlotEconomics> = {
-  food_stall_basic: { adoptionRate: 25, avgSpend: 8 },
-  food_stall_premium: { adoptionRate: 18, avgSpend: 18 },
-  bar: { adoptionRate: 15, avgSpend: 14 },
-  vending: { adoptionRate: 20, avgSpend: 4 },
-  restaurant_vip: { adoptionRate: 4, avgSpend: 65 },
-  franchise_store: { adoptionRate: 12, avgSpend: 35 },
-  fan_zone: { adoptionRate: 10, avgSpend: 20 },
-  corporate_suites: { adoptionRate: 100, avgSpend: 0, fixedPerGame: 8000 },
-  club_seats: { adoptionRate: 100, avgSpend: 0, fixedPerGame: 40000 },
-  courtside_lounge: { adoptionRate: 100, avgSpend: 0, fixedPerGame: 120000 },
-  jumbotron: { adoptionRate: 0, avgSpend: 0, fixedPerGame: 15000 },
-  mascot: { adoptionRate: 0, avgSpend: 0, fixedPerGame: 5000 },
+  food_stall_basic: { adoptionRate: 25, avgSpend: 8, cost: 500000, monthly: 5000, maxTotal: 6 },
+  food_stall_premium: { adoptionRate: 18, avgSpend: 18, cost: 1500000, monthly: 12000, maxTotal: 2 },
+  bar: { adoptionRate: 15, avgSpend: 14, cost: 800000, monthly: 8000, maxTotal: 2 },
+  vending: { adoptionRate: 20, avgSpend: 4, cost: 200000, monthly: 1000, maxTotal: 6 },
+  restaurant_vip: { adoptionRate: 4, avgSpend: 65, cost: 3000000, monthly: 20000, maxTotal: 1 },
+  franchise_store: { adoptionRate: 12, avgSpend: 35, cost: 2000000, monthly: 10000, maxTotal: 1 },
+  fan_zone: { adoptionRate: 10, avgSpend: 20, cost: 2500000, monthly: 12000, maxTotal: 1 },
+  corporate_suites: { adoptionRate: 100, avgSpend: 0, fixedPerGame: 8000, cost: 5000000, monthly: 30000, maxTotal: 3 },
+  club_seats: { adoptionRate: 100, avgSpend: 0, fixedPerGame: 40000, cost: 3000000, monthly: 15000, maxTotal: 1 },
+  courtside_lounge: { adoptionRate: 100, avgSpend: 0, fixedPerGame: 120000, cost: 8000000, monthly: 50000, maxTotal: 1 },
+  jumbotron: { adoptionRate: 0, avgSpend: 0, fixedPerGame: 15000, cost: 4000000, monthly: 20000, maxTotal: 1 },
+  mascot: { adoptionRate: 0, avgSpend: 0, fixedPerGame: 5000, cost: 500000, monthly: 3000, maxTotal: 1 },
 }
 
 // Concession slot variant columns (arena_concessions table) grouped by base
@@ -180,6 +180,18 @@ export const SLOT_VARIANT_KEYS: Record<string, string[]> = {
   courtside_lounge: ['courtside_lounge'],
   jumbotron: ['jumbotron'],
   mascot: ['mascot'],
+}
+
+// Per-variant build cap — mirrors ArenaBlueprint.tsx's SLOTS[].variants[].max
+// (e.g. food_stall_basic_north caps at 2, food_stall_basic_east caps at 1 —
+// NOT a uniform per-slot limit, so this can't be derived from maxTotal alone).
+export const SLOT_VARIANT_MAX: Record<string, number> = {
+  food_stall_basic_north: 2, food_stall_basic_south: 2, food_stall_basic_east: 1, food_stall_basic_west: 1,
+  food_stall_premium_north: 1, food_stall_premium_south: 1,
+  bar_east: 1, bar_west: 1,
+  vending_north: 2, vending_south: 2, vending_east: 1, vending_west: 1,
+  restaurant_vip: 1, franchise_store: 1, fan_zone: 1,
+  corporate_suites: 3, club_seats: 1, courtside_lounge: 1, jumbotron: 1, mascot: 1,
 }
 
 export type ConcessionRevenueResult = { total: number, bySlot: Record<string, number> }
