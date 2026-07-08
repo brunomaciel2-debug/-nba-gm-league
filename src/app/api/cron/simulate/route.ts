@@ -24,6 +24,7 @@ import { computeRosterQuality, normalizeRosterQuality } from '@/lib/roster-quali
 import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, computeConcessionSupplyCost, computeGameOperationsCost, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
 import { getGymGradeBonus } from '@/lib/facility-constants'
 import { cityDistanceMiles, computeAwayTravelCost } from '@/lib/travel-constants'
+import { resolveWeeklySocialMedia } from '@/lib/social-media-resolver'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -80,6 +81,11 @@ const ticketConfigMap: Record<string, any> = {}
 const { data: allConcessions } = await supabaseAdmin.from('arena_concessions').select('*')
 const concessionsMap: Record<string, any> = {}
 ;(allConcessions||[]).forEach((c:any) => concessionsMap[c.team_id] = c)
+// Live Social Media Manager effect on segment mix (see src/lib/social-media-resolver.ts)
+// — starts all-zero (no effect) until a fan-interaction event actually fires.
+const { data: allAudienceModifiers } = await supabaseAdmin.from('arena_audience_modifiers').select('*')
+const audienceModifiersMap: Record<string, any> = {}
+;(allAudienceModifiers||[]).forEach((m:any) => audienceModifiersMap[m.team_id] = m)
 
 // Referees are pre-assigned to scheduled games ahead of time (so they show
 // up on the calendar before the game is played) — see src/lib/referees.ts.
@@ -127,6 +133,14 @@ orderMap[teamId].tacticalFamiliarity = computeFamiliarity(progressByNodeId, acti
 orderMap[teamId].tacticalMods = computeTacticalMods(progressByNodeId, activeSystem)
 }
 } catch (tacticalErr) { console.warn('Tactical development resolution failed:', tacticalErr) }
+
+// Social Media Manager — weekly follower drift + fan-interaction/social-
+// responsibility events (see src/lib/social-media-resolver.ts). Real,
+// no-op-safe for any team without one hired yet.
+try {
+const smResult = await resolveWeeklySocialMedia(week)
+if (smResult.teamsProcessed > 0) console.log(`Social media resolved: ${smResult.teamsProcessed} teams, ${smResult.eventsResolved} events`)
+} catch (smErr) { console.warn('Social media resolution failed:', smErr) }
 
 // Conference standings — used to detect "decisive" games. Playoffs/play-in
 // always count. In the regular season, this reflects the real Play-In
@@ -202,6 +216,11 @@ capacity: ht.arena_capacity || arenaCapacityMap[ht.id] || 18000,
 winPct: htWinPct, isRivalry, isMarquee: gMarquee.marquee,
 prices: { lower: ticketPrices.ticket_lower, upper: ticketPrices.ticket_upper, courtside: ticketPrices.ticket_courtside },
 randomJitter: Math.random() * 0.06 - 0.03,
+followers: ht.social_media_followers,
+audienceModifiers: audienceModifiersMap[ht.id] ? {
+family: audienceModifiersMap[ht.id].family_modifier, young_adult: audienceModifiersMap[ht.id].young_adult_modifier,
+loyal_fan: audienceModifiersMap[ht.id].loyal_fan_modifier, corporate: audienceModifiersMap[ht.id].corporate_modifier,
+} : undefined,
 })
 const attendance = attendanceResult.attendance
 const attRate = attendanceResult.attRate

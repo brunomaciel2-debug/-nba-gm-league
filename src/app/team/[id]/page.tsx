@@ -229,6 +229,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         injuries={teamInjuries}
         arenaName={t.arena}
         arenaCapacity={t.arena_capacity}
+        socialMediaFollowers={t.social_media_followers}
       />
     </div>
   )

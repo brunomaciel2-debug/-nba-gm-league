@@ -1,4 +1,4 @@
-import { marketMultiplier } from './merchandising'
+import { marketMultiplier, followersBonus } from './merchandising'
 
 // ── AUDIENCE SEGMENTS ─────────────────────────────────────────────
 // Formalizes the demographic flavor text ArenaBlueprint.tsx's concession
@@ -49,16 +49,22 @@ function clamp01(v: number): number { return Math.min(1, Math.max(0, v)) }
 // new one: media-market size (src/lib/merchandising.ts) and brand strength
 // (teams.popularity, 0-100). Big/popular markets skew toward Corporate and
 // Young Adult; small markets skew toward Family and Loyal Fan.
-export function getTeamSegmentMix(teamId: string, popularity: number): Record<SegmentId, number> {
+// `modifiers` is the live, real-only-once-a-Social-Media-Manager-runs-a-
+// fan-interaction-event contents of arena_audience_modifiers (see
+// src/lib/social-media-resolver.ts) — starts all-zero (no effect) and is a
+// pure additive nudge on top of the market/popularity-derived baseline.
+export type AudienceModifiers = Partial<Record<SegmentId, number>>
+
+export function getTeamSegmentMix(teamId: string, popularity: number, modifiers?: AudienceModifiers): Record<SegmentId, number> {
   const market = marketMultiplier(teamId) // 0.8 (small) / 1.1 (mid) / 1.5 (large)
   const popNorm = clamp01((popularity - 50) / 50) // 0 at popularity 50, 1 at popularity 100
   const marketTilt = (market - 1.1) / 0.4 // -0.75 (small) .. 0 (mid) .. 1.0 (large)
 
   const raw: Record<SegmentId, number> = {
-    family: 0.35 - marketTilt * 0.05,
-    young_adult: 0.25 + marketTilt * 0.03 + popNorm * 0.02,
-    loyal_fan: 0.28 - marketTilt * 0.02,
-    corporate: 0.12 + marketTilt * 0.04 + popNorm * 0.04,
+    family: 0.35 - marketTilt * 0.05 + (modifiers?.family || 0),
+    young_adult: 0.25 + marketTilt * 0.03 + popNorm * 0.02 + (modifiers?.young_adult || 0),
+    loyal_fan: 0.28 - marketTilt * 0.02 + (modifiers?.loyal_fan || 0),
+    corporate: 0.12 + marketTilt * 0.04 + popNorm * 0.04 + (modifiers?.corporate || 0),
   }
   const total = Object.values(raw).reduce((s, v) => s + Math.max(0, v), 0)
   const out = {} as Record<SegmentId, number>
@@ -87,6 +93,8 @@ export type AttendanceInput = {
   isMarquee: boolean
   prices: { lower: number, upper: number, courtside: number }
   randomJitter?: number // -0.03..0.03, same spread cron/simulate already applies
+  followers?: number // teams.social_media_followers — real online buzz, real curiosity to attend
+  audienceModifiers?: AudienceModifiers // live arena_audience_modifiers row, if any
 }
 
 export type AttendanceResult = {
@@ -102,11 +110,16 @@ export type AttendanceResult = {
 // still collapsing to one attRate/attendance number so game-simulator.ts's
 // existing crowd-boost consumption needs no changes.
 export function computeGameAttendance(input: AttendanceInput): AttendanceResult {
+  // Real online following adds modest extra curiosity to attend — same
+  // capped log-scale bonus merchandising.ts uses for fame, small relative to
+  // the existing win%/rivalry/marquee drivers (buzz brings people out, it
+  // doesn't replace wanting to see a good team play).
   const overallInterest = Math.min(0.98,
     0.65 + input.winPct * 0.20 + (input.isRivalry ? 0.08 : 0) + (input.isMarquee ? 0.15 : 0)
+    + followersBonus(input.followers) * 0.05
     + (input.randomJitter ?? 0))
 
-  const mix = getTeamSegmentMix(input.teamId, input.popularity)
+  const mix = getTeamSegmentMix(input.teamId, input.popularity, input.audienceModifiers)
   const tierPrice: Record<TierId, number> = { lower: input.prices.lower, upper: input.prices.upper, courtside: input.prices.courtside }
   const tierCapacity: Record<TierId, number> = {
     lower: input.capacity * TIER_CAPACITY_SHARE.lower,

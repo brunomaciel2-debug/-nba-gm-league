@@ -30,8 +30,17 @@ export function marketMultiplier(teamId: string): number {
 // their market multiplier has a real floor instead of being dragged down
 // by a small market the way a merely-very-good player's would be.
 const TRANSCENDENT_OVR = 93
-export function effectiveMarketMultiplier(realOvr: number, teamId: string): number {
-  const base = marketMultiplier(teamId)
+// Real online/social following on top of the base media-market — same
+// premise jersey sales already runs on ("national reach, not just the
+// arena — a lot of sales are online"). Log-scaled so it takes real,
+// sustained follower growth to matter: negligible below 50K, capped out
+// around 5M (a top-tier global fanbase), not a runaway multiplier.
+export function followersBonus(followers: number | null | undefined): number {
+  if (!followers || followers <= 50000) return 0
+  return Math.min(1, Math.log10(followers / 50000) / 2)
+}
+export function effectiveMarketMultiplier(realOvr: number, teamId: string, followers?: number | null): number {
+  const base = marketMultiplier(teamId) * (1 + followersBonus(followers) * 0.15)
   return realOvr >= TRANSCENDENT_OVR ? Math.max(base, 1.3) : base
 }
 
@@ -203,10 +212,14 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
   if (!players?.length) return { teams: 0, players: 0 }
   const playerIds = players.map((p: any) => p.id)
 
-  const { data: teams } = await supabaseAdmin.from('teams').select('id,wins,losses')
+  const { data: teams } = await supabaseAdmin.from('teams').select('id,wins,losses,social_media_followers')
     .not('id', 'in', '(ALL,RVS,ROO,SOP)')
   const winPctByTeam: Record<string, number> = {}
-  ;(teams || []).forEach((t: any) => { const gp = (t.wins||0)+(t.losses||0); winPctByTeam[t.id] = gp > 0 ? (t.wins||0)/gp : 0.5 })
+  const followersByTeam: Record<string, number> = {}
+  ;(teams || []).forEach((t: any) => {
+    const gp = (t.wins||0)+(t.losses||0); winPctByTeam[t.id] = gp > 0 ? (t.wins||0)/gp : 0.5
+    followersByTeam[t.id] = t.social_media_followers || 0
+  })
 
   // This month's games only — same window the Awards block already uses
   // for Player of the Month, so "recent form" here means "this month".
@@ -258,7 +271,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
     // popularity.
     const target = fameTarget({
       realOvr: p.real_ovr || 70, recentAvgPts, seasonAvgPts, winPct, hasRecentAward,
-      marketMultiplier: effectiveMarketMultiplier(p.real_ovr || 70, p.team_id),
+      marketMultiplier: effectiveMarketMultiplier(p.real_ovr || 70, p.team_id, followersByTeam[p.team_id]),
       nationalityMultiplier: nationalityMultiplier(p.nationality),
       legacyFloor: legacyFameFloor(p.name),
     })

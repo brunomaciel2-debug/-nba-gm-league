@@ -31,9 +31,10 @@ function StaffOfferPage() {
           const avg = data.role==='physio'?data.rehab_speed:
             data.role==='trainer'?Math.round((data.conditioning+data.recovery_boost+data.injury_prevent)/3):
             data.role==='mental_coach'?Math.round((data.morale_management+data.team_cohesion+data.composure_coaching)/3):
+            data.role==='social_media_manager'?Math.round((data.sm_engagement+data.fan_interaction+data.social_responsibility)/3):
             Math.round((data.off_adjustment+data.def_adjustment+data.off_development+data.def_development+data.tactical_dev)/5)
           const base = data.role==='head_coach'?12000000:data.role==='assistant_coach'?3000000:
-            data.role==='mental_coach'?1200000:data.role==='trainer'?900000:700000
+            data.role==='mental_coach'?1200000:data.role==='social_media_manager'?1200000:data.role==='trainer'?900000:700000
           setSalary(Math.round(avg/100*base/100000)*100000)
         }
       })
@@ -81,6 +82,7 @@ function StaffOfferPage() {
     {value:'trainer',label:isPT?'Preparador Físico':'Trainer'},
     {value:'physio',label:isPT?'Fisioterapeuta':'Physio'},
     {value:'mental_coach',label:isPT?'Mental Coach':'Mental Coach'},
+    {value:'social_media_manager',label:isPT?'Social Media Manager':'Social Media Manager'},
   ]
   const capFmt = (n:number) => '$'+(n/1000000).toFixed(2)+'M'
   const isNaturalRole = role === coach.natural_role

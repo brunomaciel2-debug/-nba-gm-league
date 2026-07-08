@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
 
 const ROLE_COLORS: Record<string,string> = {
-  head_coach:'#b45309', assistant_coach:'#1d4ed8', trainer:'#15803d', physio:'#6d28d9', mental_coach:'#9333ea'
+  head_coach:'#b45309', assistant_coach:'#1d4ed8', trainer:'#15803d', physio:'#6d28d9', mental_coach:'#9333ea', social_media_manager:'#db2777'
 }
 const ATK: Record<string,string> = {motion:'Motion',pickroll:'P&R',transition:'Trans',iso:'Iso',post:'Post'}
 const DEF: Record<string,string> = {man:'Man',zone23:'Zone',press:'Press',pack:'Pack'}
@@ -74,7 +74,8 @@ export default function CoachesAdminPage() {
     if (!isPT) return role.replace(/_/g,' ')
     const map: Record<string,string> = {
       head_coach:'Head Coach', assistant_coach:'Ass. Treinador',
-      trainer:'Preparador Físico', physio:'Fisioterapeuta', scout:'Olheiro', mental_coach:'Mental Coach'
+      trainer:'Preparador Físico', physio:'Fisioterapeuta', scout:'Olheiro', mental_coach:'Mental Coach',
+      social_media_manager:'Social Media Manager'
     }
     return map[role] || role.replace(/_/g,' ')
   }
@@ -236,6 +237,7 @@ export default function CoachesAdminPage() {
                 {c.role==='physio'?`Rehab: ${c.rehab_speed}`:
                  c.role==='trainer'?`${isPT?'Cond':'Cond'}: ${c.conditioning} · ${isPT?'Rec':'Rec'}: ${c.recovery_boost}`:
                  c.role==='mental_coach'?`${isPT?'Moral':'Mor'}: ${c.morale_management} · ${isPT?'Coesão':'Coh'}: ${c.team_cohesion}`:
+                 c.role==='social_media_manager'?`${isPT?'Envolv':'Eng'}: ${c.sm_engagement} · ${isPT?'Interação':'Fan'}: ${c.fan_interaction}`:
                  `OFF: ${c.off_adjustment} · DEF: ${c.def_adjustment}`}
               </div>
             </div>

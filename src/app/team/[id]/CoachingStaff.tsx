@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
 
-const ROLE_ORDER = ['head_coach','assistant_coach','trainer','physio','scout','mental_coach']
+const ROLE_ORDER = ['head_coach','assistant_coach','trainer','physio','scout','mental_coach','social_media_manager']
 
 const ATK_LABELS_EN: Record<string,string> = { motion:'Motion',pickroll:'Pick & Roll',transition:'Fast Break',iso:'Isolation',post:'Post-Up' }
 const ATK_LABELS_PT: Record<string,string> = { motion:'Motion',pickroll:'Pick & Roll',transition:'Contra-Ataque',iso:'Isolamento',post:'Poste' }
@@ -47,7 +47,7 @@ function PersonalityBar({ value, isPT }: { value: number, isPT: boolean }) {
   )
 }
 
-export default function CoachingStaff({ staff }: { staff: any[] }) {
+export default function CoachingStaff({ staff, socialMediaFollowers }: { staff: any[], socialMediaFollowers?: number }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
 
@@ -58,6 +58,7 @@ export default function CoachingStaff({ staff }: { staff: any[] }) {
     physio:          {label: isPT?'Fisioterapeuta':'Physio',           color:'#6d28d9',icon:'🏥'},
     scout:           {label: isPT?'Olheiro':'Scout',                   color:'#0e7490',icon:'🔍'},
     mental_coach:    {label: isPT?'Mental Coach':'Mental Coach',       color:'#9333ea',icon:'🧠'},
+    social_media_manager: {label: isPT?'Social Media Manager':'Social Media Manager', color:'#db2777',icon:'📱'},
   }
 
   const ATK = isPT ? ATK_LABELS_PT : ATK_LABELS_EN
@@ -154,6 +155,18 @@ export default function CoachingStaff({ staff }: { staff: any[] }) {
                     <StatBar label={isPT?'Gestão de Moral':'Morale Mgmt'}     value={c.morale_management}  color="#9333ea" />
                     <StatBar label={isPT?'Coesão de Equipa':'Team Cohesion'}  value={c.team_cohesion}      color="#1d4ed8" />
                     <StatBar label={isPT?'Gestão de Pressão':'Composure'}     value={c.composure_coaching} color="#b45309" />
+                  </>
+                )}
+                {c.role==='social_media_manager' && (
+                  <>
+                    <StatBar label={isPT?'Envolvimento':'SM Engagement'}     value={c.sm_engagement}         color="#db2777" />
+                    <StatBar label={isPT?'Interação c/ Fãs':'Fan Interaction'} value={c.fan_interaction}      color="#1d4ed8" />
+                    <StatBar label={isPT?'Resp. Social':'Social Resp.'}      value={c.social_responsibility}  color="#15803d" />
+                    {socialMediaFollowers!=null && (
+                      <div className="text-xs mt-2 font-semibold" style={{color:'#db2777'}}>
+                        📱 {Number(socialMediaFollowers).toLocaleString()} {isPT?'seguidores':'followers'}
+                      </div>
+                    )}
                   </>
                 )}
               </div>

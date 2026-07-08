@@ -51,14 +51,14 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
   const [editTickets,setEditTickets] = useState(false)
   const [ticketDraft,setTicketDraft] = useState<Partial<Config>>({})
   const [tab,setTab]                 = useState<'sections'|'concessions'|'tickets'>('sections')
-  const [teamInfo,setTeamInfo]       = useState<{popularity:number}|null>(null)
+  const [teamInfo,setTeamInfo]       = useState<{popularity:number,social_media_followers?:number}|null>(null)
 
   useEffect(()=>{
     Promise.all([
       supabase.from('arena_sections').select('*').eq('team_id',teamId),
       supabase.from('franchise_config').select('*').eq('team_id',teamId).single(),
       supabase.from('arena_concessions').select('*').eq('team_id',teamId).single(),
-      supabase.from('teams').select('popularity').eq('id',teamId).single(),
+      supabase.from('teams').select('popularity,social_media_followers').eq('id',teamId).single(),
     ]).then(([{data:s},{data:c},{data:co},{data:tm}])=>{
       const map:Record<string,Section>={}
       for(const sec of (s||[])) map[sec.section]=sec
@@ -150,6 +150,7 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
           <h3 style={{fontSize:15,fontWeight:700,color:'#1a1512',margin:0}}>{arenaName}</h3>
           <p style={{fontSize:11,color:'#8a8279',margin:0}}>
             {isPT?'Capacidade':'Capacity'}: <strong>{fmt(totalCurrent)}</strong> · {isPT?'Assistência est.':'Est. attendance'}: <strong>{fmt(attendance)}</strong> ({Math.round(attendancePct*100)}%)
+            {teamInfo?.social_media_followers!=null && <> · 📱 <strong>{fmt(teamInfo.social_media_followers)}</strong> {isPT?'seguidores':'followers'}</>}
           </p>
         </div>
         {isGM && <div style={{fontSize:11,padding:'4px 10px',borderRadius:6,background:'#dcfce7',color:'#15803d',fontWeight:600}}>{isPT?'Fundos':'Funds'}: {fmtM(cash)}</div>}

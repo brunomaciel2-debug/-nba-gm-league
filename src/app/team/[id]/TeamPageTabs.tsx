@@ -32,10 +32,10 @@ function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: 
 }
 
 export default function TeamPageTabs({
-  players, injuredPlayers, games, teamId, teamsMap, teamColor, coaches, injuries, arenaName, arenaCapacity
+  players, injuredPlayers, games, teamId, teamsMap, teamColor, coaches, injuries, arenaName, arenaCapacity, socialMediaFollowers
 }: {
   players: any[], injuredPlayers?: any[], games: any[], teamId: string, teamsMap: any, teamColor: string,
-  coaches: any[], injuries: any[], arenaName?: string, arenaCapacity?: number
+  coaches: any[], injuries: any[], arenaName?: string, arenaCapacity?: number, socialMediaFollowers?: number
 }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
@@ -124,7 +124,7 @@ export default function TeamPageTabs({
           <>
             <RosterTable players={players} teamColor={teamColor} />
             <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-              <CoachingStaff staff={coaches} />
+              <CoachingStaff staff={coaches} socialMediaFollowers={socialMediaFollowers} />
             </div>
             <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
               <InjuryReport injuries={injuries} players={[...players, ...(injuredPlayers||[])]} teamId={teamId} />

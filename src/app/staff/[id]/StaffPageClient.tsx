@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
+import CoachPhotoUpload from './CoachPhotoUpload'
 
 const TIPS_EN: Record<string,string> = {
   off_adjustment:'Offensive Adjustment — how well the coach reads the opponent defence and adapts the attack in real time.',
@@ -25,6 +26,9 @@ const TIPS_EN: Record<string,string> = {
   morale_management:'Morale Management — speeds up (or unlocks, below 50) weekly morale recovery for every player on the roster.',
   team_cohesion:'Team Cohesion — real on-court chemistry: more assisted baskets, fewer unforced turnovers.',
   composure_coaching:'Composure — how much less a team tightens up in clutch, decisive, and rivalry moments.',
+  sm_engagement:'Social Media Engagement — grows (or shrinks) the team\'s real follower count every week, which feeds into jersey/fame growth and a small attendance boost.',
+  fan_interaction:'Team-Fan Interaction — chance each week of a meet & greet/autograph event, which grows the Loyal Fan share of your crowd and lifts one player\'s morale.',
+  social_responsibility:'Social Responsibility — chance each week of a charity event, which lifts real franchise popularity and one player\'s fame.',
 }
 const TIPS_PT: Record<string,string> = {
   off_adjustment:'Ajuste Ofensivo — capacidade de ler a defesa adversária e adaptar o ataque em tempo real.',
@@ -48,6 +52,9 @@ const TIPS_PT: Record<string,string> = {
   morale_management:'Gestão de Moral — acelera (ou desbloqueia, abaixo de 50) a recuperação semanal de moral de todo o plantel.',
   team_cohesion:'Coesão de Equipa — química real em campo: mais cestos assistidos, menos perdas de bola.',
   composure_coaching:'Gestão de Pressão — quanto menos a equipa se contrai em momentos clutch, decisivos e de rivalidade.',
+  sm_engagement:'Social Media Engagement — faz crescer (ou encolher) o número real de seguidores da equipa todas as semanas, o que alimenta o crescimento de fama/merchandising e um pequeno bónus de assistência.',
+  fan_interaction:'Interação com Fãs — hipótese semanal de um evento meet & greet/autógrafos, que aumenta a fatia de Fãs Fiéis no teu público e sobe a moral de um jogador.',
+  social_responsibility:'Responsabilidade Social — hipótese semanal de um evento de caridade, que sobe a popularidade real da equipa e a fama de um jogador.',
 }
 
 const ROLE_INFO_EN: Record<string,{label:string,color:string,icon:string}> = {
@@ -57,6 +64,7 @@ const ROLE_INFO_EN: Record<string,{label:string,color:string,icon:string}> = {
   physio:         {label:'Physio',          color:'#6d28d9',icon:'ti-heart-rate-monitor'},
   scout:          {label:'Scout',           color:'#0e7490',icon:'ti-search'},
   mental_coach:   {label:'Mental Coach',    color:'#9333ea',icon:'ti-brain'},
+  social_media_manager: {label:'Social Media Manager', color:'#db2777',icon:'ti-device-mobile'},
 }
 const ROLE_INFO_PT: Record<string,{label:string,color:string,icon:string}> = {
   head_coach:     {label:'Head Coach',        color:'#b45309',icon:'ti-whistle'},
@@ -65,6 +73,7 @@ const ROLE_INFO_PT: Record<string,{label:string,color:string,icon:string}> = {
   physio:         {label:'Fisioterapeuta',    color:'#6d28d9',icon:'ti-heart-rate-monitor'},
   scout:          {label:'Olheiro',           color:'#0e7490',icon:'ti-search'},
   mental_coach:   {label:'Mental Coach',      color:'#9333ea',icon:'ti-brain'},
+  social_media_manager: {label:'Social Media Manager', color:'#db2777',icon:'ti-device-mobile'},
 }
 const ATK_EN: Record<string,string> = {motion:'Motion',pickroll:'Pick & Roll',transition:'Fast Break',iso:'Isolation',post:'Post-Up'}
 const ATK_PT: Record<string,string> = {motion:'Motion',pickroll:'Pick & Roll',transition:'Contra-Ataque',iso:'Isolamento',post:'Jogo de Poste'}
@@ -113,8 +122,11 @@ export default function StaffPageClient({coach,team}:{coach:any,team:any}) {
 
       <div className="rounded-2xl p-6 mb-6" style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`4px solid ${info.color}`}}>
         <div className="flex items-start gap-5 flex-wrap">
-          <div className="w-32 h-32 rounded-2xl flex-shrink-0 overflow-hidden flex items-center justify-center" style={{background:info.color+'18',border:`2px solid ${info.color}33`}}>
-            {coach.photo_url?<img src={coach.photo_url} alt={coach.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<i className={`ti ${info.icon}`} style={{fontSize:36,color:info.color}}></i>}
+          <div className="flex flex-col gap-2 flex-shrink-0" style={{width:128}}>
+            <div className="w-32 h-32 rounded-2xl overflow-hidden flex items-center justify-center" style={{background:info.color+'18',border:`2px solid ${info.color}33`}}>
+              {coach.photo_url?<img src={coach.photo_url} alt={coach.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:<i className={`ti ${info.icon}`} style={{fontSize:36,color:info.color}}></i>}
+            </div>
+            <CoachPhotoUpload coachId={coach.id} currentPhoto={coach.photo_url} />
           </div>
           <div className="flex-1">
             <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{color:info.color,letterSpacing:'1.5px'}}>{info.label}</div>
@@ -221,6 +233,19 @@ export default function StaffPageClient({coach,team}:{coach:any,team:any}) {
                   ? <>{coach.morale_management>=75?'Consegue destravar jogadores presos em moral baixa (abaixo de 50) — a maioria dos treinadores não consegue.':'Um Mental Coach mais forte (75+) consegue destravar jogadores presos em moral baixa — este ainda não chega lá.'}</>
                   : <>{coach.morale_management>=75?'Can unstick players trapped in low morale (below 50) — most coaches can\'t.':'A stronger Mental Coach (75+) can unstick players trapped in low morale — this one isn\'t quite there yet.'}</>}
               </div>
+            </div>
+          )}
+          {coach.role==='social_media_manager'&&(
+            <div className="rounded-xl p-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+              <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e'}}>{isPT?'Atributos':'Attributes'}</div>
+              <StatRow label={isPT?'Envolvimento':'SM Engagement'}     value={coach.sm_engagement}         color="#db2777" tip={TIPS.sm_engagement} />
+              <StatRow label={isPT?'Interação c/ Fãs':'Fan Interaction'} value={coach.fan_interaction}      color="#1d4ed8" tip={TIPS.fan_interaction} />
+              <StatRow label={isPT?'Resp. Social':'Social Responsibility'} value={coach.social_responsibility} color="#15803d" tip={TIPS.social_responsibility} />
+              {team&&(team as any).social_media_followers!=null&&(
+                <div className="mt-4 p-3 rounded-lg text-sm" style={{background:'#eee8df',color:'#5c554e',lineHeight:1.5}}>
+                  {isPT?'Seguidores atuais da equipa:':'Team\'s current followers:'} <strong style={{color:'#db2777'}}>{Number((team as any).social_media_followers).toLocaleString()}</strong>
+                </div>
+              )}
             </div>
           )}
         </div>

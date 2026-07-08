@@ -76,6 +76,24 @@ export function notifFALost(lang: 'en'|'pt', player: string) {
   }
 }
 
+export function notifFanInteractionEvent(lang: 'en'|'pt', playerName: string) {
+  return {
+    subject: lang === 'pt' ? `📱 Meet & Greet organizado pelo teu Social Media Manager` : `📱 Meet & greet organized by your Social Media Manager`,
+    body: lang === 'pt'
+      ? `O teu Social Media Manager organizou uma sessão de meet & greet/autógrafos com os adeptos, com ${playerName} em destaque. Isto sobe a fatia de Fãs Fiéis no teu público e a moral de ${playerName} subiu.`
+      : `Your Social Media Manager organized a meet & greet/autograph session with fans, featuring ${playerName}. This grows the Loyal Fan share of your crowd, and ${playerName}'s morale went up.`,
+  }
+}
+
+export function notifSocialResponsibilityEvent(lang: 'en'|'pt', playerName: string) {
+  return {
+    subject: lang === 'pt' ? `🤝 Evento de caridade organizado pelo teu Social Media Manager` : `🤝 Charity event organized by your Social Media Manager`,
+    body: lang === 'pt'
+      ? `O teu Social Media Manager organizou um evento de responsabilidade social, com ${playerName} em destaque. A popularidade da equipa subiu, e a fama de ${playerName} também.`
+      : `Your Social Media Manager organized a social responsibility/charity event, featuring ${playerName}. Team popularity went up, and so did ${playerName}'s fame.`,
+  }
+}
+
 export function notifDeadCapCleared(lang: 'en'|'pt', player: string, amount: number) {
   const fmt = (n: number) => `${(n/1_000_000).toFixed(1)}M$`
   return {
