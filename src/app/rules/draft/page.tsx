@@ -18,7 +18,9 @@ export default function DraftRulesPage() {
   const isPT = t('common.save') === 'Guardar'
 
   const rules = isPT ? [
-    { icon:'📅', title:'Dois Dias, Duas Rondas', desc:'A Ronda 1 realiza-se a 23 de Junho; a Ronda 2 realiza-se na semana seguinte. A ordem das escolhas segue a classificação — pior registo escolhe primeiro, a mesma ordem já mostrada na Simulação de Draft.' },
+    { icon:'📅', title:'Dois Dias, Duas Rondas', desc:'A Ronda 1 realiza-se a 23 de Junho; a Ronda 2 realiza-se na semana seguinte.' },
+    { icon:'🎰', title:'Draft Lottery — Picks 1 a 14', desc:'Assim que os Playoffs terminam, as 14 equipas que não se qualificaram entram na Draft Lottery, com as odds reais da NBA (a pior equipa tem 14,0% de hipótese da 1ª escolha). Só as 4 primeiras escolhas são mesmo sorteadas — o resto das 14 segue a ordem original da classificação. Vês o resultado logo depois na tua caixa de entrada.' },
+    { icon:'🏆', title:'Ordem de Eliminação — Picks 15 a 30', desc:'As 16 equipas que foram aos Playoffs escolhem pela ordem em que foram eliminadas: quem caiu na 1ª ronda escolhe primeiro (pick 15), e o campeão escolhe sempre em último (pick 30) — exatamente como na NBA real.' },
     { icon:'📋', title:'A Tua Lista de Prioridades', desc:'Antes de cada ronda, ordena os prospectos que preferes por prioridade na tua Draft Board. Se a tua equipa tiver mais do que uma escolha nessa ronda, é UMA lista só, que cobre todas as tuas escolhas.' },
     { icon:'🎯', title:'Como as Escolhas São Resolvidas', desc:'Quando chega a tua vez, o sistema usa o primeiro prospecto da tua lista que ainda esteja disponível. Se já tiver sido escolhido por outra equipa antes de ti, passa automaticamente para a tua próxima opção, e por aí a fora.' },
     { icon:'🎲', title:'Sem Lista? Escolha Aleatória', desc:'Se não submeteres uma lista a tempo, ou se todos os prospectos que listaste já tiverem sido escolhidos, o sistema escolhe automaticamente um prospecto ao acaso entre os que restam.' },
@@ -28,7 +30,9 @@ export default function DraftRulesPage() {
     { icon:'👀', title:'Confirmação Pós-Draft', desc:'Ao ser escolhido, vês pela primeira vez os atributos completos do jogador (antes só via o que já tinhas revelado por scouting). Tens 7 dias para Confirmar o contrato ou deixá-lo tornar-se agente livre — enquanto não decides, ele não conta para o teu tecto salarial.' },
     { icon:'🔁', title:'Team Options (Anos 3 e 4)', desc:'Depois dos 2 anos garantidos, tens a opção de renovar por mais 1 ano a um salário fixo mais alto (também definido pela escolha, nunca uma percentagem do anterior), e o mesmo outra vez no ano seguinte. Se não exerceres a opção a tempo, o jogador torna-se agente livre.' },
   ] : [
-    { icon:'📅', title:'Two Days, Two Rounds', desc:'Round 1 takes place on June 23; Round 2 the following week. Pick order follows the standings — worst record picks first, the same order already shown in the Mock Draft.' },
+    { icon:'📅', title:'Two Days, Two Rounds', desc:'Round 1 takes place on June 23; Round 2 the following week.' },
+    { icon:'🎰', title:'Draft Lottery — Picks 1-14', desc:'Right after the Playoffs end, the 14 teams that missed the postseason enter the Draft Lottery, using real NBA odds (the worst team has a 14.0% chance at the 1st pick). Only the top 4 picks are actually drawn — the rest of the 14 fall in original standings order. You\'ll see the result in your inbox right after.' },
+    { icon:'🏆', title:'Elimination Order — Picks 15-30', desc:'The 16 teams that made the Playoffs pick in the order they were eliminated: whoever fell in Round 1 picks earliest (pick 15), and the champion always picks last (pick 30) — exactly like the real NBA.' },
     { icon:'📋', title:'Your Priority List', desc:'Before each round, rank your preferred prospects on your Draft Board. If your team owns more than one pick that round, it\'s ONE combined list, covering all of your picks.' },
     { icon:'🎯', title:'How Picks Get Resolved', desc:'When your turn comes up, the system uses the first still-available prospect on your list. If they were already taken by another team before you, it automatically moves to your next choice, and so on.' },
     { icon:'🎲', title:'No List? Random Pick', desc:'If you don\'t submit a list in time, or every prospect you listed is already gone, the system automatically picks a random prospect from what\'s left.' },
@@ -51,8 +55,8 @@ export default function DraftRulesPage() {
       <div style={{ marginTop:20, padding:'16px 18px', borderRadius:12, background:'#ede9fe', border:'1px solid #c4b5fd' }}>
         <div style={{ fontSize:12, color:'#6d28d9', lineHeight:1.7 }}>
           {isPT
-            ? 'Ronda 1: 23 Junho, $10,0M→$2,0M por escolha · Ronda 2: semana seguinte, $1,2M fixo · Lista de prioridades salta para a opção seguinte se seres roubado · 7 dias para confirmar contrato · Team Options nos anos 3 e 4.'
-            : 'Round 1: June 23, $10.00M→$2.00M by pick · Round 2: following week, flat $1.20M · Priority list falls through to the next choice if sniped · 7 days to confirm contract · Team Options in years 3 and 4.'}
+            ? 'Picks 1-14: Draft Lottery (odds reais) · Picks 15-30: ordem de eliminação dos Playoffs · Ronda 1: 23 Junho, $10,0M→$2,0M por escolha · Ronda 2: semana seguinte, $1,2M fixo · Lista de prioridades salta para a opção seguinte se seres roubado · 7 dias para confirmar contrato · Team Options nos anos 3 e 4.'
+            : 'Picks 1-14: Draft Lottery (real odds) · Picks 15-30: Playoffs elimination order · Round 1: June 23, $10.00M→$2.00M by pick · Round 2: following week, flat $1.20M · Priority list falls through to the next choice if sniped · 7 days to confirm contract · Team Options in years 3 and 4.'}
         </div>
       </div>
     </div>
