@@ -36,6 +36,43 @@ async function fillSeriesSlot(seriesType: string, slot: 'team_high' | 'team_low'
   await supabaseAdmin.from('playoff_series').update({ [slot]: teamId, status: 'active' }).eq('season', SEASON).eq('series_type', seriesType)
 }
 
+// Finals MVP — fires once, the moment the NBA Finals series completes.
+// Scores every champion-team player the same weighted way as the season MVP
+// award, but only across the Finals series' own games (not the whole
+// playoffs) — matching the real award's scope. Runner-up players are never
+// eligible, even if one of them out-produced everyone on the floor.
+async function resolveFinalsMVP(championId: string, runnerUpId: string) {
+  const { data: finalsGames } = await supabaseAdmin
+    .from('games').select('id').eq('game_type', 'playoff')
+    .or(`and(home_team.eq.${championId},away_team.eq.${runnerUpId}),and(home_team.eq.${runnerUpId},away_team.eq.${championId})`)
+  const gameIds = (finalsGames || []).map((g: any) => g.id)
+  if (!gameIds.length) return
+
+  const { data: boxes } = await supabaseAdmin
+    .from('box_scores').select('player_id,pts,reb,ast,stl,blk,mins')
+    .in('game_id', gameIds).eq('team_id', championId).gt('mins', 0)
+
+  const byPlayer: Record<string, { pts: number, reb: number, ast: number, stl: number, blk: number, games: number }> = {}
+  for (const b of (boxes || [])) {
+    const acc = (byPlayer[b.player_id] ||= { pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, games: 0 })
+    acc.pts += b.pts || 0; acc.reb += b.reb || 0; acc.ast += b.ast || 0
+    acc.stl += b.stl || 0; acc.blk += b.blk || 0; acc.games++
+  }
+
+  const ranked = Object.entries(byPlayer).map(([playerId, s]) => {
+    const g = s.games || 1
+    const score = (s.pts / g) * 1.0 + (s.reb / g) * 0.8 + (s.ast / g) * 1.2 + (s.stl / g) * 3 + (s.blk / g) * 3
+    return { playerId, score, stats: { ppg: (s.pts / g).toFixed(1), rpg: (s.reb / g).toFixed(1), apg: (s.ast / g).toFixed(1), games: g } }
+  }).sort((a, b) => b.score - a.score)
+
+  if (!ranked[0]) return
+  await supabaseAdmin.from('awards').upsert({
+    season: SEASON, award_type: 'finals_mvp', period: 'season',
+    player_id: ranked[0].playerId, team_id: championId, score: ranked[0].score,
+    stats_context: ranked[0].stats, notes: 'Finals MVP',
+  }, { onConflict: 'season,award_type,period' })
+}
+
 async function advanceWinner(seriesType: string, winnerId: string, loserId: string) {
   // NBA Finals isn't in the per-conference map — both conference-final
   // winners feed it, with the better regular-season record hosting (team_high),
@@ -97,6 +134,7 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
       const loserId = s.wins_high > s.wins_low ? s.team_low : s.team_high
       await supabaseAdmin.from('playoff_series').update({ status: 'completed' }).eq('id', s.id)
       await advanceWinner(s.series_type, winnerId, loserId)
+      if (s.series_type === 'nba_finals') await resolveFinalsMVP(winnerId, loserId)
       continue
     }
 
@@ -156,6 +194,7 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
       const loserId = newWinsHigh > newWinsLow ? s.team_low : s.team_high
       await supabaseAdmin.from('playoff_series').update({ status: 'completed' }).eq('id', s.id)
       await advanceWinner(s.series_type, winnerId, loserId)
+      if (s.series_type === 'nba_finals') await resolveFinalsMVP(winnerId, loserId)
     }
   }
   return { processed }

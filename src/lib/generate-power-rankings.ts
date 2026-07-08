@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { computeRosterQuality, normalizeRosterQuality } from './roster-quality'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -280,10 +281,8 @@ export async function generatePowerRankings(week: number) {
     // literally nothing to rank on and produced an arbitrary order). Bounds
     // (73-85) calibrated from this season's actual top-8 weighted real_ovr
     // spread across all 30 teams.
-    const top8ByUsage = [...roster].sort((a, b) => (b.usage || 0) - (a.usage || 0)).slice(0, 8)
-    const rosterQualityTotalW = top8ByUsage.reduce((s, p) => s + (p.usage || 50), 0) || 1
-    const rosterQuality = top8ByUsage.reduce((s, p) => s + (p.real_ovr || 70) * (p.usage || 50), 0) / rosterQualityTotalW
-    const rosterQualityNorm = clamp01((rosterQuality - 73) / 12)
+    const rosterQuality = computeRosterQuality(roster)
+    const rosterQualityNorm = normalizeRosterQuality(rosterQuality)
     const rosterNote = rosterQualityNorm >= 0.7 ? 'one of the most talent-loaded rosters in the league on paper'
       : rosterQualityNorm >= 0.4 ? 'solid, playoff-caliber talent on paper'
       : 'still fairly thin on top-end talent relative to the league'

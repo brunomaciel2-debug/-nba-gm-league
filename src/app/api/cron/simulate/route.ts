@@ -20,6 +20,7 @@ import { resolveAllStarWeekend } from '@/lib/allstar-resolver'
 import { resolveWeeklyTacticalDevelopment, getAllTeamsTacticalState } from '@/lib/tactical-resolver'
 import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
+import { computeRosterQuality, normalizeRosterQuality } from '@/lib/roster-quality'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -1013,7 +1014,7 @@ if (!asResult.skipped) console.log(`All-Star Weekend resolved: ${asResult.total}
 if (isEndOfSeason) {
 const MIN_GAMES = 65
 const { data: seasonStats } = await supabaseAdmin
-.from('player_stats').select('*,players!inner(id,name,pos,team_id,nba_experience,potential_grade,teams!inner(id,name,conference,wins,pts_allowed))')
+.from('player_stats').select('*,players!inner(id,name,pos,team_id,nba_experience,potential_grade,teams!players_team_id_fkey!inner(id,name,conference,wins,pts_against))')
 .gte('games', MIN_GAMES)
 
 if (seasonStats && seasonStats.length > 0) {
@@ -1032,10 +1033,10 @@ stats_context:mvpScores[0].stats,notes:'Most Valuable Player'
 },{onConflict:'season,award_type,period'})
 
 const { data: defStats } = await supabaseAdmin
-.from('player_stats').select('player_id,blk,stl,games,players!inner(team_id,teams!inner(pts_allowed,wins))')
+.from('player_stats').select('player_id,blk,stl,games,players!inner(team_id,teams!players_team_id_fkey!inner(pts_against,wins))')
 .gte('games', MIN_GAMES)
 const { data: teamDef } = await supabaseAdmin
-.from('teams').select('id,pts_allowed').not('id','in','(ALL,RVS)').order('pts_allowed',{ascending:true})
+.from('teams').select('id,pts_against').not('id','in','(ALL,RVS)').order('pts_against',{ascending:true})
 const topDefTeams = new Set((teamDef||[]).slice(0,10).map((t:any)=>t.id))
 if (defStats) {
 const dpoyScores = defStats.map((s:any)=>{
@@ -1075,6 +1076,76 @@ player_id:m.id, score:m.score, stats_context:m.stats
 }, {onConflict:'season,award_type,period'})
 }
 }
+
+// All-Rookie 1st/2nd Team — same royScores ranking already computed above
+// for ROY, just split into two teams of 5 instead of only crowning #1.
+const allRookieTeams: [string,number,number][] = [['all_rookie_1',0,5],['all_rookie_2',5,10]]
+for (const [type,from,to] of allRookieTeams) {
+for (const m of royScores.slice(from,to)) {
+await supabaseAdmin.from('awards').upsert({
+season:'2025-26', award_type:type, period:`season_${m.id}`,
+player_id:m.id, score:m.score
+}, {onConflict:'season,award_type,period'})
+}
+}
+
+// Most Improved Player — this season's (PPG+RPG*0.8+APG*1.2) vs. the same
+// player's most recent PRIOR season, min 20 games both seasons to avoid
+// injury-shortened noise. Needs a real second season's player_stats to ever
+// crown anyone — until this game rolls over past '2025-26', priorSeasonMap
+// stays empty and this correctly awards no one, same as ROY finding no
+// winner in a league with zero rookies (not a bug, an honest empty result).
+const { data: priorSeasonStats } = await supabaseAdmin
+.from('player_stats').select('player_id,season,pts,reb,ast,games')
+.neq('season','2025-26').gte('games',20).order('season',{ascending:false})
+const priorSeasonMap: Record<string,{pts:number,reb:number,ast:number,games:number}> = {}
+for (const s of (priorSeasonStats||[])) {
+if (!priorSeasonMap[s.player_id]) priorSeasonMap[s.player_id] = s as any // first hit per player = most recent prior season, since ordered desc
+}
+const mipScores = seasonStats
+.map((s:any) => {
+const prior = priorSeasonMap[s.player_id]
+if (!prior) return null
+const g = s.games||1, pg = prior.games||1
+const thisScore = (s.pts/g)+(s.reb/g)*0.8+(s.ast/g)*1.2
+const priorScore = (prior.pts/pg)+(prior.reb/pg)*0.8+(prior.ast/pg)*1.2
+return { id:s.player_id, score: thisScore-priorScore,
+stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g} }
+})
+.filter((x:any):x is {id:string,score:number,stats:any} => x !== null && x.score > 0)
+.sort((a:any,b:any)=>b.score-a.score)
+if (mipScores[0]) await supabaseAdmin.from('awards').upsert({
+season:'2025-26',award_type:'mip',period:'season',
+player_id:mipScores[0].id,score:mipScores[0].score,
+stats_context:mipScores[0].stats,notes:'Most Improved Player'
+},{onConflict:'season,award_type,period'})
+
+// Coach of the Year — the head coach whose team's actual win% most exceeds
+// what its on-paper roster talent alone would predict (computeRosterQuality,
+// the same top-8 usage-weighted real_ovr formula Power Rankings uses).
+// Real COY philosophy: reward overperforming a roster, not just winning the
+// most with the most talent already in place.
+const { data: coyTeams } = await supabaseAdmin.from('teams').select('id,wins,losses').not('id','in','(ALL,RVS,ROO,SOP)')
+const { data: coyPlayers } = await supabaseAdmin.from('players').select('team_id,real_ovr,usage').eq('status','active').not('team_id','is',null)
+const { data: headCoaches } = await supabaseAdmin.from('coaches').select('id,team_id').eq('role','head_coach').not('team_id','is',null)
+const coyRosterByTeam: Record<string,{real_ovr:number,usage:number}[]> = {}
+for (const p of (coyPlayers||[])) { (coyRosterByTeam[p.team_id] ||= []).push(p as any) }
+const coyTeamMap: Record<string,{wins:number,losses:number}> = {}
+for (const t of (coyTeams||[])) coyTeamMap[t.id] = { wins:t.wins||0, losses:t.losses||0 }
+const coyScores = (headCoaches||[]).map((c:any) => {
+const team = coyTeamMap[c.team_id]
+const gamesPlayed = (team?.wins||0)+(team?.losses||0)
+if (!team || gamesPlayed === 0) return null
+const actualWinPct = team.wins/gamesPlayed
+const rosterQualityNorm = normalizeRosterQuality(computeRosterQuality(coyRosterByTeam[c.team_id]||[]))
+return { id:c.id, team_id:c.team_id, score: actualWinPct-rosterQualityNorm }
+}).filter((x:any):x is {id:string,team_id:string,score:number} => x !== null)
+.sort((a:any,b:any)=>b.score-a.score)
+if (coyScores[0]) await supabaseAdmin.from('awards').upsert({
+season:'2025-26',award_type:'coy',period:'season',
+coach_id:coyScores[0].id,team_id:coyScores[0].team_id,score:coyScores[0].score,
+notes:'Coach of the Year'
+},{onConflict:'season,award_type,period'})
 }
 }
 } catch(awardsErr) { console.warn('Awards step failed:', awardsErr) }
