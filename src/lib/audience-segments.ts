@@ -260,3 +260,17 @@ export function computeGameTicketRevenue(segments: SegmentAttendance[], prices: 
   const tierPrice: Record<TierId, number> = { lower: prices.lower, upper: prices.upper, courtside: prices.courtside }
   return Math.round(segments.reduce((sum, s) => sum + s.count * tierPrice[s.tier], 0))
 }
+
+// Game-day operations — security, ushers/stewards, ticket-office staff,
+// cleaning crew, electricians, sound/light techs, in-game entertainment
+// (cheerleaders/mascot performers/DJ). Real per-game cost, not a flat
+// monthly guess: a bigger building needs a bigger baseline crew regardless
+// of turnout (BASE_RATE_PER_SEAT x real capacity), plus extra stewards/
+// security for however many fans actually show up (VARIABLE_RATE_PER_FAN x
+// real attendance) — same "fixed overhead + real demand" split already
+// used for concession supply costs above.
+const GAME_OPS_BASE_RATE_PER_SEAT = 2.5
+const GAME_OPS_VARIABLE_RATE_PER_FAN = 1.5
+export function computeGameOperationsCost(capacity: number, attendance: number): number {
+  return Math.round(capacity * GAME_OPS_BASE_RATE_PER_SEAT + attendance * GAME_OPS_VARIABLE_RATE_PER_FAN)
+}
