@@ -1,4 +1,9 @@
-import { marketMultiplier, followersBonus } from './merchandising'
+// Imports the pure market-tier file directly (NOT merchandising.ts) — this
+// file is used inside client components (ArenaView.tsx), and merchandising.ts
+// transitively imports server-only notify helpers that crash the browser
+// bundle (unconditional createClient with the service-role key). See
+// market-tiers.ts's own comment for the full incident.
+import { marketMultiplier, followersBonus } from './market-tiers'
 
 // ── AUDIENCE SEGMENTS ─────────────────────────────────────────────
 // Formalizes the demographic flavor text ArenaBlueprint.tsx's concession
