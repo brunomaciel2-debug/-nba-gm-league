@@ -23,6 +23,7 @@ import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 import { computeRosterQuality, normalizeRosterQuality } from '@/lib/roster-quality'
 import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, computeConcessionSupplyCost, computeGameOperationsCost, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
 import { getGymGradeBonus } from '@/lib/facility-constants'
+import { cityDistanceMiles, computeAwayTravelCost } from '@/lib/travel-constants'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -323,6 +324,23 @@ team_id: ht.id, type: 'expense', category: 'operational', amount: gameOpsCost,
 description: `Game operations vs ${at.name} (security, ushers, staff)`, season: '2025-26', week_number: week,
 })
 if (rows.length) await supabaseAdmin.from('franchise_transactions').insert(rows)
+}
+}
+
+// Away travel — real distance-based charter/hotel/per-diem cost for the
+// visiting team, previously a flat "$200K/month" guess never actually
+// posted anywhere. Only the traveling team pays (the home team already
+// has its own real game-ops cost above).
+const travelDistance = cityDistanceMiles(ht.id, at.id)
+const travelCost = computeAwayTravelCost(travelDistance)
+if (travelCost > 0) {
+const { data: awayFin } = await supabaseAdmin.from('franchise_finances').select('balance').eq('team_id', at.id).single()
+if (awayFin) {
+await supabaseAdmin.from('franchise_finances').update({ balance: (awayFin.balance||0) - travelCost }).eq('team_id', at.id)
+await supabaseAdmin.from('franchise_transactions').insert({
+team_id: at.id, type: 'expense', category: 'travel', amount: travelCost,
+description: `Away travel to ${ht.name} (${Math.round(travelDistance)}mi)`, season: '2025-26', week_number: week,
+})
 }
 }
 } catch (arenaRevErr) { console.warn('Arena revenue posting failed:', arenaRevErr) }
