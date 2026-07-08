@@ -332,14 +332,15 @@ if (rows.length) await supabaseAdmin.from('franchise_transactions').insert(rows)
 // posted anywhere. Only the traveling team pays (the home team already
 // has its own real game-ops cost above).
 const travelDistance = cityDistanceMiles(ht.id, at.id)
-const travelCost = computeAwayTravelCost(travelDistance)
-if (travelCost > 0) {
+const travel = computeAwayTravelCost(travelDistance)
+if (travel.total > 0) {
 const { data: awayFin } = await supabaseAdmin.from('franchise_finances').select('balance').eq('team_id', at.id).single()
 if (awayFin) {
-await supabaseAdmin.from('franchise_finances').update({ balance: (awayFin.balance||0) - travelCost }).eq('team_id', at.id)
+await supabaseAdmin.from('franchise_finances').update({ balance: (awayFin.balance||0) - travel.total }).eq('team_id', at.id)
 await supabaseAdmin.from('franchise_transactions').insert({
-team_id: at.id, type: 'expense', category: 'travel', amount: travelCost,
-description: `Away travel to ${ht.name} (${Math.round(travelDistance)}mi)`, season: '2025-26', week_number: week,
+team_id: at.id, type: 'expense', category: 'travel', amount: travel.total,
+description: `Away travel to ${ht.name} (${Math.round(travelDistance)}mi) — flight $${travel.flight}, hotel $${travel.hotel}, meals $${travel.meals}, ground transport $${travel.groundTransport}, security $${travel.security}`,
+season: '2025-26', week_number: week,
 })
 }
 }

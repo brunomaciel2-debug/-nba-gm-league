@@ -52,16 +52,35 @@ export function cityDistanceMiles(teamA: string, teamB: string): number {
   return EARTH_RADIUS_MILES * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
 }
 
-// Charter flight (base cost even for a short hop + a real per-mile rate for
-// the whole travelling party) + one hotel night + meal per diem for the
-// travelling roster/staff — a single-game trip assumption (this game engine
-// doesn't model multi-city road-trip grouping), which is a reasonable
-// simplification, not an attempt at exact real-world accounting.
-const BASE_CHARTER_COST = 15000
-const PER_MILE_RATE = 12
-const HOTEL_PER_NIGHT = 18000
-const PER_DIEM = 5000
+// Traveling party — the 15-man active roster plus the real staff who fly
+// with the team: head coach, assistant coaches, trainer, physio, equipment
+// manager, video coordinator, PR/media, and a traveling security detail.
+// Hotel and meals scale off this real headcount, not a flat guess.
+const TRAVELING_PARTY_SIZE = 25
 
-export function computeAwayTravelCost(distanceMiles: number): number {
-  return Math.round(BASE_CHARTER_COST + distanceMiles * PER_MILE_RATE + HOTEL_PER_NIGHT + PER_DIEM)
+// Real per-trip cost drivers, itemized (all real inputs, summed into one
+// ledger line — see TravelCostBreakdown below for the itemized numbers a
+// description/tooltip can still show):
+const BASE_CHARTER_COST = 15000       // charter flight base cost, any distance
+const PER_MILE_RATE = 12              // charter flight, scales with real distance
+const HOTEL_RATE_PER_PERSON_NIGHT = 350  // one road-trip night, whole traveling party
+const MEAL_PER_DIEM_PER_PERSON = 150     // meals for the whole traveling party
+const GROUND_TRANSPORT_FLAT = 3000    // bus/van rental + drivers, airport-hotel-arena
+const TRAVELING_SECURITY_FLAT = 4000  // security detail that travels with the team
+
+export type TravelCostBreakdown = {
+  total: number, flight: number, hotel: number, meals: number, groundTransport: number, security: number,
+}
+
+// A single-game trip assumption (this engine doesn't model multi-city
+// road-trip grouping) — a reasonable simplification, not exact real-world
+// accounting, but every input here (headcount, distance, per-person rates)
+// is real, not a flat guess.
+export function computeAwayTravelCost(distanceMiles: number): TravelCostBreakdown {
+  const flight = Math.round(BASE_CHARTER_COST + distanceMiles * PER_MILE_RATE)
+  const hotel = TRAVELING_PARTY_SIZE * HOTEL_RATE_PER_PERSON_NIGHT
+  const meals = TRAVELING_PARTY_SIZE * MEAL_PER_DIEM_PER_PERSON
+  const groundTransport = GROUND_TRANSPORT_FLAT
+  const security = TRAVELING_SECURITY_FLAT
+  return { total: flight + hotel + meals + groundTransport + security, flight, hotel, meals, groundTransport, security }
 }
