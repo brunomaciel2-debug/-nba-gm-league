@@ -121,6 +121,7 @@ export default function Navbar() {
         { label: isPT ? 'Objetivos de Patrocínio'   : 'Sponsor Objectives',   href: '/rules/sponsors', icon: 'ti-target-arrow' },
         { label: isPT ? 'Regras de Merchandising'   : 'Merchandising Rules',  href: '/rules/merchandising', icon: 'ti-shirt' },
         { label: isPT ? 'Familiaridade Tática'      : 'Tactical Familiarity', href: '/rules/tactical-systems', icon: 'ti-brain' },
+        { label: isPT ? 'Finanças e Economia da Arena' : 'Finances & Arena Economy', href: '/rules/finances', icon: 'ti-building-stadium' },
       ],
     },
   ]
