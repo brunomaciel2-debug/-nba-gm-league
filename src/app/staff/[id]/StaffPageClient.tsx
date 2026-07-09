@@ -4,57 +4,81 @@ import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 import CoachPhotoUpload from './CoachPhotoUpload'
 
+// Formula-grounded, not marketing copy — mirrors CoachingStaff.tsx's
+// statTip dictionary exactly, since it's the same underlying mechanics.
+// A few fields share a name across roles but only really matter for one
+// of them; resolveTips() below bakes the right variant in for this page's
+// single coach. Some are honestly not wired to anything yet.
 const TIPS_EN: Record<string,string> = {
-  off_adjustment:'Offensive Adjustment — how well the coach reads the opponent defence and adapts the attack in real time.',
-  def_adjustment:'Defensive Adjustment — ability to identify and neutralise the opponent offensive system.',
-  substitutions:'Substitutions — making the right rotation at the right moment.',
-  timeout_mgmt:'Timeout Management — knowing when to call a timeout and what to say.',
-  off_development:'Offensive Development — how effectively this coach improves players offensive skills over time.',
-  def_development:'Defensive Development — improves players defensive attributes each week.',
-  tactical_dev:'Tactical Development — improves basketball IQ and team-play attributes.',
-  physical_dev:'Physical Development — improves athletic conditioning attributes.',
-  mental_dev:'Mental Development — builds psychological resilience.',
-  conditioning:'Conditioning — reduces health loss per game and per training session.',
-  recovery_boost:'Recovery — increases daily health recovery between games.',
-  injury_prevent:'Injury Prevention — reduces the base probability of injuries occurring.',
-  rehab_speed:'Rehab Speed — reduces the recovery time of injured players.',
+  'off_adjustment:head_coach':"Adjusts your offense during the real game: sharpens an already-favorable matchup or dulls an unfavorable one, up to ±30%.",
+  'off_adjustment:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — only the head coach's value counts toward in-game adjustments.",
+  'def_adjustment:head_coach':'Same as Offense Adjust, but on the defensive side of the matchup — up to ±30%.',
+  'def_adjustment:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — only the head coach's value counts toward in-game adjustments.",
+  substitutions:'Not wired to any simulation formula yet — informational only for now.',
+  timeout_mgmt:'Not wired to any simulation formula yet — informational only for now.',
+  'off_development:head_coach':"Counts for 60% of the quality that fills the roster's weekly Offense Training slot.",
+  'off_development:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — their real contribution uses internal data not shown here.",
+  'def_development:head_coach':"Counts for 60% of the quality that fills the roster's weekly Defense Training slot.",
+  'def_development:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — their real contribution uses internal data not shown here.",
+  tactical_dev:'Counts toward the Tactical training slot quality (60% head coach + 40% assistant) and speeds up the real mastery of the team\'s tactical systems.',
+  'physical_dev:head_coach':'Counts for 30% of the quality that fills the weekly Physical Training slot — the Trainer counts the other 70%.',
+  'physical_dev:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — the Trainer is who counts alongside the head coach.",
+  mental_dev:'Counts toward the Mental training slot quality (60% head coach + 40% assistant) — the head coach needs at least 70 here for that slot to unlock.',
+  conditioning:"Raises the roster's real weekly chance of physical attribute growth (stamina, durability, rebounding).",
+  recovery_boost:'Counts for 70% of the quality that fills the weekly Recovery slot — the head coach counts the other 30%.',
+  injury_prevent:'Not wired to the real injury formula yet — informational only for now.',
+  rehab_speed:'Speeds up injured players\' real weekly recovery, by up to 30%.',
   style_boost:'Style Match Boost — percentage bonus when GM tactics match this coach preferred style.',
   personality:'Coach Personality — affects player development and team chemistry.',
-  scouting_evaluation:'Evaluation — raw talent-judging ability. Drives weekly scouting points.',
-  scouting_network:'Network — contacts across college programs, agents and international leagues.',
-  scouting_experience:'Experience — years spent evaluating talent.',
-  morale_management:'Morale Management — speeds up (or unlocks, below 50) weekly morale recovery for every player on the roster.',
-  team_cohesion:'Team Cohesion — real on-court chemistry: more assisted baskets, fewer unforced turnovers.',
-  composure_coaching:'Composure — how much less a team tightens up in clutch, decisive, and rivalry moments.',
-  sm_engagement:'Social Media Engagement — grows (or shrinks) the team\'s real follower count every week, which feeds into jersey/fame growth and a small attendance boost.',
-  fan_interaction:'Team-Fan Interaction — chance each week of a meet & greet/autograph event, which grows the Loyal Fan share of your crowd and lifts one player\'s morale.',
-  social_responsibility:'Social Responsibility — chance each week of a charity event, which lifts real franchise popularity and one player\'s fame.',
+  scouting_evaluation:'Counts for 50% of real scouting points earned per week — the heaviest of the three.',
+  scouting_network:'Counts for 20% of real scouting points earned per week.',
+  scouting_experience:'Counts for 30% of real scouting points earned per week.',
+  morale_management:"Speeds up how fast each player's real moral drifts toward the value it \"deserves,\" week by week.",
+  team_cohesion:'Lowers the real in-game turnover chance, by up to 20%.',
+  composure_coaching:'Lowers the real impact of pressure in decisive game moments, by up to 12%.',
+  sm_engagement:'Drives real passive follower growth (or loss) every week.',
+  fan_interaction:'Drives the real weekly chance of a fan-interaction event — raises one player\'s moral and the team\'s followers.',
+  social_responsibility:'Drives the real weekly chance of a social-responsibility event — raises team popularity and one player\'s fame.',
 }
 const TIPS_PT: Record<string,string> = {
-  off_adjustment:'Ajuste Ofensivo — capacidade de ler a defesa adversária e adaptar o ataque em tempo real.',
-  def_adjustment:'Ajuste Defensivo — capacidade de identificar e neutralizar o sistema ofensivo adversário.',
-  substitutions:'Substituições — fazer a rotação certa no momento certo.',
-  timeout_mgmt:'Gestão de Tempos — saber quando pedir tempo e o que dizer.',
-  off_development:'Desenvolvimento Ofensivo — como este treinador melhora as capacidades ofensivas dos jogadores ao longo do tempo.',
-  def_development:'Desenvolvimento Defensivo — melhora os atributos defensivos dos jogadores por semana.',
-  tactical_dev:'Desenvolvimento Tático — melhora o QI de basquetebol e atributos de jogo de equipa.',
-  physical_dev:'Desenvolvimento Físico — melhora os atributos de condicionamento atlético.',
-  mental_dev:'Desenvolvimento Mental — desenvolve resiliência psicológica.',
-  conditioning:'Condicionamento — reduz a perda de saúde por jogo e por sessão de treino.',
-  recovery_boost:'Recuperação — aumenta a recuperação diária de saúde entre jogos.',
-  injury_prevent:'Prevenção de Lesões — reduz a probabilidade base de lesões em jogos e treinos.',
-  rehab_speed:'Velocidade de Reabilitação — reduz o tempo de recuperação de jogadores lesionados.',
+  'off_adjustment:head_coach':'Ajusta o teu ataque durante o jogo real: reforça uma vantagem de matchup já existente ou atenua uma desvantagem, até ±30%.',
+  'off_adjustment:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — só o do Head Coach conta nos ajustes durante o jogo.',
+  'def_adjustment:head_coach':'O mesmo que o Ajuste de Ataque, mas do lado defensivo do matchup — até ±30%.',
+  'def_adjustment:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — só o do Head Coach conta nos ajustes durante o jogo.',
+  substitutions:'Ainda não está ligado a nenhuma fórmula da simulação — é apenas informativo por agora.',
+  timeout_mgmt:'Ainda não está ligado a nenhuma fórmula da simulação — é apenas informativo por agora.',
+  'off_development:head_coach':'Conta 60% da qualidade que preenche o slot semanal de Treino de Ataque do plantel.',
+  'off_development:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — a contribuição real dele usa dados internos não mostrados aqui.',
+  'def_development:head_coach':'Conta 60% da qualidade que preenche o slot semanal de Treino de Defesa do plantel.',
+  'def_development:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — a contribuição real dele usa dados internos não mostrados aqui.',
+  tactical_dev:'Conta para a qualidade do slot de treino Tático (60% Head Coach + 40% Assistente) e acelera o domínio real dos sistemas táticos da equipa.',
+  'physical_dev:head_coach':'Conta 30% da qualidade que preenche o slot semanal de Treino Físico — o Preparador Físico conta os outros 70%.',
+  'physical_dev:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — quem conta a par do Head Coach é o Preparador Físico.',
+  mental_dev:'Conta para a qualidade do slot de treino Mental (60% Head Coach + 40% Assistente) — o Head Coach precisa de pelo menos 70 aqui para esse slot desbloquear.',
+  conditioning:'Aumenta a chance semanal real de evolução dos atributos físicos do plantel (resistência, durabilidade, ressaltos).',
+  recovery_boost:'Conta 70% da qualidade que preenche o slot semanal de Recuperação — o Head Coach conta os outros 30%.',
+  injury_prevent:'Ainda não está ligado à fórmula real de lesões — é apenas informativo por agora.',
+  rehab_speed:'Acelera a recuperação semanal real de jogadores lesionados, até 30% mais rápido.',
   style_boost:'Bónus de Estilo — bónus percentual quando as táticas do GM correspondem ao estilo preferido deste treinador.',
   personality:'Personalidade do Treinador — afecta o desenvolvimento dos jogadores e a química de equipa.',
-  scouting_evaluation:'Avaliação — capacidade bruta de julgamento de talento. Impulsiona os pontos de scouting semanais.',
-  scouting_network:'Rede de Contactos — contactos em programas universitários, agentes e ligas internacionais.',
-  scouting_experience:'Experiência — anos passados a avaliar talento.',
-  morale_management:'Gestão de Moral — acelera (ou desbloqueia, abaixo de 50) a recuperação semanal de moral de todo o plantel.',
-  team_cohesion:'Coesão de Equipa — química real em campo: mais cestos assistidos, menos perdas de bola.',
-  composure_coaching:'Gestão de Pressão — quanto menos a equipa se contrai em momentos clutch, decisivos e de rivalidade.',
-  sm_engagement:'Social Media Engagement — faz crescer (ou encolher) o número real de seguidores da equipa todas as semanas, o que alimenta o crescimento de fama/merchandising e um pequeno bónus de assistência.',
-  fan_interaction:'Interação com Fãs — hipótese semanal de um evento meet & greet/autógrafos, que aumenta a fatia de Fãs Fiéis no teu público e sobe a moral de um jogador.',
-  social_responsibility:'Responsabilidade Social — hipótese semanal de um evento de caridade, que sobe a popularidade real da equipa e a fama de um jogador.',
+  scouting_evaluation:'Conta 50% dos pontos de scouting reais ganhos por semana — o maior peso dos três.',
+  scouting_network:'Conta 20% dos pontos de scouting reais ganhos por semana.',
+  scouting_experience:'Conta 30% dos pontos de scouting reais ganhos por semana.',
+  morale_management:'Acelera a velocidade real com que o moral de cada jogador se aproxima do valor que "merece" ter, semana a semana.',
+  team_cohesion:'Reduz a chance real de perdas de bola em jogo, até 20% a menos.',
+  composure_coaching:'Reduz o impacto real da pressão em momentos decisivos do jogo, até 12%.',
+  sm_engagement:'Determina o crescimento (ou perda) passivo real de seguidores todas as semanas.',
+  fan_interaction:'Determina a chance semanal real de um evento de interação com fãs — sobe o moral de um jogador e os seguidores da equipa.',
+  social_responsibility:'Determina a chance semanal real de um evento de responsabilidade social — sobe a popularidade da equipa e a fama de um jogador.',
+}
+
+function resolveTips(dict: Record<string,string>, role: string): Record<string,string> {
+  const resolved: Record<string,string> = {}
+  for (const key of Object.keys(dict)) {
+    if (key.includes(':')) continue
+    resolved[key] = dict[`${key}:${role}`] ?? dict[key]
+  }
+  return resolved
 }
 
 const ROLE_INFO_EN: Record<string,{label:string,color:string,icon:string}> = {
@@ -98,7 +122,7 @@ function StatRow({label,value,color,tip}:{label:string,value:number,color:string
 export default function StaffPageClient({coach,team}:{coach:any,team:any}) {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
-  const TIPS = isPT ? TIPS_PT : TIPS_EN
+  const TIPS = resolveTips(isPT ? TIPS_PT : TIPS_EN, coach.role)
   const ROLE_INFO = isPT ? ROLE_INFO_PT : ROLE_INFO_EN
   const ATK = isPT ? ATK_PT : ATK_EN
   const DEF = isPT ? DEF_PT : DEF_EN
