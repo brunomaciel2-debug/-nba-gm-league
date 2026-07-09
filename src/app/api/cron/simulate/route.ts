@@ -1329,6 +1329,31 @@ age: (p.age || 20) + 1,
 }
 } catch(ageErr) { console.warn('Aging step failed:', ageErr) }
 
+// Coaches/staff, referees, and not-yet-drafted prospects are real people
+// too — they were never aged anywhere before this, only players were.
+try {
+const { data: everyCoach } = await supabaseAdmin.from('coaches').select('id,age').not('age','is',null)
+if (everyCoach) {
+for (let i = 0; i < everyCoach.length; i += 50) {
+const chunk = everyCoach.slice(i, i + 50)
+await Promise.all(chunk.map((c:any) => supabaseAdmin.from('coaches').update({ age: (c.age||30) + 1 }).eq('id', c.id)))
+}
+}
+} catch(coachAgeErr) { console.warn('Coach aging step failed:', coachAgeErr) }
+
+// Note: referees have no age column in the DB (checked directly) — nothing
+// to age there.
+
+try {
+const { data: everyProspect } = await supabaseAdmin.from('prospects').select('id,age').eq('drafted', false).not('age','is',null)
+if (everyProspect) {
+for (let i = 0; i < everyProspect.length; i += 50) {
+const chunk = everyProspect.slice(i, i + 50)
+await Promise.all(chunk.map((p:any) => supabaseAdmin.from('prospects').update({ age: (p.age||19) + 1 }).eq('id', p.id)))
+}
+}
+} catch(prospectAgeErr) { console.warn('Prospect aging step failed:', prospectAgeErr) }
+
 // ── ROOKIE TEAM OPTION PROGRESSION ──────────────────────
 // Same once-a-season trigger as the aging step above — advances rookie
 // contracts toward their next Team Option decision point.
