@@ -6,8 +6,28 @@ import { getStatusForWeek } from '@/lib/season-week-helper'
 
 const SEASON = '2025-26'
 const CAP_LIMIT = 180_000_000 // mirrors notifications.ts CAP_LIMIT
-const REGULAR_SEASON_START_WEEK = 17 // see season-week-helper.ts
+// Expectations lock right after Free Agency ends (week 1 is 'free-agency',
+// week 2 is 'summer-league' — see season-week-helper.ts), not at the start
+// of the regular season. The roster a GM builds in Free Agency is what
+// really sets the tone for the season; holding the lock open through
+// summer league/offseason/pre-season would let further roster moves keep
+// gaming the baseline right up to opening night, defeating the whole
+// point of a FIXED, start-of-season expectation.
+const FREE_AGENCY_END_WEEK = 2
+// Locking is only meaningful while there's a real season ahead — don't
+// lock (or re-lock) for a GM who took over during the tail end of a
+// season with nothing left to hold expectations against; that waits for
+// the next season's Free Agency to close instead.
+const LOCK_ELIGIBLE_STATUSES = new Set(['summer-league', 'offseason', 'pre-season', 'regular-season'])
 const TOTAL_SEASON_GAMES = 82 // real NBA-style schedule length (schedule-generator.ts)
+
+// Short PT labels for the lock notification only — the richer situation
+// sentences (with full framing per audience) live in SatisfactionTab.tsx's
+// SITUATION_INFO, this is just for a compact notification line.
+const WIN_NOW_LABEL_PT: Record<string, string> = {
+  rebuild: 'Reconstrução', retool: 'Reconstrução Avançada', playoff_push: 'A Lutar pelos Playoffs',
+  playoff_team: 'Equipa de Playoffs', rising_contender: 'Quer ser Contender', contender: 'Contender',
+}
 
 function clamp(v: number, lo = 0, hi = 100): number { return Math.min(hi, Math.max(lo, v)) }
 function clamp01(v: number, lo = 0, hi = 1): number { return Math.min(hi, Math.max(lo, v)) }
@@ -576,16 +596,18 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     // Lock the expectation baseline ONCE per GM tenure — a mid-season trade
     // that suddenly makes this team look like a contender or a rebuild must
     // NOT change what Fans/Owners already expect this season (Bruno's
-    // explicit requirement). Locks at the later of "regular season actually
-    // started" or "this GM's tenure started," using whatever roster exists
-    // at that exact moment. If a tenure starts outside the regular season
-    // (e.g. hired during playoffs), locking is deferred — there's no real
-    // season left to hold expectations against until the next one begins.
+    // explicit requirement). Locks at the later of "Free Agency just ended"
+    // or "this GM's tenure started," using whatever roster exists at that
+    // exact moment — the roster right after Free Agency is what really
+    // defines the season, not whatever it drifts into by opening night. If
+    // a tenure starts outside any of the eligible phases (e.g. hired during
+    // playoffs), locking is deferred — there's no real season left to hold
+    // expectations against until the next one's Free Agency closes.
     const tenureStartWeek = tenureStartWeekByTeam[team.id] ?? 1
     let lockedTarget = lockedTargetByTeam[team.id]
     if (!lockedTarget) {
-      const lockWeek = Math.max(REGULAR_SEASON_START_WEEK, tenureStartWeek)
-      if (week >= lockWeek && getStatusForWeek(week) === 'regular-season') {
+      const lockWeek = Math.max(FREE_AGENCY_END_WEEK, tenureStartWeek)
+      if (week >= lockWeek && LOCK_ELIGIBLE_STATUSES.has(getStatusForWeek(week))) {
         const fansTargetWins = Math.round(expectedWinPct(wni) * TOTAL_SEASON_GAMES)
         const ownersTargetWins = Math.round(ownersExpectedWinPct(wni) * TOTAL_SEASON_GAMES)
         const fansCriteria = selectFansCriteria({ star: topPlayers[0], rival: rivalInfo, wni })
@@ -597,6 +619,16 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
           fans_criteria: fansCriteria, owners_criteria: ownersCriteria,
         }).select().single()
         lockedTarget = inserted
+        if (lockedTarget) {
+          const lang = await getTeamLang(team.id)
+          const situationLabelPT = WIN_NOW_LABEL_PT[label as WinNowLabel] || label
+          const situationLabelEN = label.replace(/_/g, ' ')
+          const subject = lang === 'pt' ? '🎯 As expetativas da época foram definidas' : '🎯 Season expectations are locked in'
+          const body = lang === 'pt'
+            ? `A tua situação foi avaliada como "${situationLabelPT}". Os Fãs esperam pelo menos ${fansTargetWins} vitórias e a Administração pelo menos ${ownersTargetWins} — fixo até ao fim da época, mesmo que a equipa mude de rumo. Consulta a aba Satisfação para veres a lista completa de critérios.`
+            : `Your situation was assessed as "${situationLabelEN}". Fans expect at least ${fansTargetWins} wins and Ownership at least ${ownersTargetWins} — fixed for the rest of the season, even if the team's direction changes. Check the Satisfaction tab for the full criteria checklist.`
+          await notify(team.id, 'ownership', subject, body, { lockedWeek: week, fansTargetWins, ownersTargetWins, winNowLabel: label })
+        }
       }
     }
     // Back-lock the criteria SET for rows created before this feature
