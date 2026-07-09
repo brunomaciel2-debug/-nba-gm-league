@@ -172,6 +172,10 @@ export function computeOwnersScore(inputs: OwnersInputs): { score: number, break
     sportingPerformanceScore, managementScore, patrimonioScore, growthScore, resultsScore, trendScore,
     actualWinPct: inputs.actualWinPct, expectedWinPct: ownersExpectedWinPct(inputs.wni),
     netIncomeSinceLock: inputs.netIncomeSinceLock,
+    // Fixed weights (unlike Fans, Owners' weights don't shift with
+    // situation) — exposed here so the UI can show each line's real
+    // contribution instead of just the final blended score.
+    wSporting: 0.40, wManagement: 0.20, wPatrimonio: 0.20, wGrowth: 0.20,
   } }
 }
 

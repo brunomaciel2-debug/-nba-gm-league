@@ -197,11 +197,15 @@ function DimensionCard({ title, icon, score, trend, color, children }: {
   )
 }
 
-function BreakdownLine({ label, value, tip }: { label: string, value: number | undefined, tip?: string }) {
+function BreakdownLine({ label, value, tip, weightPct }: { label: string, value: number | undefined, tip?: string, weightPct?: number }) {
   if (value == null) return null
   return (
     <div className="flex items-center justify-between text-xs">
-      <span className="flex items-center" style={{ color: '#5c554e' }}>{label}{tip && <Tooltip text={tip} />}</span>
+      <span className="flex items-center" style={{ color: '#5c554e' }}>
+        {label}
+        {weightPct != null && <span style={{ color: '#a39c8f', marginLeft: 4 }}>({Math.round(weightPct * 100)}%)</span>}
+        {tip && <Tooltip text={tip} />}
+      </span>
       <span className="font-semibold flex-shrink-0" style={{ color: '#1a1512' }}>{Math.round(value)}</span>
     </div>
   )
@@ -479,13 +483,10 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
             </div>
           )}
           <div className="mt-1 pt-2" style={{ borderTop: '1px solid #e2dcd5' }}>
-            <BreakdownLine label={isPT ? 'Resultados' : 'Results'} value={fb.resultsScore} tip={isPT ? CRITERION_TIPS_PT.results : CRITERION_TIPS_EN.results} />
-            <BreakdownLine label={isPT ? 'Empolgação jovem' : 'Youth excitement'} value={fb.youthExcitement} tip={isPT ? CRITERION_TIPS_PT.youthExcitement : CRITERION_TIPS_EN.youthExcitement} />
-            <BreakdownLine label={isPT ? 'Imagem' : 'Image'} value={fb.imageScore} tip={isPT ? CRITERION_TIPS_PT.image : CRITERION_TIPS_EN.image} />
-            <BreakdownLine label={isPT ? 'Cultura' : 'Culture'} value={fb.cultureScore} tip={isPT ? CRITERION_TIPS_PT.culture : CRITERION_TIPS_EN.culture} />
-            <div className="text-xs mt-1" style={{ color: '#8a8279' }}>
-              {isPT ? 'Peso em resultados' : 'Weight on results'}: {fb.wResults != null ? Math.round(fb.wResults * 100) : '—'}%
-            </div>
+            <BreakdownLine label={isPT ? 'Resultados' : 'Results'} value={fb.resultsScore} weightPct={fb.wResults} tip={isPT ? CRITERION_TIPS_PT.results : CRITERION_TIPS_EN.results} />
+            <BreakdownLine label={isPT ? 'Empolgação jovem' : 'Youth excitement'} value={fb.youthExcitement} weightPct={fb.wDev} tip={isPT ? CRITERION_TIPS_PT.youthExcitement : CRITERION_TIPS_EN.youthExcitement} />
+            <BreakdownLine label={isPT ? 'Imagem' : 'Image'} value={fb.imageScore} weightPct={0.20} tip={isPT ? CRITERION_TIPS_PT.image : CRITERION_TIPS_EN.image} />
+            <BreakdownLine label={isPT ? 'Cultura' : 'Culture'} value={fb.cultureScore} weightPct={0.15} tip={isPT ? CRITERION_TIPS_PT.culture : CRITERION_TIPS_EN.culture} />
           </div>
           <div className="mt-2 pt-2" style={{ borderTop: '1px solid #e2dcd5' }}>
             <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#8a8279' }}>{isPT ? 'Alvos da Época' : 'Season Targets'}</div>
@@ -508,10 +509,10 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
             </div>
           )}
           <div className="mt-1 pt-2" style={{ borderTop: '1px solid #e2dcd5' }}>
-            <BreakdownLine label={isPT ? 'Desempenho desportivo' : 'Sporting performance'} value={ob.sportingPerformanceScore} tip={isPT ? CRITERION_TIPS_PT.sportingPerformance : CRITERION_TIPS_EN.sportingPerformance} />
-            <BreakdownLine label={isPT ? 'Gestão desportiva' : 'Management'} value={ob.managementScore} tip={isPT ? CRITERION_TIPS_PT.management : CRITERION_TIPS_EN.management} />
-            <BreakdownLine label={isPT ? 'Património' : 'Facilities'} value={ob.patrimonioScore} tip={isPT ? CRITERION_TIPS_PT.facilities : CRITERION_TIPS_EN.facilities} />
-            <BreakdownLine label={isPT ? 'Crescimento' : 'Growth'} value={ob.growthScore} tip={isPT ? CRITERION_TIPS_PT.growth : CRITERION_TIPS_EN.growth} />
+            <BreakdownLine label={isPT ? 'Desempenho desportivo' : 'Sporting performance'} value={ob.sportingPerformanceScore} weightPct={ob.wSporting} tip={isPT ? CRITERION_TIPS_PT.sportingPerformance : CRITERION_TIPS_EN.sportingPerformance} />
+            <BreakdownLine label={isPT ? 'Gestão desportiva' : 'Management'} value={ob.managementScore} weightPct={ob.wManagement} tip={isPT ? CRITERION_TIPS_PT.management : CRITERION_TIPS_EN.management} />
+            <BreakdownLine label={isPT ? 'Património' : 'Facilities'} value={ob.patrimonioScore} weightPct={ob.wPatrimonio} tip={isPT ? CRITERION_TIPS_PT.facilities : CRITERION_TIPS_EN.facilities} />
+            <BreakdownLine label={isPT ? 'Crescimento' : 'Growth'} value={ob.growthScore} weightPct={ob.wGrowth} tip={isPT ? CRITERION_TIPS_PT.growth : CRITERION_TIPS_EN.growth} />
           </div>
           <div className="mt-2 pt-2" style={{ borderTop: '1px solid #e2dcd5' }}>
             <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#8a8279' }}>{isPT ? 'Alvos da Época' : 'Season Targets'}</div>
