@@ -64,7 +64,10 @@ export function computeFansScore(inputs: FansInputs): { score: number, breakdown
   const wDev = 0.50 - 0.50 * inputs.wni
 
   const score = clamp(wResults * resultsScore + wDev * youthExcitement + 0.20 * imageScore + 0.15 * cultureScore)
-  return { score, breakdown: { resultsScore, youthExcitement, imageScore, cultureScore, wResults, wDev } }
+  return { score, breakdown: {
+    resultsScore, youthExcitement, imageScore, cultureScore, wResults, wDev,
+    actualWinPct: inputs.actualWinPct, expectedWinPct: expectedWinPct(inputs.wni),
+  } }
 }
 
 // Rewards fielding more talent than the cap spend alone implies, and
@@ -112,7 +115,10 @@ export function computeOwnersScore(inputs: OwnersInputs): { score: number, break
   const growthScore = computeGrowthScore(inputs.followerGrowthPct, inputs.popularityDelta, inputs.completedConstructionsThisSeason)
 
   const score = clamp(0.40 * sportingPerformanceScore + 0.20 * managementScore + 0.20 * patrimonioScore + 0.20 * growthScore)
-  return { score, breakdown: { sportingPerformanceScore, managementScore, patrimonioScore, growthScore, resultsScore, trendScore } }
+  return { score, breakdown: {
+    sportingPerformanceScore, managementScore, patrimonioScore, growthScore, resultsScore, trendScore,
+    actualWinPct: inputs.actualWinPct, expectedWinPct: expectedWinPct(inputs.wni),
+  } }
 }
 
 // Literally "número de objetivos atingidos por cada sponsor" — a team with
