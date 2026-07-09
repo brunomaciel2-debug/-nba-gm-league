@@ -67,6 +67,40 @@ const OWNERS_SITUATION_INFO: Record<string, { sentencePT: string, sentenceEN: st
   },
 }
 
+// What each criterion actually measures — the real formulas from
+// src/lib/gm-satisfaction.ts, not vague labels. Answers exactly the kind
+// of question Bruno asked ("is Youth Excitement about average age, or
+// starters, or minutes played?") in plain terms.
+const CRITERION_TIPS_PT: Record<string, string> = {
+  results: 'Compara a % de vitórias real com a esperada para a tua situação atual (rebuild espera menos, contender espera muito mais). Ganhar mais do que o esperado sobe a nota; ganhar menos, desce.',
+  youthExcitement: '60%: desenvolvimento REAL de atributos esta época dos jogadores com 24 anos ou menos, ponderado pelo seu uso em jogo (não basta ter jovens — têm de estar mesmo a melhorar). 40%: número de jogadores no plantel com grau de potencial A ou B, independentemente de jogarem muito ou pouco.',
+  image: 'A popularidade real da equipa (0-100) — a mesma que já vês nas abas Social Media e Finanças, incluindo eventos de responsabilidade social e o efeito dos seguidores.',
+  culture: '60%: moral média de todo o plantel. 40%: ausência de conflitos por resolver — cada Interação de Jogador em aberto (pedidos de troca, etc.) desce este valor em 15 pontos.',
+  sportingPerformance: '70%: o mesmo critério de Resultados dos Fãs (vitórias reais vs. esperadas). 30%: tendência — compara a % de vitórias nos últimos 10 jogos com a média da época toda (a subir ou a descer?).',
+  management: 'Compara o talento real do plantel (peso 8 melhores por uso) com a % do tecto salarial já gasta — mais talento por menos dinheiro sobe a nota. Soma ainda um bónus por escolhas de draft futuras acumuladas via trocas (até 3 escolhas contam).',
+  facilities: '45%: grau do ginásio (F a A). 30%: capacidade do teu pavilhão comparada com a da liga inteira (o maior pavilhão marca 100, o menor marca 0). 25%: saúde financeira — o saldo real da equipa.',
+  growth: 'Crescimento semana-a-semana de seguidores e popularidade (comparado com a semana anterior), mais um bónus por construções de instalações já concluídas esta época (até 5 construções contam).',
+}
+const CRITERION_TIPS_EN: Record<string, string> = {
+  results: "Compares your real win% to what's expected for your current situation (a rebuild expects less, a contender expects far more). Winning more than expected raises the score; winning less lowers it.",
+  youthExcitement: "60%: REAL attribute development this season for players age 24 or under, weighted by their in-game usage (having young players isn't enough — they need to actually be improving). 40%: count of roster players graded A or B potential, regardless of playing time.",
+  image: "The team's real popularity (0-100) — the same number shown in the Social Media and Finances tabs, including social-responsibility events and the follower-count effect.",
+  culture: "60%: average moral across the whole roster. 40%: absence of unresolved conflict — every open Player Interaction (trade demands, etc.) lowers this by 15 points.",
+  sportingPerformance: "70%: the same Results criterion as Fans (real win% vs. expected). 30%: trend — compares your win% over the last 10 games to the full-season average (trending up or down?).",
+  management: "Compares real roster talent (top-8 weighted by usage) against the % of your salary cap already spent — more talent for less money raises the score. Adds a bonus for extra future draft picks banked via trades (up to 3 picks count).",
+  facilities: "45%: your practice facility grade (F to A). 30%: your arena's capacity compared to the whole league (the biggest arena scores 100, the smallest scores 0). 25%: financial health — the team's real cash balance.",
+  growth: "Week-over-week growth in followers and popularity (vs. last week), plus a bonus for facility construction projects already completed this season (up to 5 completions count).",
+}
+
+function Tooltip({ text }: { text: string }) {
+  return (
+    <span className="relative group inline-flex ml-1.5 cursor-help align-middle">
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full flex-shrink-0 text-xs font-bold" style={{ background: '#cec7bc', color: '#5c554e', lineHeight: 1, fontSize: 9 }}>i</span>
+      <span className="absolute left-0 top-full mt-1 z-50 px-2.5 py-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{ background: '#1a1512', color: '#f5f1eb', width: 260, whiteSpace: 'normal', lineHeight: 1.5, fontWeight: 400, boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>{text}</span>
+    </span>
+  )
+}
+
 function fmtScore(n: number | null | undefined): string {
   return n == null ? '—' : Math.round(n).toString()
 }
@@ -130,12 +164,12 @@ function DimensionCard({ title, icon, score, trend, color, children }: {
   )
 }
 
-function BreakdownLine({ label, value }: { label: string, value: number | undefined }) {
+function BreakdownLine({ label, value, tip }: { label: string, value: number | undefined, tip?: string }) {
   if (value == null) return null
   return (
     <div className="flex items-center justify-between text-xs">
-      <span style={{ color: '#5c554e' }}>{label}</span>
-      <span className="font-semibold" style={{ color: '#1a1512' }}>{Math.round(value)}</span>
+      <span className="flex items-center" style={{ color: '#5c554e' }}>{label}{tip && <Tooltip text={tip} />}</span>
+      <span className="font-semibold flex-shrink-0" style={{ color: '#1a1512' }}>{Math.round(value)}</span>
     </div>
   )
 }
@@ -283,10 +317,10 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
             </div>
           )}
           <div className="mt-1 pt-2" style={{ borderTop: '1px solid #e2dcd5' }}>
-            <BreakdownLine label={isPT ? 'Resultados' : 'Results'} value={fb.resultsScore} />
-            <BreakdownLine label={isPT ? 'Empolgação jovem' : 'Youth excitement'} value={fb.youthExcitement} />
-            <BreakdownLine label={isPT ? 'Imagem' : 'Image'} value={fb.imageScore} />
-            <BreakdownLine label={isPT ? 'Cultura' : 'Culture'} value={fb.cultureScore} />
+            <BreakdownLine label={isPT ? 'Resultados' : 'Results'} value={fb.resultsScore} tip={isPT ? CRITERION_TIPS_PT.results : CRITERION_TIPS_EN.results} />
+            <BreakdownLine label={isPT ? 'Empolgação jovem' : 'Youth excitement'} value={fb.youthExcitement} tip={isPT ? CRITERION_TIPS_PT.youthExcitement : CRITERION_TIPS_EN.youthExcitement} />
+            <BreakdownLine label={isPT ? 'Imagem' : 'Image'} value={fb.imageScore} tip={isPT ? CRITERION_TIPS_PT.image : CRITERION_TIPS_EN.image} />
+            <BreakdownLine label={isPT ? 'Cultura' : 'Culture'} value={fb.cultureScore} tip={isPT ? CRITERION_TIPS_PT.culture : CRITERION_TIPS_EN.culture} />
             <div className="text-xs mt-1" style={{ color: '#8a8279' }}>
               {isPT ? 'Peso em resultados' : 'Weight on results'}: {fb.wResults != null ? Math.round(fb.wResults * 100) : '—'}%
             </div>
@@ -304,10 +338,10 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
             </div>
           )}
           <div className="mt-1 pt-2" style={{ borderTop: '1px solid #e2dcd5' }}>
-            <BreakdownLine label={isPT ? 'Desempenho desportivo' : 'Sporting performance'} value={ob.sportingPerformanceScore} />
-            <BreakdownLine label={isPT ? 'Gestão desportiva' : 'Management'} value={ob.managementScore} />
-            <BreakdownLine label={isPT ? 'Património' : 'Facilities'} value={ob.patrimonioScore} />
-            <BreakdownLine label={isPT ? 'Crescimento' : 'Growth'} value={ob.growthScore} />
+            <BreakdownLine label={isPT ? 'Desempenho desportivo' : 'Sporting performance'} value={ob.sportingPerformanceScore} tip={isPT ? CRITERION_TIPS_PT.sportingPerformance : CRITERION_TIPS_EN.sportingPerformance} />
+            <BreakdownLine label={isPT ? 'Gestão desportiva' : 'Management'} value={ob.managementScore} tip={isPT ? CRITERION_TIPS_PT.management : CRITERION_TIPS_EN.management} />
+            <BreakdownLine label={isPT ? 'Património' : 'Facilities'} value={ob.patrimonioScore} tip={isPT ? CRITERION_TIPS_PT.facilities : CRITERION_TIPS_EN.facilities} />
+            <BreakdownLine label={isPT ? 'Crescimento' : 'Growth'} value={ob.growthScore} tip={isPT ? CRITERION_TIPS_PT.growth : CRITERION_TIPS_EN.growth} />
           </div>
         </DimensionCard>
 
