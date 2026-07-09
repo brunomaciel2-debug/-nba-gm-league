@@ -127,7 +127,7 @@ export default function PlayerPageClient({ player, stats, injuries, contracts, p
     ]},
     { label: isPT?'Criação de Jogo':'Playmaking', color:'#0e7490', attrs:[
       {key:'ball_hdl',    label: isPT?'Drible':'Ball Handle', tip: isPT?'Drible — capacidade de driblarem sob pressão.':'Ball Handling — ability to dribble under pressure.'},
-      {key:'pass_vis',    label: isPT?'Visão de Jogo':'Pass Vision',    tip: isPT?'Visão de Jogo — capacidade de ler a defesa e encontrar companheiros livres.':'Pass Vision — ability to read the defence and find open teammates.'},
+      {key:'pass_vis',    label: isPT?'Visão de Jogo':'Pass Vision',    tip: isPT?'Ajuda a decidir quem fica com a assistência real quando este jogador está em campo — conta menos do que o Perfil de Assistência, mas conta.':'Helps decide who gets credited with the real assist when this player is on the floor — counts less than Assist Role, but it counts.'},
       {key:'pass_iq',     label: 'Pass IQ',                              tip: isPT?'Pass IQ — capacidade de decisão ao passar.':'Pass IQ — decision-making when passing.'},
       {key:'assist_role', label: isPT?'Perfil de Assistência':'Assist Role', tip: isPT?'Perfil de Assistência — como este jogador se encaixa num sistema focado em passes.':'Assist Role — how naturally this player fits into a pass-first role.'},
     ]},
