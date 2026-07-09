@@ -133,6 +133,115 @@ export function computeCompositeScore(fansScore: number, ownersScore: number, sp
   return clamp(0.40 * fansScore + 0.40 * ownersScore + 0.20 * sponsorsScore)
 }
 
+// ── FRANCHISE STORYLINES ───────────────────────────────────────────
+// Real, team-specific facts (not a generic sentence per Win-Now band) —
+// answers Bruno's exact ask: "sometimes an objective is keeping our star,
+// or finding a second star to play alongside X." Every check below
+// references an actual roster player by name and an actual real data
+// point (contract years remaining, age, injury count, All-Star status,
+// extension offer outcome) — two teams in the same situation band can
+// (and usually will) show completely different storylines here.
+export type FranchiseStoryline = { severity: 'urgent' | 'watch' | 'good', textPT: string, textEN: string }
+export type StorylinePlayer = { id: number, name: string, real_ovr: number, age: number, contract_years: number | null }
+
+const STAR_OVR_THRESHOLD = 78
+const SECOND_STAR_OVR_THRESHOLD = 82
+const NO_PARTNER_OVR_THRESHOLD = 76
+const TITLE_WINDOW_OVR_THRESHOLD = 84
+const TITLE_WINDOW_MAX_AVG_AGE = 29
+const FRAGILE_INJURY_COUNT = 2
+const MAX_STORYLINES_SHOWN = 4
+
+export function computeFranchiseStorylines(inputs: {
+  topPlayers: StorylinePlayer[], // roster sorted desc by real_ovr — only need the top 2
+  injuryCountByPlayer: Record<number, number>,
+  awardPlayerIds: Set<number>,
+  extensionStatusByPlayer: Record<number, { status: string, rejectionReason: string | null }>,
+}): FranchiseStoryline[] {
+  const results: FranchiseStoryline[] = []
+  const star = inputs.topPlayers[0]
+  if (!star) return results // barren roster — nothing real to say yet
+
+  const starIsReal = star.real_ovr >= STAR_OVR_THRESHOLD
+  const second = inputs.topPlayers[1]
+  const starExtension = inputs.extensionStatusByPlayer[star.id]
+
+  if (starIsReal && (star.contract_years ?? 99) <= 1 && starExtension?.status !== 'accepted') {
+    results.push({
+      severity: 'urgent',
+      textPT: `O contrato de **${star.name}** expira em breve (resta ${star.contract_years ?? 0} ano(s)) — ainda sem extensão garantida.`,
+      textEN: `**${star.name}**'s contract expires soon (${star.contract_years ?? 0} year(s) left) — no extension locked in yet.`,
+    })
+  }
+
+  if (starIsReal && starExtension?.status === 'rejected') {
+    const reason = starExtension.rejectionReason
+    results.push({
+      severity: 'urgent',
+      textPT: `**${star.name}** recusou a tua proposta de renovação${reason ? ` — ${reason}` : ''}.`,
+      textEN: `**${star.name}** turned down your extension offer${reason ? ` — ${reason}` : ''}.`,
+    })
+  }
+
+  if (starIsReal && star.age >= 32 && (star.contract_years ?? 99) <= 2) {
+    results.push({
+      severity: 'watch',
+      textPT: `**${star.name}** está a envelhecer (${star.age} anos) com o contrato quase a acabar — a janela pode estar a fechar.`,
+      textEN: `**${star.name}** is aging (${star.age}) with the contract almost up — the window may be closing.`,
+    })
+  }
+
+  if (star.real_ovr >= SECOND_STAR_OVR_THRESHOLD && (!second || second.real_ovr < NO_PARTNER_OVR_THRESHOLD)) {
+    results.push({
+      severity: 'watch',
+      textPT: second
+        ? `**${star.name}** não tem um verdadeiro parceiro de nível — o 2º melhor jogador (**${second.name}**) está bem abaixo (OVR ${Math.round(second.real_ovr)}).`
+        : `**${star.name}** está praticamente sozinho no plantel — não há um segundo jogador de nível.`,
+      textEN: second
+        ? `**${star.name}** doesn't have a real running mate — your 2nd-best player (**${second.name}**) is far behind (OVR ${Math.round(second.real_ovr)}).`
+        : `**${star.name}** is basically alone on this roster — there's no real second option.`,
+    })
+  }
+
+  const starInjuries = inputs.injuryCountByPlayer[star.id] || 0
+  if (starIsReal && starInjuries >= FRAGILE_INJURY_COUNT) {
+    results.push({
+      severity: 'watch',
+      textPT: `**${star.name}** já teve ${starInjuries} lesões esta época — a saúde dele é um risco real para o plantel.`,
+      textEN: `**${star.name}** has already been injured ${starInjuries} times this season — his health is a real risk to the roster.`,
+    })
+  }
+
+  if (starIsReal && inputs.awardPlayerIds.has(star.id) && (!second || second.real_ovr < NO_PARTNER_OVR_THRESHOLD)) {
+    results.push({
+      severity: 'watch',
+      textPT: `**${star.name}**, All-Star esta época, está praticamente a jogar sozinho — o resto do plantel fica muito atrás.`,
+      textEN: `**${star.name}**, an All-Star this season, is playing almost alone out there — the rest of the roster is far behind.`,
+    })
+  }
+
+  if (second && star.real_ovr >= TITLE_WINDOW_OVR_THRESHOLD && second.real_ovr >= TITLE_WINDOW_OVR_THRESHOLD
+    && (star.age + second.age) / 2 <= TITLE_WINDOW_MAX_AVG_AGE && (star.contract_years ?? 0) >= 2 && (second.contract_years ?? 0) >= 2) {
+    results.push({
+      severity: 'good',
+      textPT: `**${star.name}** e **${second.name}** estão no auge e sob contrato — a janela de título está bem aberta.`,
+      textEN: `**${star.name}** and **${second.name}** are both in their prime and locked up — the title window is wide open.`,
+    })
+  }
+
+  if (starIsReal && starExtension?.status === 'accepted') {
+    results.push({
+      severity: 'good',
+      textPT: `Garantiste **${star.name}** a longo prazo esta época — a base do plantel está protegida.`,
+      textEN: `You locked **${star.name}** in long-term this season — the core of the roster is secure.`,
+    })
+  }
+
+  const severityOrder: Record<string, number> = { urgent: 0, watch: 1, good: 2 }
+  results.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity])
+  return results.slice(0, MAX_STORYLINES_SHOWN)
+}
+
 const OWNERS_HOT_SEAT_THRESHOLD = 30
 const OWNERS_HOT_SEAT_STREAK_WEEKS = 8
 
@@ -159,8 +268,11 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     { data: sponsorContracts },
     { data: prevSnapshots },
     { data: openTenures },
+    { data: injuryLog },
+    { data: awards },
+    { data: extensionOffers },
   ] = await Promise.all([
-    supabaseAdmin.from('players').select('id,team_id,real_ovr,usage,age,potential_grade,moral').eq('status', 'active').not('team_id', 'is', null),
+    supabaseAdmin.from('players').select('id,name,team_id,real_ovr,usage,age,contract_years,potential_grade,moral').eq('status', 'active').not('team_id', 'is', null),
     supabaseAdmin.from('draft_picks').select('team_id,original_team_id,season').eq('status', 'owned'),
     supabaseAdmin.from('franchise_finances').select('team_id,balance').in('team_id', teamIds),
     supabaseAdmin.from('practice_facilities').select('team_id,gym_grade').in('team_id', teamIds),
@@ -172,6 +284,9 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     supabaseAdmin.from('sponsor_contracts').select('id,team_id,status').eq('season', SEASON).in('team_id', teamIds),
     supabaseAdmin.from('gm_satisfaction_snapshots').select('team_id,owners_score,owners_breakdown').eq('season', SEASON).eq('week_number', week - 1).in('team_id', teamIds),
     supabaseAdmin.from('gm_tenure_log').select('team_id,started_week').is('ended_week', null).in('team_id', teamIds),
+    supabaseAdmin.from('injury_log').select('player_id').eq('season', SEASON),
+    supabaseAdmin.from('awards').select('player_id,award_type').eq('season', SEASON).in('award_type', ['all_star_east', 'all_star_west', 'mvp']),
+    supabaseAdmin.from('contract_extension_offers').select('player_id,status,rejection_reason').eq('season', SEASON),
   ])
 
   // Current GM's tenure start per team — the hot-seat streak below must
@@ -182,6 +297,16 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
 
   const rosterByTeam: Record<string, any[]> = {}
   ;(allPlayers || []).forEach((p: any) => { (rosterByTeam[p.team_id] ||= []).push(p) })
+
+  // Franchise Storylines' real-data inputs — league-wide, grouped per
+  // player, so the per-team loop below just looks up its own star(s).
+  const injuryCountByPlayer: Record<number, number> = {}
+  ;(injuryLog || []).forEach((i: any) => { injuryCountByPlayer[i.player_id] = (injuryCountByPlayer[i.player_id] || 0) + 1 })
+
+  const awardPlayerIds = new Set<number>((awards || []).map((a: any) => a.player_id))
+
+  const extensionStatusByPlayer: Record<number, { status: string, rejectionReason: string | null }> = {}
+  ;(extensionOffers || []).forEach((e: any) => { extensionStatusByPlayer[e.player_id] = { status: e.status, rejectionReason: e.rejection_reason || null } })
 
   const extraPicksByTeam: Record<string, number> = {}
   ;(draftPicks || []).forEach((pk: any) => {
@@ -287,6 +412,14 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     owners.breakdown.rawFollowers = currentFollowers
     owners.breakdown.rawPopularity = team.popularity ?? 50
 
+    const topPlayers: StorylinePlayer[] = [...roster]
+      .sort((a: any, b: any) => (b.real_ovr || 0) - (a.real_ovr || 0))
+      .slice(0, 2)
+      .map((p: any) => ({ id: p.id, name: p.name, real_ovr: p.real_ovr || 0, age: p.age || 25, contract_years: p.contract_years ?? null }))
+    const franchiseStorylines = computeFranchiseStorylines({
+      topPlayers, injuryCountByPlayer, awardPlayerIds, extensionStatusByPlayer,
+    })
+
     const contractIds = sponsorContractIdsByTeam[team.id] || []
     const teamTracking = (tracking || []).filter((t: any) => contractIds.includes(t.contract_id))
     const totalAchieved = teamTracking.filter((t: any) => t.achieved).length
@@ -305,6 +438,7 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
       owners_score: owners.score, owners_breakdown: owners.breakdown,
       sponsors_score: sponsorsScore, sponsors_breakdown: { totalAchieved, totalEvaluable },
       performance_score: performanceScore,
+      franchise_storylines: franchiseStorylines,
     }, { onConflict: 'team_id,season,week_number' })
 
     // Hot-seat narrative warning — only, per Bruno's choice (no economic

@@ -174,6 +174,32 @@ function BreakdownLine({ label, value, tip }: { label: string, value: number | u
   )
 }
 
+// Renders "**Name**" markers (from gm-satisfaction.ts's storyline text) as
+// real bold spans — the simplest possible inline-markdown, just for player names.
+function renderBoldText(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} style={{ color: '#1a1512' }}>{part.slice(2, -2)}</strong>
+    return <span key={i}>{part}</span>
+  })
+}
+
+const SEVERITY_INFO: Record<string, { dot: string, color: string }> = {
+  urgent: { dot: '🔴', color: '#b91c1c' },
+  watch: { dot: '🟡', color: '#b45309' },
+  good: { dot: '🟢', color: '#15803d' },
+}
+
+function StorylineRow({ severity, text }: { severity: string, text: string }) {
+  const info = SEVERITY_INFO[severity] || SEVERITY_INFO.watch
+  return (
+    <div className="flex items-start gap-2 text-sm py-2" style={{ borderBottom: '1px solid #e2dcd5' }}>
+      <span className="flex-shrink-0" style={{ fontSize: 12, marginTop: 3 }}>{info.dot}</span>
+      <span style={{ color: '#5c554e', lineHeight: 1.5 }}>{renderBoldText(text)}</span>
+    </div>
+  )
+}
+
 function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel }: {
   achieved: boolean, description: string, currentValue: number | null, threshold: number | null, groupLabel: string
 }) {
@@ -302,6 +328,24 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
             {isPT ? situation.sentencePT : situation.sentenceEN}
           </div>
         </div>
+      </div>
+
+      {/* Real, team-specific facts — not a generic sentence per situation band */}
+      <div className="rounded-xl p-4 mb-4" style={{ background: '#faf8f5', border: '1px solid #d4cdc5' }}>
+        <h2 className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: '#8a8279' }}>
+          {isPT ? 'Situação do Franchise' : 'Franchise Situation'}
+        </h2>
+        {(latest.franchise_storylines || []).length > 0 ? (
+          <div>
+            {(latest.franchise_storylines || []).map((s: any, i: number) => (
+              <StorylineRow key={i} severity={s.severity} text={isPT ? s.textPT : s.textEN} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm" style={{ color: '#8a8279' }}>
+            {isPT ? 'Sem situações críticas de plantel esta semana.' : 'No critical roster situations this week.'}
+          </p>
+        )}
       </div>
 
       {/* 3 dimension cards */}
