@@ -98,6 +98,13 @@ export async function resolveWeeklySocialMedia(week: number): Promise<{ teamsPro
         const lang = await getTeamLang(m.team_id)
         const notif = notifFanInteractionEvent(lang, p.name)
         await notify(m.team_id, 'social_media', notif.subject, notif.body, { eventType: 'fan_interaction', playerId: p.id, playerName: p.name })
+        await supabaseAdmin.from('social_media_events').insert({
+          team_id: m.team_id, season: SEASON, week_number: week, event_type: 'fan_interaction',
+          player_id: p.id, player_name: p.name,
+          follower_delta: Math.round((team.social_media_followers || 0) * EVENT_FOLLOWER_BUMP_PCT),
+          followers_after: newFollowers,
+          impact_summary: { loyalFanBump: LOYAL_FAN_MODIFIER_BUMP, moraleBump: MORALE_BUMP },
+        })
       }
     }
 
@@ -114,6 +121,13 @@ export async function resolveWeeklySocialMedia(week: number): Promise<{ teamsPro
         const lang = await getTeamLang(m.team_id)
         const notif = notifSocialResponsibilityEvent(lang, p.name)
         await notify(m.team_id, 'social_media', notif.subject, notif.body, { eventType: 'social_responsibility', playerId: p.id, playerName: p.name })
+        await supabaseAdmin.from('social_media_events').insert({
+          team_id: m.team_id, season: SEASON, week_number: week, event_type: 'social_responsibility',
+          player_id: p.id, player_name: p.name,
+          follower_delta: Math.round((team.social_media_followers || 0) * EVENT_FOLLOWER_BUMP_PCT),
+          followers_after: newFollowers,
+          impact_summary: { popularityBump: POPULARITY_BUMP, fameBump: FAME_BUMP },
+        })
       }
     }
   }

@@ -17,9 +17,10 @@ import SponsorsTab from './SponsorsTab'
 import GoalsTab from './GoalsTab'
 import ScoutingTab from './ScoutingTab'
 import PlayerInteractions from './PlayerInteractions'
+import SocialMediaTab from './SocialMediaTab'
 import { useTranslation } from '@/components/I18nProvider'
 
-type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'scouting' | 'interactions'
+type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'scouting' | 'interactions' | 'social_media'
 
 function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: boolean }) {
   return (
@@ -40,7 +41,7 @@ export default function TeamPageTabs({
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const searchParams = useSearchParams()
-  const VALID_TABS: Tab[] = ['roster','schedule','contracts','draft','training','facilities','finances','merchandising','tactical','sponsors','goals','scouting','interactions']
+  const VALID_TABS: Tab[] = ['roster','schedule','contracts','draft','training','facilities','finances','merchandising','tactical','sponsors','goals','scouting','interactions','social_media']
   const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'roster'
   const [tab, setTab] = useState<Tab>(initialTab)
 
@@ -58,6 +59,7 @@ export default function TeamPageTabs({
     { key: 'sponsors',   label: isPT ? 'Patrocinadores'  : 'Sponsors',    icon: '💰' },
     { key: 'goals',      label: isPT ? 'Objetivos'       : 'Goals',       icon: '🎯' },
     { key: 'interactions', label: isPT ? 'Interações'    : 'Interactions', icon: '💬' },
+    { key: 'social_media', label: isPT ? 'Social Media'  : 'Social Media', icon: '📱' },
   ]
 
   useEffect(() => {
@@ -143,6 +145,7 @@ export default function TeamPageTabs({
         {tab === 'goals'      && <GoalsTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'sponsors'   && <SponsorsTab teamId={teamId} teamColor={teamColor}/>}
         {tab === 'interactions' && <PlayerInteractions teamId={teamId} teamColor={teamColor}/>}
+        {tab === 'social_media' && <SocialMediaTab teamId={teamId} teamColor={teamColor} coaches={coaches} socialMediaFollowers={socialMediaFollowers}/>}
       </div>
     </div>
   )
