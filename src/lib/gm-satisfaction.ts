@@ -152,6 +152,7 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     { data: recentGames },
     { data: sponsorContracts },
     { data: prevSnapshots },
+    { data: openTenures },
   ] = await Promise.all([
     supabaseAdmin.from('players').select('id,team_id,real_ovr,usage,age,potential_grade,moral').eq('status', 'active').not('team_id', 'is', null),
     supabaseAdmin.from('draft_picks').select('team_id,original_team_id,season').eq('status', 'owned'),
@@ -164,7 +165,14 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     supabaseAdmin.from('games').select('home_team,away_team,home_score,away_score,played_at').eq('status', 'final').or(`home_team.in.(${teamIds.join(',')}),away_team.in.(${teamIds.join(',')})`).order('played_at', { ascending: false }),
     supabaseAdmin.from('sponsor_contracts').select('id,team_id,status').eq('season', SEASON).in('team_id', teamIds),
     supabaseAdmin.from('gm_satisfaction_snapshots').select('team_id,owners_score,owners_breakdown').eq('season', SEASON).eq('week_number', week - 1).in('team_id', teamIds),
+    supabaseAdmin.from('gm_tenure_log').select('team_id,started_week').is('ended_week', null).in('team_id', teamIds),
   ])
+
+  // Current GM's tenure start per team — the hot-seat streak below must
+  // never reach back across a GM change (a new GM inheriting a slumping
+  // team gets a clean slate, per Bruno's explicit requirement).
+  const tenureStartWeekByTeam: Record<string, number> = {}
+  ;(openTenures || []).forEach((t: any) => { tenureStartWeekByTeam[t.team_id] = t.started_week })
 
   const rosterByTeam: Record<string, any[]> = {}
   ;(allPlayers || []).forEach((p: any) => { (rosterByTeam[p.team_id] ||= []).push(p) })
@@ -298,8 +306,10 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     // ALSO already below threshold for 8+ weeks, so a GM isn't spammed
     // every single week once they cross the line).
     if (owners.score < OWNERS_HOT_SEAT_THRESHOLD) {
+      const tenureStartWeek = tenureStartWeekByTeam[team.id] ?? 1
       const { data: recentOwnersSnaps } = await supabaseAdmin.from('gm_satisfaction_snapshots')
         .select('owners_score,week_number').eq('team_id', team.id).eq('season', SEASON)
+        .gte('week_number', tenureStartWeek)
         .order('week_number', { ascending: false }).limit(OWNERS_HOT_SEAT_STREAK_WEEKS)
       const streak = recentOwnersSnaps?.every((s: any) => (s.owners_score ?? 100) < OWNERS_HOT_SEAT_THRESHOLD)
       const alreadyLongerStreak = (recentOwnersSnaps?.length || 0) >= OWNERS_HOT_SEAT_STREAK_WEEKS

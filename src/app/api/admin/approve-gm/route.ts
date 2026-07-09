@@ -85,6 +85,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Profile error: ' + profileErr.message }, { status: 500 })
     }
 
+    // 2b. Abrir um novo mandato — para a Satisfação do GM avaliar só este
+    // GM a partir de agora, não herdar o histórico de quem lá esteve antes.
+    const { data: seasonCfg } = await supabaseAdmin.from('season_config').select('season,current_week').eq('id', 1).single()
+    await supabaseAdmin.from('gm_tenure_log').insert({
+      team_id, gm_user_id: userId, gm_name: full_name,
+      season: seasonCfg?.season || '2025-26', started_week: seasonCfg?.current_week || 1,
+    })
+
     // 3. Actualizar status da candidatura
     await supabaseAdmin
       .from('job_applications')

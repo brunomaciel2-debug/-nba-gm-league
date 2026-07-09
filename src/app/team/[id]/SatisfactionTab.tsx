@@ -10,14 +10,24 @@ const SITUATION_INFO: Record<string, { icon: string, labelPT: string, labelEN: s
     sentenceEN: "Fans want to see a young, exciting roster with real growth potential — they aren't pressuring for a title yet.",
   },
   retool: {
-    icon: '🔧', labelPT: 'Reformulação', labelEN: 'Retool', color: '#b45309',
-    sentencePT: 'Espera-se um equilíbrio entre resultados imediatos e o desenvolvimento do plantel.',
-    sentenceEN: 'A balance between immediate results and roster development is expected.',
+    icon: '🔧', labelPT: 'Reconstrução Avançada', labelEN: 'Retool', color: '#0e7490',
+    sentencePT: 'O núcleo jovem já está a ganhar forma. Espera-se ver evolução clara, não ainda uma vaga de playoffs.',
+    sentenceEN: 'The young core is starting to take shape. Clear development is expected, not a playoff berth yet.',
   },
-  competitive: {
-    icon: '📈', labelPT: 'Competitiva', labelEN: 'Competitive', color: '#15803d',
-    sentencePT: 'A tua equipa é competitiva — espera-se uma boa época regular e presença nos playoffs.',
-    sentenceEN: 'Your team is competitive — a strong regular season and a playoff spot are expected.',
+  playoff_push: {
+    icon: '🥊', labelPT: 'A Lutar pelos Playoffs', labelEN: 'Fighting for the Playoffs', color: '#b45309',
+    sentencePT: 'Estás numa luta real por um lugar nos playoffs — os fãs querem ver a equipa a competir todas as noites por essa vaga.',
+    sentenceEN: "You're in a real fight for a playoff spot — fans want to see the team competing hard for it every night.",
+  },
+  playoff_team: {
+    icon: '📈', labelPT: 'Equipa de Playoffs', labelEN: 'Established Playoff Team', color: '#15803d',
+    sentencePT: 'A tua equipa é uma presença habitual nos playoffs — espera-se isso mesmo, e idealmente avançar pelo menos uma ronda.',
+    sentenceEN: 'Your team is a regular playoff presence — that\'s the baseline expectation, ideally advancing at least a round.',
+  },
+  rising_contender: {
+    icon: '🚀', labelPT: 'Quer ser Contender', labelEN: 'Rising Contender', color: '#7c3aed',
+    sentencePT: 'Tens talento a sério para lutar pelo título — os fãs esperam uma corrida profunda nos playoffs, não só participar.',
+    sentenceEN: 'You have real title-caliber talent — fans expect a deep playoff run, not just showing up.',
   },
   contender: {
     icon: '🏆', labelPT: 'Contender', labelEN: 'Contender', color: '#b91c1c',
@@ -83,11 +93,20 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const [snapshots, setSnapshots] = useState<any[]>([])
+  const [tenureStartWeek, setTenureStartWeek] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('gm_satisfaction_snapshots').select('*').eq('team_id', teamId).order('week_number', { ascending: true })
+      // Only this GM's own tenure counts — if someone else managed this
+      // team before, their history doesn't carry over.
+      const { data: tenure } = await supabase.from('gm_tenure_log').select('started_week').eq('team_id', teamId).is('ended_week', null).order('started_week', { ascending: false }).limit(1).maybeSingle()
+      const startWeek = tenure?.started_week ?? null
+      setTenureStartWeek(startWeek)
+
+      let query = supabase.from('gm_satisfaction_snapshots').select('*').eq('team_id', teamId).order('week_number', { ascending: true })
+      if (startWeek != null) query = query.gte('week_number', startWeek)
+      const { data } = await query
       setSnapshots(data || [])
       setLoading(false)
     })()
@@ -143,6 +162,11 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
           <div className="text-xs mt-1" style={{ color: '#8a8279' }}>
             {isPT ? 'Fãs 40% · Administração 40% · Patrocinadores 20%' : 'Fans 40% · Owners 40% · Sponsors 20%'}
           </div>
+          {tenureStartWeek != null && (
+            <div className="text-xs mt-1" style={{ color: '#8a8279' }}>
+              {isPT ? `Neste cargo desde a semana ${tenureStartWeek}` : `In this role since week ${tenureStartWeek}`}
+            </div>
+          )}
         </div>
         <div className="text-right">
           <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: situation.color }}>

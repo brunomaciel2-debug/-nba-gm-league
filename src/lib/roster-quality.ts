@@ -59,11 +59,22 @@ export function computeWinNowIndex(roster: { real_ovr?: number, usage?: number, 
   )
 }
 
-export type WinNowLabel = 'rebuild' | 'retool' | 'competitive' | 'contender'
+export type WinNowLabel = 'rebuild' | 'retool' | 'playoff_push' | 'playoff_team' | 'rising_contender' | 'contender'
 
+// 6 bands instead of 4 — real GM front-office situations are more varied
+// than "rebuild vs everyone else": a team fighting for the 8th seed and a
+// team that's a settled, comfortable playoff team expect very different
+// things from their GM, even though both would've fallen under the old
+// single "retool/competitive" middle bucket. Thresholds are a starting
+// calibration against the real observed WNI spread across the live league
+// (roughly 0.17-0.68 early in a season) — worth revisiting once a full
+// season's spread is observed, same as the balanceHealthScore constant in
+// gm-satisfaction.ts.
 export function winNowLabel(wni: number): WinNowLabel {
-  if (wni < 0.35) return 'rebuild'
-  if (wni < 0.65) return 'retool'
-  if (wni < 0.85) return 'competitive'
+  if (wni < 0.20) return 'rebuild'
+  if (wni < 0.35) return 'retool'
+  if (wni < 0.48) return 'playoff_push'
+  if (wni < 0.60) return 'playoff_team'
+  if (wni < 0.75) return 'rising_contender'
   return 'contender'
 }

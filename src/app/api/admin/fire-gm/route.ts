@@ -32,6 +32,15 @@ export async function POST(req: NextRequest) {
       await supabaseAdmin.from('chat_reads').delete().eq('user_id', user_id)
     }
 
+    // 1b. Fechar o mandato aberto — para o próximo GM desta equipa (se
+    // houver) começar com uma folha em branco na Satisfação do GM.
+    if (team_id) {
+      const { data: seasonCfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
+      await supabaseAdmin.from('gm_tenure_log')
+        .update({ ended_week: seasonCfg?.current_week || null, ended_at: new Date().toISOString() })
+        .eq('team_id', team_id).is('ended_week', null)
+    }
+
     // 2. Apagar perfil GM
     const { error: profileErr } = await supabaseAdmin
       .from('gm_profiles')
