@@ -517,7 +517,14 @@ export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild,
               <circle cx="38" cy="150" r="9" fill="none" stroke="#fff" strokeWidth="1.5"/>
               <line x1="8" y1="36" x2="113" y2="36" stroke="#fff" strokeWidth="1.5"/>
               <line x1="8" y1="264" x2="113" y2="264" stroke="#fff" strokeWidth="1.5"/>
-              <path d="M 113 36 A 142 142 0 0 1 113 264" fill="none" stroke="#fff" strokeWidth="1.5"/>
+              {/* Three-point line, centered on the hoop (38,150) — same fix as
+                  ArenaView.tsx: the old path connected two fixed points with
+                  an unrelated radius, so its implicit center wasn't the hoop
+                  and it cut across the paint. Corner segment inset from the
+                  sideline so a real corner-three strip of floor exists. */}
+              <line x1="8" y1="29" x2="118" y2="29" stroke="#fff" strokeWidth="1.5"/>
+              <path d="M 118 29 A 145 145 0 0 1 118 271" fill="none" stroke="#fff" strokeWidth="1.5"/>
+              <line x1="8" y1="271" x2="118" y2="271" stroke="#fff" strokeWidth="1.5"/>
               {/* Right paint */}
               <rect x="527" y="95" width="105" height="110" fill="#d44020" stroke="#fff" strokeWidth="1.5"/>
               <path d="M 527 95 A 46 46 0 0 0 527 205" fill="none" stroke="#fff" strokeWidth="1.5"/>
@@ -526,7 +533,10 @@ export default function ArenaBlueprint({concessions,isGM,teamColor,cash,onBuild,
               <circle cx="602" cy="150" r="9" fill="none" stroke="#fff" strokeWidth="1.5"/>
               <line x1="632" y1="36" x2="527" y2="36" stroke="#fff" strokeWidth="1.5"/>
               <line x1="632" y1="264" x2="527" y2="264" stroke="#fff" strokeWidth="1.5"/>
-              <path d="M 527 36 A 142 142 0 0 0 527 264" fill="none" stroke="#fff" strokeWidth="1.5"/>
+              {/* Mirror of the left three-point line, centered on the right hoop (602,150) */}
+              <line x1="632" y1="29" x2="522" y2="29" stroke="#fff" strokeWidth="1.5"/>
+              <path d="M 522 29 A 145 145 0 0 0 522 271" fill="none" stroke="#fff" strokeWidth="1.5"/>
+              <line x1="632" y1="271" x2="522" y2="271" stroke="#fff" strokeWidth="1.5"/>
             </svg>
             {/* Jumbotron centrado sobre o campo */}
             <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)'}}>
