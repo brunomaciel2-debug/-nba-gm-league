@@ -150,12 +150,15 @@ if(ao.depth_chart)applyDC(ap,ao.depth_chart)
 // coming off a real back-to-back (ho.backToBack/ao.backToBack, set from the
 // game's actual scheduled_date in cron/simulate) takes an extra flat hit on
 // top of that, seeded per-side since only one team may be on the second
-// half of a back-to-back.
+// half of a back-to-back. The Head Coach's substitutions skill (same
+// coachDampen() shape as off_adjustment/def_adjustment) cushions or worsens
+// that flat hit by up to ±30% — good rotation management keeps tired legs
+// fresher on the second night of a back-to-back.
 const sc={home:0,away:0},st:Record<string,any>={},fat:Record<string,number>={},mom:Record<string,number>={},ls:Record<string,number[]>={},part={home:0,away:0}
 const tol={home:{used:0,q:{0:0,1:0,2:0,3:0}} as any,away:{used:0,q:{0:0,1:0,2:0,3:0}} as any}
 let isGT=false,gtW=""
 const pbp:any[]=[],hb:any[]=[],ab:any[]=[]
-const seed=(ps:any[],ord:any)=>ps.forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=Math.min(100,Math.max(40,(p.health??100)-(ord.backToBack?12:0)));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
+const seed=(ps:any[],ord:any)=>ps.forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=Math.min(100,Math.max(40,(p.health??100)-(ord.backToBack?12*(1-coachDampen(ord.substitutions)):0)));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
 seed(hp,ho);seed(ap,ao)
 const pa=(ho.pace+ao.pace)/2,ppq=Math.round(23+pa/100*4)
 const gameReferee=ho.referee||ao.referee
@@ -275,8 +278,12 @@ const decisive=!!(oo.decisive||doo.decisive)
 // pressure costs the shooter's team — a great one keeps a team composed
 // late in close games instead of tightening up. Tactical clutchMult (from
 // mastered "closer instinct"/"4th quarter burst"-type nodes) sharpens the
-// decisive-moment case specifically.
-const pressureMult=isC?(decisive?(.75+(sc2.pressure/100)*.45)*tacticalMods.clutchMult:(.82+(sc2.pressure/100)*.32))+composureDampen(oo.composure):1
+// decisive-moment case specifically. The Head Coach's timeout_mgmt adds a
+// second, real-time-management lever alongside composure — same capped
+// shape and magnitude as composureDampen (reusing cohesionDampen's generic
+// custom-cap signature rather than a near-duplicate function), representing
+// smart timeout calls stabilizing the team when it matters most.
+const pressureMult=isC?(decisive?(.75+(sc2.pressure/100)*.45)*tacticalMods.clutchMult:(.82+(sc2.pressure/100)*.32))+composureDampen(oo.composure)+cohesionDampen(oo.timeout_mgmt,0.12):1
 // Referee crew chief (same one for both sides — assigned to the game ahead
 // of time, not rolled per possession): foul_rate scales how often fouls
 // actually get whistled, home_bias tilts that rate slightly toward whichever

@@ -6,27 +6,25 @@ import CoachPhotoUpload from './CoachPhotoUpload'
 
 // Formula-grounded, not marketing copy — mirrors CoachingStaff.tsx's
 // statTip dictionary exactly, since it's the same underlying mechanics.
-// A few fields share a name across roles but only really matter for one
-// of them; resolveTips() below bakes the right variant in for this page's
-// single coach. Some are honestly not wired to anything yet.
+// off_adjustment/def_adjustment/off_development/def_development/physical_dev
+// only ever render for head_coach now (assistant_coach's card shows
+// offense_dev/defense_dev instead — the columns its real formula actually
+// reads), so these no longer need role-specific variants.
 const TIPS_EN: Record<string,string> = {
-  'off_adjustment:head_coach':"Adjusts your offense during the real game: sharpens an already-favorable matchup or dulls an unfavorable one, up to ±30%.",
-  'off_adjustment:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — only the head coach's value counts toward in-game adjustments.",
-  'def_adjustment:head_coach':'Same as Offense Adjust, but on the defensive side of the matchup — up to ±30%.',
-  'def_adjustment:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — only the head coach's value counts toward in-game adjustments.",
-  substitutions:'Not wired to any simulation formula yet — informational only for now.',
-  timeout_mgmt:'Not wired to any simulation formula yet — informational only for now.',
-  'off_development:head_coach':"Counts for 60% of the quality that fills the roster's weekly Offense Training slot.",
-  'off_development:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — their real contribution uses internal data not shown here.",
-  'def_development:head_coach':"Counts for 60% of the quality that fills the roster's weekly Defense Training slot.",
-  'def_development:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — their real contribution uses internal data not shown here.",
+  off_adjustment:"Adjusts your offense during the real game: sharpens an already-favorable matchup or dulls an unfavorable one, up to ±30%.",
+  def_adjustment:'Same as Offense Adjust, but on the defensive side of the matchup — up to ±30%.',
+  substitutions:"Manages the roster's real back-to-back fatigue: when the team plays two games in a row, this value reduces (or worsens) by up to 30% the extra conditioning drop players take in the second game.",
+  timeout_mgmt:"Stabilizes the real team in decisive, high-pressure moments — the same kind of effect as the Mental Coach's Composure, but on the timeout-calling, real-time game-management side.",
+  off_development:"Counts for 60% of the quality that fills the roster's weekly Offense Training slot.",
+  def_development:"Counts for 60% of the quality that fills the roster's weekly Defense Training slot.",
+  offense_dev:"The assistant coach's real contribution to Offense Training — counts for 40% of that weekly slot's quality (the head coach counts the other 60%).",
+  defense_dev:"The assistant coach's real contribution to Defense Training — counts for 40% of that weekly slot's quality (the head coach counts the other 60%).",
   tactical_dev:'Counts toward the Tactical training slot quality (60% head coach + 40% assistant) and speeds up the real mastery of the team\'s tactical systems.',
-  'physical_dev:head_coach':'Counts for 30% of the quality that fills the weekly Physical Training slot — the Trainer counts the other 70%.',
-  'physical_dev:assistant_coach':"This value doesn't affect the simulation yet for the assistant coach — the Trainer is who counts alongside the head coach.",
+  physical_dev:'Counts for 30% of the quality that fills the weekly Physical Training slot — the Trainer counts the other 70%.',
   mental_dev:'Counts toward the Mental training slot quality (60% head coach + 40% assistant) — the head coach needs at least 70 here for that slot to unlock.',
   conditioning:"Raises the roster's real weekly chance of physical attribute growth (stamina, durability, rebounding).",
   recovery_boost:'Counts for 70% of the quality that fills the weekly Recovery slot — the head coach counts the other 30%.',
-  injury_prevent:'Not wired to the real injury formula yet — informational only for now.',
+  injury_prevent:"Reduces (or worsens) any roster player's real injury chance by up to 30% — the same kind of effect the Physio's Rehab Speed has on recovery.",
   rehab_speed:'Speeds up injured players\' real weekly recovery, by up to 30%.',
   style_boost:'Style Match Boost — percentage bonus when GM tactics match this coach preferred style.',
   personality:'Coach Personality — affects player development and team chemistry.',
@@ -41,23 +39,20 @@ const TIPS_EN: Record<string,string> = {
   social_responsibility:'Drives the real weekly chance of a social-responsibility event — raises team popularity and one player\'s fame.',
 }
 const TIPS_PT: Record<string,string> = {
-  'off_adjustment:head_coach':'Ajusta o teu ataque durante o jogo real: reforça uma vantagem de matchup já existente ou atenua uma desvantagem, até ±30%.',
-  'off_adjustment:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — só o do Head Coach conta nos ajustes durante o jogo.',
-  'def_adjustment:head_coach':'O mesmo que o Ajuste de Ataque, mas do lado defensivo do matchup — até ±30%.',
-  'def_adjustment:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — só o do Head Coach conta nos ajustes durante o jogo.',
-  substitutions:'Ainda não está ligado a nenhuma fórmula da simulação — é apenas informativo por agora.',
-  timeout_mgmt:'Ainda não está ligado a nenhuma fórmula da simulação — é apenas informativo por agora.',
-  'off_development:head_coach':'Conta 60% da qualidade que preenche o slot semanal de Treino de Ataque do plantel.',
-  'off_development:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — a contribuição real dele usa dados internos não mostrados aqui.',
-  'def_development:head_coach':'Conta 60% da qualidade que preenche o slot semanal de Treino de Defesa do plantel.',
-  'def_development:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — a contribuição real dele usa dados internos não mostrados aqui.',
+  off_adjustment:'Ajusta o teu ataque durante o jogo real: reforça uma vantagem de matchup já existente ou atenua uma desvantagem, até ±30%.',
+  def_adjustment:'O mesmo que o Ajuste de Ataque, mas do lado defensivo do matchup — até ±30%.',
+  substitutions:'Gere a fadiga real da equipa em back-to-backs: quando a equipa joga dois jogos seguidos, este valor reduz (ou agrava) até 30% a perda de forma extra que os jogadores sofrem no segundo jogo.',
+  timeout_mgmt:'Estabiliza a equipa real em momentos decisivos e de pressão — o mesmo tipo de efeito que a Gestão de Pressão do Mental Coach, mas do lado dos tempos-mortos e da gestão em tempo real do jogo.',
+  off_development:'Conta 60% da qualidade que preenche o slot semanal de Treino de Ataque do plantel.',
+  def_development:'Conta 60% da qualidade que preenche o slot semanal de Treino de Defesa do plantel.',
+  offense_dev:'A contribuição real do assistente treinador para o Treino de Ataque — conta 40% da qualidade desse slot semanal (o Head Coach conta os outros 60%).',
+  defense_dev:'A contribuição real do assistente treinador para o Treino de Defesa — conta 40% da qualidade desse slot semanal (o Head Coach conta os outros 60%).',
   tactical_dev:'Conta para a qualidade do slot de treino Tático (60% Head Coach + 40% Assistente) e acelera o domínio real dos sistemas táticos da equipa.',
-  'physical_dev:head_coach':'Conta 30% da qualidade que preenche o slot semanal de Treino Físico — o Preparador Físico conta os outros 70%.',
-  'physical_dev:assistant_coach':'Este valor ainda não afeta a simulação para o assistente treinador — quem conta a par do Head Coach é o Preparador Físico.',
+  physical_dev:'Conta 30% da qualidade que preenche o slot semanal de Treino Físico — o Preparador Físico conta os outros 70%.',
   mental_dev:'Conta para a qualidade do slot de treino Mental (60% Head Coach + 40% Assistente) — o Head Coach precisa de pelo menos 70 aqui para esse slot desbloquear.',
   conditioning:'Aumenta a chance semanal real de evolução dos atributos físicos do plantel (resistência, durabilidade, ressaltos).',
   recovery_boost:'Conta 70% da qualidade que preenche o slot semanal de Recuperação — o Head Coach conta os outros 30%.',
-  injury_prevent:'Ainda não está ligado à fórmula real de lesões — é apenas informativo por agora.',
+  injury_prevent:'Reduz (ou agrava) a chance real de lesão de qualquer jogador da equipa em até 30%, o mesmo tipo de efeito que a Velocidade de Reabilitação do Fisioterapeuta tem sobre a recuperação.',
   rehab_speed:'Acelera a recuperação semanal real de jogadores lesionados, até 30% mais rápido.',
   style_boost:'Bónus de Estilo — bónus percentual quando as táticas do GM correspondem ao estilo preferido deste treinador.',
   personality:'Personalidade do Treinador — afecta o desenvolvimento dos jogadores e a química de equipa.',
@@ -70,15 +65,6 @@ const TIPS_PT: Record<string,string> = {
   sm_engagement:'Determina o crescimento (ou perda) passivo real de seguidores todas as semanas.',
   fan_interaction:'Determina a chance semanal real de um evento de interação com fãs — sobe o moral de um jogador e os seguidores da equipa.',
   social_responsibility:'Determina a chance semanal real de um evento de responsabilidade social — sobe a popularidade da equipa e a fama de um jogador.',
-}
-
-function resolveTips(dict: Record<string,string>, role: string): Record<string,string> {
-  const resolved: Record<string,string> = {}
-  for (const key of Object.keys(dict)) {
-    if (key.includes(':')) continue
-    resolved[key] = dict[`${key}:${role}`] ?? dict[key]
-  }
-  return resolved
 }
 
 const ROLE_INFO_EN: Record<string,{label:string,color:string,icon:string}> = {
@@ -122,14 +108,13 @@ function StatRow({label,value,color,tip}:{label:string,value:number,color:string
 export default function StaffPageClient({coach,team}:{coach:any,team:any}) {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
-  const TIPS = resolveTips(isPT ? TIPS_PT : TIPS_EN, coach.role)
+  const TIPS = isPT ? TIPS_PT : TIPS_EN
   const ROLE_INFO = isPT ? ROLE_INFO_PT : ROLE_INFO_EN
   const ATK = isPT ? ATK_PT : ATK_EN
   const DEF = isPT ? DEF_PT : DEF_EN
 
   const info = ROLE_INFO[coach.role] || {label:coach.role,color:'#5c554e',icon:'ti-user'}
   const tc = team ? readableTeamColor((team as any).color) : '#5c554e'
-  const isCoach = coach.role==='head_coach'||coach.role==='assistant_coach'
   const isScout = coach.role==='scout'
   const contractYears = Array.from({length:coach.contract_years||1},(_,i)=>{const yr=2025+i;return{season:`${yr}-${String(yr+1).slice(2)}`,salary:coach.salary}})
 
@@ -177,7 +162,7 @@ export default function StaffPageClient({coach,team}:{coach:any,team:any}) {
 
       <div className="grid md:grid-cols-2 gap-6">
         <div>
-          {isCoach&&(
+          {coach.role==='head_coach'&&(
             <>
               <div className="sec-hdr mb-4"><span className="sec-title"><i className="ti ti-bolt" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>{isPT?'Jogo':'Game Time'}</span></div>
               <div className="rounded-xl p-5 mb-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
@@ -193,6 +178,38 @@ export default function StaffPageClient({coach,team}:{coach:any,team:any}) {
                 <StatRow label={isPT?'Tático':'Tactical'}               value={coach.tactical_dev}    color="#1d4ed8" tip={TIPS.tactical_dev} />
                 <StatRow label={isPT?'Físico':'Physical'}               value={coach.physical_dev}    color="#6d28d9" tip={TIPS.physical_dev} />
                 <StatRow label={isPT?'Mental':'Mental'}                 value={coach.mental_dev}      color="#b45309" tip={TIPS.mental_dev} />
+              </div>
+              <div className="rounded-xl p-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+                <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1px'}}>{isPT?'Estilo & Personalidade':'Style & Personality'}</div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className="text-sm px-3 py-1 rounded-lg font-semibold" style={{background:'#b45309',color:'#fff'}}>{ATK[coach.pref_atk_style]||coach.pref_atk_style}</span>
+                  <span className="text-sm px-3 py-1 rounded-lg font-semibold" style={{background:'#15803d',color:'#fff'}}>{DEF[coach.pref_def_style]||coach.pref_def_style}</span>
+                  <span className="relative group text-sm px-3 py-1 rounded-lg font-semibold cursor-help" style={{background:'#1d4ed8',color:'#fff'}}>
+                    +{coach.style_boost}% {isPT?'bónus estilo':'style match'}
+                    <span className="absolute bottom-full left-0 mb-1 z-50 px-3 py-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{background:'#1a1512',color:'#f5f1eb',width:240,whiteSpace:'normal',lineHeight:1.5,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>{TIPS.style_boost}</span>
+                  </span>
+                </div>
+                <div className="mb-1 flex justify-between text-xs" style={{color:'#5c554e'}}>
+                  <span>{isPT?'Personalidade':'Personality'}<Tooltip text={TIPS.personality}/></span>
+                  <span className="font-semibold">{personalityLabel(coach.personality)} ({coach.personality}/10)</span>
+                </div>
+                <div className="h-3 rounded-full overflow-hidden relative" style={{background:'linear-gradient(to right,#3b82f6,#22c55e,#f97316,#ef4444)'}}>
+                  <div className="absolute top-0 h-full w-3 rounded-full" style={{left:`calc(${((coach.personality-1)/9)*100}% - 6px)`,background:'#fff',boxShadow:'0 0 0 2px rgba(0,0,0,0.2)'}}/>
+                </div>
+                <div className="flex justify-between text-xs mt-1" style={{color:'#a89f97'}}>
+                  <span>{isPT?'Calmo':'Calm'}</span><span>{isPT?'Intenso':'Intense'}</span>
+                </div>
+              </div>
+            </>
+          )}
+          {coach.role==='assistant_coach'&&(
+            <>
+              <div className="sec-hdr mb-4"><span className="sec-title"><i className="ti ti-school" style={{fontSize:14,marginRight:6,color:'#c8102e'}}></i>{isPT?'Treino':'Practice Time'}</span></div>
+              <div className="rounded-xl p-5 mb-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+                <StatRow label={isPT?'Dev. Ataque':'Off. Development'}  value={coach.offense_dev} color="#b45309" tip={TIPS.offense_dev} />
+                <StatRow label={isPT?'Dev. Defesa':'Def. Development'}  value={coach.defense_dev} color="#15803d" tip={TIPS.defense_dev} />
+                <StatRow label={isPT?'Tático':'Tactical'}               value={coach.tactical_dev} color="#1d4ed8" tip={TIPS.tactical_dev} />
+                <StatRow label={isPT?'Mental':'Mental'}                 value={coach.mental_dev}   color="#b45309" tip={TIPS.mental_dev} />
               </div>
               <div className="rounded-xl p-5" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
                 <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1px'}}>{isPT?'Estilo & Personalidade':'Style & Personality'}</div>

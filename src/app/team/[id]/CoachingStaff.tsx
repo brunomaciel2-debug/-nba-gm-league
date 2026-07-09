@@ -23,23 +23,20 @@ function Tooltip({ text }: { text: string }) {
 // really matter for one of them (e.g. off_adjustment only reads the head
 // coach's value); a few are honestly not wired to anything yet.
 const STAT_TIPS_PT: Record<string, string> = {
-  'off_adjustment:head_coach': 'Ajusta o teu ataque durante o jogo real: reforça uma vantagem de matchup já existente ou atenua uma desvantagem, até ±30%.',
-  'off_adjustment:assistant_coach': 'Este valor ainda não afeta a simulação para o assistente treinador — só o do Head Coach conta nos ajustes durante o jogo.',
-  'def_adjustment:head_coach': 'O mesmo que o Ajuste de Ataque, mas do lado defensivo do matchup — até ±30%.',
-  'def_adjustment:assistant_coach': 'Este valor ainda não afeta a simulação para o assistente treinador — só o do Head Coach conta nos ajustes durante o jogo.',
-  substitutions: 'Ainda não está ligado a nenhuma fórmula da simulação — é apenas informativo por agora.',
-  timeout_mgmt: 'Ainda não está ligado a nenhuma fórmula da simulação — é apenas informativo por agora.',
-  'off_development:head_coach': 'Conta 60% da qualidade que preenche o slot semanal de Treino de Ataque do plantel.',
-  'off_development:assistant_coach': 'Este valor ainda não afeta a simulação para o assistente treinador — a contribuição real dele usa dados internos não mostrados aqui.',
-  'def_development:head_coach': 'Conta 60% da qualidade que preenche o slot semanal de Treino de Defesa do plantel.',
-  'def_development:assistant_coach': 'Este valor ainda não afeta a simulação para o assistente treinador — a contribuição real dele usa dados internos não mostrados aqui.',
+  off_adjustment: 'Ajusta o teu ataque durante o jogo real: reforça uma vantagem de matchup já existente ou atenua uma desvantagem, até ±30%.',
+  def_adjustment: 'O mesmo que o Ajuste de Ataque, mas do lado defensivo do matchup — até ±30%.',
+  substitutions: 'Gere a fadiga real da equipa em back-to-backs: quando a equipa joga dois jogos seguidos, este valor reduz (ou agrava) até 30% a perda de forma extra que os jogadores sofrem no segundo jogo.',
+  timeout_mgmt: 'Estabiliza a equipa real em momentos decisivos e de pressão — o mesmo tipo de efeito que a Gestão de Pressão do Mental Coach, mas do lado dos tempos-mortos e da gestão em tempo real do jogo.',
+  off_development: 'Conta 60% da qualidade que preenche o slot semanal de Treino de Ataque do plantel.',
+  def_development: 'Conta 60% da qualidade que preenche o slot semanal de Treino de Defesa do plantel.',
+  offense_dev: 'A contribuição real do assistente treinador para o Treino de Ataque — conta 40% da qualidade desse slot semanal (o Head Coach conta os outros 60%).',
+  defense_dev: 'A contribuição real do assistente treinador para o Treino de Defesa — conta 40% da qualidade desse slot semanal (o Head Coach conta os outros 60%).',
   tactical_dev: 'Conta para a qualidade do slot de treino Tático (60% Head Coach + 40% Assistente) e acelera o domínio real dos sistemas táticos da equipa.',
-  'physical_dev:head_coach': 'Conta 30% da qualidade que preenche o slot semanal de Treino Físico — o Preparador Físico conta os outros 70%.',
-  'physical_dev:assistant_coach': 'Este valor ainda não afeta a simulação para o assistente treinador — quem conta a par do Head Coach é o Preparador Físico.',
+  physical_dev: 'Conta 30% da qualidade que preenche o slot semanal de Treino Físico — o Preparador Físico conta os outros 70%.',
   mental_dev: 'Conta para a qualidade do slot de treino Mental (60% Head Coach + 40% Assistente) — o Head Coach precisa de pelo menos 70 aqui para esse slot desbloquear.',
   conditioning: 'Aumenta a chance semanal real de evolução dos atributos físicos do plantel (resistência, durabilidade, ressaltos).',
   recovery_boost: 'Conta 70% da qualidade que preenche o slot semanal de Recuperação — o Head Coach conta os outros 30%.',
-  injury_prevent: 'Ainda não está ligado à fórmula real de lesões — é apenas informativo por agora.',
+  injury_prevent: 'Reduz (ou agrava) a chance real de lesão de qualquer jogador da equipa em até 30%, o mesmo tipo de efeito que a Velocidade de Reabilitação do Fisioterapeuta tem sobre a recuperação.',
   rehab_speed: 'Acelera a recuperação semanal real de jogadores lesionados, até 30% mais rápido.',
   scouting_evaluation: 'Conta 50% dos pontos de scouting reais ganhos por semana — o maior peso dos três.',
   scouting_network: 'Conta 20% dos pontos de scouting reais ganhos por semana.',
@@ -52,23 +49,20 @@ const STAT_TIPS_PT: Record<string, string> = {
   social_responsibility: 'Determina a chance semanal real de um evento de responsabilidade social — sobe a popularidade da equipa e a fama de um jogador.',
 }
 const STAT_TIPS_EN: Record<string, string> = {
-  'off_adjustment:head_coach': "Adjusts your offense during the real game: sharpens an already-favorable matchup or dulls an unfavorable one, up to ±30%.",
-  'off_adjustment:assistant_coach': "This value doesn't affect the simulation yet for the assistant coach — only the head coach's value counts toward in-game adjustments.",
-  'def_adjustment:head_coach': 'Same as Offense Adjust, but on the defensive side of the matchup — up to ±30%.',
-  'def_adjustment:assistant_coach': "This value doesn't affect the simulation yet for the assistant coach — only the head coach's value counts toward in-game adjustments.",
-  substitutions: "Not wired to any simulation formula yet — informational only for now.",
-  timeout_mgmt: "Not wired to any simulation formula yet — informational only for now.",
-  'off_development:head_coach': "Counts for 60% of the quality that fills the roster's weekly Offense Training slot.",
-  'off_development:assistant_coach': "This value doesn't affect the simulation yet for the assistant coach — their real contribution uses internal data not shown here.",
-  'def_development:head_coach': "Counts for 60% of the quality that fills the roster's weekly Defense Training slot.",
-  'def_development:assistant_coach': "This value doesn't affect the simulation yet for the assistant coach — their real contribution uses internal data not shown here.",
+  off_adjustment: "Adjusts your offense during the real game: sharpens an already-favorable matchup or dulls an unfavorable one, up to ±30%.",
+  def_adjustment: 'Same as Offense Adjust, but on the defensive side of the matchup — up to ±30%.',
+  substitutions: "Manages the roster's real back-to-back fatigue: when the team plays two games in a row, this value reduces (or worsens) by up to 30% the extra conditioning drop players take in the second game.",
+  timeout_mgmt: "Stabilizes the real team in decisive, high-pressure moments — the same kind of effect as the Mental Coach's Composure, but on the timeout-calling, real-time game-management side.",
+  off_development: "Counts for 60% of the quality that fills the roster's weekly Offense Training slot.",
+  def_development: "Counts for 60% of the quality that fills the roster's weekly Defense Training slot.",
+  offense_dev: "The assistant coach's real contribution to Offense Training — counts for 40% of that weekly slot's quality (the head coach counts the other 60%).",
+  defense_dev: "The assistant coach's real contribution to Defense Training — counts for 40% of that weekly slot's quality (the head coach counts the other 60%).",
   tactical_dev: 'Counts toward the Tactical training slot quality (60% head coach + 40% assistant) and speeds up the real mastery of the team\'s tactical systems.',
-  'physical_dev:head_coach': "Counts for 30% of the quality that fills the weekly Physical Training slot — the Trainer counts the other 70%.",
-  'physical_dev:assistant_coach': "This value doesn't affect the simulation yet for the assistant coach — the Trainer is who counts alongside the head coach.",
+  physical_dev: "Counts for 30% of the quality that fills the weekly Physical Training slot — the Trainer counts the other 70%.",
   mental_dev: 'Counts toward the Mental training slot quality (60% head coach + 40% assistant) — the head coach needs at least 70 here for that slot to unlock.',
   conditioning: "Raises the roster's real weekly chance of physical attribute growth (stamina, durability, rebounding).",
   recovery_boost: 'Counts for 70% of the quality that fills the weekly Recovery slot — the head coach counts the other 30%.',
-  injury_prevent: "Not wired to the real injury formula yet — informational only for now.",
+  injury_prevent: "Reduces (or worsens) any roster player's real injury chance by up to 30% — the same kind of effect the Physio's Rehab Speed has on recovery.",
   rehab_speed: 'Speeds up injured players\' real weekly recovery, by up to 30%.',
   scouting_evaluation: 'Counts for 50% of real scouting points earned per week — the heaviest of the three.',
   scouting_network: 'Counts for 20% of real scouting points earned per week.',
@@ -81,9 +75,8 @@ const STAT_TIPS_EN: Record<string, string> = {
   social_responsibility: 'Drives the real weekly chance of a social-responsibility event — raises team popularity and one player\'s fame.',
 }
 
-function statTip(field: string, role: string, isPT: boolean): string | undefined {
-  const dict = isPT ? STAT_TIPS_PT : STAT_TIPS_EN
-  return dict[`${field}:${role}`] ?? dict[field]
+function statTip(field: string, isPT: boolean): string | undefined {
+  return (isPT ? STAT_TIPS_PT : STAT_TIPS_EN)[field]
 }
 
 function StatBar({ label, value, color, tip }: { label: string, value: number, color: string, tip?: string }) {
@@ -162,7 +155,6 @@ export default function CoachingStaff({ staff, socialMediaFollowers }: { staff: 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {sorted.map((c:any) => {
           const info = ROLE_INFO[c.role] || {label:c.role,color:'#5c554e',icon:'👤'}
-          const isCoach = c.role==='head_coach'||c.role==='assistant_coach'
           const initials = c.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()
           return (
             <Link key={c.id} href={`/staff/${c.id}`} className="no-underline group">
@@ -186,19 +178,37 @@ export default function CoachingStaff({ staff, socialMediaFollowers }: { staff: 
                     <div className="text-xs" style={{color:'#8a8279'}}>{c.contract_years}{isPT?'ano(s)':'yr'}</div>
                   </div>
                 </div>
-                {isCoach && (
+                {c.role==='head_coach' && (
                   <>
                     <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{color:'#b45309',letterSpacing:'1px'}}>{isPT?'Jogo':'Game Time'}</div>
-                    <StatBar label={isPT?'Aj. Ataque':'Off. Adjust'}   value={c.off_adjustment}  color="#b45309" tip={statTip('off_adjustment',c.role,isPT)} />
-                    <StatBar label={isPT?'Aj. Defesa':'Def. Adjust'}   value={c.def_adjustment}  color="#15803d" tip={statTip('def_adjustment',c.role,isPT)} />
-                    <StatBar label={isPT?'Substituições':'Substitutions'} value={c.substitutions} color="#1d4ed8" tip={statTip('substitutions',c.role,isPT)} />
-                    <StatBar label={isPT?'Gestão Tempos':'Timeout Mgmt'}  value={c.timeout_mgmt}  color="#b45309" tip={statTip('timeout_mgmt',c.role,isPT)} />
+                    <StatBar label={isPT?'Aj. Ataque':'Off. Adjust'}   value={c.off_adjustment}  color="#b45309" tip={statTip('off_adjustment',isPT)} />
+                    <StatBar label={isPT?'Aj. Defesa':'Def. Adjust'}   value={c.def_adjustment}  color="#15803d" tip={statTip('def_adjustment',isPT)} />
+                    <StatBar label={isPT?'Substituições':'Substitutions'} value={c.substitutions} color="#1d4ed8" tip={statTip('substitutions',isPT)} />
+                    <StatBar label={isPT?'Gestão Tempos':'Timeout Mgmt'}  value={c.timeout_mgmt}  color="#b45309" tip={statTip('timeout_mgmt',isPT)} />
                     <div className="text-xs font-bold uppercase tracking-wider mb-2 mt-3" style={{color:'#6d28d9',letterSpacing:'1px'}}>{isPT?'Treino':'Practice'}</div>
-                    <StatBar label={isPT?'Dev. Ataque':'Off. Dev'}    value={c.off_development} color="#b45309" tip={statTip('off_development',c.role,isPT)} />
-                    <StatBar label={isPT?'Dev. Defesa':'Def. Dev'}    value={c.def_development} color="#15803d" tip={statTip('def_development',c.role,isPT)} />
-                    <StatBar label={isPT?'Tático':'Tactical'}          value={c.tactical_dev}    color="#1d4ed8" tip={statTip('tactical_dev',c.role,isPT)} />
-                    <StatBar label={isPT?'Físico':'Physical'}           value={c.physical_dev}    color="#6d28d9" tip={statTip('physical_dev',c.role,isPT)} />
-                    <StatBar label={isPT?'Mental':'Mental'}             value={c.mental_dev}      color="#b45309" tip={statTip('mental_dev',c.role,isPT)} />
+                    <StatBar label={isPT?'Dev. Ataque':'Off. Dev'}    value={c.off_development} color="#b45309" tip={statTip('off_development',isPT)} />
+                    <StatBar label={isPT?'Dev. Defesa':'Def. Dev'}    value={c.def_development} color="#15803d" tip={statTip('def_development',isPT)} />
+                    <StatBar label={isPT?'Tático':'Tactical'}          value={c.tactical_dev}    color="#1d4ed8" tip={statTip('tactical_dev',isPT)} />
+                    <StatBar label={isPT?'Físico':'Physical'}           value={c.physical_dev}    color="#6d28d9" tip={statTip('physical_dev',isPT)} />
+                    <StatBar label={isPT?'Mental':'Mental'}             value={c.mental_dev}      color="#b45309" tip={statTip('mental_dev',isPT)} />
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{background:'#b45309',color:'#fff'}}>
+                        {ATK[c.pref_atk_style]||c.pref_atk_style}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{background:'#15803d',color:'#fff'}}>
+                        {DEF[c.pref_def_style]||c.pref_def_style}
+                      </span>
+                    </div>
+                    <PersonalityBar value={c.personality||5} isPT={isPT} />
+                  </>
+                )}
+                {c.role==='assistant_coach' && (
+                  <>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-2" style={{color:'#6d28d9',letterSpacing:'1px'}}>{isPT?'Treino':'Practice'}</div>
+                    <StatBar label={isPT?'Dev. Ataque':'Off. Dev'}    value={c.offense_dev} color="#b45309" tip={statTip('offense_dev',isPT)} />
+                    <StatBar label={isPT?'Dev. Defesa':'Def. Dev'}    value={c.defense_dev} color="#15803d" tip={statTip('defense_dev',isPT)} />
+                    <StatBar label={isPT?'Tático':'Tactical'}          value={c.tactical_dev}    color="#1d4ed8" tip={statTip('tactical_dev',isPT)} />
+                    <StatBar label={isPT?'Mental':'Mental'}             value={c.mental_dev}      color="#b45309" tip={statTip('mental_dev',isPT)} />
                     <div className="flex flex-wrap gap-1.5 mt-3">
                       <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{background:'#b45309',color:'#fff'}}>
                         {ATK[c.pref_atk_style]||c.pref_atk_style}
@@ -212,33 +222,33 @@ export default function CoachingStaff({ staff, socialMediaFollowers }: { staff: 
                 )}
                 {c.role==='trainer' && (
                   <>
-                    <StatBar label={isPT?'Condicionamento':'Conditioning'} value={c.conditioning}   color="#15803d" tip={statTip('conditioning',c.role,isPT)} />
-                    <StatBar label={isPT?'Recuperação':'Recovery'}         value={c.recovery_boost} color="#1d4ed8" tip={statTip('recovery_boost',c.role,isPT)} />
-                    <StatBar label={isPT?'Prev. Lesões':'Inj. Prevent'}   value={c.injury_prevent}  color="#b45309" tip={statTip('injury_prevent',c.role,isPT)} />
+                    <StatBar label={isPT?'Condicionamento':'Conditioning'} value={c.conditioning}   color="#15803d" tip={statTip('conditioning',isPT)} />
+                    <StatBar label={isPT?'Recuperação':'Recovery'}         value={c.recovery_boost} color="#1d4ed8" tip={statTip('recovery_boost',isPT)} />
+                    <StatBar label={isPT?'Prev. Lesões':'Inj. Prevent'}   value={c.injury_prevent}  color="#b45309" tip={statTip('injury_prevent',isPT)} />
                   </>
                 )}
                 {c.role==='physio' && (
-                  <StatBar label={isPT?'Velocidade Rehab':'Rehab Speed'} value={c.rehab_speed} color="#6d28d9" tip={statTip('rehab_speed',c.role,isPT)} />
+                  <StatBar label={isPT?'Velocidade Rehab':'Rehab Speed'} value={c.rehab_speed} color="#6d28d9" tip={statTip('rehab_speed',isPT)} />
                 )}
                 {c.role==='scout' && (
                   <>
-                    <StatBar label={isPT?'Avaliação':'Evaluation'} value={c.scouting_evaluation} color="#0e7490" tip={statTip('scouting_evaluation',c.role,isPT)} />
-                    <StatBar label={isPT?'Rede Contactos':'Network'}   value={c.scouting_network}    color="#1d4ed8" tip={statTip('scouting_network',c.role,isPT)} />
-                    <StatBar label={isPT?'Experiência':'Experience'}   value={c.scouting_experience} color="#6d28d9" tip={statTip('scouting_experience',c.role,isPT)} />
+                    <StatBar label={isPT?'Avaliação':'Evaluation'} value={c.scouting_evaluation} color="#0e7490" tip={statTip('scouting_evaluation',isPT)} />
+                    <StatBar label={isPT?'Rede Contactos':'Network'}   value={c.scouting_network}    color="#1d4ed8" tip={statTip('scouting_network',isPT)} />
+                    <StatBar label={isPT?'Experiência':'Experience'}   value={c.scouting_experience} color="#6d28d9" tip={statTip('scouting_experience',isPT)} />
                   </>
                 )}
                 {c.role==='mental_coach' && (
                   <>
-                    <StatBar label={isPT?'Gestão de Moral':'Morale Mgmt'}     value={c.morale_management}  color="#9333ea" tip={statTip('morale_management',c.role,isPT)} />
-                    <StatBar label={isPT?'Coesão de Equipa':'Team Cohesion'}  value={c.team_cohesion}      color="#1d4ed8" tip={statTip('team_cohesion',c.role,isPT)} />
-                    <StatBar label={isPT?'Gestão de Pressão':'Composure'}     value={c.composure_coaching} color="#b45309" tip={statTip('composure_coaching',c.role,isPT)} />
+                    <StatBar label={isPT?'Gestão de Moral':'Morale Mgmt'}     value={c.morale_management}  color="#9333ea" tip={statTip('morale_management',isPT)} />
+                    <StatBar label={isPT?'Coesão de Equipa':'Team Cohesion'}  value={c.team_cohesion}      color="#1d4ed8" tip={statTip('team_cohesion',isPT)} />
+                    <StatBar label={isPT?'Gestão de Pressão':'Composure'}     value={c.composure_coaching} color="#b45309" tip={statTip('composure_coaching',isPT)} />
                   </>
                 )}
                 {c.role==='social_media_manager' && (
                   <>
-                    <StatBar label={isPT?'Envolvimento':'SM Engagement'}     value={c.sm_engagement}         color="#db2777" tip={statTip('sm_engagement',c.role,isPT)} />
-                    <StatBar label={isPT?'Interação c/ Fãs':'Fan Interaction'} value={c.fan_interaction}      color="#1d4ed8" tip={statTip('fan_interaction',c.role,isPT)} />
-                    <StatBar label={isPT?'Resp. Social':'Social Resp.'}      value={c.social_responsibility}  color="#15803d" tip={statTip('social_responsibility',c.role,isPT)} />
+                    <StatBar label={isPT?'Envolvimento':'SM Engagement'}     value={c.sm_engagement}         color="#db2777" tip={statTip('sm_engagement',isPT)} />
+                    <StatBar label={isPT?'Interação c/ Fãs':'Fan Interaction'} value={c.fan_interaction}      color="#1d4ed8" tip={statTip('fan_interaction',isPT)} />
+                    <StatBar label={isPT?'Resp. Social':'Social Resp.'}      value={c.social_responsibility}  color="#15803d" tip={statTip('social_responsibility',isPT)} />
                     {socialMediaFollowers!=null && (
                       <div className="text-xs mt-2 font-semibold" style={{color:'#db2777'}}>
                         📱 {Number(socialMediaFollowers).toLocaleString()} {isPT?'seguidores':'followers'}

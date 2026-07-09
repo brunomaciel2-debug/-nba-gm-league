@@ -99,12 +99,16 @@ const refereeById: Record<string, any> = {}
 
 // Head Coach off_adjustment/def_adjustment sharpen or dull the atk/def style
 // matchup and Double Team swings inside simulateGame() — attach them to each
-// team's order object so no extra function signature is needed.
-const { data: headCoaches } = await supabaseAdmin.from('coaches').select('team_id,off_adjustment,def_adjustment').eq('role','head_coach')
+// team's order object so no extra function signature is needed. substitutions
+// (back-to-back fatigue management) and timeout_mgmt (decisive-moment
+// pressure) ride along the same way.
+const { data: headCoaches } = await supabaseAdmin.from('coaches').select('team_id,off_adjustment,def_adjustment,substitutions,timeout_mgmt').eq('role','head_coach')
 ;(headCoaches||[]).forEach((c:any) => {
 if (orderMap[c.team_id]) {
 orderMap[c.team_id].off_adjustment = c.off_adjustment
 orderMap[c.team_id].def_adjustment = c.def_adjustment
+orderMap[c.team_id].substitutions = c.substitutions
+orderMap[c.team_id].timeout_mgmt = c.timeout_mgmt
 }
 })
 
@@ -507,6 +511,16 @@ const { data: facilitiesForInjury } = await supabaseAdmin.from('practice_facilit
 const facilityInjuryRiskMap: Record<string,number> = {}
 ;(facilitiesForInjury||[]).forEach((f:any) => facilityInjuryRiskMap[f.team_id] = getGymGradeBonus(f.gym_grade).risk)
 
+// Trainer's injury_prevent — same ±30%/50-center dampen shape as the
+// Physio's rehab_speed → physioRecoveryMultiplier() effect on recovery,
+// mirrored here for prevention instead of recovery.
+const { data: trainersForInjury } = await supabaseAdmin.from('coaches').select('team_id,injury_prevent').eq('role','trainer')
+const injuryPreventMultByTeam: Record<string,number> = {}
+;(trainersForInjury||[]).forEach((c:any) => {
+const dampen = Math.max(-0.3, Math.min(0.3, ((c.injury_prevent ?? 50) - 50) / 50 * 0.3))
+injuryPreventMultByTeam[c.team_id] = 1 - dampen
+})
+
 const { data: weekBoxes } = gamesCreated.length > 0 ? await supabaseAdmin
 .from('box_scores').select('player_id,mins,team_id,game_id')
 .in('game_id', gamesCreated) : { data: [] as any[] }
@@ -581,7 +595,8 @@ const accum = oppAggroAccum[pid]
 const avgOppAggro = accum && accum.count > 0 ? accum.sum/accum.count : 1.0
 const fragile = fragileMap[pid]
 const facilityRiskMod = 1 + (facilityInjuryRiskMap[p.team_id]||0)/100
-const injChance = 0.018 * (1/durFactor) * hFactor * (pace>80?1.3:1.0) * avgOppAggro * (fragile?1.2:1.0) * facilityRiskMod
+const injuryPreventMod = injuryPreventMultByTeam[p.team_id] ?? 1
+const injChance = 0.018 * (1/durFactor) * hFactor * (pace>80?1.3:1.0) * avgOppAggro * (fragile?1.2:1.0) * facilityRiskMod * injuryPreventMod
 
 if (Math.random() < injChance && injTypes && injTypes.length > 0) {
 const weights = (injTypes as any[]).map(t => ({
