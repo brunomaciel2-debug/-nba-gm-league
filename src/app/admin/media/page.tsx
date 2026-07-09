@@ -49,6 +49,7 @@ function PhotoRow({ item, type, onSave, saving, saved, isPT }: {
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
           <span style={{fontSize:13,fontWeight:600,color:'#1a1512'}}>{item.name}</span>
           {(item.pos||item.role)&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:4,background:'#d4cdc5',color:'#5c554e'}}>{item.pos||item.role?.replace(/_/g,' ')}</span>}
+          {item.age!=null&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:4,background:'#e8e2d6',color:'#8a8279'}}>{isPT?'Idade':'Age'} {item.age}</span>}
           {type==='prospect'&&item.college&&<span style={{fontSize:10,padding:'2px 6px',borderRadius:4,background:'#e8e2d6',color:'#8a8279'}}>{item.college}</span>}
         </div>
         <input value={url} onChange={e=>setUrl(e.target.value)}
@@ -138,29 +139,29 @@ export default function AdminMediaPage() {
     supabase.from('teams').select('id,name,logo_url').order('name').then(({data})=>{if(data)setNbaTeams(data)})
     supabase.from('gleague_teams').select('id,name,logo_url').order('name').then(({data})=>{if(data)setGlTeams(data)})
     supabase.from('world_teams').select('id,name,logo_url,continent').order('continent').order('name').then(({data})=>{if(data)setWorldTeams(data)})
-    supabase.from('prospects').select('id,name,pos,college,photo_url,season').eq('season','2027').order('name').then(({data})=>{if(data)setProspectItems(data)})
+    supabase.from('prospects').select('id,name,pos,age,college,photo_url,season').eq('season','2027').order('name').then(({data})=>{if(data)setProspectItems(data)})
     supabase.from('referees').select('id,name,photo_url').order('name').then(({data})=>{if(data)setRefereeItems(data)})
   },[])
 
   useEffect(()=>{
     if(!selPlayerTeam){setPhotoItems([]);return}
     if(selPlayerTeam==='FA'){
-      supabase.from('players').select('id,name,pos,photo_url').is('team_id',null).is('gleague_team_id',null).is('world_team_id',null).eq('status','active').order('name').then(({data})=>setPhotoItems(data||[]))
+      supabase.from('players').select('id,name,pos,age,photo_url').is('team_id',null).is('gleague_team_id',null).is('world_team_id',null).eq('status','active').order('name').then(({data})=>setPhotoItems(data||[]))
     } else if(selPlayerTeam.startsWith('GL_')){
-      supabase.from('players').select('id,name,pos,photo_url').eq('gleague_team_id',selPlayerTeam.replace('GL_','')).order('name').then(({data})=>setPhotoItems(data||[]))
+      supabase.from('players').select('id,name,pos,age,photo_url').eq('gleague_team_id',selPlayerTeam.replace('GL_','')).order('name').then(({data})=>setPhotoItems(data||[]))
     } else {
-      supabase.from('players').select('id,name,pos,photo_url').eq('team_id',selPlayerTeam).order('usage',{ascending:false}).then(({data})=>setPhotoItems(data||[]))
+      supabase.from('players').select('id,name,pos,age,photo_url').eq('team_id',selPlayerTeam).order('usage',{ascending:false}).then(({data})=>setPhotoItems(data||[]))
     }
   },[selPlayerTeam])
 
   useEffect(()=>{
     if(!selStaffTeam){setStaffItems([]);return}
     if(selStaffTeam==='FA'){
-      supabase.from('coaches').select('id,name,role,photo_url').is('team_id',null).is('gleague_team_id',null).then(({data})=>setStaffItems(data||[]))
+      supabase.from('coaches').select('id,name,role,age,photo_url').is('team_id',null).is('gleague_team_id',null).then(({data})=>setStaffItems(data||[]))
     } else if(selStaffTeam.startsWith('GL_')){
-      supabase.from('coaches').select('id,name,role,photo_url').eq('gleague_team_id',selStaffTeam.replace('GL_','')).order('name').then(({data})=>setStaffItems(data||[]))
+      supabase.from('coaches').select('id,name,role,age,photo_url').eq('gleague_team_id',selStaffTeam.replace('GL_','')).order('name').then(({data})=>setStaffItems(data||[]))
     } else {
-      supabase.from('coaches').select('id,name,role,photo_url').eq('team_id',selStaffTeam).order('name').then(({data})=>setStaffItems(data||[]))
+      supabase.from('coaches').select('id,name,role,age,photo_url').eq('team_id',selStaffTeam).order('name').then(({data})=>setStaffItems(data||[]))
     }
   },[selStaffTeam])
 
