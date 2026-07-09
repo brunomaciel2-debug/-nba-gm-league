@@ -78,8 +78,28 @@ const CRITERION_TIPS_PT: Record<string, string> = {
   culture: '60%: moral média de todo o plantel. 40%: ausência de conflitos por resolver — cada Interação de Jogador em aberto (pedidos de troca, etc.) desce este valor em 15 pontos.',
   sportingPerformance: '70%: o mesmo critério de Resultados dos Fãs (vitórias reais vs. esperadas). 30%: tendência — compara a % de vitórias nos últimos 10 jogos com a média da época toda (a subir ou a descer?).',
   management: 'Compara o talento real do plantel (peso 8 melhores por uso) com a % do tecto salarial já gasta — mais talento por menos dinheiro sobe a nota. Soma ainda um bónus por escolhas de draft futuras acumuladas via trocas (até 3 escolhas contam).',
-  facilities: '45%: grau do ginásio (F a A). 30%: capacidade do teu pavilhão comparada com a da liga inteira (o maior pavilhão marca 100, o menor marca 0). 25%: saúde financeira — o saldo real da equipa.',
+  facilities: '45%: grau do ginásio (F a A). 30%: capacidade do teu pavilhão comparada com a da liga inteira (o maior pavilhão marca 100, o menor marca 0). 25%: gestão financeira real — receitas menos despesas desde que as expetativas foram bloqueadas, não o saldo em caixa que possas ter herdado.',
   growth: 'Crescimento semana-a-semana de seguidores e popularidade (comparado com a semana anterior), mais um bónus por construções de instalações já concluídas esta época (até 5 construções contam).',
+}
+
+// Tooltips for the concrete "Season Targets" checklist — real, locked
+// numbers, not abstract scores, so these explain what's actually being
+// checked and (for the win targets) why the number is fixed all season.
+const TARGET_TIPS_PT: Record<string, string> = {
+  fansWins: 'Calculado a partir da situação real da tua equipa no momento em que as expetativas foram bloqueadas, sobre uma época real de 82 jogos. Fica fixo até ao fim da época, mesmo que a equipa mude de rumo (ex: um trade a meio da época).',
+  culture: 'Média da moral (0-100) de todos os jogadores ativos do plantel, neste preciso momento — não é uma média ao longo da época, é o valor atual.',
+  conflicts: 'Número de Interações de Jogador (pedidos de troca, etc.) ainda por resolver agora. O alvo é zero.',
+  ownersWins: 'O mesmo tipo de alvo que o dos Fãs, mas com uma curva mais exigente — a Administração espera sempre mais vitórias do que os Fãs, para a mesma situação de equipa. Também bloqueado desde o início da época.',
+  netIncome: 'Soma real de receitas menos despesas (bilhetes, concessões, patrocínios, salários, viagens, manutenção, etc.) desde a semana em que as expetativas foram bloqueadas até agora. O alvo é não ficar negativo.',
+  capEfficiency: 'Compara o talento real do plantel com a % do tecto salarial já gasta — mais talento por menos dinheiro sobe a nota. O alvo (≥50) significa não estares a pagar mais do que o talento do plantel justifica.',
+}
+const TARGET_TIPS_EN: Record<string, string> = {
+  fansWins: "Calculated from your team's real situation at the moment expectations were locked, over a real 82-game season. Stays fixed for the rest of the season even if the team's direction changes (e.g. a mid-season trade).",
+  culture: 'Average moral (0-100) across the whole active roster, right now — not a season-long average, the current value.',
+  conflicts: 'Number of Player Interactions (trade demands, etc.) still unresolved right now. The target is zero.',
+  ownersWins: "The same kind of target as Fans', but with a stricter curve — Owners always expect more wins than Fans for the same team situation. Also locked at the start of the season.",
+  netIncome: 'Real sum of revenue minus expenses (tickets, concessions, sponsors, salaries, travel, maintenance, etc.) since the week expectations were locked. The target is staying non-negative.',
+  capEfficiency: 'Compares real roster talent against the % of your salary cap already spent — more talent for less money raises the score. The target (≥50) means you\'re not paying more than the roster\'s talent justifies.',
 }
 const CRITERION_TIPS_EN: Record<string, string> = {
   results: "Compares your real win% to what's expected for your current situation (a rebuild expects less, a contender expects far more). Winning more than expected raises the score; winning less lowers it.",
@@ -200,14 +220,14 @@ function StorylineRow({ severity, text }: { severity: string, text: string }) {
   )
 }
 
-function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel, valueLabel }: {
-  achieved: boolean, description: string, currentValue: number | null, threshold: number | null, groupLabel: string, valueLabel?: string
+function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel, valueLabel, tip }: {
+  achieved: boolean, description: string, currentValue: number | null, threshold: number | null, groupLabel: string, valueLabel?: string, tip?: string
 }) {
   return (
     <div className="flex items-center gap-2 text-xs py-1" style={{ borderBottom: '1px solid #e2dcd5' }}>
       <span style={{ color: achieved ? '#15803d' : '#b0a89c', fontSize: 14, flexShrink: 0 }}>{achieved ? '☑' : '☐'}</span>
       <div className="flex-1 min-w-0">
-        <div style={{ color: achieved ? '#1a1512' : '#5c554e', fontWeight: achieved ? 600 : 400 }}>{description}</div>
+        <div className="flex items-center" style={{ color: achieved ? '#1a1512' : '#5c554e', fontWeight: achieved ? 600 : 400 }}>{description}{tip && <Tooltip text={tip} />}</div>
         <div style={{ color: '#8a8279', fontSize: 10 }}>{groupLabel}</div>
       </div>
       {valueLabel != null ? (
@@ -384,16 +404,19 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
             {fb.targetWins != null ? (
               <ObjectiveRow achieved={(fb.currentWins ?? 0) >= fb.targetWins}
                 description={isPT ? `Pelo menos ${fb.targetWins} vitórias esta época` : `At least ${fb.targetWins} wins this season`}
-                currentValue={fb.currentWins} threshold={fb.targetWins} groupLabel={isPT ? 'Vitórias — bloqueado no início da época' : 'Wins — locked at season start'} />
+                currentValue={fb.currentWins} threshold={fb.targetWins} groupLabel={isPT ? 'Vitórias — bloqueado no início da época' : 'Wins — locked at season start'}
+                tip={isPT ? TARGET_TIPS_PT.fansWins : TARGET_TIPS_EN.fansWins} />
             ) : (
               <div className="text-xs mb-1" style={{ color: '#8a8279' }}>{isPT ? 'Alvo de vitórias ainda por bloquear (acontece no início da época regular).' : 'Win target not locked in yet (locks at the start of the regular season).'}</div>
             )}
             <ObjectiveRow achieved={(fb.avgRosterMoral ?? 0) >= 60}
               description={isPT ? 'Moral médio do plantel pelo menos 60' : 'Average roster moral at least 60'}
-              currentValue={fb.avgRosterMoral} threshold={60} groupLabel={isPT ? 'Cultura' : 'Culture'} />
+              currentValue={fb.avgRosterMoral} threshold={60} groupLabel={isPT ? 'Cultura' : 'Culture'}
+              tip={isPT ? TARGET_TIPS_PT.culture : TARGET_TIPS_EN.culture} />
             <ObjectiveRow achieved={(fb.openInteractionCount ?? 0) === 0}
               description={isPT ? 'Sem pedidos de troca por resolver' : 'No unresolved trade-demand conflicts'}
-              currentValue={fb.openInteractionCount} threshold={0} groupLabel={isPT ? 'Conflitos' : 'Conflicts'} />
+              currentValue={fb.openInteractionCount} threshold={0} groupLabel={isPT ? 'Conflitos' : 'Conflicts'}
+              tip={isPT ? TARGET_TIPS_PT.conflicts : TARGET_TIPS_EN.conflicts} />
           </div>
         </DimensionCard>
 
@@ -418,16 +441,19 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
             {ob.targetWins != null ? (
               <ObjectiveRow achieved={(ob.currentWins ?? 0) >= ob.targetWins}
                 description={isPT ? `Pelo menos ${ob.targetWins} vitórias esta época` : `At least ${ob.targetWins} wins this season`}
-                currentValue={ob.currentWins} threshold={ob.targetWins} groupLabel={isPT ? 'Vitórias — bloqueado no início da época' : 'Wins — locked at season start'} />
+                currentValue={ob.currentWins} threshold={ob.targetWins} groupLabel={isPT ? 'Vitórias — bloqueado no início da época' : 'Wins — locked at season start'}
+                tip={isPT ? TARGET_TIPS_PT.ownersWins : TARGET_TIPS_EN.ownersWins} />
             ) : (
               <div className="text-xs mb-1" style={{ color: '#8a8279' }}>{isPT ? 'Alvo de vitórias ainda por bloquear (acontece no início da época regular).' : 'Win target not locked in yet (locks at the start of the regular season).'}</div>
             )}
             <ObjectiveRow achieved={(ob.netIncomeSinceLock ?? 0) >= 0}
               description={isPT ? 'Saldo não pode piorar desde que assumiste o cargo' : "Balance sheet can't get worse since you took over"}
-              currentValue={ob.netIncomeSinceLock} threshold={0} valueLabel={fmtMoney(ob.netIncomeSinceLock)} groupLabel={isPT ? 'Saldo (desde o bloqueio)' : 'Balance (since lock)'} />
+              currentValue={ob.netIncomeSinceLock} threshold={0} valueLabel={fmtMoney(ob.netIncomeSinceLock)} groupLabel={isPT ? 'Saldo (desde o bloqueio)' : 'Balance (since lock)'}
+              tip={isPT ? TARGET_TIPS_PT.netIncome : TARGET_TIPS_EN.netIncome} />
             <ObjectiveRow achieved={(ob.managementScoreRaw ?? 0) >= 50}
               description={isPT ? 'Eficiência de tecto salarial pelo menos 50' : 'Cap efficiency at least 50'}
-              currentValue={ob.managementScoreRaw} threshold={50} groupLabel={isPT ? 'Tecto Salarial' : 'Cap Discipline'} />
+              currentValue={ob.managementScoreRaw} threshold={50} groupLabel={isPT ? 'Tecto Salarial' : 'Cap Discipline'}
+              tip={isPT ? TARGET_TIPS_PT.capEfficiency : TARGET_TIPS_EN.capEfficiency} />
           </div>
         </DimensionCard>
 
