@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { MAX_ROSTER, getActiveRosterCount } from '@/lib/roster-limits'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -28,6 +29,12 @@ export async function POST(req: NextRequest) {
   if (!isOwner && !isCommissioner) return NextResponse.json({ error: 'Not authorized' }, { status: 403 })
 
   if (action === 'confirm') {
+    if (player.team_id) {
+      const rosterCount = await getActiveRosterCount(admin, player.team_id)
+      if (rosterCount >= MAX_ROSTER) {
+        return NextResponse.json({ error: `Roster is full (${MAX_ROSTER}) — cut a player before confirming this pick.` }, { status: 400 })
+      }
+    }
     await admin.from('players').update({ status: 'active', draft_confirm_deadline: null }).eq('id', playerId)
     const { data: team } = await admin.from('teams').select('cap_used').eq('id', player.team_id).single()
     await admin.from('teams').update({ cap_used: (team?.cap_used || 0) + (player.salary || 0) }).eq('id', player.team_id)

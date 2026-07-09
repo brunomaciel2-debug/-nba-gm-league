@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { rookieOptionSalary } from '@/lib/draft-constants'
+import { MIN_ROSTER, isFreeAgencyWindow, getActiveRosterCount } from '@/lib/roster-limits'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -48,6 +49,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Decline — player leaves the team entirely, their current salary comes off the cap.
+  if (!(await isFreeAgencyWindow(admin)) && player.team_id) {
+    const currentRoster = await getActiveRosterCount(admin, player.team_id)
+    if (currentRoster - 1 < MIN_ROSTER) {
+      return NextResponse.json({ error: `Declining this option would drop your roster below the ${MIN_ROSTER}-player minimum. Only allowed during the Free Agency week.` }, { status: 400 })
+    }
+  }
   if (team) await admin.from('teams').update({ cap_used: Math.max(0, (team.cap_used || 0) - (player.salary || 0)) }).eq('id', player.team_id)
   await admin.from('players').update({
     team_id: null, status: 'active', rookie_option_status: null, rookie_option_deadline: null, is_rookie_contract: false,

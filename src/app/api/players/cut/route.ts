@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { MIN_ROSTER, isFreeAgencyWindow, getActiveRosterCount } from '@/lib/roster-limits'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,6 +34,13 @@ export async function POST(req: NextRequest) {
   const isCommissioner = gm.role === 'commissioner'
   if (!isOwner && !isCommissioner) {
     return NextResponse.json({ error: 'Not authorized to release this player' }, { status: 403 })
+  }
+
+  if (!(await isFreeAgencyWindow(supabaseAdmin))) {
+    const currentRoster = await getActiveRosterCount(supabaseAdmin, player.team_id)
+    if (currentRoster - 1 < MIN_ROSTER) {
+      return NextResponse.json({ error: `This would drop your roster below the ${MIN_ROSTER}-player minimum. Only allowed during the Free Agency week.` }, { status: 400 })
+    }
   }
 
   // Release player — becomes a free agent

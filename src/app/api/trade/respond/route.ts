@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyTradeAccepted, notifyTradeRejected, notifyPlayerArrival } from '@/lib/notifications'
 import { resolveInteractionsForTradedPlayer } from '@/lib/player-interactions'
+import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow, getActiveRosterCount } from '@/lib/roster-limits'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,7 +67,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, status: 'rejected' })
   }
 
-  // ── ACCEPT: validate cap compliance for every team, then execute ──
+  // ── ACCEPT: validate cap AND roster size for every team, then execute ──
+  const fAWindow = await isFreeAgencyWindow(supabaseAdmin)
   for (const teamEntry of teams) {
     const { data: team } = await supabaseAdmin.from('teams').select('cap_used').eq('id', teamEntry.team_id).single()
     const currentCap = team?.cap_used || 0
@@ -74,6 +76,19 @@ export async function POST(req: NextRequest) {
     if (newCap > CAP_LIMIT) {
       return NextResponse.json({
         error: `${teamNameMap[teamEntry.team_id] || teamEntry.team_id} would exceed the $180M salary cap with this trade. Trade cannot be completed.`
+      }, { status: 400 })
+    }
+
+    const currentRoster = await getActiveRosterCount(supabaseAdmin, teamEntry.team_id)
+    const projectedRoster = currentRoster - (teamEntry.players_out || []).length + (teamEntry.players_in || []).length
+    if (projectedRoster > MAX_ROSTER) {
+      return NextResponse.json({
+        error: `${teamNameMap[teamEntry.team_id] || teamEntry.team_id} would exceed the ${MAX_ROSTER}-player roster limit with this trade. Trade cannot be completed.`
+      }, { status: 400 })
+    }
+    if (projectedRoster < MIN_ROSTER && !fAWindow) {
+      return NextResponse.json({
+        error: `${teamNameMap[teamEntry.team_id] || teamEntry.team_id} would drop below the ${MIN_ROSTER}-player roster minimum with this trade. Only allowed during the Free Agency week. Trade cannot be completed.`
       }, { status: 400 })
     }
   }

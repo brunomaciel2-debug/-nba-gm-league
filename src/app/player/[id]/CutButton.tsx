@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/components/I18nProvider'
+import { getStatusForWeek } from '@/lib/season-week-helper'
 
 const MIN_ROSTER = 12
 
@@ -14,6 +15,7 @@ export default function CutButton({ playerId, playerTeamId }: { playerId: number
   const [authorized, setAuthorized] = useState(false)
   const [isCommissioner, setIsCommissioner] = useState(false)
   const [rosterSize, setRosterSize] = useState<number | null>(null)
+  const [isFAWindow, setIsFAWindow] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState('')
@@ -30,6 +32,8 @@ export default function CutButton({ playerId, playerTeamId }: { playerId: number
       if (isOwner || isComm) {
         const { count } = await supabase.from('players').select('id',{count:'exact',head:true}).eq('team_id',playerTeamId).eq('status','active')
         setRosterSize(count ?? null)
+        const { data: cfg } = await supabase.from('season_config').select('current_week').eq('id', 1).single()
+        setIsFAWindow(getStatusForWeek((cfg?.current_week || 0) + 1) === 'free-agency')
       }
     })
   }, [playerTeamId])
@@ -37,6 +41,7 @@ export default function CutButton({ playerId, playerTeamId }: { playerId: number
   if (!authorized) return null
 
   const wouldGoBelowMin = rosterSize !== null && rosterSize - 1 < MIN_ROSTER
+  const isBlocked = wouldGoBelowMin && !isFAWindow
 
   const handleCut = async () => {
     setLoading(true); setMsg('')
@@ -84,20 +89,27 @@ export default function CutButton({ playerId, playerTeamId }: { playerId: number
               : 'This player will become an unrestricted free agent immediately. Their salary will remain on your cap as dead money until another team signs them.'}
           </div>
 
-          {wouldGoBelowMin && (
+          {isBlocked && (
+            <div style={{ marginBottom: 10, padding: '8px 12px', borderRadius: 6, background: '#fee2e2', border: '1px solid #fca5a5', fontSize: 11, color: '#dc2626', fontWeight: 600 }}>
+              🚫 {isPT
+                ? `Bloqueado: isto reduziria o teu plantel para ${(rosterSize ?? 1) - 1} jogadores, abaixo do mínimo de ${MIN_ROSTER}. Só é permitido durante a semana de Free Agency (Semana 1).`
+                : `Blocked: this would bring your roster to ${(rosterSize ?? 1) - 1} players, below the ${MIN_ROSTER}-player minimum. Only allowed during Free Agency week (Week 1).`}
+            </div>
+          )}
+          {wouldGoBelowMin && !isBlocked && (
             <div style={{ marginBottom: 10, padding: '8px 12px', borderRadius: 6, background: '#fef3c7', border: '1px solid #fcd34d', fontSize: 11, color: '#b45309', fontWeight: 500 }}>
               ⚠️ {isPT
-                ? `Isto vai reduzir o teu plantel para ${(rosterSize ?? 1) - 1} jogadores, abaixo do mínimo de ${MIN_ROSTER}. Só é permitido durante a janela de Free Agency — tens de resolver isto antes do fecho do plantel.`
-                : `This will bring your roster to ${(rosterSize ?? 1) - 1} players, below the ${MIN_ROSTER}-player minimum. This is only allowed during the free agency window — you must resolve this before the season locks the roster.`}
+                ? `Isto vai reduzir o teu plantel para ${(rosterSize ?? 1) - 1} jogadores, abaixo do mínimo de ${MIN_ROSTER}. Permitido agora porque estás na semana de Free Agency — mas terás de resolver isto assim que essa semana terminar.`
+                : `This will bring your roster to ${(rosterSize ?? 1) - 1} players, below the ${MIN_ROSTER}-player minimum. Allowed right now because you're in Free Agency week — but you'll need to fix this once that week ends.`}
             </div>
           )}
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleCut} disabled={loading}
+            <button onClick={handleCut} disabled={loading || isBlocked}
               style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
-                background: '#dc2626', color: '#fff', border: 'none',
-                cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}>
-              {loading ? (isPT ? 'A dispensar...' : 'Releasing...') : (isPT ? 'Confirmar Dispensa' : 'Confirm Release')}
+                background: isBlocked ? '#e2dcd5' : '#dc2626', color: isBlocked ? '#8a8279' : '#fff', border: 'none',
+                cursor: isBlocked ? 'not-allowed' : loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+              {loading ? (isPT ? 'A dispensar...' : 'Releasing...') : isBlocked ? (isPT ? '🚫 Bloqueado' : '🚫 Blocked') : (isPT ? 'Confirmar Dispensa' : 'Confirm Release')}
             </button>
             <button onClick={() => setConfirming(false)} disabled={loading}
               style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 12, fontWeight: 700,
