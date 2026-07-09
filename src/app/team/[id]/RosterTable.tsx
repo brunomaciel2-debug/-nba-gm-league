@@ -5,36 +5,44 @@ import { useTranslation } from '@/components/I18nProvider'
 
 type Mode = 'stats' | 'attributes'
 
+// Keyed by column `key`, not `label` — several attribute columns reuse the
+// exact same display label as a per-game stats column (DREB/OREB appear in
+// both STAT_COLS and ATTR_COLS), so a label-keyed lookup let the wrong
+// tooltip ("per game" text) show up under the attribute-mode header.
 const TOOLTIPS_EN: Record<string, string> = {
-  PPG:'Points Per Game', RPG:'Total Rebounds Per Game', OREB:'Offensive Rebounds Per Game',
-  DREB:'Defensive Rebounds Per Game', APG:'Assists Per Game', SPG:'Steals Per Game',
-  BPG:'Blocks Per Game', 'FG%':'Field Goal %', '3P%':'Three-Point %', 'FT%':'Free Throw %',
-  TO:'Turnovers Per Game', PF:'Personal Fouls Per Game', TF:'Technical Fouls (season total)',
-  Salary:'Current season salary',
-  '3PT':'Three-Point Shooting (0-100)', LAY:'Layup (0-100)', DNK:'Dunk (0-100)',
-  MID:'Mid-Range (0-100)', FT:'Free Throw (0-100)', SIQ:'Shot IQ (0-100)',
-  DF:'Draw Foul (0-100)', BLK:'Block (0-100)', STL:'Steal (0-100)',
-  IDEF:'Interior Defense (0-100)', PDEF:'Perimeter Defense (0-100)',
-  DREB_A:'Defensive Rebound (0-100)', OREB_A:'Offensive Rebound (0-100)',
-  STA:'Stamina (0-100)', DUR:'Durability (0-100)', BH:'Ball Handle (0-100)',
-  PV:'Pass Vision (0-100)', PIQ:'Pass IQ (0-100)', AR:'Assist Role (0-100)',
-  CLU:'Clutch (0-100)', CON:'Consistency (0-100)', CE:'Crowd Effect (0-100)', STR:'Streaky (0-100)',
+  ppg:'Points Per Game', rpg:'Total Rebounds Per Game', orpg:'Offensive Rebounds Per Game',
+  drpg:'Defensive Rebounds Per Game', apg:'Assists Per Game', spg:'Steals Per Game',
+  bpg:'Blocks Per Game', fgpct:'Field Goal %', tppct:'Three-Point %', ftpct:'Free Throw %',
+  topg:'Turnovers Per Game', pfpg:'Personal Fouls Per Game', tf:'Technical Fouls (season total)',
+  salary:'Current season salary',
+  health:"This week's real health (0-100) — feeds in-game fatigue and injury chance.",
+  moral:"This player's real moral (0-100) — feeds shot accuracy and weekly attribute growth.",
+  three:'Three-Point Shooting (0-100)', layup:'Layup (0-100)', dunk:'Dunk (0-100)',
+  mid:'Mid-Range (0-100)', ft:'Free Throw (0-100)', siq:'Shot IQ (0-100)',
+  draw_foul:'Draw Foul (0-100)', blk:'Block (0-100)', stl:'Steal (0-100)',
+  idef:'Interior Defense (0-100)', pdef:'Perimeter Defense (0-100)',
+  def_reb:'Defensive Rebound (0-100)', off_reb:'Offensive Rebound (0-100)',
+  stamina:'Stamina (0-100)', durability:'Durability (0-100)', ball_hdl:'Ball Handle (0-100)',
+  pass_vis:'Pass Vision (0-100)', pass_iq:'Pass IQ (0-100)', assist_role:'Assist Role (0-100)',
+  pressure:'Clutch (0-100)', consistency:'Consistency (0-100)', crowd_effect:'Crowd Effect (0-100)', streaky:'Streaky (0-100)',
 }
 
 const TOOLTIPS_PT: Record<string, string> = {
-  PPG:'Pontos Por Jogo', RPG:'Total de Ressaltos Por Jogo', OREB:'Ressaltos Ofensivos Por Jogo',
-  DREB:'Ressaltos Defensivos Por Jogo', APG:'Assistências Por Jogo', SPG:'Roubos de Bola Por Jogo',
-  BPG:'Desarmes de Lançamento Por Jogo', 'FG%':'% de Lançamentos de Campo', '3P%':'% de Lançamentos de 3 Pontos', 'FT%':'% de Lances Livres',
-  TO:'Perdas de Bola Por Jogo', PF:'Faltas Pessoais Por Jogo', TF:'Faltas Técnicas (total da época)',
-  Salary:'Salário da época actual',
-  '3PT':'Lançamento de 3 Pontos (0-100)', LAY:'Layup (0-100)', DNK:'Dunk (0-100)',
-  MID:'Meia Distância (0-100)', FT:'Lances Livres (0-100)', SIQ:'Shot IQ (0-100)',
-  DF:'Provoca Falta (0-100)', BLK:'Desarme de Lançamento (0-100)', STL:'Roubo de Bola (0-100)',
-  IDEF:'Defesa Interior (0-100)', PDEF:'Defesa de Perímetro (0-100)',
-  DREB_A:'Ressalto Defensivo (0-100)', OREB_A:'Ressalto Ofensivo (0-100)',
-  STA:'Resistência/Stamina (0-100)', DUR:'Durabilidade (0-100)', BH:'Drible (0-100)',
-  PV:'Visão de Jogo (0-100)', PIQ:'Pass IQ (0-100)', AR:'Perfil de Assistência (0-100)',
-  CLU:'Clutch/Pressão (0-100)', CON:'Consistência (0-100)', CE:'Influência do Público (0-100)', STR:'Irregular (0-100)',
+  ppg:'Pontos Por Jogo', rpg:'Total de Ressaltos Por Jogo', orpg:'Ressaltos Ofensivos Por Jogo',
+  drpg:'Ressaltos Defensivos Por Jogo', apg:'Assistências Por Jogo', spg:'Roubos de Bola Por Jogo',
+  bpg:'Desarmes de Lançamento Por Jogo', fgpct:'% de Lançamentos de Campo', tppct:'% de Lançamentos de 3 Pontos', ftpct:'% de Lances Livres',
+  topg:'Perdas de Bola Por Jogo', pfpg:'Faltas Pessoais Por Jogo', tf:'Faltas Técnicas (total da época)',
+  salary:'Salário da época actual',
+  health:'Saúde real desta semana (0-100) — alimenta a fadiga em jogo e a chance de lesão.',
+  moral:'Moral real deste jogador (0-100) — alimenta a pontaria e o desenvolvimento semanal de atributos.',
+  three:'Lançamento de 3 Pontos (0-100)', layup:'Layup (0-100)', dunk:'Dunk (0-100)',
+  mid:'Meia Distância (0-100)', ft:'Lances Livres (0-100)', siq:'Shot IQ (0-100)',
+  draw_foul:'Provoca Falta (0-100)', blk:'Desarme de Lançamento (0-100)', stl:'Roubo de Bola (0-100)',
+  idef:'Defesa Interior (0-100)', pdef:'Defesa de Perímetro (0-100)',
+  def_reb:'Ressalto Defensivo (0-100)', off_reb:'Ressalto Ofensivo (0-100)',
+  stamina:'Resistência/Stamina (0-100)', durability:'Durabilidade (0-100)', ball_hdl:'Drible (0-100)',
+  pass_vis:'Visão de Jogo (0-100)', pass_iq:'Pass IQ (0-100)', assist_role:'Perfil de Assistência (0-100)',
+  pressure:'Clutch/Pressão (0-100)', consistency:'Consistência (0-100)', crowd_effect:'Influência do Público (0-100)', streaky:'Irregular (0-100)',
 }
 
 function TH({ col, sortKey, sortDir, onSort, tooltips }: {
@@ -43,7 +51,7 @@ function TH({ col, sortKey, sortDir, onSort, tooltips }: {
   onSort: (k: string, n: boolean) => void,
   tooltips: Record<string, string>
 }) {
-  const tip = tooltips[col.label]
+  const tip = tooltips[col.key]
   const isActive = sortKey === col.key
   return (
     <th onClick={() => onSort(col.key, col.numeric)}
