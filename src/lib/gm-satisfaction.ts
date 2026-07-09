@@ -73,7 +73,7 @@ export type FansInputs = {
 // entirely on results (65% results / 0% youth excitement) — the direct
 // operationalization of "não é suposto uma equipa em rebuild ter fãs
 // furiosos por não ganhar o campeonato."
-export function computeFansScore(inputs: FansInputs): { score: number, breakdown: Record<string, number> } {
+export function computeFansScore(inputs: FansInputs): { score: number, breakdown: Record<string, any> } {
   const resultsScore = computeResultsScore(inputs.actualWinPct, inputs.wni)
   const youthExcitement = computeYouthExcitement(inputs.avgYoungRealOvrDelta, inputs.highPotentialCount)
   const cultureScore = computeCultureScore(inputs.avgRosterMoral, inputs.openInteractionCount)
@@ -137,7 +137,7 @@ export type OwnersInputs = {
   followerGrowthPct: number, popularityDelta: number, completedConstructionsThisSeason: number,
 }
 
-export function computeOwnersScore(inputs: OwnersInputs): { score: number, breakdown: Record<string, number> } {
+export function computeOwnersScore(inputs: OwnersInputs): { score: number, breakdown: Record<string, any> } {
   // Owners use their own, stricter win-expectation curve — see
   // ownersExpectedWinPct's comment for why it's not the same as Fans'.
   const resultsScore = computeResultsScoreFromExpectation(inputs.actualWinPct, ownersExpectedWinPct(inputs.wni))
@@ -276,13 +276,118 @@ export function computeFranchiseStorylines(inputs: {
   return results.slice(0, MAX_STORYLINES_SHOWN)
 }
 
+// ── SEASON TARGETS: FRANCHISE-SPECIFIC CRITERIA ────────────────────
+// Bruno's exact ask: two teams in the same Win-Now band were showing the
+// exact same 3 checklist criterion TYPES, just different numbers. Real
+// fanbases/ownership groups don't all want the same things — a real
+// rivalry, a beloved star's expiring contract, weak facilities, a real
+// shot at the playoffs. Selected once, at the same moment win targets are
+// locked (so WHAT is being measured is also fixed all season, never WHO's
+// most competitive number, just re-derived from a post-trade roster), and
+// re-checked live every week after.
+export type SeasonCriterion =
+  | { type: 'wins' }
+  | { type: 'netIncome' }
+  | { type: 'culture' }
+  | { type: 'noOpenConflicts' }
+  | { type: 'capEfficiency' }
+  | { type: 'youthDevelopment' }
+  | { type: 'starRetention', playerId: number, playerName: string }
+  | { type: 'rivalryWin', rivalTeamId: string, rivalName: string }
+  | { type: 'facilityInvestment' }
+  | { type: 'playoffAppearance' }
+
+const STAR_RETENTION_OVR_THRESHOLD = 78
+const STAR_RETENTION_CONTRACT_MAX = 2
+const YOUTH_DEV_WNI_THRESHOLD = 0.48
+const PLAYOFF_WNI_THRESHOLD = 0.48
+const WEAK_FACILITY_GRADES = new Set(['F', 'E', 'D'])
+
+function starRetentionCriterion(star: StorylinePlayer | undefined): SeasonCriterion | null {
+  if (star && star.real_ovr >= STAR_RETENTION_OVR_THRESHOLD && (star.contract_years ?? 99) <= STAR_RETENTION_CONTRACT_MAX) {
+    return { type: 'starRetention', playerId: star.id, playerName: star.name }
+  }
+  return null
+}
+
+// `wins` is always included; up to 3 more slots are filled by whichever
+// real, team-specific conditions actually apply, in priority order —
+// `culture`/`noOpenConflicts` are always-eligible fallbacks that only end
+// up shown when there's nothing more specific to say about this team.
+export function selectFansCriteria(inputs: {
+  star: StorylinePlayer | undefined, rival: { teamId: string, name: string } | null, wni: number,
+}): SeasonCriterion[] {
+  const conditional: SeasonCriterion[] = []
+  const star = starRetentionCriterion(inputs.star)
+  if (star) conditional.push(star)
+  if (inputs.rival) conditional.push({ type: 'rivalryWin', rivalTeamId: inputs.rival.teamId, rivalName: inputs.rival.name })
+  if (inputs.wni < YOUTH_DEV_WNI_THRESHOLD) conditional.push({ type: 'youthDevelopment' })
+  conditional.push({ type: 'culture' })
+  conditional.push({ type: 'noOpenConflicts' })
+  return [{ type: 'wins' }, ...conditional.slice(0, 3)]
+}
+
+// `wins` and `netIncome` always included; up to 2 more slots, same
+// priority-fill logic (`capEfficiency` is the fallback).
+export function selectOwnersCriteria(inputs: {
+  star: StorylinePlayer | undefined, gymGrade: string | null | undefined, wni: number,
+}): SeasonCriterion[] {
+  const conditional: SeasonCriterion[] = []
+  const star = starRetentionCriterion(inputs.star)
+  if (star) conditional.push(star)
+  if (WEAK_FACILITY_GRADES.has(inputs.gymGrade || 'F')) conditional.push({ type: 'facilityInvestment' })
+  if (inputs.wni >= PLAYOFF_WNI_THRESHOLD) conditional.push({ type: 'playoffAppearance' })
+  conditional.push({ type: 'capEfficiency' })
+  return [{ type: 'wins' }, { type: 'netIncome' }, ...conditional.slice(0, 2)]
+}
+
+export type CriterionEvalContext = {
+  currentWins: number, targetWins: number | null,
+  netIncomeSinceLock: number, avgRosterMoral: number, openInteractionCount: number,
+  managementScore: number, avgYoungRealOvrDelta: number,
+  extensionAcceptedForPlayer: (playerId: number) => boolean,
+  beatRivalThisSeason: (rivalTeamId: string) => boolean,
+  conferenceRank: number | null,
+  completedConstructionsSinceLock: number,
+}
+
+export type CriterionCheckResult = { achieved: boolean, currentValue: number | null, threshold: number | null }
+
+// Evaluates one LOCKED criterion against THIS week's live data — the
+// criterion set never changes mid-season, only the live progress against
+// it does.
+export function checkCriterion(criterion: SeasonCriterion, ctx: CriterionEvalContext): CriterionCheckResult {
+  switch (criterion.type) {
+    case 'wins':
+      return { achieved: ctx.targetWins != null && ctx.currentWins >= ctx.targetWins, currentValue: ctx.currentWins, threshold: ctx.targetWins }
+    case 'netIncome':
+      return { achieved: ctx.netIncomeSinceLock >= 0, currentValue: ctx.netIncomeSinceLock, threshold: 0 }
+    case 'culture':
+      return { achieved: ctx.avgRosterMoral >= 60, currentValue: ctx.avgRosterMoral, threshold: 60 }
+    case 'noOpenConflicts':
+      return { achieved: ctx.openInteractionCount === 0, currentValue: ctx.openInteractionCount, threshold: 0 }
+    case 'capEfficiency':
+      return { achieved: ctx.managementScore >= 50, currentValue: ctx.managementScore, threshold: 50 }
+    case 'youthDevelopment':
+      return { achieved: ctx.avgYoungRealOvrDelta > 0, currentValue: ctx.avgYoungRealOvrDelta, threshold: 0 }
+    case 'starRetention':
+      return { achieved: ctx.extensionAcceptedForPlayer(criterion.playerId), currentValue: null, threshold: null }
+    case 'rivalryWin':
+      return { achieved: ctx.beatRivalThisSeason(criterion.rivalTeamId), currentValue: null, threshold: null }
+    case 'facilityInvestment':
+      return { achieved: ctx.completedConstructionsSinceLock >= 1, currentValue: ctx.completedConstructionsSinceLock, threshold: 1 }
+    case 'playoffAppearance':
+      return { achieved: ctx.conferenceRank != null && ctx.conferenceRank <= 8, currentValue: ctx.conferenceRank, threshold: 8 }
+  }
+}
+
 const OWNERS_HOT_SEAT_THRESHOLD = 30
 const OWNERS_HOT_SEAT_STREAK_WEEKS = 8
 
 // ── WEEKLY RESOLUTION ─────────────────────────────────────────────
 export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teamsProcessed: number }> {
   const { data: teams } = await supabaseAdmin.from('teams')
-    .select('id,wins,losses,popularity,cap_used,social_media_followers')
+    .select('id,name,wins,losses,conference,rival_team_id,popularity,cap_used,social_media_followers')
     .not('id', 'in', '(ALL,RVS,ROO,SOP)')
   if (!teams?.length) return { teamsProcessed: 0 }
 
@@ -311,7 +416,7 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     supabaseAdmin.from('draft_picks').select('team_id,original_team_id,season').eq('status', 'owned'),
     supabaseAdmin.from('practice_facilities').select('team_id,gym_grade').in('team_id', teamIds),
     supabaseAdmin.from('arena_sections').select('team_id,capacity').in('team_id', teamIds),
-    supabaseAdmin.from('construction_queue').select('team_id,status').eq('status', 'completed').in('team_id', teamIds),
+    supabaseAdmin.from('construction_queue').select('team_id,status,ends_at').eq('status', 'completed').in('team_id', teamIds),
     supabaseAdmin.from('player_interactions').select('team_id,status').in('status', ['pending_response', 'monitoring']).in('team_id', teamIds),
     supabaseAdmin.from('attribute_development').select('player_id,change').eq('season', SEASON),
     supabaseAdmin.from('games').select('home_team,away_team,home_score,away_score,played_at').eq('status', 'final').or(`home_team.in.(${teamIds.join(',')}),away_team.in.(${teamIds.join(',')})`).order('played_at', { ascending: false }),
@@ -389,6 +494,37 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
   const completedConstructionsByTeam: Record<string, number> = {}
   ;(constructions || []).forEach((c: any) => { completedConstructionsByTeam[c.team_id] = (completedConstructionsByTeam[c.team_id] || 0) + 1 })
 
+  function completedConstructionsSince(teamId: string, sinceIso: string | null | undefined): number {
+    if (!sinceIso) return 0
+    return (constructions || []).filter((c: any) => c.team_id === teamId && c.ends_at && new Date(c.ends_at) >= new Date(sinceIso)).length
+  }
+
+  // Season Targets criteria inputs — real team name lookup (for rivalry
+  // criterion text), who-beat-whom this season (from the same full-season
+  // recentGames fetch already used for last10ByTeam, just unbounded per
+  // team here instead of capped at 10), and real conference standings rank
+  // (same computation shape as notifications.ts's playoff-position check).
+  const teamNameById: Record<string, string> = {}
+  teams.forEach((t: any) => { teamNameById[t.id] = t.name })
+
+  const beatOpponentByTeam: Record<string, Set<string>> = {}
+  ;(recentGames || []).forEach((g: any) => {
+    if (g.home_score > g.away_score) (beatOpponentByTeam[g.home_team] ||= new Set()).add(g.away_team)
+    else if (g.away_score > g.home_score) (beatOpponentByTeam[g.away_team] ||= new Set()).add(g.home_team)
+  })
+
+  const teamsByConference: Record<string, any[]> = {}
+  teams.forEach((t: any) => { (teamsByConference[t.conference] ||= []).push(t) })
+  const conferenceRankByTeam: Record<string, number> = {}
+  Object.values(teamsByConference).forEach((list: any[]) => {
+    const sorted = [...list].sort((a, b) => {
+      const aPct = (a.wins || 0) / Math.max(1, (a.wins || 0) + (a.losses || 0))
+      const bPct = (b.wins || 0) / Math.max(1, (b.wins || 0) + (b.losses || 0))
+      return bPct - aPct
+    })
+    sorted.forEach((t: any, i: number) => { conferenceRankByTeam[t.id] = i + 1 })
+  })
+
   const openInteractionsByTeam: Record<string, number> = {}
   ;(interactions || []).forEach((i: any) => { openInteractionsByTeam[i.team_id] = (openInteractionsByTeam[i.team_id] || 0) + 1 })
 
@@ -431,6 +567,12 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     let wni = computeWinNowIndex(roster, extraPicks)
     let label = winNowLabel(wni)
 
+    const topPlayers: StorylinePlayer[] = [...roster]
+      .sort((a: any, b: any) => (b.real_ovr || 0) - (a.real_ovr || 0))
+      .slice(0, 2)
+      .map((p: any) => ({ id: p.id, name: p.name, real_ovr: p.real_ovr || 0, age: p.age || 25, contract_years: p.contract_years ?? null }))
+    const rivalInfo = team.rival_team_id ? { teamId: team.rival_team_id, name: teamNameById[team.rival_team_id] || team.rival_team_id } : null
+
     // Lock the expectation baseline ONCE per GM tenure — a mid-season trade
     // that suddenly makes this team look like a contender or a rebuild must
     // NOT change what Fans/Owners already expect this season (Bruno's
@@ -446,13 +588,28 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
       if (week >= lockWeek && getStatusForWeek(week) === 'regular-season') {
         const fansTargetWins = Math.round(expectedWinPct(wni) * TOTAL_SEASON_GAMES)
         const ownersTargetWins = Math.round(ownersExpectedWinPct(wni) * TOTAL_SEASON_GAMES)
+        const fansCriteria = selectFansCriteria({ star: topPlayers[0], rival: rivalInfo, wni })
+        const ownersCriteria = selectOwnersCriteria({ star: topPlayers[0], gymGrade: gymGradeByTeam[team.id], wni })
         const { data: inserted } = await supabaseAdmin.from('gm_season_targets').insert({
           team_id: team.id, season: SEASON, tenure_started_week: tenureStartWeek,
           locked_week: week, locked_wni: wni, locked_win_now_label: label,
           fans_target_wins: fansTargetWins, owners_target_wins: ownersTargetWins,
+          fans_criteria: fansCriteria, owners_criteria: ownersCriteria,
         }).select().single()
         lockedTarget = inserted
       }
+    }
+    // Back-lock the criteria SET for rows created before this feature
+    // shipped (they locked win targets but have no criteria stored yet) —
+    // a one-time catch-up using the current roster, not a recurring
+    // recompute (the set still stays fixed for the rest of the season
+    // from this point on).
+    if (lockedTarget && !(lockedTarget.fans_criteria?.length) && !(lockedTarget.owners_criteria?.length)) {
+      const backfillFans = selectFansCriteria({ star: topPlayers[0], rival: rivalInfo, wni: lockedTarget.locked_wni })
+      const backfillOwners = selectOwnersCriteria({ star: topPlayers[0], gymGrade: gymGradeByTeam[team.id], wni: lockedTarget.locked_wni })
+      await supabaseAdmin.from('gm_season_targets').update({ fans_criteria: backfillFans, owners_criteria: backfillOwners }).eq('id', lockedTarget.id)
+      lockedTarget.fans_criteria = backfillFans
+      lockedTarget.owners_criteria = backfillOwners
     }
     if (lockedTarget) {
       wni = lockedTarget.locked_wni
@@ -494,21 +651,25 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     })
     owners.breakdown.rawFollowers = currentFollowers
     owners.breakdown.rawPopularity = team.popularity ?? 50
-    // Concrete, objectively-checkable Season Targets (per Bruno's ask: "são
-    // objetivamente avaliáveis?") — real numbers stated at lock time, real
-    // current progress read live every week.
-    fans.breakdown.targetWins = lockedTarget?.fans_target_wins ?? null
-    fans.breakdown.currentWins = team.wins ?? 0
-    fans.breakdown.avgRosterMoral = avgRosterMoral
-    fans.breakdown.openInteractionCount = openInteractionsByTeam[team.id] || 0
-    owners.breakdown.targetWins = lockedTarget?.owners_target_wins ?? null
-    owners.breakdown.currentWins = team.wins ?? 0
-    owners.breakdown.managementScoreRaw = owners.breakdown.managementScore
 
-    const topPlayers: StorylinePlayer[] = [...roster]
-      .sort((a: any, b: any) => (b.real_ovr || 0) - (a.real_ovr || 0))
-      .slice(0, 2)
-      .map((p: any) => ({ id: p.id, name: p.name, real_ovr: p.real_ovr || 0, age: p.age || 25, contract_years: p.contract_years ?? null }))
+    // Concrete, objectively-checkable, FRANCHISE-SPECIFIC Season Targets
+    // (per Bruno's ask: "são objetivamente avaliáveis?" and "não reflete o
+    // que cada fanbase e ownership privilegia") — the criterion SET was
+    // locked once (above), real current progress is read live every week.
+    const criterionCtx = {
+      currentWins: team.wins ?? 0, netIncomeSinceLock, avgRosterMoral,
+      openInteractionCount: openInteractionsByTeam[team.id] || 0,
+      managementScore: owners.breakdown.managementScore, avgYoungRealOvrDelta,
+      extensionAcceptedForPlayer: (playerId: number) => extensionStatusByPlayer[playerId]?.status === 'accepted',
+      beatRivalThisSeason: (rivalTeamId: string) => !!beatOpponentByTeam[team.id]?.has(rivalTeamId),
+      conferenceRank: conferenceRankByTeam[team.id] ?? null,
+      completedConstructionsSinceLock: completedConstructionsSince(team.id, lockedTarget?.created_at ?? null),
+    }
+    const fansCriteria: SeasonCriterion[] = lockedTarget?.fans_criteria || []
+    const ownersCriteria: SeasonCriterion[] = lockedTarget?.owners_criteria || []
+    fans.breakdown.criteria = fansCriteria.map(c => ({ ...c, ...checkCriterion(c, { ...criterionCtx, targetWins: lockedTarget?.fans_target_wins ?? null }) }))
+    owners.breakdown.criteria = ownersCriteria.map(c => ({ ...c, ...checkCriterion(c, { ...criterionCtx, targetWins: lockedTarget?.owners_target_wins ?? null }) }))
+
     const franchiseStorylines = computeFranchiseStorylines({
       topPlayers, injuryCountByPlayer, awardPlayerIds, extensionStatusByPlayer,
     })
