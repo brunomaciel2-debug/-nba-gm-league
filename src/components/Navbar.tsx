@@ -122,6 +122,7 @@ export default function Navbar() {
         { label: isPT ? 'Regras de Merchandising'   : 'Merchandising Rules',  href: '/rules/merchandising', icon: 'ti-shirt' },
         { label: isPT ? 'Familiaridade Tática'      : 'Tactical Familiarity', href: '/rules/tactical-systems', icon: 'ti-brain' },
         { label: isPT ? 'Finanças e Economia da Arena' : 'Finances & Arena Economy', href: '/rules/finances', icon: 'ti-building-stadium' },
+        { label: isPT ? 'Satisfação e Avaliação do GM' : 'GM Satisfaction & Evaluation', href: '/rules/satisfaction', icon: 'ti-clipboard-check' },
       ],
     },
   ]

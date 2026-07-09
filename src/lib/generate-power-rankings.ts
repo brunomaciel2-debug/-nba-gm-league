@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { computeRosterQuality, normalizeRosterQuality } from './roster-quality'
+import { computeRosterQuality, normalizeRosterQuality, computeTop5AvgAge, countHighPotential } from './roster-quality'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -266,9 +266,8 @@ export async function generatePowerRankings(week: number) {
     // usage players, count of A/B potential-grade talent on the roster, and
     // extra future first-round picks banked via trade.
     const roster = teamRosterMap[team.id] || []
-    const top5ByUsage = [...roster].sort((a, b) => (b.usage || 0) - (a.usage || 0)).slice(0, 5)
-    const avgAge = top5ByUsage.length ? top5ByUsage.reduce((s, p) => s + (p.age || 25), 0) / top5ByUsage.length : 25
-    const highPotentialCount = roster.filter((p: any) => p.potential_grade === 'A' || p.potential_grade === 'B').length
+    const avgAge = computeTop5AvgAge(roster)
+    const highPotentialCount = countHighPotential(roster)
     const extraPicks = teamExtraPicks[team.id] || 0
     const potentialNote = `top-5 rotation averages ${avgAge.toFixed(1)} years old, ${highPotentialCount} roster player(s) graded A/B potential, ${extraPicks} extra future first-round pick(s) banked`
 

@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     .not('id', 'in', '(ALL,RVS,ROO,SOP)')
   if (!teams?.length) return NextResponse.json({ error: 'No teams' }, { status: 500 })
 
-  const { data: templates } = await supabase.from('sponsor_templates').select('id,tier')
+  const { data: templates } = await supabase.from('sponsor_templates').select('id,tier,fixed_annual')
   if (!templates?.length) return NextResponse.json({ error: 'No sponsor templates found' }, { status: 500 })
 
   // Don't touch pool entries a GM already picked — only (re)generate the rest
@@ -43,13 +43,46 @@ export async function POST(req: NextRequest) {
     await supabase.from('sponsor_pool').delete().in('id', untouchedIds)
   }
 
-  const rows = teams.flatMap((t: any) =>
-    templates
-      .filter((tpl: any) => !chosenKeys.has(`${t.id}|${tpl.id}`))
+  // GM Satisfaction consequence: last season's Sponsors score (real objectives
+  // met vs offered) gates which templates surface this season — a team that
+  // blew off its sponsors only sees the cheapest option per tier; a team that
+  // delivered sees the full range including premium templates. Templates are
+  // ranked by fixed_annual within their own tier (cheapest → priciest).
+  const prevYear = parseInt(targetSeason.split('-')[0], 10) - 1
+  const prevSeason = `${prevYear}-${String((prevYear + 1) % 100).padStart(2, '0')}`
+  const { data: prevSnapshots } = await supabase
+    .from('gm_satisfaction_snapshots')
+    .select('team_id,sponsors_score,week_number')
+    .eq('season', prevSeason)
+    .order('week_number', { ascending: false })
+  const sponsorsScoreByTeam: Record<string, number> = {}
+  ;(prevSnapshots || []).forEach((s: any) => { if (!(s.team_id in sponsorsScoreByTeam)) sponsorsScoreByTeam[s.team_id] = s.sponsors_score ?? 55 })
+
+  const templatesByTier: Record<string, any[]> = {}
+  templates.forEach((tpl: any) => { (templatesByTier[tpl.tier] ||= []).push(tpl) })
+  Object.values(templatesByTier).forEach(list => list.sort((a, b) => (a.fixed_annual || 0) - (b.fixed_annual || 0)))
+
+  function allowedTemplateIdsForTeam(teamId: string): Set<string> {
+    // No history yet (first season, or team never had a snapshot) → don't
+    // punish a team that hasn't had a chance to prove itself, mid-range default.
+    const score = sponsorsScoreByTeam[teamId] ?? 55
+    const allowed = new Set<string>()
+    for (const list of Object.values(templatesByTier)) {
+      if (score < 40) allowed.add(list[0].id) // cheapest only
+      else if (score <= 70) list.slice(0, Math.max(1, Math.ceil(list.length * 2 / 3))).forEach(tpl => allowed.add(tpl.id)) // bottom 2/3
+      else list.forEach(tpl => allowed.add(tpl.id)) // full range
+    }
+    return allowed
+  }
+
+  const rows = teams.flatMap((t: any) => {
+    const allowed = allowedTemplateIdsForTeam(t.id)
+    return templates
+      .filter((tpl: any) => !chosenKeys.has(`${t.id}|${tpl.id}`) && allowed.has(tpl.id))
       .map((tpl: any) => ({
         team_id: t.id, template_id: tpl.id, tier: tpl.tier, season: targetSeason, chosen: false,
       }))
-  )
+  })
 
   const { error } = await supabase.from('sponsor_pool').insert(rows)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

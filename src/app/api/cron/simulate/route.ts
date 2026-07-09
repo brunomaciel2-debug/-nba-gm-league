@@ -25,6 +25,7 @@ import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionR
 import { getGymGradeBonus } from '@/lib/facility-constants'
 import { cityDistanceMiles, computeAwayTravelCost } from '@/lib/travel-constants'
 import { resolveWeeklySocialMedia } from '@/lib/social-media-resolver'
+import { resolveWeeklyGmSatisfaction } from '@/lib/gm-satisfaction'
 
 // Called by Vercel Cron every Monday and Thursday at midnight Lisbon time
 // Configure in vercel.json: {"crons": [{"path": "/api/cron/simulate", "schedule": "0 0 * * 1,4"}]}
@@ -1533,6 +1534,12 @@ await supabaseAdmin.from('franchise_finances').update({ fan_satisfaction: newSat
 }
 console.log(`Fan reputation drift applied to ${(allTeamsForRep||[]).length} teams`)
 } catch(repErr) { console.warn('Fan reputation drift failed:', repErr) }
+
+// ── GM SATISFACTION EVALUATION (Fans/Owners/Sponsors) ─────
+try {
+const gmSatResult = await resolveWeeklyGmSatisfaction(week)
+console.log(`GM satisfaction resolved for ${gmSatResult.teamsProcessed} teams`)
+} catch(gmSatErr) { console.warn('GM satisfaction resolution failed:', gmSatErr) }
 
 // ── POST-SIM NOTIFICATIONS ────────────────────────────
 try {
