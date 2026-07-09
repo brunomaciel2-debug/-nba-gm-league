@@ -1016,7 +1016,13 @@ await supabaseAdmin.from('players').update({ [attr]: cur + 1 }).eq('id', p.id)
 if (!isPreseason) {
 try {
 const isEndOfMonth = week % 4 === 0
-const isEndOfSeason = week >= 40 // last week of the Regular Season (see season-week-helper.ts)
+// Must be exact equality, not >= — this same cron keeps running (and `week`
+// keeps incrementing) all the way through play-in/playoffs/draft, so `>=`
+// would re-fire season-end awards every single week from 40 through 52+
+// instead of once. Awards themselves are upserted (harmless to repeat) but
+// still wasteful and would spam repeat "new award" notifications; the
+// aging/rookie-option blocks below share this exact bug fixed the same way.
+const isEndOfSeason = week === 40 // last week of the Regular Season (see season-week-helper.ts)
 
 const { data: weekBoxesAw } = await supabaseAdmin
 .from('box_scores')
@@ -1310,7 +1316,14 @@ notes:'Coach of the Year'
 }
 
 // ── END OF SEASON AGING ────────────────────────────────────
-if (week >= 40) { // last week of the Regular Season (see season-week-helper.ts)
+// Exact equality, not >= — see the isEndOfSeason comment above. Aging and
+// rookie-year progression are ADDITIVE (age+1, rookie_years_elapsed+1), not
+// idempotent upserts, so a `>=` gate would have incorrectly aged everyone by
+// +13 (or more) instead of +1 once this cron kept running through play-in,
+// playoffs, and the draft weeks — and would have skipped rookie option
+// deadlines entirely (rookie_years_elapsed jumping straight past the exact
+// 2/3 checks below instead of landing on them one week at a time).
+if (week === 40) { // last week of the Regular Season (see season-week-helper.ts)
 try {
 const { data: everyPlayer } = await supabaseAdmin
 .from('players').select('id,age,nba_experience,team_id,status').not('age','is',null)
