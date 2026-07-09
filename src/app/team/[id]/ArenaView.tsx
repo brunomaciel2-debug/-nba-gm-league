@@ -245,14 +245,17 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
             <line x1="108" y1="163" x2="203" y2="163" stroke="#fff" strokeWidth="1.5"/>
             <line x1="108" y1="317" x2="203" y2="317" stroke="#fff" strokeWidth="1.5"/>
             {/* Three-point line, properly centered on the hoop (133,240): a
-                straight corner segment along each sideline, then an arc of
-                radius 135 that clears both the paint (ends at x=203) and the
-                free-throw circle — the old single-path version connected two
-                fixed points with an unrelated radius, so its implicit center
-                landed nowhere near the hoop and the arc cut across the paint. */}
-            <line x1="108" y1="146" x2="230" y2="146" stroke="#fff" strokeWidth="1.5"/>
-            <path d="M 230 146 A 135 135 0 0 1 230 334" fill="none" stroke="#fff" strokeWidth="1.5"/>
-            <line x1="108" y1="334" x2="230" y2="334" stroke="#fff" strokeWidth="1.5"/>
+                straight corner-three segment INSET 14 units from the sideline
+                (not running along it — a real court leaves a real strip of
+                floor between the corner-three line and the sideline for the
+                corner-three shot to exist at all), then an arc of radius 135
+                that clears both the paint (ends at x=203) and the free-throw
+                circle. The old single-path version connected two fixed points
+                with an unrelated radius, so its implicit center landed
+                nowhere near the hoop and the arc cut across the paint. */}
+            <line x1="108" y1="160" x2="242" y2="160" stroke="#fff" strokeWidth="1.5"/>
+            <path d="M 242 160 A 135 135 0 0 1 242 320" fill="none" stroke="#fff" strokeWidth="1.5"/>
+            <line x1="108" y1="320" x2="242" y2="320" stroke="#fff" strokeWidth="1.5"/>
             {/* Right paint */}
             <rect x="497" y="185" width="95" height="110" fill="#d44020" stroke="#fff" strokeWidth="1.5"/>
             <path d="M 497 185 A 42 42 0 0 0 497 295" fill="none" stroke="#fff" strokeWidth="1.5"/>
@@ -262,9 +265,9 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
             <line x1="592" y1="163" x2="497" y2="163" stroke="#fff" strokeWidth="1.5"/>
             <line x1="592" y1="317" x2="497" y2="317" stroke="#fff" strokeWidth="1.5"/>
             {/* Mirror of the left three-point line, centered on the right hoop (567,240) */}
-            <line x1="592" y1="146" x2="470" y2="146" stroke="#fff" strokeWidth="1.5"/>
-            <path d="M 470 146 A 135 135 0 0 0 470 334" fill="none" stroke="#fff" strokeWidth="1.5"/>
-            <line x1="592" y1="334" x2="470" y2="334" stroke="#fff" strokeWidth="1.5"/>
+            <line x1="592" y1="160" x2="458" y2="160" stroke="#fff" strokeWidth="1.5"/>
+            <path d="M 458 160 A 135 135 0 0 0 458 320" fill="none" stroke="#fff" strokeWidth="1.5"/>
+            <line x1="592" y1="320" x2="458" y2="320" stroke="#fff" strokeWidth="1.5"/>
             <defs>
               <pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
                 <line x1="0" y1="0" x2="0" y2="6" stroke="#b0a898" strokeWidth="0.8" opacity="0.6"/>
