@@ -103,33 +103,42 @@ export default function Navbar() {
         { label: 'Playoffs',                               href: '/playoffs',  icon: 'ti-tournament' },
       ],
     },
-    {
-      label: isPT ? 'Regras & Info' : 'Rules & Info',
-      icon: 'ti-book',
-      items: [
-        { label: isPT ? 'Regras do Tecto Salarial'  : 'Salary Cap Rules',    href: '/rules/cap',      icon: 'ti-cash' },
-        { label: isPT ? 'Regras de Contratos'        : 'Contract Rules',      href: '/rules/contracts',icon: 'ti-file-text' },
-        { label: isPT ? 'Regras de Trades'           : 'Trade Rules',         href: '/rules/trades',   icon: 'ti-switch-horizontal' },
-        { label: isPT ? 'Regras de Treino'           : 'Training Rules',      href: '/rules/training', icon: 'ti-barbell' },
-        { label: isPT ? 'Regras de Free Agency'      : 'Free Agency Rules',   href: '/rules/free-agency', icon: 'ti-user-dollar' },
-        { label: isPT ? 'Regras do Draft'            : 'Draft Rules',         href: '/rules/draft',    icon: 'ti-clipboard-list' },
-        { label: isPT ? 'Regras de Faltas Técnicas'  : 'Technical Foul Rules',href: '/rules/technical-fouls', icon: 'ti-flag' },
-        { label: isPT ? 'Regras de Lesões'           : 'Injury Rules',        href: '/rules/injuries', icon: 'ti-first-aid-kit' },
-        { label: isPT ? 'Moral e Interações'          : 'Morale & Interactions', href: '/rules/interactions', icon: 'ti-message-circle' },
-        { label: isPT ? 'Guia das Ordens Semanais'  : 'Weekly Orders Guide',  href: '/rules/orders',   icon: 'ti-clipboard-list' },
-        { label: isPT ? 'Guia de Scouting'          : 'Scouting Guide',       href: '/rules/scouting', icon: 'ti-search' },
-        { label: isPT ? 'Objetivos de Patrocínio'   : 'Sponsor Objectives',   href: '/rules/sponsors', icon: 'ti-target-arrow' },
-        { label: isPT ? 'Regras de Merchandising'   : 'Merchandising Rules',  href: '/rules/merchandising', icon: 'ti-shirt' },
-        { label: isPT ? 'Familiaridade Tática'      : 'Tactical Familiarity', href: '/rules/tactical-systems', icon: 'ti-brain' },
-        { label: isPT ? 'Finanças e Economia da Arena' : 'Finances & Arena Economy', href: '/rules/finances', icon: 'ti-building-stadium' },
-        { label: isPT ? 'Satisfação e Avaliação do GM' : 'GM Satisfaction & Evaluation', href: '/rules/satisfaction', icon: 'ti-clipboard-check' },
-      ],
-    },
   ]
 
+  // Rules & Info lives on the right side of the navbar — it's reference
+  // material, a different kind of thing from the league-navigation
+  // dropdowns on the left (Bruno's call: these are "quite different
+  // subjects").
+  const RULES_DROPDOWN = {
+    label: isPT ? 'Regras & Info' : 'Rules & Info',
+    icon: 'ti-book',
+    items: [
+      { label: isPT ? 'Regras do Tecto Salarial'  : 'Salary Cap Rules',    href: '/rules/cap',      icon: 'ti-cash' },
+      { label: isPT ? 'Regras de Contratos'        : 'Contract Rules',      href: '/rules/contracts',icon: 'ti-file-text' },
+      { label: isPT ? 'Regras de Trades'           : 'Trade Rules',         href: '/rules/trades',   icon: 'ti-switch-horizontal' },
+      { label: isPT ? 'Regras de Treino'           : 'Training Rules',      href: '/rules/training', icon: 'ti-barbell' },
+      { label: isPT ? 'Regras de Free Agency'      : 'Free Agency Rules',   href: '/rules/free-agency', icon: 'ti-user-dollar' },
+      { label: isPT ? 'Regras do Draft'            : 'Draft Rules',         href: '/rules/draft',    icon: 'ti-clipboard-list' },
+      { label: isPT ? 'Regras de Faltas Técnicas'  : 'Technical Foul Rules',href: '/rules/technical-fouls', icon: 'ti-flag' },
+      { label: isPT ? 'Regras de Lesões'           : 'Injury Rules',        href: '/rules/injuries', icon: 'ti-first-aid-kit' },
+      { label: isPT ? 'Moral e Interações'          : 'Morale & Interactions', href: '/rules/interactions', icon: 'ti-message-circle' },
+      { label: isPT ? 'Guia das Ordens Semanais'  : 'Weekly Orders Guide',  href: '/rules/orders',   icon: 'ti-clipboard-list' },
+      { label: isPT ? 'Guia de Scouting'          : 'Scouting Guide',       href: '/rules/scouting', icon: 'ti-search' },
+      { label: isPT ? 'Objetivos de Patrocínio'   : 'Sponsor Objectives',   href: '/rules/sponsors', icon: 'ti-target-arrow' },
+      { label: isPT ? 'Regras de Merchandising'   : 'Merchandising Rules',  href: '/rules/merchandising', icon: 'ti-shirt' },
+      { label: isPT ? 'Familiaridade Tática'      : 'Tactical Familiarity', href: '/rules/tactical-systems', icon: 'ti-brain' },
+      { label: isPT ? 'Finanças e Economia da Arena' : 'Finances & Arena Economy', href: '/rules/finances', icon: 'ti-building-stadium' },
+      { label: isPT ? 'Satisfação e Avaliação do GM' : 'GM Satisfaction & Evaluation', href: '/rules/satisfaction', icon: 'ti-clipboard-check' },
+    ],
+  }
+
   const NAV_LINKS_STATIC = [
-    { label: isPT ? 'Vagas de GM' : 'Job Openings', href: '/jobs',    icon: 'ti-briefcase' },
-    { label: 'G-League',                             href: '/gleague', icon: 'ti-ball-basketball' },
+    { label: 'G-League', href: '/gleague', icon: 'ti-ball-basketball' },
+  ]
+
+  // Job Openings sits on the right, next to Rules & Info — same reasoning.
+  const NAV_LINKS_RIGHT = [
+    { label: isPT ? 'Vagas de GM' : 'Job Openings', href: '/jobs', icon: 'ti-briefcase' },
   ]
 
   const COMM_LINKS = isPT ? [
@@ -163,7 +172,9 @@ export default function Navbar() {
 
   const ALL_MOBILE = [
     ...NAV_DROPDOWNS.flatMap(d => d.items),
+    ...RULES_DROPDOWN.items,
     ...NAV_LINKS_STATIC,
+    ...NAV_LINKS_RIGHT,
   ].sort((a, b) => a.label.localeCompare(b.label))
 
   return (
@@ -284,32 +295,50 @@ export default function Navbar() {
 
       {/* NAV BAR */}
       <nav style={{ background: '#faf8f5', borderBottom: '2px solid #d4cdc5', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-        <div className="max-w-7xl mx-auto px-4 hidden lg:flex items-center">
-          <Link href="/"
-            className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
-            style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#2d2722',
-                     borderBottom: '3px solid transparent', marginBottom: -2 }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
-            <i className="ti ti-home" style={{ fontSize: 15 }}></i>
-            {isPT ? 'Início' : 'Home'}
-          </Link>
-
-          {NAV_DROPDOWNS.map(d => (
-            <NavDropdown key={d.label} label={d.label} icon={d.icon} items={d.items} onNavigate={() => {}} />
-          ))}
-
-          {NAV_LINKS_STATIC.map(item => (
-            <Link key={item.href} href={item.href}
+        <div className="max-w-7xl mx-auto px-4 hidden lg:flex items-center justify-between">
+          <div className="flex items-center">
+            <Link href="/"
               className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
               style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#2d2722',
                        borderBottom: '3px solid transparent', marginBottom: -2 }}
               onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
               onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
-              <i className={`ti ${item.icon}`} style={{ fontSize: 15 }}></i>
-              {item.label}
+              <i className="ti ti-home" style={{ fontSize: 15 }}></i>
+              {isPT ? 'Início' : 'Home'}
             </Link>
-          ))}
+
+            {NAV_DROPDOWNS.map(d => (
+              <NavDropdown key={d.label} label={d.label} icon={d.icon} items={d.items} onNavigate={() => {}} />
+            ))}
+
+            {NAV_LINKS_STATIC.map(item => (
+              <Link key={item.href} href={item.href}
+                className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
+                style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#2d2722',
+                         borderBottom: '3px solid transparent', marginBottom: -2 }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
+                <i className={`ti ${item.icon}`} style={{ fontSize: 15 }}></i>
+                {item.label}
+              </Link>
+            ))}
+          </div>
+
+          <div className="flex items-center">
+            <NavDropdown label={RULES_DROPDOWN.label} icon={RULES_DROPDOWN.icon} items={RULES_DROPDOWN.items} onNavigate={() => {}} />
+
+            {NAV_LINKS_RIGHT.map(item => (
+              <Link key={item.href} href={item.href}
+                className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
+                style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#2d2722',
+                         borderBottom: '3px solid transparent', marginBottom: -2 }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
+                <i className={`ti ${item.icon}`} style={{ fontSize: 15 }}></i>
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* MOBILE */}
