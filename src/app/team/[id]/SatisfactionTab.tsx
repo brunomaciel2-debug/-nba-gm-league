@@ -200,8 +200,8 @@ function StorylineRow({ severity, text }: { severity: string, text: string }) {
   )
 }
 
-function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel }: {
-  achieved: boolean, description: string, currentValue: number | null, threshold: number | null, groupLabel: string
+function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel, valueLabel }: {
+  achieved: boolean, description: string, currentValue: number | null, threshold: number | null, groupLabel: string, valueLabel?: string
 }) {
   return (
     <div className="flex items-center gap-2 text-xs py-1" style={{ borderBottom: '1px solid #e2dcd5' }}>
@@ -210,13 +210,23 @@ function ObjectiveRow({ achieved, description, currentValue, threshold, groupLab
         <div style={{ color: achieved ? '#1a1512' : '#5c554e', fontWeight: achieved ? 600 : 400 }}>{description}</div>
         <div style={{ color: '#8a8279', fontSize: 10 }}>{groupLabel}</div>
       </div>
-      {threshold != null && currentValue != null && (
+      {valueLabel != null ? (
+        <span className="flex-shrink-0" style={{ color: achieved ? '#15803d' : '#8a8279', fontWeight: 600 }}>{valueLabel}</span>
+      ) : threshold != null && currentValue != null && (
         <span className="flex-shrink-0" style={{ color: achieved ? '#15803d' : '#8a8279', fontWeight: 600 }}>
           {Math.round(currentValue)}/{threshold}
         </span>
       )}
     </div>
   )
+}
+
+function fmtMoney(n: number | null | undefined): string {
+  if (n == null) return '—'
+  const abs = Math.abs(n), sign = n < 0 ? '-' : '+'
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`
+  return `${sign}$${abs.toFixed(0)}`
 }
 
 export default function SatisfactionTab({ teamId, teamColor }: { teamId: string, teamColor: string }) {
@@ -369,6 +379,22 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
               {isPT ? 'Peso em resultados' : 'Weight on results'}: {fb.wResults != null ? Math.round(fb.wResults * 100) : '—'}%
             </div>
           </div>
+          <div className="mt-2 pt-2" style={{ borderTop: '1px solid #e2dcd5' }}>
+            <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#8a8279' }}>{isPT ? 'Alvos da Época' : 'Season Targets'}</div>
+            {fb.targetWins != null ? (
+              <ObjectiveRow achieved={(fb.currentWins ?? 0) >= fb.targetWins}
+                description={isPT ? `Pelo menos ${fb.targetWins} vitórias esta época` : `At least ${fb.targetWins} wins this season`}
+                currentValue={fb.currentWins} threshold={fb.targetWins} groupLabel={isPT ? 'Vitórias — bloqueado no início da época' : 'Wins — locked at season start'} />
+            ) : (
+              <div className="text-xs mb-1" style={{ color: '#8a8279' }}>{isPT ? 'Alvo de vitórias ainda por bloquear (acontece no início da época regular).' : 'Win target not locked in yet (locks at the start of the regular season).'}</div>
+            )}
+            <ObjectiveRow achieved={(fb.avgRosterMoral ?? 0) >= 60}
+              description={isPT ? 'Moral médio do plantel pelo menos 60' : 'Average roster moral at least 60'}
+              currentValue={fb.avgRosterMoral} threshold={60} groupLabel={isPT ? 'Cultura' : 'Culture'} />
+            <ObjectiveRow achieved={(fb.openInteractionCount ?? 0) === 0}
+              description={isPT ? 'Sem pedidos de troca por resolver' : 'No unresolved trade-demand conflicts'}
+              currentValue={fb.openInteractionCount} threshold={0} groupLabel={isPT ? 'Conflitos' : 'Conflicts'} />
+          </div>
         </DimensionCard>
 
         <DimensionCard title={isPT ? 'Administração' : 'Owners'} icon="🏛️" score={latest.owners_score} trend={ownersTrend} color="#b45309">
@@ -386,6 +412,22 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
             <BreakdownLine label={isPT ? 'Gestão desportiva' : 'Management'} value={ob.managementScore} tip={isPT ? CRITERION_TIPS_PT.management : CRITERION_TIPS_EN.management} />
             <BreakdownLine label={isPT ? 'Património' : 'Facilities'} value={ob.patrimonioScore} tip={isPT ? CRITERION_TIPS_PT.facilities : CRITERION_TIPS_EN.facilities} />
             <BreakdownLine label={isPT ? 'Crescimento' : 'Growth'} value={ob.growthScore} tip={isPT ? CRITERION_TIPS_PT.growth : CRITERION_TIPS_EN.growth} />
+          </div>
+          <div className="mt-2 pt-2" style={{ borderTop: '1px solid #e2dcd5' }}>
+            <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#8a8279' }}>{isPT ? 'Alvos da Época' : 'Season Targets'}</div>
+            {ob.targetWins != null ? (
+              <ObjectiveRow achieved={(ob.currentWins ?? 0) >= ob.targetWins}
+                description={isPT ? `Pelo menos ${ob.targetWins} vitórias esta época` : `At least ${ob.targetWins} wins this season`}
+                currentValue={ob.currentWins} threshold={ob.targetWins} groupLabel={isPT ? 'Vitórias — bloqueado no início da época' : 'Wins — locked at season start'} />
+            ) : (
+              <div className="text-xs mb-1" style={{ color: '#8a8279' }}>{isPT ? 'Alvo de vitórias ainda por bloquear (acontece no início da época regular).' : 'Win target not locked in yet (locks at the start of the regular season).'}</div>
+            )}
+            <ObjectiveRow achieved={(ob.netIncomeSinceLock ?? 0) >= 0}
+              description={isPT ? 'Saldo não pode piorar desde que assumiste o cargo' : "Balance sheet can't get worse since you took over"}
+              currentValue={ob.netIncomeSinceLock} threshold={0} valueLabel={fmtMoney(ob.netIncomeSinceLock)} groupLabel={isPT ? 'Saldo (desde o bloqueio)' : 'Balance (since lock)'} />
+            <ObjectiveRow achieved={(ob.managementScoreRaw ?? 0) >= 50}
+              description={isPT ? 'Eficiência de tecto salarial pelo menos 50' : 'Cap efficiency at least 50'}
+              currentValue={ob.managementScoreRaw} threshold={50} groupLabel={isPT ? 'Tecto Salarial' : 'Cap Discipline'} />
           </div>
         </DimensionCard>
 

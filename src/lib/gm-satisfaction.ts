@@ -2,11 +2,15 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notifications'
 import { getTeamLang } from '@/lib/notifications-helpers'
 import { computeRosterQuality, normalizeRosterQuality, computeWinNowIndex, winNowLabel, computeTop5AvgAge, countHighPotential, WinNowLabel } from '@/lib/roster-quality'
+import { getStatusForWeek } from '@/lib/season-week-helper'
 
 const SEASON = '2025-26'
 const CAP_LIMIT = 180_000_000 // mirrors notifications.ts CAP_LIMIT
+const REGULAR_SEASON_START_WEEK = 17 // see season-week-helper.ts
+const TOTAL_SEASON_GAMES = 82 // real NBA-style schedule length (schedule-generator.ts)
 
 function clamp(v: number, lo = 0, hi = 100): number { return Math.min(hi, Math.max(lo, v)) }
+function clamp01(v: number, lo = 0, hi = 1): number { return Math.min(hi, Math.max(lo, v)) }
 
 // ── PURE FORMULAS ─────────────────────────────────────────────────
 // Every score below is 0-100. `wni` (Win-Now Index, from roster-quality.ts)
@@ -19,11 +23,26 @@ export function expectedWinPct(wni: number): number {
   return 0.5 + (wni - 0.5) * 0.5
 }
 
-// How the team's ACTUAL win% compares to what its situation says it should
-// be — this is the "performance vs expectation" gap, not a raw win% score.
-export function computeResultsScore(actualWinPct: number, wni: number): number {
-  const gap = actualWinPct - expectedWinPct(wni)
+// Owners are a stricter grader on wins than Fans at both ends — a rebuild
+// still owes the board a real floor of competitiveness (.30 vs Fans' .25),
+// and a stacked roster owes real results, not just excitement (~.825
+// natural ceiling vs Fans' .75). The .85 clamp is a safety rail that never
+// actually engages at wni∈[0,1] — the real ceiling is the unclamped ~.825.
+export function ownersExpectedWinPct(wni: number): number {
+  return clamp01(0.5 + (wni - 0.5) * 0.65, 0.30, 0.85)
+}
+
+// How a team's ACTUAL win% compares to whatever expectation curve applies —
+// this is the "performance vs expectation" gap, not a raw win% score.
+// Takes the expectation value directly so Fans and Owners can each supply
+// their own curve without duplicating this formula.
+export function computeResultsScoreFromExpectation(actualWinPct: number, expectedWinPctValue: number): number {
+  const gap = actualWinPct - expectedWinPctValue
   return clamp(50 + gap * 150)
+}
+
+export function computeResultsScore(actualWinPct: number, wni: number): number {
+  return computeResultsScoreFromExpectation(actualWinPct, expectedWinPct(wni))
 }
 
 // "Exciting young team with real potential" — the thing a rebuilding team's
@@ -82,13 +101,25 @@ export function facilityScoreFromGrade(grade: string | null | undefined): number
   return FACILITY_SCORE_BY_GRADE[grade || 'F'] ?? 10
 }
 
+// Real financial stewardship — did the GM grow or shrink the team's net
+// worth SINCE taking over, not "how much cash do they happen to have right
+// now" (which could just be inherited wealth from a predecessor and say
+// nothing about this GM's own management). Normalized against a fixed $20M
+// unit (same denominator convention used elsewhere in this file), NOT the
+// team's own starting balance — normalizing against their own balance would
+// make identical stewardship swings score wildly differently for a rich
+// team vs a poor one, rewarding/punishing inherited wealth instead of skill.
+export function computeStewardshipScore(netIncomeSinceLock: number): number {
+  return clamp(50 + (netIncomeSinceLock / 20_000_000) * 50)
+}
+
 // arenaScoreNorm is a league-wide min-max normalization (0-100) of total
 // arena capacity, computed once per resolution pass across all 30 teams —
 // see resolver below.
-export function computePatrimonioScore(gymGrade: string | null | undefined, arenaScoreNorm: number, balance: number): number {
+export function computePatrimonioScore(gymGrade: string | null | undefined, arenaScoreNorm: number, netIncomeSinceLock: number): number {
   const facilityScore = facilityScoreFromGrade(gymGrade)
-  const balanceHealthScore = clamp(50 + (balance / 20_000_000) * 50)
-  return clamp(0.45 * facilityScore + 0.30 * arenaScoreNorm + 0.25 * balanceHealthScore)
+  const stewardshipScore = computeStewardshipScore(netIncomeSinceLock)
+  return clamp(0.45 * facilityScore + 0.30 * arenaScoreNorm + 0.25 * stewardshipScore)
 }
 
 // Week-over-week follower/popularity movement plus a flat bonus for
@@ -102,22 +133,25 @@ export function computeGrowthScore(followerGrowthPct: number, popularityDelta: n
 export type OwnersInputs = {
   actualWinPct: number, wni: number, last10WinPct: number,
   rosterQualityNorm: number, capUtilizationPct: number, extraPicks: number,
-  gymGrade: string | null | undefined, arenaScoreNorm: number, balance: number,
+  gymGrade: string | null | undefined, arenaScoreNorm: number, netIncomeSinceLock: number,
   followerGrowthPct: number, popularityDelta: number, completedConstructionsThisSeason: number,
 }
 
 export function computeOwnersScore(inputs: OwnersInputs): { score: number, breakdown: Record<string, number> } {
-  const resultsScore = computeResultsScore(inputs.actualWinPct, inputs.wni)
+  // Owners use their own, stricter win-expectation curve — see
+  // ownersExpectedWinPct's comment for why it's not the same as Fans'.
+  const resultsScore = computeResultsScoreFromExpectation(inputs.actualWinPct, ownersExpectedWinPct(inputs.wni))
   const trendScore = clamp(50 + (inputs.last10WinPct - inputs.actualWinPct) * 150)
   const sportingPerformanceScore = 0.7 * resultsScore + 0.3 * trendScore
   const managementScore = computeManagementScore(inputs.rosterQualityNorm, inputs.capUtilizationPct, inputs.extraPicks)
-  const patrimonioScore = computePatrimonioScore(inputs.gymGrade, inputs.arenaScoreNorm, inputs.balance)
+  const patrimonioScore = computePatrimonioScore(inputs.gymGrade, inputs.arenaScoreNorm, inputs.netIncomeSinceLock)
   const growthScore = computeGrowthScore(inputs.followerGrowthPct, inputs.popularityDelta, inputs.completedConstructionsThisSeason)
 
   const score = clamp(0.40 * sportingPerformanceScore + 0.20 * managementScore + 0.20 * patrimonioScore + 0.20 * growthScore)
   return { score, breakdown: {
     sportingPerformanceScore, managementScore, patrimonioScore, growthScore, resultsScore, trendScore,
-    actualWinPct: inputs.actualWinPct, expectedWinPct: expectedWinPct(inputs.wni),
+    actualWinPct: inputs.actualWinPct, expectedWinPct: ownersExpectedWinPct(inputs.wni),
+    netIncomeSinceLock: inputs.netIncomeSinceLock,
   } }
 }
 
@@ -258,7 +292,6 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
   const [
     { data: allPlayers },
     { data: draftPicks },
-    { data: finances },
     { data: facilities },
     { data: arenaSections },
     { data: constructions },
@@ -271,10 +304,11 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     { data: injuryLog },
     { data: awards },
     { data: extensionOffers },
+    { data: existingTargets },
+    { data: allTransactions },
   ] = await Promise.all([
     supabaseAdmin.from('players').select('id,name,team_id,real_ovr,usage,age,contract_years,potential_grade,moral').eq('status', 'active').not('team_id', 'is', null),
     supabaseAdmin.from('draft_picks').select('team_id,original_team_id,season').eq('status', 'owned'),
-    supabaseAdmin.from('franchise_finances').select('team_id,balance').in('team_id', teamIds),
     supabaseAdmin.from('practice_facilities').select('team_id,gym_grade').in('team_id', teamIds),
     supabaseAdmin.from('arena_sections').select('team_id,capacity').in('team_id', teamIds),
     supabaseAdmin.from('construction_queue').select('team_id,status').eq('status', 'completed').in('team_id', teamIds),
@@ -287,6 +321,8 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     supabaseAdmin.from('injury_log').select('player_id').eq('season', SEASON),
     supabaseAdmin.from('awards').select('player_id,award_type').eq('season', SEASON).in('award_type', ['all_star_east', 'all_star_west', 'mvp']),
     supabaseAdmin.from('contract_extension_offers').select('player_id,status,rejection_reason').eq('season', SEASON),
+    supabaseAdmin.from('gm_season_targets').select('*').eq('season', SEASON).in('team_id', teamIds),
+    supabaseAdmin.from('franchise_transactions').select('team_id,type,amount,week_number').eq('season', SEASON),
   ])
 
   // Current GM's tenure start per team — the hot-seat streak below must
@@ -294,6 +330,28 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
   // team gets a clean slate, per Bruno's explicit requirement).
   const tenureStartWeekByTeam: Record<string, number> = {}
   ;(openTenures || []).forEach((t: any) => { tenureStartWeekByTeam[t.team_id] = t.started_week })
+
+  // Locked season targets — one row per (team, season, tenure). Only the
+  // row matching THIS tenure's started_week is relevant; a previous GM's
+  // locked targets (a different started_week) must never leak into the
+  // current GM's evaluation.
+  const lockedTargetByTeam: Record<string, any> = {}
+  ;(existingTargets || []).forEach((t: any) => {
+    if (t.tenure_started_week === (tenureStartWeekByTeam[t.team_id] ?? 1)) lockedTargetByTeam[t.team_id] = t
+  })
+
+  const transactionsByTeam: Record<string, { type: string, amount: number, week_number: number }[]> = {}
+  ;(allTransactions || []).forEach((t: any) => { (transactionsByTeam[t.team_id] ||= []).push(t) })
+
+  function netIncomeSince(teamId: string, sinceWeek: number, uptoWeek: number): number {
+    const rows = transactionsByTeam[teamId] || []
+    let net = 0
+    for (const r of rows) {
+      if (r.week_number < sinceWeek || r.week_number > uptoWeek) continue
+      net += r.type === 'revenue' ? (r.amount || 0) : -(r.amount || 0)
+    }
+    return net
+  }
 
   const rosterByTeam: Record<string, any[]> = {}
   ;(allPlayers || []).forEach((p: any) => { (rosterByTeam[p.team_id] ||= []).push(p) })
@@ -314,9 +372,6 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     const pickYear = parseInt(String(pk.season), 10)
     if (!isNaN(pickYear) && pickYear > currentSeasonYear) extraPicksByTeam[pk.team_id] = (extraPicksByTeam[pk.team_id] || 0) + 1
   })
-
-  const balanceByTeam: Record<string, number> = {}
-  ;(finances || []).forEach((f: any) => { balanceByTeam[f.team_id] = f.balance || 0 })
 
   const gymGradeByTeam: Record<string, string> = {}
   ;(facilities || []).forEach((f: any) => { gymGradeByTeam[f.team_id] = f.gym_grade })
@@ -373,8 +428,37 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     teamsProcessed++
     const roster = rosterByTeam[team.id] || []
     const extraPicks = extraPicksByTeam[team.id] || 0
-    const wni = computeWinNowIndex(roster, extraPicks)
-    const label = winNowLabel(wni)
+    let wni = computeWinNowIndex(roster, extraPicks)
+    let label = winNowLabel(wni)
+
+    // Lock the expectation baseline ONCE per GM tenure — a mid-season trade
+    // that suddenly makes this team look like a contender or a rebuild must
+    // NOT change what Fans/Owners already expect this season (Bruno's
+    // explicit requirement). Locks at the later of "regular season actually
+    // started" or "this GM's tenure started," using whatever roster exists
+    // at that exact moment. If a tenure starts outside the regular season
+    // (e.g. hired during playoffs), locking is deferred — there's no real
+    // season left to hold expectations against until the next one begins.
+    const tenureStartWeek = tenureStartWeekByTeam[team.id] ?? 1
+    let lockedTarget = lockedTargetByTeam[team.id]
+    if (!lockedTarget) {
+      const lockWeek = Math.max(REGULAR_SEASON_START_WEEK, tenureStartWeek)
+      if (week >= lockWeek && getStatusForWeek(week) === 'regular-season') {
+        const fansTargetWins = Math.round(expectedWinPct(wni) * TOTAL_SEASON_GAMES)
+        const ownersTargetWins = Math.round(ownersExpectedWinPct(wni) * TOTAL_SEASON_GAMES)
+        const { data: inserted } = await supabaseAdmin.from('gm_season_targets').insert({
+          team_id: team.id, season: SEASON, tenure_started_week: tenureStartWeek,
+          locked_week: week, locked_wni: wni, locked_win_now_label: label,
+          fans_target_wins: fansTargetWins, owners_target_wins: ownersTargetWins,
+        }).select().single()
+        lockedTarget = inserted
+      }
+    }
+    if (lockedTarget) {
+      wni = lockedTarget.locked_wni
+      label = lockedTarget.locked_win_now_label
+    }
+    const netIncomeSinceLock = lockedTarget ? netIncomeSince(team.id, lockedTarget.locked_week, week) : 0
 
     const played = (team.wins || 0) + (team.losses || 0)
     const actualWinPct = played > 0 ? (team.wins || 0) / played : 0.5
@@ -396,7 +480,6 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
 
     const rosterQualityNorm = normalizeRosterQuality(computeRosterQuality(roster))
     const capUtilizationPct = ((team.cap_used || 0) / CAP_LIMIT) * 100
-    const balance = balanceByTeam[team.id] || 0
     const prev = prevByTeam[team.id]
     const prevFollowers = prev?.owners_breakdown?.rawFollowers
     const prevPopularity = prev?.owners_breakdown?.rawPopularity
@@ -406,11 +489,21 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
 
     const owners = computeOwnersScore({
       actualWinPct, wni, last10WinPct, rosterQualityNorm, capUtilizationPct, extraPicks,
-      gymGrade: gymGradeByTeam[team.id], arenaScoreNorm: arenaScoreNormByTeam[team.id] ?? 50, balance,
+      gymGrade: gymGradeByTeam[team.id], arenaScoreNorm: arenaScoreNormByTeam[team.id] ?? 50, netIncomeSinceLock,
       followerGrowthPct, popularityDelta, completedConstructionsThisSeason: completedConstructionsByTeam[team.id] || 0,
     })
     owners.breakdown.rawFollowers = currentFollowers
     owners.breakdown.rawPopularity = team.popularity ?? 50
+    // Concrete, objectively-checkable Season Targets (per Bruno's ask: "são
+    // objetivamente avaliáveis?") — real numbers stated at lock time, real
+    // current progress read live every week.
+    fans.breakdown.targetWins = lockedTarget?.fans_target_wins ?? null
+    fans.breakdown.currentWins = team.wins ?? 0
+    fans.breakdown.avgRosterMoral = avgRosterMoral
+    fans.breakdown.openInteractionCount = openInteractionsByTeam[team.id] || 0
+    owners.breakdown.targetWins = lockedTarget?.owners_target_wins ?? null
+    owners.breakdown.currentWins = team.wins ?? 0
+    owners.breakdown.managementScoreRaw = owners.breakdown.managementScore
 
     const topPlayers: StorylinePlayer[] = [...roster]
       .sort((a: any, b: any) => (b.real_ovr || 0) - (a.real_ovr || 0))
