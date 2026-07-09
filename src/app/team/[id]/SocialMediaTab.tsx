@@ -3,11 +3,33 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
-function StatBar({ label, value, color }: { label: string, value: number, color: string }) {
+function Tooltip({ text }: { text: string }) {
+  return (
+    <span className="relative group inline-flex ml-1 cursor-help align-middle">
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full flex-shrink-0 text-xs font-bold" style={{background:'#cec7bc',color:'#5c554e',lineHeight:1,fontSize:9}}>i</span>
+      <span className="absolute left-0 top-full mt-1 z-50 px-2.5 py-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" style={{background:'#1a1512',color:'#f5f1eb',width:220,whiteSpace:'normal',lineHeight:1.5,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>{text}</span>
+    </span>
+  )
+}
+
+// Same formula-grounded text as CoachingStaff.tsx's STAT_TIPS — real
+// mechanics, not marketing copy.
+const STAT_TIPS_PT: Record<string, string> = {
+  sm_engagement: 'Determina o crescimento (ou perda) passivo real de seguidores todas as semanas.',
+  fan_interaction: 'Determina a chance semanal real de um evento de interação com fãs — sobe o moral de um jogador e os seguidores da equipa.',
+  social_responsibility: 'Determina a chance semanal real de um evento de responsabilidade social — sobe a popularidade da equipa e a fama de um jogador.',
+}
+const STAT_TIPS_EN: Record<string, string> = {
+  sm_engagement: 'Drives real passive follower growth (or loss) every week.',
+  fan_interaction: 'Drives the real weekly chance of a fan-interaction event — raises one player\'s moral and the team\'s followers.',
+  social_responsibility: 'Drives the real weekly chance of a social-responsibility event — raises team popularity and one player\'s fame.',
+}
+
+function StatBar({ label, value, color, tip }: { label: string, value: number, color: string, tip?: string }) {
   if (!value) return null
   return (
     <div className="flex items-center gap-2 mb-1.5">
-      <span className="text-xs flex-shrink-0" style={{color:'#5c554e',width:110}}>{label}</span>
+      <span className="text-xs flex-shrink-0 flex items-center" style={{color:'#5c554e',width:110}}>{label}{tip && <Tooltip text={tip} />}</span>
       <div className="flex-1 h-2 rounded-full overflow-hidden" style={{background:'#cec7bc'}}>
         <div className="h-full rounded-full" style={{width:value+'%',background:color}}/>
       </div>
@@ -63,9 +85,9 @@ export default function SocialMediaTab({ teamId, teamColor, coaches, socialMedia
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold mb-0.5" style={{ color: '#db2777' }}>{isPT ? 'Social Media Manager' : 'Social Media Manager'}</div>
                 <div className="font-bold text-sm mb-2" style={{ color: '#1a1512' }}>{manager.name}</div>
-                <StatBar label={isPT ? 'Envolvimento' : 'SM Engagement'} value={manager.sm_engagement} color="#db2777" />
-                <StatBar label={isPT ? 'Interação c/ Fãs' : 'Fan Interaction'} value={manager.fan_interaction} color="#1d4ed8" />
-                <StatBar label={isPT ? 'Resp. Social' : 'Social Resp.'} value={manager.social_responsibility} color="#15803d" />
+                <StatBar label={isPT ? 'Envolvimento' : 'SM Engagement'} value={manager.sm_engagement} color="#db2777" tip={isPT ? STAT_TIPS_PT.sm_engagement : STAT_TIPS_EN.sm_engagement} />
+                <StatBar label={isPT ? 'Interação c/ Fãs' : 'Fan Interaction'} value={manager.fan_interaction} color="#1d4ed8" tip={isPT ? STAT_TIPS_PT.fan_interaction : STAT_TIPS_EN.fan_interaction} />
+                <StatBar label={isPT ? 'Resp. Social' : 'Social Resp.'} value={manager.social_responsibility} color="#15803d" tip={isPT ? STAT_TIPS_PT.social_responsibility : STAT_TIPS_EN.social_responsibility} />
               </div>
             </div>
           ) : (
