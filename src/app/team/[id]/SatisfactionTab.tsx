@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
 const SEASON = '2025-26'
+const TOTAL_SEASON_GAMES = 82 // mirrors gm-satisfaction.ts — real NBA-style schedule length
 
 const SITUATION_INFO: Record<string, { icon: string, labelPT: string, labelEN: string, sentencePT: string, sentenceEN: string, color: string }> = {
   rebuild: {
@@ -237,22 +238,40 @@ function StorylineRow({ severity, text }: { severity: string, text: string }) {
   )
 }
 
-function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel, valueLabel, tip }: {
-  achieved: boolean, description: string, currentValue: number | null, threshold: number | null, groupLabel: string, valueLabel?: string, tip?: string
+// scaleMax lets a caller pin the bar to a real, meaningful scale (e.g. wins
+// out of an 82-game season) instead of an arbitrary one — when omitted, a
+// reasonable scale is derived from the threshold/current values themselves
+// (used by the Sponsors checklist, whose objective types vary too much to
+// hardcode a single scale).
+function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel, valueLabel, tip, scaleMax, noBar }: {
+  achieved: boolean, description: string, currentValue: number | null, threshold: number | null, groupLabel: string, valueLabel?: string, tip?: string, scaleMax?: number, noBar?: boolean
 }) {
+  // noBar opts out of the auto-scale fallback for values that can go
+  // negative or swing wildly (money, attribute deltas) — a 0-scaleMax bar
+  // fill only makes visual sense for "higher is better, bounded" metrics.
+  const effectiveScaleMax = noBar ? null : (scaleMax ?? (threshold != null && currentValue != null ? Math.max(threshold, currentValue, 1) * 1.1 : null))
+  const showBar = effectiveScaleMax != null && threshold != null && currentValue != null
   return (
-    <div className="flex items-center gap-2 text-xs py-1" style={{ borderBottom: '1px solid #e2dcd5' }}>
-      <span style={{ color: achieved ? '#15803d' : '#b0a89c', fontSize: 14, flexShrink: 0 }}>{achieved ? '☑' : '☐'}</span>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center" style={{ color: achieved ? '#1a1512' : '#5c554e', fontWeight: achieved ? 600 : 400 }}>{description}{tip && <Tooltip text={tip} />}</div>
-        <div style={{ color: '#8a8279', fontSize: 10 }}>{groupLabel}</div>
+    <div className="text-xs py-1" style={{ borderBottom: '1px solid #e2dcd5' }}>
+      <div className="flex items-center gap-2">
+        <span style={{ color: achieved ? '#15803d' : '#b0a89c', fontSize: 14, flexShrink: 0 }}>{achieved ? '☑' : '☐'}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center" style={{ color: achieved ? '#1a1512' : '#5c554e', fontWeight: achieved ? 600 : 400 }}>{description}{tip && <Tooltip text={tip} />}</div>
+          <div style={{ color: '#8a8279', fontSize: 10 }}>{groupLabel}</div>
+        </div>
+        {valueLabel != null ? (
+          <span className="flex-shrink-0" style={{ color: achieved ? '#15803d' : '#8a8279', fontWeight: 600 }}>{valueLabel}</span>
+        ) : threshold != null && currentValue != null && (
+          <span className="flex-shrink-0" style={{ color: achieved ? '#15803d' : '#8a8279', fontWeight: 600 }}>
+            {Math.round(currentValue)}/{threshold}
+          </span>
+        )}
       </div>
-      {valueLabel != null ? (
-        <span className="flex-shrink-0" style={{ color: achieved ? '#15803d' : '#8a8279', fontWeight: 600 }}>{valueLabel}</span>
-      ) : threshold != null && currentValue != null && (
-        <span className="flex-shrink-0" style={{ color: achieved ? '#15803d' : '#8a8279', fontWeight: 600 }}>
-          {Math.round(currentValue)}/{threshold}
-        </span>
+      {showBar && (
+        <div style={{ position: 'relative', height: 6, borderRadius: 999, background: '#e2dcd5', marginLeft: 22, marginTop: 4 }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', borderRadius: 999, width: `${Math.min(100, (currentValue! / effectiveScaleMax!) * 100)}%`, background: achieved ? '#15803d' : '#d97706' }} />
+          <div style={{ position: 'absolute', left: `${Math.min(100, (threshold! / effectiveScaleMax!) * 100)}%`, top: -3, width: 2, height: 12, background: '#1a1512', borderRadius: 1 }} />
+        </div>
       )}
     </div>
   )
@@ -271,35 +290,35 @@ function renderCriterionRow(c: any, group: 'fans' | 'owners', isPT: boolean, key
       }
       return <ObjectiveRow key={key} achieved={c.achieved}
         description={isPT ? `Pelo menos ${c.threshold} vitórias esta época` : `At least ${c.threshold} wins this season`}
-        currentValue={c.currentValue} threshold={c.threshold}
+        currentValue={c.currentValue} threshold={c.threshold} scaleMax={TOTAL_SEASON_GAMES}
         groupLabel={isPT ? 'Vitórias — bloqueado no início da época' : 'Wins — locked at season start'}
         tip={isPT ? (group === 'fans' ? TARGET_TIPS_PT.fansWins : TARGET_TIPS_PT.ownersWins) : (group === 'fans' ? TARGET_TIPS_EN.fansWins : TARGET_TIPS_EN.ownersWins)} />
     }
     case 'netIncome':
       return <ObjectiveRow key={key} achieved={c.achieved}
         description={isPT ? 'Saldo não pode piorar desde que assumiste o cargo' : "Balance sheet can't get worse since you took over"}
-        currentValue={c.currentValue} threshold={0} valueLabel={fmtMoney(c.currentValue)}
+        currentValue={c.currentValue} threshold={0} valueLabel={fmtMoney(c.currentValue)} noBar
         groupLabel={isPT ? 'Saldo (desde o bloqueio)' : 'Balance (since lock)'}
         tip={isPT ? TARGET_TIPS_PT.netIncome : TARGET_TIPS_EN.netIncome} />
     case 'culture':
       return <ObjectiveRow key={key} achieved={c.achieved}
         description={isPT ? 'Moral médio do plantel pelo menos 60' : 'Average roster moral at least 60'}
-        currentValue={c.currentValue} threshold={60} groupLabel={isPT ? 'Cultura' : 'Culture'}
+        currentValue={c.currentValue} threshold={60} scaleMax={100} groupLabel={isPT ? 'Cultura' : 'Culture'}
         tip={isPT ? TARGET_TIPS_PT.culture : TARGET_TIPS_EN.culture} />
     case 'noOpenConflicts':
       return <ObjectiveRow key={key} achieved={c.achieved}
         description={isPT ? 'Sem pedidos de troca por resolver' : 'No unresolved trade-demand conflicts'}
-        currentValue={c.currentValue} threshold={0} groupLabel={isPT ? 'Conflitos' : 'Conflicts'}
+        currentValue={c.currentValue} threshold={0} noBar groupLabel={isPT ? 'Conflitos' : 'Conflicts'}
         tip={isPT ? TARGET_TIPS_PT.conflicts : TARGET_TIPS_EN.conflicts} />
     case 'capEfficiency':
       return <ObjectiveRow key={key} achieved={c.achieved}
         description={isPT ? 'Eficiência de tecto salarial pelo menos 50' : 'Cap efficiency at least 50'}
-        currentValue={c.currentValue} threshold={50} groupLabel={isPT ? 'Tecto Salarial' : 'Cap Discipline'}
+        currentValue={c.currentValue} threshold={50} scaleMax={100} groupLabel={isPT ? 'Tecto Salarial' : 'Cap Discipline'}
         tip={isPT ? TARGET_TIPS_PT.capEfficiency : TARGET_TIPS_EN.capEfficiency} />
     case 'youthDevelopment':
       return <ObjectiveRow key={key} achieved={c.achieved}
         description={isPT ? 'Progresso real e mensurável nos jovens do plantel' : 'Real, measurable development in the roster\'s young players'}
-        currentValue={c.currentValue} threshold={0} valueLabel={c.currentValue != null ? c.currentValue.toFixed(1) : '—'}
+        currentValue={c.currentValue} threshold={0} valueLabel={c.currentValue != null ? c.currentValue.toFixed(1) : '—'} noBar
         groupLabel={isPT ? 'Desenvolvimento Jovem' : 'Youth Development'}
         tip={isPT ? TARGET_TIPS_PT.youthDevelopment : TARGET_TIPS_EN.youthDevelopment} />
     case 'starRetention':
@@ -319,7 +338,7 @@ function renderCriterionRow(c: any, group: 'fans' | 'owners', isPT: boolean, key
     case 'facilityInvestment':
       return <ObjectiveRow key={key} achieved={c.achieved}
         description={isPT ? 'Concluir pelo menos 1 melhoria de instalações esta época' : 'Complete at least 1 facility upgrade this season'}
-        currentValue={c.currentValue} threshold={1} groupLabel={isPT ? 'Instalações' : 'Facilities'}
+        currentValue={c.currentValue} threshold={1} scaleMax={Math.max(2, (c.currentValue ?? 0) + 1)} groupLabel={isPT ? 'Instalações' : 'Facilities'}
         tip={isPT ? TARGET_TIPS_PT.facilityInvestment : TARGET_TIPS_EN.facilityInvestment} />
     case 'playoffAppearance':
       return <ObjectiveRow key={key} achieved={c.achieved}
