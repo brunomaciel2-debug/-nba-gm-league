@@ -29,20 +29,21 @@ const capFmt = (n: number) => n >= 1000000 ? '$' + (n / 1000000).toFixed(2) + 'M
 function PlayerPickPanel({
   label, teamInfo, players, picks, allTeams,
   selPlayers, selPicks, onTogglePlayer, onTogglePick,
-  isMyTeam = false, onSelectTeam, capAfter, isPT
+  isMyTeam = false, onSelectTeam, capAfter, rosterAfter, isPT
 }: {
   label: string, teamInfo: any, players: any[], picks: any[], allTeams: any[],
   selPlayers: string[], selPicks: string[], onTogglePlayer: (id: string) => void,
   onTogglePick: (id: string) => void, isMyTeam?: boolean, onSelectTeam?: (id: string) => void,
-  capAfter?: number, isPT: boolean
+  capAfter?: number, rosterAfter?: number, isPT: boolean
 }) {
   const tc = teamInfo ? readableTeamColor(teamInfo.color) : '#5c554e'
   const totalSalary = players.filter(p => selPlayers.includes(p.id)).reduce((s, p) => s + (p.salary || 0), 0)
   const overCap = capAfter !== undefined && capAfter > CAP_LIMIT
+  const rosterBad = rosterAfter !== undefined && (rosterAfter > MAX_ROSTER || rosterAfter < MIN_ROSTER)
 
   return (
     <div className="rounded-xl overflow-hidden flex flex-col"
-         style={{ border: '1px solid ' + (overCap ? '#fca5a5' : teamInfo ? tc + '44' : '#d4cdc5'), borderTop: '3px solid ' + (overCap ? '#dc2626' : teamInfo ? tc : '#d4cdc5') }}>
+         style={{ border: '1px solid ' + ((overCap||rosterBad) ? '#fca5a5' : teamInfo ? tc + '44' : '#d4cdc5'), borderTop: '3px solid ' + ((overCap||rosterBad) ? '#dc2626' : teamInfo ? tc : '#d4cdc5') }}>
       <div className="px-4 py-3" style={{ background: '#ddd7ca', borderBottom: '1px solid #3a3228' }}>
         {isMyTeam ? (
           <div className="flex items-center gap-2">
@@ -61,10 +62,20 @@ function PlayerPickPanel({
             </select>
           </div>
         )}
+        {/* Roster size — current, and live preview of the count after this trade */}
+        {teamInfo && (
+          <div style={{ marginTop:6, fontSize:11, fontWeight:600, color: rosterBad ? '#dc2626' : '#5c554e' }}>
+            {isPT ? 'Plantel' : 'Roster'}: {players.length} {isPT?'jogadores':'players'}
+            {rosterAfter !== undefined && rosterAfter !== players.length && (
+              <> → <span style={{color: rosterBad ? '#dc2626' : '#15803d'}}>{rosterAfter}</span></>
+            )}
+            {' '}({isPT?'limite':'limit'} {MIN_ROSTER}-{MAX_ROSTER}) {rosterAfter !== undefined && (rosterBad ? '❌' : '✓')}
+          </div>
+        )}
         {/* Cap after trade indicator */}
         {teamInfo && capAfter !== undefined && (
           <div style={{
-            marginTop:6, fontSize:11, fontWeight:600,
+            marginTop:4, fontSize:11, fontWeight:600,
             color: overCap ? '#dc2626' : '#15803d',
           }}>
             {isPT ? 'Cap após a troca' : 'Cap after trade'}: {capFmt(capAfter)} {overCap ? (isPT ? '❌ Acima do cap!' : '❌ Over cap!') : '✓'}
@@ -338,7 +349,7 @@ function ProposeTradePage() {
           onTogglePlayer={id => toggleAsset(mySend, setMySend, setMySendDest, id, team2Id)}
           onTogglePick={id => toggleAsset(myPicksSend, setMyPicksSend, setMySendDest, id, team2Id)}
           isMyTeam isPT={isPT}
-          capAfter={myCapAfter}/>
+          capAfter={myCapAfter} rosterAfter={myRosterAfter}/>
 
         <PlayerPickPanel
           label={isPT ? 'Equipa 2' : 'Team 2'} teamInfo={team2} players={t2Players} picks={t2Picks}
@@ -346,7 +357,7 @@ function ProposeTradePage() {
           onTogglePlayer={id => toggleAsset(t2Recv, setT2Recv, setT2SendDest, id, effectiveTeamId)}
           onTogglePick={id => toggleAsset(t2PicksRecv, setT2PicksRecv, setT2SendDest, id, effectiveTeamId)}
           onSelectTeam={setTeam2Id} isPT={isPT}
-          capAfter={team2 ? t2CapAfter : undefined}/>
+          capAfter={team2 ? t2CapAfter : undefined} rosterAfter={team2 ? t2RosterAfter : undefined}/>
 
         {show3 && (
           <PlayerPickPanel
@@ -355,7 +366,7 @@ function ProposeTradePage() {
             onTogglePlayer={id => toggleAsset(t3Recv, setT3Recv, setT3SendDest, id, effectiveTeamId)}
             onTogglePick={id => toggleAsset(t3PicksRecv, setT3PicksRecv, setT3SendDest, id, effectiveTeamId)}
             onSelectTeam={setTeam3Id} isPT={isPT}
-            capAfter={team3 ? t3CapAfter : undefined}/>
+            capAfter={team3 ? t3CapAfter : undefined} rosterAfter={team3 ? t3RosterAfter : undefined}/>
         )}
       </div>
 
