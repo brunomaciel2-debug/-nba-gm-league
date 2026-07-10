@@ -3,7 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslation } from '@/components/I18nProvider'
 import { getStatusForWeek } from '@/lib/season-week-helper'
 import { MIN_ROSTER, MAX_ROSTER } from '@/lib/roster-limits'
@@ -127,12 +127,17 @@ function ProposeTradePage() {
   const isPT = t('common.save') === 'Guardar'
   const { user, profile } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [allTeams,    setAllTeams]    = useState<any[]>([])
   const [myPlayers,   setMyPlayers]   = useState<any[]>([])
   const [myPicks,     setMyPicks]     = useState<any[]>([])
   const [myTeam,      setMyTeam]      = useState<any>(null)
-  const [team2Id,     setTeam2Id]     = useState('')
+  // Pre-selects the team the GM clicked "Propose Trade" from (e.g. from a
+  // team's roster page or the trade block) — previously this ?to= param
+  // was encoded in the link but never actually read here, so the GM always
+  // had to re-pick the same team a second time from the dropdown.
+  const [team2Id,     setTeam2Id]     = useState(() => searchParams.get('to') || '')
   const [team2,       setTeam2]       = useState<any>(null)
   const [t2Players,   setT2Players]   = useState<any[]>([])
   const [t2Picks,     setT2Picks]     = useState<any[]>([])
