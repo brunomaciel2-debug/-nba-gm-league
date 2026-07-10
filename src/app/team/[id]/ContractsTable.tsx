@@ -21,7 +21,13 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('players').select('id,name,pos,salary,contract_years').eq('team_id', teamId).eq('status','active').order('salary',{ascending:false}).then(({ data }) => {
+    Promise.all([
+      supabase.from('players').select('id,name,pos,salary,contract_years').eq('team_id', teamId).eq('status','active').order('salary',{ascending:false}),
+      // Cut players still count against THIS team's cap as dead money until
+      // another team signs them (see /api/players/cut) — the roster query
+      // above can't see them since team_id is already null.
+      supabase.from('players').select('id,name,pos,dead_cap_amount').eq('previous_team_id', teamId).gt('dead_cap_amount', 0),
+    ]).then(([{ data }, { data: deadCapPlayers }]) => {
       if (!data) return
       const built = data.map((p:any) => {
         const salaries: Record<string,number> = {}
@@ -30,9 +36,13 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
           const s = `${yr}-${String(yr+1).slice(2)}`
           if (SEASONS.includes(s)) salaries[s] = p.salary
         }
-        return { id:p.id, name:p.name, pos:p.pos, salary:p.salary, contract_years:p.contract_years, salaries }
+        return { id:p.id, name:p.name, pos:p.pos, salary:p.salary, contract_years:p.contract_years, salaries, isDeadCap:false }
       })
-      setRows(built); setLoading(false)
+      const deadRows = (deadCapPlayers||[]).map((p:any) => ({
+        id:p.id, name:p.name, pos:p.pos, salary:p.dead_cap_amount, contract_years:1,
+        salaries: { [CURRENT_SEASON]: p.dead_cap_amount }, isDeadCap:true,
+      }))
+      setRows([...built, ...deadRows]); setLoading(false)
     })
   }, [teamId])
 
@@ -106,15 +116,16 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
               {rows.map((p,i) => (
                 <tr key={p.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                   <td className="px-4 py-2.5 sticky left-0" style={{background:i%2===0?'#faf8f5':'#f5f1eb'}}>
-                    <span className="font-semibold" style={{color:'#1a1512'}}>{p.name}</span>
+                    <span className="font-semibold" style={{color:p.isDeadCap?'#8a8279':'#1a1512'}}>{p.name}</span>
+                    {p.isDeadCap && <span className="ml-1.5 text-xs font-bold" style={{color:'#dc2626',fontSize:9}}>💀 {isPT?'DINHEIRO MORTO':'DEAD CAP'}</span>}
                   </td>
-                  <td className="px-3 py-2.5 text-center" style={{color:'#8a8279'}}>{p.pos}</td>
+                  <td className="px-3 py-2.5 text-center" style={{color:'#8a8279'}}>{p.isDeadCap?'—':p.pos}</td>
                   {SEASONS.map((s,si) => {
                     const sal = p.salaries[s]
-                    const isLast = sal && !p.salaries[SEASONS[si+1]]
+                    const isLast = sal && !p.salaries[SEASONS[si+1]] && !p.isDeadCap
                     return (
                       <td key={s} className="px-4 py-2.5 text-right font-semibold"
-                          style={{color:sal?(isLast&&si<4?'#b45309':'#1a1512'):'#d4cdc5'}}>
+                          style={{color:sal?(p.isDeadCap?'#8a8279':isLast&&si<4?'#b45309':'#1a1512'):'#d4cdc5'}}>
                         {sal?fmt(sal):'—'}
                         {sal&&isLast&&si<4&&<span className="ml-1 text-xs" style={{color:'#ffa040',fontSize:9}}>{isPT?'EXP':'EXP'}</span>}
                       </td>
