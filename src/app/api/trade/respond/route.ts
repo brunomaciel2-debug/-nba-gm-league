@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { notifyTradeAccepted, notifyTradeRejected, notifyPlayerArrival } from '@/lib/notifications'
 import { resolveInteractionsForTradedPlayer } from '@/lib/player-interactions'
 import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow, getActiveRosterCount } from '@/lib/roster-limits'
-import { recordPlayerTransaction } from '@/lib/player-transactions'
+import { recordPlayerTransaction, recordTradeLegacyTransaction } from '@/lib/player-transactions'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -175,6 +175,9 @@ export async function POST(req: NextRequest) {
   }
 
   await supabaseAdmin.from('trade_proposals').update({ status: 'accepted' }).eq('id', proposalId)
+
+  try { await recordTradeLegacyTransaction(supabaseAdmin, proposalId) }
+  catch (txErr) { console.warn('Failed to record trade legacy transaction', txErr) }
 
   // Notify initiator of acceptance
   await notifyTradeAccepted(proposalId, proposal.initiator_team, respondingTeamId, respondingTeamName)
