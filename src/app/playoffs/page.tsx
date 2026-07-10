@@ -56,7 +56,7 @@ export default function PlayoffsPage() {
 
   useEffect(() => {
     supabase.from('teams').select('id,name,color,logo_url,wins,losses,conference,pts_for,pts_against')
-      .not('id','in','(ALL,RVS)')
+      .not('id','in','(ALL,RVS,ROO,SOP)')
       .then(({data}) => { setTeams(data||[]); setLoading(false) })
   }, [])
 

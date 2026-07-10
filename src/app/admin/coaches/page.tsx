@@ -41,7 +41,7 @@ export default function CoachesAdminPage() {
   useEffect(() => {
     Promise.all([
       supabase.from('coaches').select('*').order('role').order('name'),
-      supabase.from('teams').select('id,name,color,logo_url').not('id','in','(ALL,RVS)'),
+      supabase.from('teams').select('id,name,color,logo_url').not('id','in','(ALL,RVS,ROO,SOP)'),
     ]).then(([{data:c},{data:t2}]) => {
       setCoaches(c||[]); setTeams(t2||[]); setLoading(false)
     })

@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 export async function POST() {
   try {
     const { data: teams } = await supabaseAdmin
-      .from('teams').select('*').not('id','in','(ALL,RVS)')
+      .from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)')
 
     const sort = (arr: any[]) => [...arr].sort((a,b) =>
       (b.wins/(b.wins+b.losses||1)) - (a.wins/(a.wins+a.losses||1)) || b.wins - a.wins

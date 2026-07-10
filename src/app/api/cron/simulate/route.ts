@@ -1237,7 +1237,7 @@ stats_context:mvpScores[0].stats,notes:'Most Valuable Player'
 },{onConflict:'season,award_type,period'})
 
 const { data: teamDef } = await supabaseAdmin
-.from('teams').select('id,pts_against').not('id','in','(ALL,RVS)').order('pts_against',{ascending:true})
+.from('teams').select('id,pts_against').not('id','in','(ALL,RVS,ROO,SOP)').order('pts_against',{ascending:true})
 const topDefTeams = new Set((teamDef||[]).slice(0,10).map((t:any)=>t.id))
 {
 const dpoyScores = seasonStats.map((s:any)=>{

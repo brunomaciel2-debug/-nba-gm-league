@@ -18,7 +18,7 @@ export default async function HomePage() {
     { data: highlight },
   ] = await Promise.all([
     supabase.from('articles').select('*').eq('published', true).order('created_at', { ascending: false }),
-    supabase.from('teams').select('*').not('id','in','(ALL,RVS)'),
+    supabase.from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)'),
     supabase.from('games').select('*, home:teams!games_home_team_fkey(*), away:teams!games_away_team_fkey(*)')
       .eq('status', 'final').order('played_at', { ascending: false }).limit(6),
     supabase.from('site_config').select('*').eq('id', 1).single(),

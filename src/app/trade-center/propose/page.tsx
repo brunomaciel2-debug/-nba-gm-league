@@ -186,7 +186,7 @@ function ProposeTradePage() {
   const effectiveTeamId = myTeamId || (isCommissioner ? commTeamId : '')
 
   useEffect(() => {
-    supabase.from('teams').select('*').not('id','in','(ALL,RVS)').order('name')
+    supabase.from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)').order('name')
       .then(({data}) => { if(data) setAllTeams(data) })
   }, [])
 

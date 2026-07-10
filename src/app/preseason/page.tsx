@@ -65,7 +65,7 @@ export default function PreseasonPage() {
   const loadData=async()=>{
     const[{data:games},{data:nba},{data:world}]=await Promise.all([
       supabase.from('preseason_games').select('*').eq('season','2025-26').order('scheduled_date'),
-      supabase.from('teams').select('id,name,color,logo_url').not('id','in','(ALL,RVS)').order('name'),
+      supabase.from('teams').select('id,name,color,logo_url').not('id','in','(ALL,RVS,ROO,SOP)').order('name'),
       supabase.from('world_teams').select('*').order('name'),
     ])
     setAllGames(games||[]);setNbaTeams(nba||[]);setWorldTeams(world||[])

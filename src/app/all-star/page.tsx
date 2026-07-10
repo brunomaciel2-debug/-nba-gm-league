@@ -30,7 +30,7 @@ export default function AllStarPage() {
       try {
         const [r1,r2,r3,r4] = await Promise.allSettled([
           supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast)').eq('status','active'),
-          supabase.from('teams').select('id,name,conference,color,logo_url').not('id','in','(ALL,RVS)'),
+          supabase.from('teams').select('id,name,conference,color,logo_url').not('id','in','(ALL,RVS,ROO,SOP)'),
           supabase.from('season_config').select('current_week').eq('id',1).single(),
           supabase.from('allstar_roster').select('*, players!allstar_roster_player_id_fkey(name,pos,photo_url,team_id)').eq('season','2025-26'),
         ])

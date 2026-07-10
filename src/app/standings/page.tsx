@@ -42,7 +42,7 @@ export default function StandingsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('teams').select('*').not('id','in','(ALL,RVS)').then(({ data }) => {
+    supabase.from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)').then(({ data }) => {
       if (data) setTeams(data.sort((a:any,b:any) => b.wins-a.wins || (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against)))
       setLoading(false)
     })
