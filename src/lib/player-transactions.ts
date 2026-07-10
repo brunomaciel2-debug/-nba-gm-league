@@ -61,6 +61,7 @@ export async function recordPlayerTransaction(
       teams: [args.fromTeamId, args.toTeamId].filter(Boolean),
       players: [playerName],
       status: 'completed',
+      week_number: args.week ?? null,
     })
   } catch (legacyErr) { console.warn('Failed to mirror into legacy transactions feed', legacyErr) }
 }
@@ -70,7 +71,7 @@ export async function recordPlayerTransaction(
 // one-row-per-player-leg approach recordPlayerTransaction uses for
 // simpler moves. Call once, after every team's players/picks have already
 // been moved for this proposal.
-export async function recordTradeLegacyTransaction(admin: SupabaseClient, proposalId: string) {
+export async function recordTradeLegacyTransaction(admin: SupabaseClient, proposalId: string, week?: number | null) {
   try {
     const { data: teamRows } = await admin.from('trade_proposal_teams').select('*').eq('proposal_id', proposalId)
     if (!teamRows || teamRows.length === 0) return
@@ -105,6 +106,7 @@ export async function recordTradeLegacyTransaction(admin: SupabaseClient, propos
       teams: teamIds,
       players: allPlayerIds.map((id: any) => playerNameMap[id]).filter(Boolean),
       status: 'completed',
+      week_number: week ?? null,
     })
   } catch (legacyErr) { console.warn('Failed to record trade legacy transaction', legacyErr) }
 }

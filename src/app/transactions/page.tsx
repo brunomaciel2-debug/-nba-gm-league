@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
+import { formatSimDate } from '@/lib/season-week-helper'
 
 const TYPE_STYLE: Record<string,{bg:string,color:string}> = {
   trade:      {bg:'#2a2010',color:'#c2410c'},
@@ -58,7 +59,9 @@ export default function TransactionsPage() {
                     )}
                   </div>
                   <span className="text-xs flex-shrink-0" style={{color:'#9c8e7a'}}>
-                    {new Date(tx.created_at).toLocaleString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+                    {tx.week_number
+                      ? formatSimDate(tx.week_number, isPT?'pt-PT':'en-US')
+                      : new Date(tx.created_at).toLocaleString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
                   </span>
                 </div>
               </div>

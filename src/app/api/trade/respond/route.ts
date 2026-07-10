@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
 
   await supabaseAdmin.from('trade_proposals').update({ status: 'accepted' }).eq('id', proposalId)
 
-  try { await recordTradeLegacyTransaction(supabaseAdmin, proposalId) }
+  try { await recordTradeLegacyTransaction(supabaseAdmin, proposalId, currentWeek) }
   catch (txErr) { console.warn('Failed to record trade legacy transaction', txErr) }
 
   // Notify initiator of acceptance
