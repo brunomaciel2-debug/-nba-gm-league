@@ -6,11 +6,11 @@ import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow } from '@/lib/roster-limits'
 
 const CAP_LIMIT = 180_000_000
 
-function capFmt(n: number) { return n ? '$' + (n / 1000000).toFixed(2) + 'M' : '$0' }
+export function capFmt(n: number) { return n ? '$' + (n / 1000000).toFixed(2) + 'M' : '$0' }
 function ovrColor(ovr: number) { return ovr>=85?'#b45309':ovr>=75?'#15803d':ovr>=65?'#1d4ed8':'#5c554e' }
 function ovrBg(ovr: number) { return ovr>=85?'#fef3c7':ovr>=75?'#dcfce7':ovr>=65?'#dbeafe':'#f0ece5' }
 
-function PlayerPreviewCard({ p, isPT, fromLabel }: { p: any, isPT: boolean, fromLabel?: string }) {
+export function PlayerPreviewCard({ p, isPT, fromLabel }: { p: any, isPT: boolean, fromLabel?: string }) {
   const ovr = p.real_ovr
   return (
     <div>
@@ -39,7 +39,7 @@ function PlayerPreviewCard({ p, isPT, fromLabel }: { p: any, isPT: boolean, from
   )
 }
 
-function PickChip({ pk, teamId, isPT, fromLabel }: { pk: any, teamId: string, isPT: boolean, fromLabel?: string }) {
+export function PickChip({ pk, teamId, isPT, fromLabel }: { pk: any, teamId: string, isPT: boolean, fromLabel?: string }) {
   const isOwn = pk.original_team_id === teamId
   return (
     <div>

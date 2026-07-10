@@ -1,16 +1,21 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import Link from 'next/link'
 import PendingTradesPanel from './PendingTradesPanel'
+import TradeDetailModal from './TradeDetailModal'
 
-export default function TradeCenterPage() {
+function TradeCenterPageInner() {
   const { user, profile } = useAuth()
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const reviewProposalId = searchParams.get('proposal')
   const [tab, setTab] = useState<'players'|'tradeblock'|'pending'>('players')
   const [teams, setTeams] = useState<any[]>([])
   const [tradeBlock, setTradeBlock] = useState<any[]>([])
@@ -201,6 +206,18 @@ export default function TradeCenterPage() {
           )}
         </>
       )}
+
+      {reviewProposalId && (
+        <TradeDetailModal proposalId={reviewProposalId} isPT={isPT} onClose={() => router.push('/trade-center')} />
+      )}
     </div>
+  )
+}
+
+export default function TradeCenterPage() {
+  return (
+    <Suspense fallback={<div className="max-w-6xl mx-auto px-4 py-6" style={{color:'#6b5f4e'}}>Loading...</div>}>
+      <TradeCenterPageInner />
+    </Suspense>
   )
 }

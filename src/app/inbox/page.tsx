@@ -258,7 +258,7 @@ export default function InboxPage() {
                         </a>
                       )}
                       {msg.type==='trade'&&msg.metadata?.proposal_id&&(
-                        <a href="/trade-center"
+                        <a href={`/trade-center?proposal=${msg.metadata.proposal_id}`}
                            style={{display:'inline-block',marginTop:10,fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#1d4ed8',color:'#fff',textDecoration:'none'}}>
                           {isPT?'Rever Troca →':'Review Trade →'}
                         </a>
