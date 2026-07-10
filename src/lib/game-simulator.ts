@@ -21,6 +21,16 @@ function tacticalMatchupMult(oo: any, defStyle: string): number {
   return (1 + familiarityBoost(fam)) * vsMult
 }
 
+// Real position-fit penalty: a player slotted out of their real position in
+// the Depth Chart is still allowed (small-ball/positionless lineups are a
+// real thing) but genuinely performs worse — the further from their real
+// spot, the bigger the hit. 5% per position-step, floored at 0.8 (PG at C
+// or vice versa, the maximum possible distance).
+const POSITION_ORDER = ['PG','SG','SF','PF','C']
+function posFitMultiplier(avgDistance: number): number {
+  return Math.max(0.8, 1 - avgDistance * 0.05)
+}
+
 function rnd(a:number,b:number){return Math.floor(Math.random()*(b-a+1))+a}
 function wt(pool:Array<{p:any,w:number}>){
 const t=pool.reduce((s,x)=>s+x.w,0);let r=Math.random()*t
@@ -196,11 +206,18 @@ return{homeScore:sc.home,awayScore:sc.away,homeBox:hb,awayBox:ab,pbp}
 }
 
 function applyDC(players:any[],dc:any){
-players.forEach(p=>{p.mins=0;p.isStarter=false})
+players.forEach(p=>{p.mins=0;p.isStarter=false;p.posFitMult=1;p._posFitWeightedDist=0})
 ;["PG","SG","SF","PF","C"].forEach(pos=>{
 const pd=dc[pos];if(!pd)return
-;["s","b1","b2"].forEach(sl=>{const e=pd[sl];if(e?.name&&e.mins>0){const p=players.find((pl:any)=>pl.name===e.name);if(p){p.mins+=e.mins;if(sl==="s")p.isStarter=true}}})
+;["s","b1","b2"].forEach(sl=>{const e=pd[sl];if(e?.name&&e.mins>0){const p=players.find((pl:any)=>pl.name===e.name);if(p){
+p.mins+=e.mins;if(sl==="s")p.isStarter=true
+const dist=Math.abs(POSITION_ORDER.indexOf(pos)-POSITION_ORDER.indexOf(p.pos))
+p._posFitWeightedDist+=dist*e.mins
+}}})
 })
+// Minutes-weighted average position distance across every slot a player was
+// assigned to this week, converted into one blended real performance hit.
+players.forEach(p=>{if(p.mins>0)p.posFitMult=posFitMultiplier(p._posFitWeightedDist/p.mins)})
 }
 
 function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>){
@@ -212,8 +229,13 @@ const f=fat[p.id]/100;let w=u3?p.three*1.8+p.usage*.3:p.usage*1.4+(p.layup+p.dun
 if(u3&&p.three<50)w*=.2;const pi=pris.indexOf(p.name)
 if(!u3){if(pi===0)w*=2.2;else if(pi===1)w*=1.55;else if(pi===2)w*=1.25}else{if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}
 // Ball Role (GM-set, per player): Dominant genuinely runs the ball through
-// them more. Off-Ball's payoff is in accuracy (below), not shot volume.
+// them more. Off-Ball trades shot volume for accuracy (below) — fewer
+// touches here, a real 3PT accuracy bump in simP()'s acc formula.
 if(p.ball_role==='dominant')w*=1.2
+else if(p.ball_role==='off_ball')w*=0.85
+// Out-of-position players are genuinely less likely to be the guy taking
+// the shot, not just less accurate when they do (see posFitMult in acc too).
+w*=(p.posFitMult??1)
 return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
 }))
 }
@@ -309,7 +331,7 @@ const offBallMult=(u3&&sc2.ball_role==='off_ball')?1.08:1.0
 // the Pick & Pop / Lob to the Screener node themes.
 const isBig=sc2.pos==='C'||sc2.pos==='PF'
 const tacticalShotMult=u3?tacticalMods.threeMult*(isBig?tacticalMods.bigThreeMult:1):isPost?tacticalMods.postMult:isMid?tacticalMods.midMult:tacticalMods.rimMult*(isBig?tacticalMods.lobMult:1)
-const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult))
+const acc=Math.min(.74,Math.max(.18,(u3?.30+(sc2.three-50)/100*.20:isPost?.44:isMid?.40+(sc2.mid-50)/100*.10:.50+(sc2.layup+sc2.dunk)/200*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult*(sc2.posFitMult??1)))
 const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100
@@ -320,5 +342,9 @@ if(lsi.length>=3){if(r2>=3)mom[sc2.id]=Math.min(3,mom[sc2.id]+(makes?1:0)*st4*2)
 // with zero effect on any actual outcome.
 if(Math.random()<sc2.draw_foul/100*.10*refFoulMult*tacticalMods.foulDrawMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
 if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.55+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wt(ap2.map(p=>({p,w:p.assist_role*1.6+(p.pass_vis??50)*0.4})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
-else{if(Math.random()<.27){const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:p.off_reb*.6*tacticalMods.offRebMult+10})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom);if(re){st[re.id].fga++;if(Math.random()<.5){st[re.id].fgm++;sc[os]+=2;st[re.id].pts+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`OFF rebound ${rb.name} → ${re.name} scores! 2pts`,home_score:sc.home,away_score:sc.away})}}}else{const rb=wt(dps.map(p=>({p,w:p.def_reb*.6*defTacticalMods.defRebMult+10})));st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
+else{if(Math.random()<.27){const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:p.off_reb*.6*tacticalMods.offRebMult+10})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom);if(re){st[re.id].fga++;if(Math.random()<.5){st[re.id].fgm++;sc[os]+=2;st[re.id].pts+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`OFF rebound ${rb.name} → ${re.name} scores! 2pts`,home_score:sc.home,away_score:sc.away})}}}else{
+// Lockdown Defender's real cost: locked onto one man all game, he crashes
+// the defensive glass worse — the "unavailable for help and rebounds"
+// tradeoff the rules page already promises.
+const rb=wt(dps.map(p=>({p,w:p.def_reb*.6*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)+10})));st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
 }

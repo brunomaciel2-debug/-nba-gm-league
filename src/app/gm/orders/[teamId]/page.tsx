@@ -199,7 +199,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   ))
 
   const save = async () => {
-    if(locked || assignedInjuredNames.length>0)return
+    if(locked || assignedInjuredNames.length>0 || !allPositionsOk)return
     setSaving(true)
     const week = currentWeek || ((await supabase.from('season_config').select('current_week').eq('id',1).single()).data?.current_week || 0) + 1
     await supabase.from('gm_orders').upsert({
@@ -217,6 +217,9 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
     const p=dc[pos]||{}
     return (parseInt(p.s?.mins)||0)+(parseInt(p.b1?.mins)||0)+(parseInt(p.b2?.mins)||0)
   }
+  // 48 is a ceiling, not a required exact total — a position can run under
+  // 48 on purpose. Going over is the only thing that actually gets blocked.
+  const allPositionsOk = POSITIONS.every(pos => posTot(pos) <= 48)
 
   if (isAuthorized===null) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'60vh'}}>
@@ -260,20 +263,21 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       {/* DEPTH CHART */}
       <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>
         {isPT?'Rotação':'Depth Chart'}
-        <InfoTip text={isPT?'Atribui jogadores a posições e define os seus minutos. Cada posição tem de totalizar exactamente 48 minutos.':'Assign players to positions and set their minutes. Each position must total exactly 48 minutes.'} />
+        <InfoTip text={isPT?'Atribui jogadores a posições e define os seus minutos. 48 é o máximo por posição (podes ficar abaixo, nunca acima) — e jogar fora de posição real tem uma penalização real de rendimento no jogo, não é bloqueado.':'Assign players to positions and set their minutes. 48 is the maximum per position (you can go under, never over) — and playing someone out of their real position carries a real in-game performance penalty, it isn\'t blocked.'} />
       </h2>
       <div className="flex flex-col gap-3 mb-8">
         {POSITIONS.map(pos => {
-          const tot=posTot(pos), ok=tot===48
+          const tot=posTot(pos), full=tot===48, over=tot>48
+          const barColor = over?'#dc2626':full?'#15803d':'#1d4ed8'
           return (
             <div key={pos} className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cec3'}}>
               <div className="flex items-center gap-3 px-4 py-2" style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
                 <span className="font-bold text-sm w-8" style={{color:teamColor}}>{pos}</span>
                 <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{background:'#cec7bc'}}>
                   <div className="h-full rounded-full transition-all"
-                    style={{width:Math.min(100,tot/48*100)+'%',background:ok?'#15803d':tot>48?'#dc2626':'#b45309'}}/>
+                    style={{width:Math.min(100,tot/48*100)+'%',background:barColor}}/>
                 </div>
-                <span className="text-xs font-semibold" style={{color:ok?'#15803d':tot>48?'#dc2626':'#b45309'}}>{tot}/48</span>
+                <span className="text-xs font-semibold" style={{color:barColor}}>{tot}/48{over?(isPT?' — acima do máximo!':' — over the max!'):''}</span>
               </div>
               <div className="grid grid-cols-3">
                 {SLOTS.map(({key,labelEN,labelPT,color},si) => {
@@ -549,12 +553,24 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         </div>
       )}
 
-      <button onClick={save} disabled={saving||locked||assignedInjuredNames.length>0}
+      {!allPositionsOk&&(
+        <div className="rounded-xl p-4 mb-4" style={{background:'#fee2e2',border:'1px solid #dc2626'}}>
+          <div className="text-sm font-bold mb-1" style={{color:'#dc2626'}}>
+            {isPT?'⏱️ Uma posição está acima do máximo de 48 minutos':'⏱️ A position is over the 48-minute maximum'}
+          </div>
+          <div className="text-xs" style={{color:'#991b1b'}}>
+            {isPT?'Reduz os minutos até nenhuma posição ultrapassar 48.':'Reduce minutes until no position exceeds 48.'}
+          </div>
+        </div>
+      )}
+
+      <button onClick={save} disabled={saving||locked||assignedInjuredNames.length>0||!allPositionsOk}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-colors"
         style={{background:saved?'#dcfce7':locked?'#fee2e2':'#1d4ed8',color:saved?'#15803d':locked?'#dc2626':'#fff'}}>
         {saving?(isPT?'A guardar...':'Saving...')
           :saved?`✔ ${isPT?'Ordens Guardadas!':'Orders Saved!'}`
           :locked?`⚠️ ${isPT?'Bloqueado para esta semana':'Locked for this week'}`
+          :!allPositionsOk?`🚫 ${isPT?'Uma posição excede 48 minutos':'A position exceeds 48 minutes'}`
           :(isPT?'Guardar Ordens Semanais':'Save Weekly Orders')}
       </button>
     </div>

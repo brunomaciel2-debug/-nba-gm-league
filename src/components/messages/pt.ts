@@ -97,7 +97,7 @@ const pt = {
     title: 'Regras de Trades',
     subtitle: 'Tudo o que precisas de saber antes de propor ou aceitar uma trade.',
     rule1Title: 'Equilíbrio Salarial — ±15% + 1M$',
-    rule1Desc: 'O ecrã de proposta de trade calcula que o salário total enviado deve corresponder aproximadamente ao recebido, dentro de 15% do lado maior mais 1M$, e avisa-te se não corresponder — mas isto é só um guia no momento da proposta, não é verificado outra vez quando a trade é executada. Só a conformidade com o tecto é reverificada nesse momento.',
+    rule1Desc: 'O salário total enviado deve corresponder aproximadamente ao recebido, dentro de 15% do lado maior mais 1M$ — mostrado como aviso em tempo real enquanto constróis a proposta, e verdadeiramente reverificado para cada equipa quando a trade é aceite. Uma trade que falhe esta verificação não pode ser concluída.',
     rule2Title: 'Conformidade com o Tecto',
     rule2Desc: 'Depois da trade, nenhuma das equipas pode ultrapassar o tecto salarial de 180M$ — isto SIM é reverificado a sério quando a trade é aceite, não só no momento da proposta.',
     rule3Title: 'Trades a 3 Equipas',

@@ -91,6 +91,21 @@ export async function POST(req: NextRequest) {
         error: `${teamNameMap[teamEntry.team_id] || teamEntry.team_id} would drop below the ${MIN_ROSTER}-player roster minimum with this trade. Only allowed during the Free Agency week. Trade cannot be completed.`
       }, { status: 400 })
     }
+
+    // Salary-balance check (±15% + $1M) — previously only enforced client-side
+    // on the proposal page, never re-verified here at execution. Applied per
+    // team so every participant is held to it, not just the initiator.
+    const salaryOut = teamEntry.salary_out || 0
+    const salaryIn = teamEntry.salary_in || 0
+    if (!(salaryOut === 0 && salaryIn === 0)) {
+      const diff = Math.abs(salaryOut - salaryIn)
+      const maxDiff = Math.max(salaryOut, salaryIn) * 0.15 + 1_000_000
+      if (diff > maxDiff) {
+        return NextResponse.json({
+          error: `${teamNameMap[teamEntry.team_id] || teamEntry.team_id}'s side of the trade is too unbalanced (must be within ±15% + $1M). Trade cannot be completed.`
+        }, { status: 400 })
+      }
+    }
   }
 
   const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()

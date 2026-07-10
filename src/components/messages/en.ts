@@ -97,7 +97,7 @@ const en = {
     title: 'Trade Rules',
     subtitle: 'Everything you need to know before proposing or accepting a trade.',
     rule1Title: 'Salary Matching — ±15% + $1M',
-    rule1Desc: "The trade proposal screen calculates that total salary sent must roughly match what's received, within 15% of the larger side plus $1M, and warns you if it doesn't — but this is a proposal-time guide, not something re-checked when the trade is executed. Only cap compliance is re-verified at that point.",
+    rule1Desc: "Total salary sent must roughly match what's received, within 15% of the larger side plus $1M — shown as a live warning while you build the proposal, and genuinely re-verified for every team when the trade is accepted. A trade that fails this check cannot be completed.",
     rule2Title: 'Cap Compliance',
     rule2Desc: 'After the trade, neither team can exceed the $180M salary cap — this IS re-verified for real when the trade is accepted, not just at proposal time.',
     rule3Title: '3-Team Trades',
