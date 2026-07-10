@@ -118,38 +118,50 @@ export default function PreseasonPage() {
   const getTeamName=(id:string,type:string)=>type==='world'?worldTeams.find(t=>t.id===id)?.name||id:nbaTeams.find(t=>t.id===id)?.name||id
 
   // World-team friendlies never get a real `games` row (no games/[id] page
-  // to link to — see preseason-simulator.ts), so the NBA side's box score is
-  // rendered right here instead, straight from preseason_games.box_score.
+  // to link to — see preseason-simulator.ts), so the box score for both
+  // sides is rendered right here instead, straight from
+  // preseason_games.box_score — real per-player stats for both teams now,
+  // since the World roster is run through the same engine as an NBA team.
+  const worldBoxTable=(rows:any[])=>(
+    <table className="w-full text-xs" style={{borderCollapse:'collapse'}}>
+      <thead>
+        <tr style={{background:'#f0ece5'}}>
+          <th className="px-3 py-1.5 text-left" style={{color:'#5c554e'}}>{isPT?'Jogador':'Player'}</th>
+          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Min':'Min'}</th>
+          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Pts':'Pts'}</th>
+          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Res':'Reb'}</th>
+          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Ass':'Ast'}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...rows].sort((a:any,b:any)=>b.pts-a.pts).map((p:any,i:number)=>(
+          <tr key={p.player_id} style={{background:i%2===0?'#faf8f5':'#fff'}}>
+            <td className="px-3 py-1.5 font-semibold" style={{color:'#1a1512'}}>
+              <a href={`/player/${p.player_id}`} className="no-underline" style={{color:'#1a1512'}}>{p.name}</a>
+              <span style={{color:'#8a8279',fontWeight:400}}> {p.pos}</span>
+            </td>
+            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.mins}</td>
+            <td className="px-2 py-1.5 text-center font-bold" style={{color:'#1a1512'}}>{p.pts}</td>
+            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.reb}</td>
+            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.ast}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
   const renderWorldBoxScore=(g:any)=>{
-    const rows=[...(g.box_score?.home||[]),...(g.box_score?.away||[])].sort((a:any,b:any)=>b.pts-a.pts)
-    if(!rows.length)return null
+    const home=g.box_score?.home||[],away=g.box_score?.away||[]
+    if(!home.length&&!away.length)return null
     return(
-      <div className="mt-2 rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
-        <table className="w-full text-xs" style={{borderCollapse:'collapse'}}>
-          <thead>
-            <tr style={{background:'#f0ece5'}}>
-              <th className="px-3 py-1.5 text-left" style={{color:'#5c554e'}}>{isPT?'Jogador':'Player'}</th>
-              <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Min':'Min'}</th>
-              <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Pts':'Pts'}</th>
-              <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Res':'Reb'}</th>
-              <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Ass':'Ast'}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((p:any,i:number)=>(
-              <tr key={p.player_id} style={{background:i%2===0?'#faf8f5':'#fff'}}>
-                <td className="px-3 py-1.5 font-semibold" style={{color:'#1a1512'}}>
-                  <a href={`/player/${p.player_id}`} className="no-underline" style={{color:'#1a1512'}}>{p.name}</a>
-                  <span style={{color:'#8a8279',fontWeight:400}}> {p.pos}</span>
-                </td>
-                <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.mins}</td>
-                <td className="px-2 py-1.5 text-center font-bold" style={{color:'#1a1512'}}>{p.pts}</td>
-                <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.reb}</td>
-                <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.ast}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mt-2 grid sm:grid-cols-2 gap-3">
+        <div className="rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
+          <div className="px-3 py-1.5 text-xs font-bold" style={{background:'#e2dcd5',color:'#1a1512'}}>{getTeamName(g.home_team,g.home_type)}</div>
+          {worldBoxTable(home)}
+        </div>
+        <div className="rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
+          <div className="px-3 py-1.5 text-xs font-bold" style={{background:'#e2dcd5',color:'#1a1512'}}>{getTeamName(g.away_team,g.away_type)}</div>
+          {worldBoxTable(away)}
+        </div>
       </div>
     )
   }
