@@ -6,6 +6,7 @@ import OfferButton from './OfferButton'
 import DraftConfirmPanel from './DraftConfirmPanel'
 import RookieOptionPanel from './RookieOptionPanel'
 import ContractExtensionPanel from './ContractExtensionPanel'
+import CutButton from './CutButton'
 import PlayerPageClient from './PlayerPageClient'
 export const dynamic = "force-dynamic"
 
@@ -72,7 +73,10 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           ) : p.rookie_option_status?.startsWith('pending_') ? (
             <RookieOptionPanel playerId={player.id} />
           ) : (
-            <ContractExtensionPanel playerId={player.id} />
+            <>
+              <ContractExtensionPanel playerId={player.id} />
+              <CutButton playerId={player.id} playerTeamId={player.team_id} />
+            </>
           )
         }
       />
