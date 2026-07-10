@@ -27,7 +27,13 @@ export default function SimulatorBanner() {
 
   const week = config.current_week || 0
   const nextWeek = week + 1
-  const status = getStatusForWeek(nextWeek)
+  // The badge/label describes the week we're actually IN right now (the last
+  // one simulated), not the upcoming one — those can differ right at a phase
+  // boundary (e.g. the week Pre-Season ends and Regular Season begins), and
+  // showing the wrong one here is exactly what made "Week 14" read as "we're
+  // in week 14" when it actually meant "week 14 hasn't been simulated yet".
+  const status = getStatusForWeek(week)
+  const nextStatus = getStatusForWeek(nextWeek)
   const locale = isPT ? 'pt-PT' : 'en-US'
 
   // Week date range
@@ -62,6 +68,9 @@ export default function SimulatorBanner() {
   const label = STATUS_LABEL[status]
     ? (isPT ? STATUS_LABEL[status].pt : STATUS_LABEL[status].en)
     : status
+  const nextLabel = STATUS_LABEL[nextStatus]
+    ? (isPT ? STATUS_LABEL[nextStatus].pt : STATUS_LABEL[nextStatus].en)
+    : nextStatus
 
   const SIM_DAY_PT: Record<string, string> = {
     Monday: 'Segunda', Tuesday: 'Terça', Wednesday: 'Quarta',
@@ -83,13 +92,14 @@ export default function SimulatorBanner() {
               boxShadow: `0 0 6px ${sc.dot}`,
               animation: isActive ? 'pulse 2s infinite' : 'none',
             }} />
-            {label}
+            {label}{week > 0 ? `: ${isPT ? 'Semana' : 'Week'} ${week}` : ''}
           </span>
           {nextWeek > 0 ? (
             <span className="text-xs" style={{ color: '#8a8279' }}>
-              {isPT ? 'Semana' : 'Week'} {nextWeek} ·{' '}
+              {isPT ? 'Próxima simulação:' : 'Next sim:'}{' '}
               <span style={{ color: '#d4cdc5' }}>
-                {fmtDate(weekStart)} – {fmtDate(weekEnd)}
+                {nextStatus !== status ? `${nextLabel} · ` : ''}
+                {isPT ? 'Semana' : 'Week'} {nextWeek} · {fmtDate(weekStart)} – {fmtDate(weekEnd)}
               </span>
             </span>
           ) : (
