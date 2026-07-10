@@ -51,6 +51,7 @@ export default function PreseasonPage() {
   const [notes,setNotes]=useState('')
   const [saving,setSaving]=useState(false)
   const [msg,setMsg]=useState('')
+  const [expandedGame,setExpandedGame]=useState<string|null>(null)
 
   useEffect(()=>{
     supabase.auth.getUser().then(async({data:{user}})=>{
@@ -115,6 +116,43 @@ export default function PreseasonPage() {
 
   const fmtDate=(d:string)=>new Date(d+'T12:00:00').toLocaleDateString(isPT?'pt-PT':'en-US',{weekday:'short',month:'short',day:'numeric'})
   const getTeamName=(id:string,type:string)=>type==='world'?worldTeams.find(t=>t.id===id)?.name||id:nbaTeams.find(t=>t.id===id)?.name||id
+
+  // World-team friendlies never get a real `games` row (no games/[id] page
+  // to link to — see preseason-simulator.ts), so the NBA side's box score is
+  // rendered right here instead, straight from preseason_games.box_score.
+  const renderWorldBoxScore=(g:any)=>{
+    const rows=[...(g.box_score?.home||[]),...(g.box_score?.away||[])].sort((a:any,b:any)=>b.pts-a.pts)
+    if(!rows.length)return null
+    return(
+      <div className="mt-2 rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
+        <table className="w-full text-xs" style={{borderCollapse:'collapse'}}>
+          <thead>
+            <tr style={{background:'#f0ece5'}}>
+              <th className="px-3 py-1.5 text-left" style={{color:'#5c554e'}}>{isPT?'Jogador':'Player'}</th>
+              <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Min':'Min'}</th>
+              <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Pts':'Pts'}</th>
+              <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Res':'Reb'}</th>
+              <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Ass':'Ast'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((p:any,i:number)=>(
+              <tr key={p.player_id} style={{background:i%2===0?'#faf8f5':'#fff'}}>
+                <td className="px-3 py-1.5 font-semibold" style={{color:'#1a1512'}}>
+                  <a href={`/player/${p.player_id}`} className="no-underline" style={{color:'#1a1512'}}>{p.name}</a>
+                  <span style={{color:'#8a8279',fontWeight:400}}> {p.pos}</span>
+                </td>
+                <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.mins}</td>
+                <td className="px-2 py-1.5 text-center font-bold" style={{color:'#1a1512'}}>{p.pts}</td>
+                <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.reb}</td>
+                <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.ast}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )
+  }
 
   const allDates=getDates()
 
@@ -186,15 +224,23 @@ export default function PreseasonPage() {
             {myGames.filter(g=>g.status!=='declined').sort((a,b)=>(a.scheduled_date||'').localeCompare(b.scheduled_date||'')).map(g=>{
               const ss=STATUS_STYLE[g.status]||STATUS_STYLE.pending
               const isMyRequest=g.requested_by===myTeamId
+              const isWorldGame=g.home_type==='world'||g.away_type==='world'
+              const hasBoxScore=g.status==='final'&&isWorldGame&&g.box_score
+              const isExpanded=expandedGame===g.id
               return(
-                <div key={g.id} className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-                  <div className="flex-1">
-                    <div className="font-bold text-sm" style={{color:'#1a1512'}}>{getTeamName(g.home_team,g.home_type)}<span style={{color:'#8a8279',fontWeight:400}}> vs </span>{getTeamName(g.away_team,g.away_type)}</div>
-                    <div className="text-xs" style={{color:'#8a8279'}}>{g.scheduled_date?fmtDate(g.scheduled_date):'TBD'}{(g.home_type==='world'||g.away_type==='world')?(isPT?' · vs Equipa Internacional (IA)':' · vs World Team (AI)'):''}</div>
+                <div key={g.id} className="px-4 py-3 rounded-xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+                  <div className="flex items-center gap-3" style={{cursor:hasBoxScore?'pointer':'default'}}
+                       onClick={()=>hasBoxScore&&setExpandedGame(isExpanded?null:g.id)}>
+                    <div className="flex-1">
+                      <div className="font-bold text-sm" style={{color:'#1a1512'}}>{getTeamName(g.home_team,g.home_type)}<span style={{color:'#8a8279',fontWeight:400}}> vs </span>{getTeamName(g.away_team,g.away_type)}</div>
+                      <div className="text-xs" style={{color:'#8a8279'}}>{g.scheduled_date?fmtDate(g.scheduled_date):'TBD'}{isWorldGame?(isPT?' · vs Equipa Internacional (IA)':' · vs World Team (AI)'):''}</div>
+                    </div>
+                    {g.status==='final'&&<div className="font-black text-sm" style={{color:'#1a1512'}}>{g.home_score}-{g.away_score}</div>}
+                    <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:ss.bg,color:ss.color}}>
+                      {ss.label}{g.status==='pending'&&isMyRequest?(isPT?' (enviado)':' (sent)'):''}</span>
+                    {hasBoxScore&&<span className="text-xs" style={{color:'#8a8279'}}>{isExpanded?'▲':'▼'}</span>}
                   </div>
-                  {g.status==='final'&&<div className="font-black text-sm" style={{color:'#1a1512'}}>{g.home_score}-{g.away_score}</div>}
-                  <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:ss.bg,color:ss.color}}>
-                    {ss.label}{g.status==='pending'&&isMyRequest?(isPT?' (enviado)':' (sent)'):''}</span>
+                  {isExpanded&&hasBoxScore&&renderWorldBoxScore(g)}
                 </div>
               )
             })}
@@ -212,12 +258,20 @@ export default function PreseasonPage() {
           <div className="flex flex-col gap-1.5">
             {allGames.filter(g=>g.status!=='declined').sort((a,b)=>(a.scheduled_date||'').localeCompare(b.scheduled_date||'')).map(g=>{
               const ss=STATUS_STYLE[g.status]||STATUS_STYLE.pending
+              const isWorldGame=g.home_type==='world'||g.away_type==='world'
+              const hasBoxScore=g.status==='final'&&isWorldGame&&g.box_score
+              const isExpanded=expandedGame===`all-${g.id}`
               return(
-                <div key={g.id} className="flex items-center gap-3 px-4 py-2.5 rounded-lg" style={{background:'#faf8f5',border:'1px solid #e2dcd5'}}>
-                  <div className="w-24 text-xs font-semibold flex-shrink-0" style={{color:'#8a8279'}}>{g.scheduled_date?fmtDate(g.scheduled_date):'TBD'}</div>
-                  <div className="flex-1 text-sm font-semibold" style={{color:'#1a1512'}}>{getTeamName(g.home_team,g.home_type)} vs {getTeamName(g.away_team,g.away_type)}</div>
-                  {g.status==='final'&&<div className="font-black text-sm" style={{color:'#1a1512'}}>{g.home_score}-{g.away_score}</div>}
-                  <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:ss.bg,color:ss.color}}>{ss.label}</span>
+                <div key={g.id} className="px-4 py-2.5 rounded-lg" style={{background:'#faf8f5',border:'1px solid #e2dcd5'}}>
+                  <div className="flex items-center gap-3" style={{cursor:hasBoxScore?'pointer':'default'}}
+                       onClick={()=>hasBoxScore&&setExpandedGame(isExpanded?null:`all-${g.id}`)}>
+                    <div className="w-24 text-xs font-semibold flex-shrink-0" style={{color:'#8a8279'}}>{g.scheduled_date?fmtDate(g.scheduled_date):'TBD'}</div>
+                    <div className="flex-1 text-sm font-semibold" style={{color:'#1a1512'}}>{getTeamName(g.home_team,g.home_type)} vs {getTeamName(g.away_team,g.away_type)}</div>
+                    {g.status==='final'&&<div className="font-black text-sm" style={{color:'#1a1512'}}>{g.home_score}-{g.away_score}</div>}
+                    <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:ss.bg,color:ss.color}}>{ss.label}</span>
+                    {hasBoxScore&&<span className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>{isExpanded?'▲':'▼'}</span>}
+                  </div>
+                  {isExpanded&&hasBoxScore&&renderWorldBoxScore(g)}
                 </div>
               )
             })}

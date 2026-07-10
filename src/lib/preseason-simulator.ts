@@ -139,7 +139,8 @@ export async function simulatePreseasonGame(id: string) {
         remaining -= share
         const offReb = rnd(1, 4), defReb = rnd(1, 5)
         return {
-          player_id: p.id, mins: Math.max(8, Math.round(28 - i * 2)), is_starter: i < 5,
+          player_id: p.id, name: p.name, pos: p.pos,
+          mins: Math.max(8, Math.round(28 - i * 2)), is_starter: i < 5,
           pts: Math.max(0, share), reb: offReb + defReb, off_reb: offReb, def_reb: defReb,
           ast: rnd(1, 6), stl: rnd(0, 2), blk: rnd(0, 1),
           fga: 0, fgm: 0, tpa: 0, tpm: 0, fta: 0, ftm: 0, pf: 0, turnovers: rnd(0, 2), plus_minus: 0,
@@ -180,8 +181,15 @@ export async function simulatePreseasonGame(id: string) {
     }
   }
 
+  // World-team friendlies never get a `games` row (see the comment above), so
+  // the per-player box score computed for the NBA side has nowhere else to
+  // live — persist it right here instead of just computing and discarding it.
+  const worldGameBox = !isNbaVsNba && (homeBox.length || awayBox.length)
+    ? { home: homeBox, away: awayBox } : null
+
   await supabaseAdmin.from('preseason_games').update({
     home_score: homeScore, away_score: awayScore, status: 'final', game_id: gameId,
+    ...(worldGameBox ? { box_score: worldGameBox } : {}),
   }).eq('id', id)
 
   return { success: true as const, home_score: homeScore, away_score: awayScore, game_id: gameId }
