@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { runWeeklySimulation } from '@/app/api/cron/simulate/run'
 
-// Admin-only manual trigger — calls the main simulate cron internally
+// Admin-only manual trigger — runs the simulation logic directly in this
+// same invocation rather than making the route call itself over HTTP.
+// The old self-fetch had no timeout of its own, so if the simulation took
+// too long this route would just hang indefinitely with no error surfaced
+// to the admin page, instead of the simulation's own maxDuration kicking in.
+export const maxDuration = 300
+
 export async function POST(req: NextRequest) {
   try {
     // Verify admin secret
@@ -10,17 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Call the simulate endpoint internally with the cron secret
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://beyondthecourt.vercel.app'
-    const res = await fetch(`${baseUrl}/api/cron/simulate`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${process.env.CRON_SECRET}`,
-      },
-    })
-
-    const data = await res.json()
-    return NextResponse.json(data, { status: res.status })
+    return await runWeeklySimulation()
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
