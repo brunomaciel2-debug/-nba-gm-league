@@ -59,10 +59,28 @@ export async function POST(req: NextRequest) {
   const teamNameMap: Record<string, string> = {}
   for (const t of (teamRecords || [])) teamNameMap[t.id] = t.name
 
-  const respondingTeamId = gm.team_id || teams.find((t: any) => t.team_id !== proposal.initiator_team)?.team_id
+  // Which of the trade's teams is this GM actually responding on behalf
+  // of? A real GM can only ever be their own team's row; the commissioner
+  // fallback (no team_id) picks the first still-pending non-initiator row,
+  // same ambiguity that already existed here before this fix.
+  const myTeamEntry = teams.find((t: any) => t.team_id === gm.team_id)
+    || teams.find((t: any) => t.team_id !== proposal.initiator_team && t.status === 'pending')
+  if (!myTeamEntry) return NextResponse.json({ error: 'Could not determine which team you are responding on behalf of' }, { status: 400 })
+  if (myTeamEntry.team_id === proposal.initiator_team) {
+    return NextResponse.json({ error: 'The initiating team cannot respond to its own proposal' }, { status: 400 })
+  }
+  if (myTeamEntry.status !== 'pending') {
+    return NextResponse.json({ error: 'You have already responded to this trade' }, { status: 400 })
+  }
+
+  const respondingTeamId = myTeamEntry.team_id
   const respondingTeamName = teamNameMap[respondingTeamId] || 'A team'
 
   if (action === 'reject') {
+    // Any single team declining kills the whole trade — for a 3+ team deal
+    // the asset routing between the OTHER teams was built around this one
+    // team's piece too, so a partial version of the deal was never agreed to.
+    await supabaseAdmin.from('trade_proposal_teams').update({ status: 'rejected' }).eq('id', myTeamEntry.id)
     await supabaseAdmin.from('trade_proposals').update({ status: 'rejected' }).eq('id', proposalId)
     await notifyTradeRejected(proposalId, proposal.initiator_team, respondingTeamId, respondingTeamName, reason)
     // The initiator-team inbox notification above is useless if the
@@ -79,7 +97,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, status: 'rejected' })
   }
 
-  // ── ACCEPT: validate cap AND roster size for every team, then execute ──
+  // ── ACCEPT: record this team's yes, then only execute once EVERY
+  // non-initiator team has said yes — a 3+ team trade previously executed
+  // the instant the FIRST team accepted, well before the other team(s)
+  // ever got a chance to respond. ──
+  await supabaseAdmin.from('trade_proposal_teams').update({ status: 'accepted' }).eq('id', myTeamEntry.id)
+  const stillPending = teams.filter((t: any) => t.team_id !== respondingTeamId && t.status === 'pending')
+  if (stillPending.length > 0) {
+    const waitingOn = stillPending.map((t: any) => teamNameMap[t.team_id] || t.team_id).join(', ')
+    try {
+      await notify(proposal.initiator_team, 'trade',
+        `👍 ${respondingTeamName} accepted your trade`,
+        `${respondingTeamName} has accepted your trade proposal. Still waiting on: ${waitingOn}. The trade will only be executed once every team involved has accepted.`,
+        { proposal_id: proposalId })
+      if (proposal.proposed_by_commissioner) {
+        await notify('commissioner', 'trade',
+          `👍 ${respondingTeamName} accepted your trade`,
+          `${respondingTeamName} accepted the trade you proposed on behalf of ${teamNameMap[proposal.initiator_team] || proposal.initiator_team}. Still waiting on: ${waitingOn}.`,
+          { proposal_id: proposalId })
+      }
+    } catch (notifErr) { console.warn('Partial-acceptance notification failed', notifErr) }
+    return NextResponse.json({ success: true, status: 'pending', waitingOn: stillPending.map((t: any) => t.team_id) })
+  }
+
+  // ── Every team has now said yes — validate cap AND roster size for every team, then execute ──
   const fAWindow = await isFreeAgencyWindow(supabaseAdmin)
   for (const teamEntry of teams) {
     const { data: team } = await supabaseAdmin.from('teams').select('cap_used').eq('id', teamEntry.team_id).single()

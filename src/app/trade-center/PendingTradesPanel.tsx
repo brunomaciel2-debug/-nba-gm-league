@@ -93,6 +93,12 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
       for (const t of (teamRecords || [])) teamInfoMap[t.id] = t
       const initiatorTeam = teamInfoMap[proposal.initiator_team]
 
+      // Per-team consensus (3+ team trades stay overall "pending" until every
+      // non-initiator team has accepted) — figure out who's still holding it up.
+      const waitingOnTeams = (allTeamRows || [])
+        .filter((t: any) => t.team_id !== teamId && t.status === 'pending')
+        .map((t: any) => teamInfoMap[t.team_id]?.name || t.team_id)
+
       // For a 3+ team trade, figure out which OTHER team each of my incoming
       // assets actually came from — not necessarily the initiator.
       const sourceOf = (assetId: string, key: 'players_out' | 'picks_out') =>
@@ -140,6 +146,8 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
         rosterAfter,
         capOver: capAfter > CAP_LIMIT,
         rosterBad: rosterAfter > MAX_ROSTER || rosterAfter < MIN_ROSTER,
+        myStatus: entry.status || 'pending',
+        waitingOnTeams,
       }
     }))
 
@@ -218,6 +226,14 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
                     </div>
                   )}
 
+                  {entry.myStatus === 'accepted' && entry.waitingOnTeams.length > 0 && (
+                    <div style={{ marginBottom: 12, padding: '6px 10px', borderRadius: 8, background: '#dbeafe', border: '1px solid #93c5fd', fontSize: 11, color: '#1d4ed8', fontWeight: 600 }}>
+                      ⏳ {isPT
+                        ? `Já aceitaste. Esta troca só se realiza quando todas as equipas aceitarem — ainda à espera de: ${entry.waitingOnTeams.join(', ')}.`
+                        : `You've already accepted. This trade only goes through once every team involved accepts — still waiting on: ${entry.waitingOnTeams.join(', ')}.`}
+                    </div>
+                  )}
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 14 }}>
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', marginBottom: 6, textTransform: 'uppercase' }}>{isPT?'Envias':'You send'}</div>
@@ -264,24 +280,32 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
                     </div>
                   )}
 
-                  <textarea
-                    value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                    placeholder={isPT?'Opcional: motivo para recusar...':'Optional: reason for rejecting...'}
-                    rows={2}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid #d4cdc5', background: '#f5f1eb', color: '#1a1512', outline: 'none', marginBottom: 10, resize: 'none' }}
-                  />
+                  {entry.myStatus === 'pending' ? (
+                    <>
+                      <textarea
+                        value={rejectReason} onChange={e => setRejectReason(e.target.value)}
+                        placeholder={isPT?'Opcional: motivo para recusar...':'Optional: reason for rejecting...'}
+                        rows={2}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 12, border: '1px solid #d4cdc5', background: '#f5f1eb', color: '#1a1512', outline: 'none', marginBottom: 10, resize: 'none' }}
+                      />
 
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => respond(proposal.id, 'accept')} disabled={responding === proposal.id || entry.capOver || entry.rosterBad}
-                      title={entry.capOver || entry.rosterBad ? (isPT?'Não podes aceitar — violaria o tecto ou o limite de plantel':'Cannot accept — would violate the cap or roster limit') : undefined}
-                      style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, background: (entry.capOver || entry.rosterBad) ? '#e2dcd5' : '#15803d', color: (entry.capOver || entry.rosterBad) ? '#8a8279' : '#fff', border: 'none', cursor: (entry.capOver || entry.rosterBad) ? 'not-allowed' : 'pointer', opacity: responding === proposal.id ? 0.6 : 1 }}>
-                      {responding === proposal.id ? (isPT?'A processar...':'Processing...') : (entry.capOver || entry.rosterBad) ? (isPT?'🚫 Não pode ser aceite':'🚫 Cannot be accepted') : (isPT?'✅ Aceitar Troca':'✅ Accept Trade')}
-                    </button>
-                    <button onClick={() => respond(proposal.id, 'reject')} disabled={responding === proposal.id}
-                      style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', cursor: 'pointer', opacity: responding === proposal.id ? 0.6 : 1 }}>
-                      {isPT?'❌ Recusar':'❌ Reject'}
-                    </button>
-                  </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => respond(proposal.id, 'accept')} disabled={responding === proposal.id || entry.capOver || entry.rosterBad}
+                          title={entry.capOver || entry.rosterBad ? (isPT?'Não podes aceitar — violaria o tecto ou o limite de plantel':'Cannot accept — would violate the cap or roster limit') : undefined}
+                          style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, background: (entry.capOver || entry.rosterBad) ? '#e2dcd5' : '#15803d', color: (entry.capOver || entry.rosterBad) ? '#8a8279' : '#fff', border: 'none', cursor: (entry.capOver || entry.rosterBad) ? 'not-allowed' : 'pointer', opacity: responding === proposal.id ? 0.6 : 1 }}>
+                          {responding === proposal.id ? (isPT?'A processar...':'Processing...') : (entry.capOver || entry.rosterBad) ? (isPT?'🚫 Não pode ser aceite':'🚫 Cannot be accepted') : (isPT?'✅ Aceitar Troca':'✅ Accept Trade')}
+                        </button>
+                        <button onClick={() => respond(proposal.id, 'reject')} disabled={responding === proposal.id}
+                          style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', cursor: 'pointer', opacity: responding === proposal.id ? 0.6 : 1 }}>
+                          {isPT?'❌ Recusar':'❌ Reject'}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ padding: '9px 0', textAlign: 'center', borderRadius: 8, fontSize: 12, fontWeight: 700, background: '#f0ece5', color: '#5c554e' }}>
+                      {isPT?'✅ Já respondeste a esta troca.':'✅ You already responded to this trade.'}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

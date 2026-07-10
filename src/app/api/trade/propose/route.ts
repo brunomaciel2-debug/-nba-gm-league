@@ -94,7 +94,12 @@ export async function POST(req: NextRequest) {
   }).select().single()
   if (!proposal) return NextResponse.json({ error: proposalErr?.message || 'Failed to create trade proposal' }, { status: 500 })
 
-  const { data: insertedTeams, error: teamsErr } = await supabaseAdmin.from('trade_proposal_teams').insert(teams.map(t => ({ ...t, proposal_id: proposal.id }))).select()
+  // The initiator implicitly already agreed by proposing — every other
+  // team starts 'pending' and must explicitly accept before the trade can
+  // execute. See /api/trade/respond for the multi-team consensus check.
+  const { data: insertedTeams, error: teamsErr } = await supabaseAdmin.from('trade_proposal_teams').insert(
+    teams.map(t => ({ ...t, proposal_id: proposal.id, status: t.team_id === initiatorTeamId ? 'accepted' : 'pending' }))
+  ).select()
   if (teamsErr || (insertedTeams?.length || 0) !== teams.length) {
     // Roll back the header row rather than leaving a permanently-empty
     // "pending" proposal that can never be seen or acted on by anyone.
