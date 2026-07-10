@@ -18,7 +18,12 @@
 -- escolhas de cada equipa.
 -- ============================================
 
+-- Anula na tabela real E na tabela de snapshot (Ponto de Origem) — se só
+-- anulasse a tabela real, um RESET_PRE_TESTE.sql (que copia do snapshot)
+-- traria de volta as escolhas de 2026 como 'owned', desfazendo a correção.
 UPDATE draft_picks SET status = 'void' WHERE season = '2026' AND status = 'owned';
+UPDATE draft_picks_preteste SET status = 'void' WHERE season = '2026' AND status = 'owned';
 
-SELECT 'Escolhas de draft de 2026 anuladas! Já não podem ser negociadas nem aparecem na lista de escolhas de cada equipa.' as resultado,
-       count(*) as total_anuladas FROM draft_picks WHERE season = '2026' AND status = 'void';
+SELECT 'Escolhas de draft de 2026 anuladas (tabela real + Ponto de Origem)! Já não podem ser negociadas nem aparecem na lista de escolhas de cada equipa, mesmo depois de um RESET.' as resultado,
+       (SELECT count(*) FROM draft_picks WHERE season = '2026' AND status = 'void') as total_anuladas_real,
+       (SELECT count(*) FROM draft_picks_preteste WHERE season = '2026' AND status = 'void') as total_anuladas_preteste;

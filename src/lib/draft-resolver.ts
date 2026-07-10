@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getTeamLang, notifDraftPickResult, notifDraftConfirmExpired, notifRookieOptionAutoDeclined } from './notifications-helpers'
 import { rookieYear1Salary } from './draft-constants'
 import { getNextDraftSeason, getPlayoffFinishOrder } from './draft-lottery'
+import { recordPlayerTransaction } from './player-transactions'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -41,9 +42,9 @@ export async function resolveDraftRound(round: 1 | 2, force: boolean): Promise<{
     return { resolved: 0, alreadyDone: usedCount > 0 }
   }
 
+  const { data: cfg } = await admin.from('season_config').select('current_week').eq('id', 1).single()
+  const nextWeek = (cfg?.current_week || 0) + 1
   if (!force) {
-    const { data: cfg } = await admin.from('season_config').select('current_week').eq('id', 1).single()
-    const nextWeek = (cfg?.current_week || 0) + 1
     const requiredWeek = round === 1 ? 51 : 52
     if (nextWeek !== requiredWeek) return { resolved: 0 }
   }
@@ -141,6 +142,15 @@ export async function resolveDraftRound(round: 1 | 2, force: boolean): Promise<{
     }).eq('id', chosenId)
 
     await admin.from('draft_picks').update({ status: 'used' }).eq('id', pick.id)
+
+    if (insertedPlayer?.id) {
+      try {
+        await recordPlayerTransaction(admin, {
+          playerId: insertedPlayer.id, type: 'draft', fromTeamId: null, toTeamId: pick.team_id,
+          season: NEXT_DRAFT, week: nextWeek,
+        })
+      } catch (txErr) { console.warn('Failed to record draft transaction history', txErr) }
+    }
 
     const lang = await getTeamLang(pick.team_id)
     const notif = notifDraftPickResult(lang, prospect.name, pickNumber, round, rookieYear1Salary(round, pickNumber))

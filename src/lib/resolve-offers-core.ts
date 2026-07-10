@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { getTeamLang, notifFAWon, notifFALost, notifDeadCapCleared } from './notifications-helpers'
+import { recordPlayerTransaction } from './player-transactions'
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 const CAP_LIMIT = 180_000_000
@@ -18,6 +19,9 @@ export async function resolveOffers() {
     .select('player_id, team_id, players(name, team_id, on_gleague_assignment, salary, previous_team_id, dead_cap_amount)')
     .order('created_at')
   if (!offers || offers.length === 0) return { resolved: 0 }
+
+  const { data: cfg } = await admin.from('season_config').select('current_week').eq('id', 1).single()
+  const currentWeek = (cfg?.current_week || 0) + 1
 
   const byPlayer: Record<number, any[]> = {}
   for (const o of offers) {
@@ -77,6 +81,13 @@ export async function resolveOffers() {
       player_id: playerId, player_name: player.name,
       season: '2025-26', salary: 650000, type: 'one-year', notes: 'FA signing - 1yr $650k'
     })
+
+    try {
+      await recordPlayerTransaction(admin, {
+        playerId, type: 'fa_signing', fromTeamId: oldTeamId, toTeamId: teamId,
+        season: '2025-26', week: currentWeek,
+      })
+    } catch (txErr) { console.warn('Failed to record FA signing transaction history', txErr) }
 
     // Update new team's cap_used
     const { data: newTeam } = await admin.from('teams').select('cap_used').eq('id', teamId).single()

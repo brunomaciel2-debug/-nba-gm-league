@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { notifyTradeAccepted, notifyTradeRejected, notifyPlayerArrival } from '@/lib/notifications'
 import { resolveInteractionsForTradedPlayer } from '@/lib/player-interactions'
 import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow, getActiveRosterCount } from '@/lib/roster-limits'
+import { recordPlayerTransaction } from '@/lib/player-transactions'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -141,6 +142,13 @@ export async function POST(req: NextRequest) {
 
       const { data: player } = await supabaseAdmin.from('players').select('name,salary').eq('id', playerId).single()
       await supabaseAdmin.from('players').update({ team_id: destTeamId }).eq('id', playerId)
+
+      try {
+        await recordPlayerTransaction(supabaseAdmin, {
+          playerId, type: 'trade', fromTeamId: teamEntry.team_id, toTeamId: destTeamId,
+          season: '2025-26', week: currentWeek, proposalId,
+        })
+      } catch (txErr) { console.warn('Failed to record trade transaction history', txErr) }
 
       // Any open Player Interaction referencing this player (his own complaint,
       // or someone else's "wants to play with him" partner) is now stale —

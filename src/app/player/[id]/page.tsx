@@ -10,7 +10,7 @@ import PlayerPageClient from './PlayerPageClient'
 export const dynamic = "force-dynamic"
 
 export default async function PlayerPage({ params }: { params: { id: string } }) {
-  const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }, { data: lastGames }, { data: cfg }, { data: allTeams }] =
+  const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }, { data: lastGames }, { data: cfg }, { data: allTeams }, { data: transactions }] =
     await Promise.all([
       supabase.from('players').select('*, nba_experience, nba_recruitable, world_team_id, world_teams:world_team_id(id,name,country), teams:teams!players_team_id_fkey(name,color,id,logo_url)').eq('id', params.id).single(),
       supabase.from('player_stats').select('*,triple_doubles').eq('player_id', params.id).order('season', { ascending: false }),
@@ -20,6 +20,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       supabase.from('box_scores').select('*,games(id,home_team,away_team,home_score,away_score,played_at,home:teams!games_home_team_fkey(name,color),away:teams!games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0).order('created_at', { ascending: false }).limit(5),
       supabase.from('season_config').select('current_week').eq('id', 1).single(),
       supabase.from('teams').select('id,name,color,logo_url'),
+      supabase.from('player_transactions').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
     ])
   const teamMap: Record<string, any> = {}
   for (const t of (allTeams || [])) teamMap[t.id] = t
@@ -36,12 +37,25 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   const currentContract = (contracts||[]).find((c:any) => c.season==='2025-26')
   const totalValue = (contracts||[]).reduce((sum:number,c:any) => sum+c.salary, 0)
 
+  // The current season only gets a player_stats row once he's actually
+  // played a game (see cron/simulate's per-team accumulation) — before
+  // that (e.g. preseason, or right after joining a new team) the table
+  // would just skip 2025-26 entirely, looking like his stats history ends
+  // a year ago. Synthesize a placeholder 0-game row so his CURRENT team
+  // always shows for the current season, same as the real row will once
+  // he actually plays.
+  const hasCurrentSeasonRow = (stats || []).some((s: any) => s.season === '2025-26')
+  const statsForDisplay = (!hasCurrentSeasonRow && p.team_id)
+    ? [{ id: 'placeholder-2025-26', season: '2025-26', team_id: p.team_id, games: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, turnovers: 0, oreb: 0, pf: 0, mins: 0, plus_minus: 0, triple_doubles: 0 }, ...(stats || [])]
+    : (stats || [])
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <PlayerPageClient
         player={p}
-        stats={stats||[]}
+        stats={statsForDisplay}
         teamMap={teamMap}
+        transactions={transactions||[]}
         injuries={injuries||[]}
         contracts={contracts||[]}
         playerAwards={playerAwards||[]}

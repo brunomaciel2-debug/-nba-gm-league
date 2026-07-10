@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { MIN_ROSTER, isFreeAgencyWindow, getActiveRosterCount } from '@/lib/roster-limits'
+import { recordPlayerTransaction } from '@/lib/player-transactions'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -55,6 +56,14 @@ export async function POST(req: NextRequest) {
 
   // cap_used is intentionally left unchanged — dead cap hit remains
   // on the releasing team's cap_used until the player signs with a new team
+
+  try {
+    const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
+    await recordPlayerTransaction(supabaseAdmin, {
+      playerId, type: 'cut', fromTeamId: player.team_id, toTeamId: null,
+      season: '2025-26', week: (cfg?.current_week || 0) + 1,
+    })
+  } catch (txErr) { console.warn('Failed to record cut transaction history', txErr) }
 
   // Notify the team
   await supabaseAdmin.from('inbox_messages').insert({

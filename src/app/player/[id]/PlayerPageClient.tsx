@@ -87,8 +87,15 @@ function AttrTooltip({ tip }: { tip: string }) {
   )
 }
 
-export default function PlayerPageClient({ player, stats, teamMap, injuries, contracts, playerAwards, lastGames, teamColor, ovr, currentContract, totalValue, actionButtons }: {
-  player: any, stats: any[], teamMap?: Record<string, any>, injuries: any[], contracts: any[], playerAwards: any[],
+const TX_LABELS_PT: Record<string,string> = { trade:'Troca', fa_signing:'Assinatura FA', cut:'Corte', draft:'Draft' }
+const TX_LABELS_EN: Record<string,string> = { trade:'Trade', fa_signing:'FA Signing', cut:'Cut', draft:'Draft' }
+const TX_COLORS: Record<string,{color:string,bg:string}> = {
+  trade:{color:'#1d4ed8',bg:'#dbeafe'}, fa_signing:{color:'#15803d',bg:'#dcfce7'},
+  cut:{color:'#dc2626',bg:'#fee2e2'}, draft:{color:'#6d28d9',bg:'#ede9fe'},
+}
+
+export default function PlayerPageClient({ player, stats, teamMap, transactions, injuries, contracts, playerAwards, lastGames, teamColor, ovr, currentContract, totalValue, actionButtons }: {
+  player: any, stats: any[], teamMap?: Record<string, any>, transactions?: any[], injuries: any[], contracts: any[], playerAwards: any[],
   lastGames: any[], teamColor: string, ovr: number, currentContract: any, totalValue: number,
   actionButtons?: React.ReactNode
 }) {
@@ -425,6 +432,54 @@ export default function PlayerPageClient({ player, stats, teamMap, injuries, con
             </div>
           </div>
         )}
+      </div>
+
+      {/* TRANSFER HISTORY */}
+      <div className="mt-6 mb-6">
+        <div className="sec-hdr mb-4"><span className="sec-title">{isPT?'Histórico de Transferências':'Transfer History'}</span></div>
+        <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+          {!transactions || transactions.length === 0 ? (
+            <div className="px-4 py-5 text-center" style={{background:'#faf8f5'}}>
+              <p className="text-sm" style={{color:'#8a8279'}}>{isPT?'Sem transferências registadas.':'No transfers on record.'}</p>
+            </div>
+          ) : transactions.map((tx:any,i:number) => {
+            const fromTeam = tx.from_team_id ? teamMap?.[tx.from_team_id] : null
+            const toTeam = tx.to_team_id ? teamMap?.[tx.to_team_id] : null
+            const label = (isPT ? TX_LABELS_PT : TX_LABELS_EN)[tx.type] || tx.type
+            const txColor = TX_COLORS[tx.type] || { color:'#5c554e', bg:'#f0ece5' }
+            return (
+              <div key={tx.id} className="flex items-center gap-3 px-4 py-3 flex-wrap"
+                   style={{borderBottom:i<transactions.length-1?'1px solid #e2dcd5':'none',
+                           background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+                <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:txColor.bg,color:txColor.color}}>{label}</span>
+                <div className="flex items-center gap-2 text-sm flex-1 min-w-0" style={{color:'#1a1512'}}>
+                  {fromTeam ? (
+                    <span className="flex items-center gap-1.5 truncate">
+                      {fromTeam.logo_url && <img src={fromTeam.logo_url} alt="" style={{width:16,height:16,objectFit:'contain'}}/>}
+                      {fromTeam.name}
+                    </span>
+                  ) : <span style={{color:'#8a8279'}}>{isPT?'Agente Livre':'Free Agent'}</span>}
+                  <span style={{color:'#b0a89e'}}>→</span>
+                  {toTeam ? (
+                    <span className="flex items-center gap-1.5 truncate">
+                      {toTeam.logo_url && <img src={toTeam.logo_url} alt="" style={{width:16,height:16,objectFit:'contain'}}/>}
+                      {toTeam.name}
+                    </span>
+                  ) : <span style={{color:'#8a8279'}}>{isPT?'Agente Livre':'Free Agent'}</span>}
+                </div>
+                <div className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>
+                  {tx.season}{tx.week_number ? ` · ${isPT?'Semana':'Week'} ${tx.week_number}` : ''}
+                </div>
+                {tx.type === 'trade' && tx.proposal_id && (
+                  <a href={`/trade-center?proposal=${tx.proposal_id}`}
+                     className="text-xs font-semibold no-underline flex-shrink-0" style={{color:'#1d4ed8'}}>
+                    {isPT?'Ver Troca →':'View Trade →'}
+                  </a>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* INJURY HISTORY */}

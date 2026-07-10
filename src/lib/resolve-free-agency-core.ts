@@ -3,6 +3,7 @@ import { getStatusForWeek } from './season-week-helper'
 import { getTeamLang, notifFAMarketWon, notifFAMarketLost } from './notifications-helpers'
 import { salaryScore, ambitionScore, popularityScore, staffQualityScore, weightedOfferScore, decisionDays, facilityAttractivenessBonus } from './fa-market-scoring'
 import { getGymGradeBonus } from './facility-constants'
+import { recordPlayerTransaction } from './player-transactions'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -133,6 +134,13 @@ export async function resolveFreeAgencyMarket(force: boolean) {
       salary: winner.salary, type: winner.years === 1 ? 'one-year' : 'multi-year',
       notes: `FA Week signing - ${winner.years}yr $${winner.salary}`,
     })
+
+    try {
+      await recordPlayerTransaction(admin, {
+        playerId, type: 'fa_signing', fromTeamId: (player as any).previous_team_id || null, toTeamId: winner.team_id,
+        season: '2025-26', week: nextWeek,
+      })
+    } catch (txErr) { console.warn('Failed to record FA market signing transaction history', txErr) }
 
     const winTeam = teamMap[winner.team_id]
     await admin.from('teams').update({ cap_used: (winTeam?.cap_used || 0) + winner.salary }).eq('id', winner.team_id)
