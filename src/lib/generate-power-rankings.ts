@@ -369,6 +369,12 @@ Respond ONLY with a JSON array, no markdown, no explanation:
 Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
 
     try {
+      // A stalled/slow response here (with up to 6 of these calls chained
+      // sequentially for ~30 teams) previously had no ceiling at all — one
+      // slow batch could hang the entire weekly simulation indefinitely, with
+      // no error ever surfacing. The catch block below already has a full
+      // fallback (templated comment, no AI), so aborting just routes into
+      // that existing safety net instead of leaving the whole run stuck.
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -381,6 +387,7 @@ Use these exact team IDs: ${batch.map(t => t.id).join(', ')}`
           max_tokens: 1800,
           messages: [{ role: 'user', content: prompt }],
         }),
+        signal: AbortSignal.timeout(20_000),
       })
 
       const data = await response.json()
