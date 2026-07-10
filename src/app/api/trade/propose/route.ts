@@ -74,6 +74,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `${t.team_id}'s side of the trade is too unbalanced (must be within ±15% + $1M).` }, { status: 400 })
       }
     }
+
+    // A void pick (e.g. a season with no real draft, see ANULAR_DRAFT_PICKS_2026.sql)
+    // or a pick that isn't actually this team's to send would otherwise slip
+    // through since the client only filters what it displays, not what it
+    // can submit — re-verify server-side against the authoritative table.
+    if ((t.picks_out || []).length) {
+      const { data: ownedPicks } = await supabaseAdmin.from('draft_picks')
+        .select('id').eq('team_id', t.team_id).eq('status', 'owned').in('id', t.picks_out)
+      if ((ownedPicks?.length || 0) !== t.picks_out.length) {
+        return NextResponse.json({ error: `${t.team_id} is trying to send a draft pick it doesn't actually own (already used, voided, or not theirs).` }, { status: 400 })
+      }
+    }
   }
 
   const { data: proposal, error: proposalErr } = await supabaseAdmin.from('trade_proposals').insert({

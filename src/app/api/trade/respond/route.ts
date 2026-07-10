@@ -106,6 +106,20 @@ export async function POST(req: NextRequest) {
         }, { status: 400 })
       }
     }
+
+    // Re-verify pick ownership at the moment of execution too, not just at
+    // proposal time — a pick could have been voided (no real draft that
+    // season, see ANULAR_DRAFT_PICKS_2026.sql) or otherwise moved on in the
+    // time between a proposal being sent and actually being accepted.
+    if ((teamEntry.picks_out || []).length) {
+      const { data: ownedPicks } = await supabaseAdmin.from('draft_picks')
+        .select('id').eq('team_id', teamEntry.team_id).eq('status', 'owned').in('id', teamEntry.picks_out)
+      if ((ownedPicks?.length || 0) !== teamEntry.picks_out.length) {
+        return NextResponse.json({
+          error: `${teamNameMap[teamEntry.team_id] || teamEntry.team_id} no longer owns one of the draft picks in this trade (already used, voided, or moved). Trade cannot be completed.`
+        }, { status: 400 })
+      }
+    }
   }
 
   const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()

@@ -178,7 +178,7 @@ function ProposeTradePage() {
     if (!effectiveTeamId) return
     Promise.all([
       supabase.from('players').select('id,name,pos,salary,usage').eq('team_id', effectiveTeamId).eq('status', 'active').order('usage', { ascending: false }),
-      supabase.from('draft_picks').select('*').eq('team_id', effectiveTeamId).order('season').order('round'),
+      supabase.from('draft_picks').select('*').eq('team_id', effectiveTeamId).eq('status', 'owned').order('season').order('round'),
       supabase.from('teams').select('*').eq('id', effectiveTeamId).single(),
     ]).then(([{ data: ps }, { data: picks }, { data: mt }]) => {
       setMyPlayers(ps || [])
@@ -191,7 +191,7 @@ function ProposeTradePage() {
     if (!team2Id) return
     Promise.all([
       supabase.from('players').select('id,name,pos,salary,usage').eq('team_id', team2Id).eq('status', 'active').order('usage', { ascending: false }),
-      supabase.from('draft_picks').select('*').eq('team_id', team2Id).order('season').order('round'),
+      supabase.from('draft_picks').select('*').eq('team_id', team2Id).eq('status', 'owned').order('season').order('round'),
       supabase.from('teams').select('*').eq('id', team2Id).single(),
     ]).then(([{ data: ps }, { data: picks }, { data: t }]) => {
       setT2Players(ps || []); setT2Picks(picks || []); setTeam2(t)
@@ -203,7 +203,7 @@ function ProposeTradePage() {
     if (!team3Id) return
     Promise.all([
       supabase.from('players').select('id,name,pos,salary,usage').eq('team_id', team3Id).eq('status', 'active').order('usage', { ascending: false }),
-      supabase.from('draft_picks').select('*').eq('team_id', team3Id).order('season').order('round'),
+      supabase.from('draft_picks').select('*').eq('team_id', team3Id).eq('status', 'owned').order('season').order('round'),
       supabase.from('teams').select('*').eq('id', team3Id).single(),
     ]).then(([{ data: ps }, { data: picks }, { data: t }]) => {
       setT3Players(ps || []); setT3Picks(picks || []); setTeam3(t)
