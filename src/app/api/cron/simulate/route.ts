@@ -370,16 +370,6 @@ season: '2025-26', week_number: week,
 }
 } catch (arenaRevErr) { console.warn('Arena revenue posting failed:', arenaRevErr) }
 
-// Update triple_doubles counter in player_stats
-const tdBox = [...result.homeBox, ...result.awayBox]
-for (const b of tdBox) {
-const isTD = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length >= 3
-if (isTD && b.player_id) {
-const { data: ps } = await supabaseAdmin.from('player_stats').select('triple_doubles').eq('player_id',b.player_id).eq('season','2025-26').single()
-await supabaseAdmin.from('player_stats').update({ triple_doubles: ((ps as any)?.triple_doubles||0)+1 }).eq('player_id',b.player_id).eq('season','2025-26')
-}
-}
-
 const hWon = result.homeScore > result.awayScore
 const htElo = ht.elo || 1500
 const atElo = at.elo || 1500
@@ -399,11 +389,20 @@ elo: atNewElo,
 }).eq('id', at.id),
 ])
 
-// Accumulate player stats — DNP rows (mins=0) don't count as a game played
-const allBox = [...result.homeBox, ...result.awayBox].filter((b:any) => (b.mins||0) > 0)
+// Accumulate player stats — DNP rows (mins=0) don't count as a game played.
+// Tagged with the team he actually suited up for THIS game (not his current
+// players.team_id, which may have moved on by the time this cron runs) and
+// upserted per (player, season, team) instead of per (player, season) — a
+// trade now starts a brand-new season row for the new team instead of
+// silently folding post-trade games into the old team's row forever.
+const allBox = [
+...result.homeBox.map((b:any) => ({...b, team_id: ht.id})),
+...result.awayBox.map((b:any) => ({...b, team_id: at.id})),
+].filter((b:any) => (b.mins||0) > 0)
 for (const box of allBox) {
+const isTD = [box.pts||0,box.reb||0,box.ast||0,box.stl||0,box.blk||0].filter((v:number)=>v>=10).length >= 3
 const { data: ex } = await supabaseAdmin.from('player_stats')
-.select('*').eq('player_id', box.player_id).eq('season','2025-26').single()
+.select('*').eq('player_id', box.player_id).eq('season','2025-26').eq('team_id', box.team_id).maybeSingle()
 if (ex) {
 await supabaseAdmin.from('player_stats').update({
 games: ex.games+1, pts: ex.pts+box.pts, reb: ex.reb+box.reb,
@@ -413,7 +412,16 @@ tpm: ex.tpm+box.tpm, tpa: ex.tpa+box.tpa,
 ftm: ex.ftm+box.ftm, fta: ex.fta+box.fta,
 turnovers: ex.turnovers+box.turnovers,
 fouls: (ex.fouls||0)+(box.pf||0), tech_fouls: (ex.tech_fouls||0)+(box.tech_fouls||0),
-}).eq('player_id', box.player_id).eq('season','2025-26')
+triple_doubles: (ex.triple_doubles||0)+(isTD?1:0),
+}).eq('id', ex.id)
+} else {
+await supabaseAdmin.from('player_stats').insert({
+player_id: box.player_id, season: '2025-26', team_id: box.team_id,
+games: 1, pts: box.pts||0, reb: box.reb||0, ast: box.ast||0, stl: box.stl||0, blk: box.blk||0,
+fgm: box.fgm||0, fga: box.fga||0, tpm: box.tpm||0, tpa: box.tpa||0, ftm: box.ftm||0, fta: box.fta||0,
+turnovers: box.turnovers||0, fouls: box.pf||0, tech_fouls: box.tech_fouls||0,
+triple_doubles: isTD?1:0,
+})
 }
 }
 }
@@ -1192,9 +1200,26 @@ if (!asResult.skipped) console.log(`All-Star Weekend resolved: ${asResult.total}
 
 if (isEndOfSeason) {
 const MIN_GAMES = 65
-const { data: seasonStats } = await supabaseAdmin
+const { data: rawSeasonStats } = await supabaseAdmin
 .from('player_stats').select('*,players!inner(id,name,pos,team_id,nba_experience,potential_grade,teams!players_team_id_fkey!inner(id,name,conference,wins,pts_against))')
-.gte('games', MIN_GAMES)
+.eq('season','2025-26')
+
+// A trade splits a player's season across multiple team-stint rows (see
+// cron simulate's per-game accumulation above) — fold them back into one
+// season total per player before applying MIN_GAMES or computing
+// per-game averages, otherwise someone who played 70 games total across
+// two teams (40+30) would wrongly look like two separate non-qualifiers.
+// players!inner is a live join to the CURRENT team, identical on every
+// stint row for the same player, so team-based bonuses below still use
+// whichever team he's on right now — no extra logic needed for that part.
+const aggByPlayer: Record<string, any> = {}
+for (const s of (rawSeasonStats||[])) {
+const cur = aggByPlayer[s.player_id]
+if (!cur) { aggByPlayer[s.player_id] = { ...s, games: s.games||0, pts: s.pts||0, reb: s.reb||0, ast: s.ast||0, stl: s.stl||0, blk: s.blk||0 }; continue }
+cur.games += s.games||0; cur.pts += s.pts||0; cur.reb += s.reb||0; cur.ast += s.ast||0
+cur.stl += s.stl||0; cur.blk += s.blk||0
+}
+const seasonStats = Object.values(aggByPlayer).filter((s:any) => s.games >= MIN_GAMES)
 
 if (seasonStats && seasonStats.length > 0) {
 const mvpScores = seasonStats.map((s:any) => {
@@ -1211,14 +1236,11 @@ player_id:mvpScores[0].id,score:mvpScores[0].score,
 stats_context:mvpScores[0].stats,notes:'Most Valuable Player'
 },{onConflict:'season,award_type,period'})
 
-const { data: defStats } = await supabaseAdmin
-.from('player_stats').select('player_id,blk,stl,games,players!inner(team_id,teams!players_team_id_fkey!inner(pts_against,wins))')
-.gte('games', MIN_GAMES)
 const { data: teamDef } = await supabaseAdmin
 .from('teams').select('id,pts_against').not('id','in','(ALL,RVS)').order('pts_against',{ascending:true})
 const topDefTeams = new Set((teamDef||[]).slice(0,10).map((t:any)=>t.id))
-if (defStats) {
-const dpoyScores = defStats.map((s:any)=>{
+{
+const dpoyScores = seasonStats.map((s:any)=>{
 const g = s.games||1
 const baseScore = ((s.blk||0)/g)*4 + ((s.stl||0)/g)*4
 const defBonus = topDefTeams.has(s.players?.team_id) ? 1.15 : 1.0
@@ -1231,10 +1253,7 @@ notes:'Defensive Player of the Year'
 },{onConflict:'season,award_type,period'})
 }
 
-const { data: rookies } = await supabaseAdmin
-.from('player_stats').select('player_id,pts,reb,ast,games,players!inner(nba_experience)')
-.gte('games', MIN_GAMES)
-const royScores = (rookies||[])
+const royScores = seasonStats
 .filter((s:any) => (s.players?.nba_experience ?? 1) === 0)
 .map((s:any) => {
 const g = s.games||1
@@ -1276,10 +1295,21 @@ player_id:m.id, score:m.score
 // winner in a league with zero rookies (not a bug, an honest empty result).
 const { data: priorSeasonStats } = await supabaseAdmin
 .from('player_stats').select('player_id,season,pts,reb,ast,games')
-.neq('season','2025-26').gte('games',20).order('season',{ascending:false})
-const priorSeasonMap: Record<string,{pts:number,reb:number,ast:number,games:number}> = {}
+.neq('season','2025-26').order('season',{ascending:false})
+// Same team-stint fold as seasonStats above, keyed by player+season (a
+// player traded during a PRIOR season would otherwise have that season's
+// totals split across two rows too, and "first hit per player" could pick
+// an arbitrary partial-season row instead of the true combined total).
+const priorAgg: Record<string, {player_id:string,season:string,pts:number,reb:number,ast:number,games:number}> = {}
 for (const s of (priorSeasonStats||[])) {
-if (!priorSeasonMap[s.player_id]) priorSeasonMap[s.player_id] = s as any // first hit per player = most recent prior season, since ordered desc
+const key = `${s.player_id}:${s.season}`
+const cur = priorAgg[key]
+if (!cur) { priorAgg[key] = { player_id:s.player_id, season:s.season, pts:s.pts||0, reb:s.reb||0, ast:s.ast||0, games:s.games||0 }; continue }
+cur.pts += s.pts||0; cur.reb += s.reb||0; cur.ast += s.ast||0; cur.games += s.games||0
+}
+const priorSeasonMap: Record<string,{pts:number,reb:number,ast:number,games:number}> = {}
+for (const s of Object.values(priorAgg).filter(s => s.games >= 20)) {
+if (!priorSeasonMap[s.player_id]) priorSeasonMap[s.player_id] = s // first hit per player = most recent prior season, since source was ordered desc
 }
 const mipScores = seasonStats
 .map((s:any) => {

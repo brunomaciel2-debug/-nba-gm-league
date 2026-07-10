@@ -3,8 +3,12 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
-const SEASONS = ['2027','2028','2029','2030','2031']
-const SEASON_LABEL: Record<string,string> = { '2027':'2026-27','2028':'2027-28','2029':'2028-29','2030':'2029-30','2031':'2030-31' }
+// Includes the current season's draft (2026) — it hasn't resolved yet at
+// this point in Season 1, so its picks are real, tradeable assets, not
+// history. Previously started at 2027, which meant a traded 2026 pick
+// never visibly changed team on this page even though the trade succeeded.
+const SEASONS = ['2026','2027','2028','2029','2030','2031']
+const SEASON_LABEL: Record<string,string> = { '2026':'2025-26','2027':'2026-27','2028':'2027-28','2029':'2028-29','2030':'2029-30','2031':'2030-31' }
 const ROUND_COLOR: Record<number,{color:string,bg:string}> = {
   1:{color:'#b45309',bg:'#fef3c7'}, 2:{color:'#1d4ed8',bg:'#dbeafe'},
 }

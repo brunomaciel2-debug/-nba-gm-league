@@ -87,8 +87,8 @@ function AttrTooltip({ tip }: { tip: string }) {
   )
 }
 
-export default function PlayerPageClient({ player, stats, injuries, contracts, playerAwards, lastGames, teamColor, ovr, currentContract, totalValue, actionButtons }: {
-  player: any, stats: any[], injuries: any[], contracts: any[], playerAwards: any[],
+export default function PlayerPageClient({ player, stats, teamMap, injuries, contracts, playerAwards, lastGames, teamColor, ovr, currentContract, totalValue, actionButtons }: {
+  player: any, stats: any[], teamMap?: Record<string, any>, injuries: any[], contracts: any[], playerAwards: any[],
   lastGames: any[], teamColor: string, ovr: number, currentContract: any, totalValue: number,
   actionButtons?: React.ReactNode
 }) {
@@ -303,7 +303,7 @@ export default function PlayerPageClient({ player, stats, injuries, contracts, p
             <table className="w-full text-xs" style={{minWidth:700}}>
               <thead>
                 <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                  {[isPT?'Época':'Season','GP','MIN','PPG','RPG','APG','SPG','BPG','OREB','DREB','FG%','3P%','FT%','TO','PF','TD','+/-'].map(h=>(
+                  {[isPT?'Época':'Season',isPT?'Equipa':'Team','GP','MIN','PPG','RPG','APG','SPG','BPG','OREB','DREB','FG%','3P%','FT%','TO','PF','TD','+/-'].map(h=>(
                     <th key={h} className="px-2.5 py-2.5 font-bold text-right first:text-left"
                         style={{color:'#5c554e',whiteSpace:'nowrap',fontSize:10}}>{h}</th>
                   ))}
@@ -318,9 +318,17 @@ export default function PlayerPageClient({ player, stats, injuries, contracts, p
                   const oreb=s.oreb||0
                   const dreb=s.reb?(s.reb-oreb):0
                   const pm=s.plus_minus||0
+                  const st=teamMap?.[s.team_id]
+                  const stc=st?readableTeamColor(st.color):'#8a8279'
                   return (
                     <tr key={s.id||i} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                       <td className="px-2.5 py-2.5 font-bold" style={{color:'#1a1512',whiteSpace:'nowrap'}}>{s.season}</td>
+                      <td className="px-2.5 py-2.5" style={{whiteSpace:'nowrap'}}>
+                        <span className="flex items-center gap-1.5 justify-end">
+                          {st?.logo_url && <img src={st.logo_url} alt="" style={{width:14,height:14,objectFit:'contain'}}/>}
+                          <span style={{color:stc,fontWeight:600,fontSize:11}}>{st?.name||s.team_id||'—'}</span>
+                        </span>
+                      </td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{gp}</td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{avgM(s.mins||0)}</td>
                       <td className="px-2.5 py-2.5 text-right font-bold" style={{color:'#b45309'}}>{avg(s.pts)}</td>
