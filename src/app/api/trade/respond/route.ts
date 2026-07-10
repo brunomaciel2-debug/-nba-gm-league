@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { notifyTradeAccepted, notifyTradeRejected, notifyPlayerArrival } from '@/lib/notifications'
+import { notifyTradeAccepted, notifyTradeRejected, notifyPlayerArrival, notify } from '@/lib/notifications'
 import { resolveInteractionsForTradedPlayer } from '@/lib/player-interactions'
 import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow, getActiveRosterCount } from '@/lib/roster-limits'
 import { recordPlayerTransaction, recordTradeLegacyTransaction } from '@/lib/player-transactions'
@@ -65,6 +65,17 @@ export async function POST(req: NextRequest) {
   if (action === 'reject') {
     await supabaseAdmin.from('trade_proposals').update({ status: 'rejected' }).eq('id', proposalId)
     await notifyTradeRejected(proposalId, proposal.initiator_team, respondingTeamId, respondingTeamName, reason)
+    // The initiator-team inbox notification above is useless if the
+    // Commissioner proposed on behalf of a team they don't actually GM —
+    // they'd never see it there, so mirror it to their own inbox too.
+    if (proposal.proposed_by_commissioner) {
+      try {
+        await notify('commissioner', 'trade',
+          `❌ Trade rejected by ${respondingTeamName}`,
+          `The trade you proposed on behalf of ${teamNameMap[proposal.initiator_team] || proposal.initiator_team} was rejected by ${respondingTeamName}.${reason ? `\n\nReason: ${reason}` : ''}`,
+          { proposal_id: proposalId })
+      } catch (notifErr) { console.warn('Commissioner rejection notification failed', notifErr) }
+    }
     return NextResponse.json({ success: true, status: 'rejected' })
   }
 
@@ -181,6 +192,16 @@ export async function POST(req: NextRequest) {
 
   // Notify initiator of acceptance
   await notifyTradeAccepted(proposalId, proposal.initiator_team, respondingTeamId, respondingTeamName)
+  // Same gap as the reject branch — if the Commissioner proposed this on
+  // behalf of a team, they'd never see the acceptance in that team's inbox.
+  if (proposal.proposed_by_commissioner) {
+    try {
+      await notify('commissioner', 'trade',
+        `✅ Trade accepted by ${respondingTeamName}`,
+        `The trade you proposed on behalf of ${teamNameMap[proposal.initiator_team] || proposal.initiator_team} was accepted by ${respondingTeamName}. It has been processed.`,
+        { proposal_id: proposalId })
+    } catch (notifErr) { console.warn('Commissioner acceptance notification failed', notifErr) }
+  }
 
   // Log transaction
   await supabaseAdmin.from('franchise_transactions').insert(

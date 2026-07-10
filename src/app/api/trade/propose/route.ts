@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
 
   const { data: proposal, error: proposalErr } = await supabaseAdmin.from('trade_proposals').insert({
     initiator_team: initiatorTeamId, status: 'pending', notes: notes || null,
+    proposed_by_commissioner: isCommissioner,
   }).select().single()
   if (!proposal) return NextResponse.json({ error: proposalErr?.message || 'Failed to create trade proposal' }, { status: 500 })
 
