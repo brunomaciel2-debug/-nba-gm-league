@@ -6,6 +6,11 @@ const supabase = createClient(
 )
 
 async function sendEmail(to: string, subject: string, html: string) {
+  // This runs inside the weekly simulation, once per team that just achieved
+  // a sponsor objective — a single stalled response here had no ceiling at
+  // all and could block the entire run indefinitely (this was the actual
+  // cause of a real "stuck simulating" report, right after the identical gap
+  // in generate-power-rankings.ts's own external call was already fixed).
   await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: { 'api-key': process.env.BREVO_API_KEY!, 'Content-Type': 'application/json' },
@@ -15,6 +20,7 @@ async function sendEmail(to: string, subject: string, html: string) {
       subject,
       htmlContent: html,
     }),
+    signal: AbortSignal.timeout(15_000),
   })
 }
 
@@ -395,22 +401,29 @@ export async function checkSponsorObjectives() {
           : tracking.contract?.tier === 'court' ? 'Court Logo' : 'Courtside Panels'
         const companyName = tracking.contract?.template?.company_name || 'your sponsor'
 
-        await sendEmail(
-          gm.email,
-          `🎉 Sponsor Bonus Achieved — ${fmtM(bonusAmount)} credited!`,
-          `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
-            <h2 style="color:#15803d;margin-bottom:8px;">Sponsor Bonus Achieved! 🏆</h2>
-            <p>Hi ${gm.full_name || 'GM'},</p>
-            <p>Congratulations! You've achieved a sponsor objective:</p>
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;">
-              <div style="font-size:13px;color:#15803d;font-weight:600;margin-bottom:4px;">${tierLabel} · ${companyName}</div>
-              <div style="font-size:15px;color:#1a1512;margin-bottom:8px;">✓ ${obj.description}</div>
-              <div style="font-size:22px;font-weight:800;color:#15803d;">${fmtM(bonusAmount)} credited</div>
-            </div>
-            <p style="color:#5c554e;font-size:13px;">This amount has been added to your franchise balance automatically.</p>
-            <p style="color:#8a8279;font-size:11px;">NBA GM League · 2025-26 Season</p>
-          </div>`
-        )
+        try {
+          await sendEmail(
+            gm.email,
+            `🎉 Sponsor Bonus Achieved — ${fmtM(bonusAmount)} credited!`,
+            `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:24px;">
+              <h2 style="color:#15803d;margin-bottom:8px;">Sponsor Bonus Achieved! 🏆</h2>
+              <p>Hi ${gm.full_name || 'GM'},</p>
+              <p>Congratulations! You've achieved a sponsor objective:</p>
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0;">
+                <div style="font-size:13px;color:#15803d;font-weight:600;margin-bottom:4px;">${tierLabel} · ${companyName}</div>
+                <div style="font-size:15px;color:#1a1512;margin-bottom:8px;">✓ ${obj.description}</div>
+                <div style="font-size:22px;font-weight:800;color:#15803d;">${fmtM(bonusAmount)} credited</div>
+              </div>
+              <p style="color:#5c554e;font-size:13px;">This amount has been added to your franchise balance automatically.</p>
+              <p style="color:#8a8279;font-size:11px;">NBA GM League · 2025-26 Season</p>
+            </div>`
+          )
+        } catch (emailErr) {
+          // The inbox notification + balance credit above already happened —
+          // a slow/failed email is cosmetic, not a reason to abort processing
+          // the remaining teams' objectives this run.
+          console.warn('Sponsor bonus email failed:', emailErr)
+        }
       }
     }
   }
