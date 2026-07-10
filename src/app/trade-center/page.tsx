@@ -5,15 +5,17 @@ import { useTranslation } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import Link from 'next/link'
+import PendingTradesPanel from './PendingTradesPanel'
 
 export default function TradeCenterPage() {
   const { user, profile } = useAuth()
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
-  const [tab, setTab] = useState<'players'|'tradeblock'>('players')
+  const [tab, setTab] = useState<'players'|'tradeblock'|'pending'>('players')
   const [teams, setTeams] = useState<any[]>([])
   const [tradeBlock, setTradeBlock] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
     Promise.all([
@@ -27,6 +29,16 @@ export default function TradeCenterPage() {
   }, [])
 
   const myTeamId = profile?.team_id
+
+  useEffect(() => {
+    if (!myTeamId) return
+    supabase.from('trade_proposal_teams').select('*, trade_proposals(status,initiator_team)').eq('team_id', myTeamId)
+      .then(({ data }) => {
+        const pending = (data || []).filter((e: any) => e.trade_proposals?.status === 'pending' && e.trade_proposals?.initiator_team !== myTeamId)
+        setPendingCount(pending.length)
+        if (pending.length > 0) setTab('pending')
+      })
+  }, [myTeamId])
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -47,13 +59,15 @@ export default function TradeCenterPage() {
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {[
+          ...(myTeamId ? [{key:'pending', labelEN:`🔔 Pending Trades${pendingCount>0?` (${pendingCount})`:''}`, labelPT:`🔔 Trocas Pendentes${pendingCount>0?` (${pendingCount})`:''}`}] : []),
           {key:'players',    labelEN:'🏀 Player Trades',  labelPT:'🏀 Trades de Jogadores'},
           {key:'tradeblock', labelEN:'📋 Trade Block',    labelPT:'📋 Trade Block'},
         ].map((t:any)=>(
           <button key={t.key} onClick={()=>setTab(t.key)}
             className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-            style={{background:tab===t.key?'#d4cdc5':'#ede8df',color:tab===t.key?'#1a1512':'#5c554e',
-                    border:'1px solid '+(tab===t.key?'#8a8279':'#d4cdc5')}}>
+            style={{background:tab===t.key?(t.key==='pending'&&pendingCount>0?'#fee2e2':'#d4cdc5'):'#ede8df',
+                    color:tab===t.key?(t.key==='pending'&&pendingCount>0?'#dc2626':'#1a1512'):'#5c554e',
+                    border:'1px solid '+(tab===t.key?(t.key==='pending'&&pendingCount>0?'#fca5a5':'#8a8279'):'#d4cdc5')}}>
             {isPT ? t.labelPT : t.labelEN}
           </button>
         ))}
@@ -63,6 +77,14 @@ export default function TradeCenterPage() {
         <div className="text-center py-12" style={{color:'#6b5f4e'}}>{t('common.loading')}</div>
       ) : (
         <>
+          {tab==='pending' && myTeamId && (
+            <div>
+              <p className="text-xs mb-4" style={{color:'#6b5f4e'}}>
+                {isPT ? 'Trocas que outras equipas te propuseram — aceita ou recusa.' : 'Trades other teams have proposed to you — accept or reject.'}
+              </p>
+              <PendingTradesPanel teamId={myTeamId} />
+            </div>
+          )}
           {tab==='players' && (
             <div>
               <p className="text-xs mb-4" style={{color:'#6b5f4e'}}>

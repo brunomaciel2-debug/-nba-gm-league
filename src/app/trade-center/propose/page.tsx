@@ -156,6 +156,7 @@ function ProposeTradePage() {
   const [notes,       setNotes]       = useState('')
   const [submitting,  setSubmitting]  = useState(false)
   const [submitted,   setSubmitted]   = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [commTeamId,  setCommTeamId]  = useState('')
   const [isFAWindow,  setIsFAWindow]  = useState(false)
 
@@ -273,30 +274,18 @@ function ProposeTradePage() {
   const submitTrade = async () => {
     if (!user || !effectiveTeamId || !team2Id || !isValid) return
     setSubmitting(true)
-    const { data: proposal } = await supabase.from('trade_proposals').insert({
-      initiator_team: effectiveTeamId, status: 'pending', notes
-    }).select().single()
-    if (!proposal) { setSubmitting(false); return }
+    setSubmitError('')
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setSubmitting(false); setSubmitError('Not logged in'); return }
 
-    await supabase.from('trade_proposal_teams').insert(tradeRows.map(r => ({ ...r, proposal_id: proposal.id })))
-
-    const nameById = (teamId: string) => teamId === effectiveTeamId ? myTeam?.name : teamId === team2Id ? team2?.name : teamId === team3Id ? team3?.name : teamId
-    const playerNameLookup: Record<string,string> = Object.fromEntries([...myPlayers, ...t2Players, ...t3Players].map((p:any) => [p.id, p.name]))
-    for (const tid of [team2Id, team3Id].filter(Boolean)) {
-      const { data: gm } = await supabase.from('gm_profiles').select('id').eq('team_id', tid).single()
-      if (gm) {
-        const row = rowFor(tid)
-        const sendNames = (row?.players_out || []).map(id => playerNameLookup[id]).filter(Boolean).join(', ')
-        const recvNames = (row?.players_in || []).map(id => playerNameLookup[id]).filter(Boolean).join(', ')
-        await supabase.from('messages').insert({
-          from_user: user.id, to_user: gm.id,
-          subject: `Trade Proposal from ${myTeam?.name}`,
-          body: `${nameById(tid)} in this trade:\n→ Sends: ${sendNames || 'picks only'}\n← Receives: ${recvNames || 'picks only'}\n\n${notes}`,
-          type: 'trade_proposal', ref_id: proposal.id
-        })
-      }
-    }
-    setSubmitting(false); setSubmitted(true)
+    const res = await fetch('/api/trade/propose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ initiatorTeamId: effectiveTeamId, notes, teams: tradeRows }),
+    })
+    const json = await res.json()
+    setSubmitting(false)
+    if (res.ok) { setSubmitted(true) } else { setSubmitError(json.error || 'Failed to submit trade proposal') }
   }
 
   if (!user) return (
@@ -490,6 +479,12 @@ function ProposeTradePage() {
           style={{ background: '#ede8de', border: '1px solid #3a3228', color: '#1a1612' }}
           placeholder={isPT ? 'Explica a tua oferta...' : 'Explain your offer...'} />
       </div>
+
+      {submitError && (
+        <div className="mb-3 px-4 py-2.5 rounded-xl text-sm font-semibold" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}>
+          ❌ {submitError}
+        </div>
+      )}
 
       <button onClick={submitTrade} disabled={!isValid || submitting}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-all"

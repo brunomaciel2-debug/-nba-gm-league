@@ -517,6 +517,23 @@ export async function notifyFALosers(
 // ═══════════════════════════════════════════════════════════
 // TRADES — accepted / rejected / player arrival
 // ═══════════════════════════════════════════════════════════
+export async function notifyTradeProposed(
+  proposalId: string,
+  teamId: string,
+  initiatorTeamName: string,
+  sendNames: string,
+  recvNames: string,
+  notes?: string
+) {
+  await notify(
+    teamId,
+    'trade',
+    `🔄 Trade proposal from ${initiatorTeamName}`,
+    `${initiatorTeamName} has proposed a trade.\n→ You send: ${sendNames || 'picks only'}\n← You receive: ${recvNames || 'picks only'}${notes ? `\n\n"${notes}"` : ''}\n\nReview and respond from the Trade Center.`,
+    { proposal_id: proposalId }
+  )
+}
+
 export async function notifyTradeAccepted(
   proposalId: string,
   initiatorTeamId: string,
