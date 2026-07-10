@@ -58,10 +58,17 @@ export default function TransactionsPage() {
                       <p className="text-xs mt-0.5" style={{color:'#6b5f4e'}}>{isPT?'Jogadores':'Players'}: {tx.players.join(', ')}</p>
                     )}
                   </div>
-                  <span className="text-xs flex-shrink-0" style={{color:'#9c8e7a'}}>
-                    {tx.week_number
-                      ? formatSimDate(tx.week_number, isPT?'pt-PT':'en-US')
-                      : new Date(tx.created_at).toLocaleString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}
+                  <span className="text-xs flex-shrink-0 text-right" style={{color:'#9c8e7a'}}>
+                    {tx.week_number ? (
+                      <>
+                        <div>{formatSimDate(tx.week_number, isPT?'pt-PT':'en-US')}</div>
+                        <div style={{fontSize:10,opacity:0.7}}>
+                          {isPT?'Semana':'Week'} {tx.week_number} · {new Date(tx.created_at).toLocaleTimeString(isPT?'pt-PT':'en-US',{hour:'2-digit',minute:'2-digit'})}
+                        </div>
+                      </>
+                    ) : (
+                      new Date(tx.created_at).toLocaleString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+                    )}
                   </span>
                 </div>
               </div>
