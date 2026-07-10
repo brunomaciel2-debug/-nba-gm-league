@@ -214,6 +214,12 @@ export async function simulatePreseasonGame(id: string) {
       home_team: pg.home_team, away_team: pg.away_team,
       home_score: homeScore, away_score: awayScore,
       status: 'final', played_at: new Date().toISOString(),
+      // The friendly's own real-world scheduled_date (e.g. Oct 2 2025) — not
+      // set previously, so the Schedule page fell back to grouping this row
+      // by played_at (the actual real-world moment someone clicked Simulate),
+      // showing the same game a second time under whatever month that
+      // happened to be in.
+      scheduled_date: pg.scheduled_date,
       game_type: 'preseason',
     }).select().single()
     if (!gameRec) return { success: false as const, error: 'Failed to create game record' }

@@ -12,6 +12,7 @@ export default function SchedulePage() {
   const [teamMap,setTeamMap]=useState<Record<string,any>>({})
   const [worldTeamIds,setWorldTeamIds]=useState<Set<string>>(new Set())
   const [loading,setLoading]=useState(true)
+  const [expandedGame,setExpandedGame]=useState<string|null>(null)
 
   const GAME_TYPE_LABEL_EN: Record<string,{label:string,bg:string,color:string}> = {
     preseason: {label:'Pre-Season',    bg:'#f0f9ff',color:'#0369a1'},
@@ -34,16 +35,26 @@ export default function SchedulePage() {
       supabase.from('teams').select('id,name,color,logo_url'),
       supabase.from('preseason_games').select('*').eq('season','2025-26'),
     ]).then(([{data:g1},{data:g2},{data:teams}, {data:preseason}])=>{
+      // A preseason_games row for an NBA-vs-NBA friendly gets its own real
+      // `games` row once simulated (game_id points to it) — that real row is
+      // already in g1/g2, so re-adding a synthetic entry for the same game
+      // here would show it twice. Only World-team friendlies (which can
+      // never get a real `games` row — see preseason-simulator.ts) need a
+      // synthetic entry; keep their box score inline since there's no
+      // /game/[id] page for them to link to.
+      const realGameIds = new Set([...(g1||[]),...(g2||[])].map((g:any)=>g.id))
       const normalizedPreseason = (preseason||[])
-        .filter((g:any)=>['scheduled','accepted','final'].includes(g.status))
+        .filter((g:any)=>['scheduled','accepted','final'].includes(g.status) && !(g.game_id && realGameIds.has(g.game_id)))
         .map((g:any)=>({
-          id: g.game_id || g.id,
+          id: g.id,
           week_number: 0, game_number: 0,
           home_team: g.home_team, away_team: g.away_team,
           home_score: g.home_score || null, away_score: g.away_score || null,
           status: g.status==='final' ? 'final' : 'scheduled',
           played_at: g.scheduled_date ? g.scheduled_date+'T12:00:00' : null,
           game_type: 'preseason',
+          box_score: g.box_score || null,
+          isWorldFriendly: true,
         }))
       setGames([...(g1||[]),...(g2||[]),...normalizedPreseason])
       setTeamMap(Object.fromEntries((teams||[]).map((t:any)=>[t.id,t])))
@@ -60,9 +71,15 @@ export default function SchedulePage() {
     })
   },[])
 
+  // Prefer scheduled_date (the intended real-world calendar date) over
+  // played_at (the moment someone actually clicked Simulate) — a friendly's
+  // `games` row previously had no scheduled_date at all, so it fell back to
+  // played_at and could land in a completely different month than the date
+  // shown on the Pre-Season page for the exact same game.
+  const dateOf=(g:any)=>g.scheduled_date?new Date(g.scheduled_date+'T12:00:00'):(g.played_at?new Date(g.played_at):null)
   const byMonth: Record<string,any[]> = {}
   games.forEach(g=>{
-    const d=g.played_at?new Date(g.played_at):null
+    const d=dateOf(g)
     const key=d?d.toLocaleDateString(isPT?'pt-PT':'en-US',{month:'long',year:'numeric'}):'TBD'
     if(!byMonth[key])byMonth[key]=[]
     byMonth[key].push(g)
@@ -71,6 +88,53 @@ export default function SchedulePage() {
   const played=games.filter(g=>g.status==='final').length
 
   const fmtDate=(iso:string)=>new Date(iso).toLocaleDateString(isPT?'pt-PT':'en-US',{weekday:'short',month:'short',day:'numeric'})
+
+  // World-team friendlies have no /game/[id] page to link to (see
+  // preseason-simulator.ts) — show the same real per-player box score inline
+  // instead, straight from preseason_games.box_score.
+  const worldBoxTable=(rows:any[])=>(
+    <table className="w-full text-xs" style={{borderCollapse:'collapse'}}>
+      <thead>
+        <tr style={{background:'#f0ece5'}}>
+          <th className="px-3 py-1.5 text-left" style={{color:'#5c554e'}}>{isPT?'Jogador':'Player'}</th>
+          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Min':'Min'}</th>
+          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Pts':'Pts'}</th>
+          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Res':'Reb'}</th>
+          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Ass':'Ast'}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {[...rows].sort((a:any,b:any)=>b.pts-a.pts).map((p:any,i:number)=>(
+          <tr key={p.player_id} style={{background:i%2===0?'#faf8f5':'#fff'}}>
+            <td className="px-3 py-1.5 font-semibold" style={{color:'#1a1512'}}>
+              <Link href={`/player/${p.player_id}`} className="no-underline" style={{color:'#1a1512'}}>{p.name}</Link>
+              <span style={{color:'#8a8279',fontWeight:400}}> {p.pos}</span>
+            </td>
+            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.mins}</td>
+            <td className="px-2 py-1.5 text-center font-bold" style={{color:'#1a1512'}}>{p.pts}</td>
+            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.reb}</td>
+            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.ast}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+  const renderWorldBoxScore=(g:any)=>{
+    const home=g.box_score?.home||[],away=g.box_score?.away||[]
+    if(!home.length&&!away.length)return null
+    return(
+      <div className="mt-2 grid sm:grid-cols-2 gap-3">
+        <div className="rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
+          <div className="px-3 py-1.5 text-xs font-bold" style={{background:'#e2dcd5',color:'#1a1512'}}>{teamMap[g.home_team]?.name||g.home_team}</div>
+          {worldBoxTable(home)}
+        </div>
+        <div className="rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
+          <div className="px-3 py-1.5 text-xs font-bold" style={{background:'#e2dcd5',color:'#1a1512'}}>{teamMap[g.away_team]?.name||g.away_team}</div>
+          {worldBoxTable(away)}
+        </div>
+      </div>
+    )
+  }
 
   if(loading) return <div className="max-w-5xl mx-auto px-4 py-12 text-center" style={{color:'#8a8279'}}>{t('common.loading')}</div>
 
@@ -109,23 +173,33 @@ export default function SchedulePage() {
               const homeColor=home?readableTeamColor(home.color):'#5c554e'
               const awayColor=away?readableTeamColor(away.color):'#5c554e'
               const typeInfo=GAME_TYPE_LABEL[g.game_type||'regular']||GAME_TYPE_LABEL.regular
+              const gDate=dateOf(g)
+              const hasBoxScore=isFinal&&g.isWorldFriendly&&g.box_score
+              const isExpanded=expandedGame===g.id
               return(
-                <div key={g.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl" style={{background:'#faf8f5',border:'1px solid #e2dcd5'}}>
-                  <div className="w-36 flex-shrink-0">
-                    <div className="text-xs font-bold" style={{color:'#1a1512'}}>{g.played_at?fmtDate(g.played_at):'TBD'}</div>
-                    {g.week_number>0&&<div className="text-xs" style={{color:'#8a8279'}}>{isPT?'Sem':'Wk'} {g.week_number}</div>}
+                <div key={g.id} className="px-4 py-2.5 rounded-xl" style={{background:'#faf8f5',border:'1px solid #e2dcd5'}}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-36 flex-shrink-0">
+                      <div className="text-xs font-bold" style={{color:'#1a1512'}}>{gDate?fmtDate(gDate.toISOString()):'TBD'}</div>
+                      {g.week_number>0&&<div className="text-xs" style={{color:'#8a8279'}}>{isPT?'Sem':'Wk'} {g.week_number}</div>}
+                    </div>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:typeInfo.bg,color:typeInfo.color,fontSize:10}}>{typeInfo.label}</span>
+                    <div className="flex-1 flex items-center gap-2 min-w-0 flex-wrap">
+                      {home?.logo_url&&<img src={home.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
+                      <Link href={worldTeamIds.has(g.home_team)?`/world/${g.home_team}`:`/team/${g.home_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='away'?'#8a8279':homeColor}}>{home?.name||g.home_team}</Link>
+                      {isFinal?<span className="font-black text-sm mx-1" style={{color:'#1a1512'}}>{g.home_score}–{g.away_score}</span>:<span className="text-xs mx-1" style={{color:'#8a8279'}}>vs</span>}
+                      {away?.logo_url&&<img src={away.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
+                      <Link href={worldTeamIds.has(g.away_team)?`/world/${g.away_team}`:`/team/${g.away_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='home'?'#8a8279':awayColor}}>{away?.name||g.away_team}</Link>
+                    </div>
+                    {isFinal
+                      ?(g.isWorldFriendly
+                        ?(hasBoxScore
+                          ?<button onClick={()=>setExpandedGame(isExpanded?null:g.id)} className="text-xs px-2 py-1 rounded flex-shrink-0" style={{background:'#e8e2d6',color:'#1d4ed8',border:'none',cursor:'pointer'}}>{isPT?'Box Score':'Box Score'} {isExpanded?'▲':'▼'}</button>
+                          :<span className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>{isPT?'Final':'Final'}</span>)
+                        :<Link href={`/game/${g.id}`} className="text-xs no-underline px-2 py-1 rounded flex-shrink-0" style={{background:'#e8e2d6',color:'#1d4ed8'}}>{isPT?'Box Score →':'Box Score →'}</Link>)
+                      :<span className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>{isPT?'Agendado':'Scheduled'}</span>}
                   </div>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:typeInfo.bg,color:typeInfo.color,fontSize:10}}>{typeInfo.label}</span>
-                  <div className="flex-1 flex items-center gap-2 min-w-0 flex-wrap">
-                    {home?.logo_url&&<img src={home.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
-                    <Link href={worldTeamIds.has(g.home_team)?`/world/${g.home_team}`:`/team/${g.home_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='away'?'#8a8279':homeColor}}>{home?.name||g.home_team}</Link>
-                    {isFinal?<span className="font-black text-sm mx-1" style={{color:'#1a1512'}}>{g.home_score}–{g.away_score}</span>:<span className="text-xs mx-1" style={{color:'#8a8279'}}>vs</span>}
-                    {away?.logo_url&&<img src={away.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
-                    <Link href={worldTeamIds.has(g.away_team)?`/world/${g.away_team}`:`/team/${g.away_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='home'?'#8a8279':awayColor}}>{away?.name||g.away_team}</Link>
-                  </div>
-                  {isFinal
-                    ?<Link href={`/game/${g.id}`} className="text-xs no-underline px-2 py-1 rounded flex-shrink-0" style={{background:'#e8e2d6',color:'#1d4ed8'}}>{isPT?'Box Score →':'Box Score →'}</Link>
-                    :<span className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>{isPT?'Agendado':'Scheduled'}</span>}
+                  {isExpanded&&hasBoxScore&&renderWorldBoxScore(g)}
                 </div>
               )
             })}
