@@ -4,6 +4,42 @@ import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
 function capFmt(n: number) { return n ? '$' + (n / 1000000).toFixed(2) + 'M' : '$0' }
+function ovrColor(ovr: number) { return ovr>=85?'#b45309':ovr>=75?'#15803d':ovr>=65?'#1d4ed8':'#5c554e' }
+function ovrBg(ovr: number) { return ovr>=85?'#fef3c7':ovr>=75?'#dcfce7':ovr>=65?'#dbeafe':'#f0ece5' }
+
+function PlayerPreviewCard({ p, isPT }: { p: any, isPT: boolean }) {
+  const ovr = p.real_ovr
+  return (
+    <a href={`/player/${p.id}`} className="no-underline" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', borderRadius: 8 }}>
+      {p.photo_url
+        ? <img src={p.photo_url} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #d4cdc5' }} />
+        : <div style={{ width: 34, height: 34, borderRadius: '50%', flexShrink: 0, background: '#f0ece5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#8a8279' }}>
+            {p.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+          </div>}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: '#1a1512', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+        <div style={{ fontSize: 10, color: '#8a8279' }}>{p.pos}{p.age ? ` · ${p.age} ${isPT?'anos':'yo'}` : ''} · {capFmt(p.salary)}</div>
+      </div>
+      {ovr && (
+        <div style={{ flexShrink: 0, textAlign: 'center', padding: '2px 6px', borderRadius: 6, background: ovrBg(ovr), border: `1px solid ${ovrColor(ovr)}44` }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: ovrColor(ovr), lineHeight: 1 }}>{ovr}</div>
+          <div style={{ fontSize: 7, color: ovrColor(ovr) }}>OVR</div>
+        </div>
+      )}
+    </a>
+  )
+}
+
+function PickChip({ pk, teamId, isPT }: { pk: any, teamId: string, isPT: boolean }) {
+  const isOwn = pk.original_team_id === teamId
+  return (
+    <div style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: '#f0ece5', border: '1px solid #d4cdc5', color: '#5c554e', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      {pk.season} R{pk.round}
+      {!isOwn && <span style={{ color: '#b45309' }}>({isPT?'via':'via'} {pk.original_team_id})</span>}
+      {pk.protection && pk.protection !== 'unprotected' && <span style={{ color: '#dc2626' }}>({pk.protection})</span>}
+    </div>
+  )
+}
 
 export default function PendingTradesPanel({ teamId }: { teamId: string }) {
   const { t } = useTranslation()
@@ -38,11 +74,21 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
 
       const playersOutIds = entry.players_out || []
       const playersInIds = entry.players_in || []
+      const picksOutIds = entry.picks_out || []
+      const picksInIds = entry.picks_in || []
+      const playerFields = 'id,name,pos,real_ovr,age,salary,photo_url'
       const { data: playersOut } = playersOutIds.length
-        ? await supabase.from('players').select('id,name,salary').in('id', playersOutIds)
+        ? await supabase.from('players').select(playerFields).in('id', playersOutIds)
         : { data: [] }
       const { data: playersIn } = playersInIds.length
-        ? await supabase.from('players').select('id,name,salary').in('id', playersInIds)
+        ? await supabase.from('players').select(playerFields).in('id', playersInIds)
+        : { data: [] }
+      const pickFields = 'id,season,round,protection,original_team_id'
+      const { data: picksOut } = picksOutIds.length
+        ? await supabase.from('draft_picks').select(pickFields).in('id', picksOutIds)
+        : { data: [] }
+      const { data: picksIn } = picksInIds.length
+        ? await supabase.from('draft_picks').select(pickFields).in('id', picksInIds)
         : { data: [] }
 
       return {
@@ -51,6 +97,8 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
         initiatorTeam,
         playersOut: playersOut || [],
         playersIn: playersIn || [],
+        picksOut: picksOut || [],
+        picksIn: picksIn || [],
       }
     }))
 
@@ -114,8 +162,8 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
                   </div>
                   <div style={{ fontSize: 11, color: '#8a8279' }}>
                     {isPT
-                      ? `Envias ${entry.playersOut.length} jogador${entry.playersOut.length !== 1 ? 'es' : ''} · recebes ${entry.playersIn.length} jogador${entry.playersIn.length !== 1 ? 'es' : ''}`
-                      : `You send ${entry.playersOut.length} player${entry.playersOut.length !== 1 ? 's' : ''} · receive ${entry.playersIn.length} player${entry.playersIn.length !== 1 ? 's' : ''}`}
+                      ? `Envias ${entry.playersOut.length} jogador${entry.playersOut.length !== 1 ? 'es' : ''}${entry.picksOut.length ? ` + ${entry.picksOut.length} escolha${entry.picksOut.length !== 1 ? 's' : ''}` : ''} · recebes ${entry.playersIn.length} jogador${entry.playersIn.length !== 1 ? 'es' : ''}${entry.picksIn.length ? ` + ${entry.picksIn.length} escolha${entry.picksIn.length !== 1 ? 's' : ''}` : ''}`
+                      : `You send ${entry.playersOut.length} player${entry.playersOut.length !== 1 ? 's' : ''}${entry.picksOut.length ? ` + ${entry.picksOut.length} pick${entry.picksOut.length !== 1 ? 's' : ''}` : ''} · receive ${entry.playersIn.length} player${entry.playersIn.length !== 1 ? 's' : ''}${entry.picksIn.length ? ` + ${entry.picksIn.length} pick${entry.picksIn.length !== 1 ? 's' : ''}` : ''}`}
                   </div>
                 </div>
                 <span style={{ fontSize: 11, color: '#8a8279' }}>{isExpanded ? '▲' : '▼'}</span>
@@ -126,17 +174,29 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 14 }}>
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 700, color: '#dc2626', marginBottom: 6, textTransform: 'uppercase' }}>{isPT?'Envias':'You send'}</div>
-                      {entry.playersOut.length === 0 ? <div style={{ fontSize: 12, color: '#b0a89e' }}>{isPT?'Sem jogadores':'No players'}</div> :
-                        entry.playersOut.map((p: any) => (
-                          <div key={p.id} style={{ fontSize: 12, color: '#1a1512', marginBottom: 3 }}>{p.name} <span style={{ color: '#8a8279' }}>({capFmt(p.salary)})</span></div>
-                        ))}
+                      {entry.playersOut.length === 0 && entry.picksOut.length === 0 ? <div style={{ fontSize: 12, color: '#b0a89e' }}>{isPT?'Nada':'Nothing'}</div> : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {entry.playersOut.map((p: any) => <PlayerPreviewCard key={p.id} p={p} isPT={isPT} />)}
+                          {entry.picksOut.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: entry.playersOut.length ? 6 : 0 }}>
+                              {entry.picksOut.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={teamId} isPT={isPT} />)}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 700, color: '#15803d', marginBottom: 6, textTransform: 'uppercase' }}>{isPT?'Recebes':'You receive'}</div>
-                      {entry.playersIn.length === 0 ? <div style={{ fontSize: 12, color: '#b0a89e' }}>{isPT?'Sem jogadores':'No players'}</div> :
-                        entry.playersIn.map((p: any) => (
-                          <div key={p.id} style={{ fontSize: 12, color: '#1a1512', marginBottom: 3 }}>{p.name} <span style={{ color: '#8a8279' }}>({capFmt(p.salary)})</span></div>
-                        ))}
+                      {entry.playersIn.length === 0 && entry.picksIn.length === 0 ? <div style={{ fontSize: 12, color: '#b0a89e' }}>{isPT?'Nada':'Nothing'}</div> : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {entry.playersIn.map((p: any) => <PlayerPreviewCard key={p.id} p={p} isPT={isPT} />)}
+                          {entry.picksIn.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: entry.playersIn.length ? 6 : 0 }}>
+                              {entry.picksIn.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={proposal.initiator_team} isPT={isPT} />)}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
