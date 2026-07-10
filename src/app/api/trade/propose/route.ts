@@ -76,12 +76,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { data: proposal } = await supabaseAdmin.from('trade_proposals').insert({
+  const { data: proposal, error: proposalErr } = await supabaseAdmin.from('trade_proposals').insert({
     initiator_team: initiatorTeamId, status: 'pending', notes: notes || null,
   }).select().single()
-  if (!proposal) return NextResponse.json({ error: 'Failed to create trade proposal' }, { status: 500 })
+  if (!proposal) return NextResponse.json({ error: proposalErr?.message || 'Failed to create trade proposal' }, { status: 500 })
 
-  await supabaseAdmin.from('trade_proposal_teams').insert(teams.map(t => ({ ...t, proposal_id: proposal.id })))
+  const { error: teamsErr } = await supabaseAdmin.from('trade_proposal_teams').insert(teams.map(t => ({ ...t, proposal_id: proposal.id })))
+  if (teamsErr) {
+    // Roll back the header row rather than leaving a permanently-empty
+    // "pending" proposal that can never be seen or acted on by anyone.
+    await supabaseAdmin.from('trade_proposals').delete().eq('id', proposal.id)
+    return NextResponse.json({ error: `Failed to save trade details: ${teamsErr.message}` }, { status: 500 })
+  }
 
   const teamIds = teams.map(t => t.team_id)
   const { data: teamRecords } = await supabaseAdmin.from('teams').select('id,name').in('id', teamIds)
