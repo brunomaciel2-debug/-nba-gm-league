@@ -6,7 +6,7 @@ import { runWeeklySimulation } from '@/app/api/cron/simulate/run'
 // The old self-fetch had no timeout of its own, so if the simulation took
 // too long this route would just hang indefinitely with no error surfaced
 // to the admin page, instead of the simulation's own maxDuration kicking in.
-export const maxDuration = 300
+export const maxDuration = 800
 
 export async function POST(req: NextRequest) {
   try {

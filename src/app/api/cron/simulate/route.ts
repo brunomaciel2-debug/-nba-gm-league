@@ -6,7 +6,7 @@ import { runWeeklySimulation } from './run'
 // This does a lot of work per invocation (games, injuries, tactics, awards,
 // notifications, etc.) — ask Vercel for as much execution time as the
 // current plan allows instead of relying on its (often much lower) default.
-export const maxDuration = 300
+export const maxDuration = 800
 
 export async function GET(req: NextRequest) {
   const auth = req.headers.get('authorization')
