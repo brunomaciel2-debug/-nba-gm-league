@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
-import { getStatusForWeek, getWeekDates, getHalfWeekDates, formatSimDate } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates, formatSimDate } from '@/lib/season-week-helper'
 
 export default function SimulatorBanner() {
   const { t } = useTranslation()
@@ -36,17 +36,14 @@ export default function SimulatorBanner() {
   const nextStatus = getStatusForWeek(nextWeek)
   const locale = isPT ? 'pt-PT' : 'en-US'
 
-  // Week date range — a Regular-Season week is now simulated in 2 halves
-  // (days 1-3, then days 4-7), so show whichever half is coming up next
-  // instead of always the full 7-day span.
+  // Week date range — every week is now simulated in 2 halves (days 1-3,
+  // then days 4-7), consistently across every phase, so always show
+  // whichever half is coming up next instead of the full 7-day span.
   const nextHalf: 1 | 2 = config.next_sim_half === 2 ? 2 : 1
-  const isNextHalfSplit = nextStatus === 'regular-season'
   const { start: weekStart, end: weekEnd } = nextWeek > 0
-    ? (isNextHalfSplit ? getHalfWeekDates(nextWeek, nextHalf) : getWeekDates(nextWeek))
+    ? getHalfWeekDates(nextWeek, nextHalf)
     : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
-  const halfMarker = isNextHalfSplit
-    ? (isPT ? ` (dias ${nextHalf === 1 ? '1-3' : '4-7'})` : ` (days ${nextHalf === 1 ? '1-3' : '4-7'})`)
-    : ''
+  const halfMarker = isPT ? ` (dias ${nextHalf === 1 ? '1-3' : '4-7'})` : ` (days ${nextHalf === 1 ? '1-3' : '4-7'})`
 
   const fmtDate = (d: Date) => d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
   const fmtEventDate = (d: string) =>

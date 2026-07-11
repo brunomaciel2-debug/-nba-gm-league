@@ -65,13 +65,14 @@ const week = cfg.current_week + 1
 const isPreseason = getStatusForWeek(week) === 'pre-season'
 // A Regular-Season week has too much work (30 teams' worth of real games +
 // injuries + the full once-per-week aftermath) to reliably fit in a single
-// invocation. Split it into 2 smaller sim actions instead: half 1 covers
-// the week's first 3 days (rounds 0-1), half 2 the remaining 4 days
-// (rounds 2-3) — see getHalfWeekDates(). Every other phase (Pre-Season,
-// Summer League, Playoffs, etc.) already fits comfortably, so it always
-// acts like "half 2" (a single full pass, current_week advances normally).
-const isRegularSeason = getStatusForWeek(week) === 'regular-season'
-const half: 1 | 2 = isRegularSeason ? (cfg.next_sim_half === 2 ? 2 : 1) : 2
+// invocation, so every week — regardless of phase — is now simulated in 2
+// steps: half 1 covers the week's first 3 days (rounds 0-1), half 2 the
+// remaining 4 days (rounds 2-3) plus the once-per-week aftermath — see
+// getHalfWeekDates(). Bruno wants this cadence consistent across every
+// phase (not just Regular Season), even though lighter phases (Pre-Season,
+// Free Agency, Draft, etc.) have no day-scoped games of their own — half 1
+// for those is simply a quick pass with nothing to simulate yet.
+const half: 1 | 2 = cfg.next_sim_half === 2 ? 2 : 1
 
 let gamesSimulated = 0
 const gamesCreated: string[] = []
@@ -205,16 +206,14 @@ ranked.forEach((t, i) => { const rank = i+1; if (rank>=4 && rank<=13) inFightSet
 const marquee = getMarqueeWeekInfo(week)
 
 // Only the games actually scheduled for this week — nothing invented.
-// Regular-Season weeks are further split by scheduled_date into whichever
-// half is next (see isRegularSeason/half above), so a single invocation
-// only ever has to simulate ~half the week's games.
-let weekGamesQuery = supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
-if (isRegularSeason) {
+// Every week is further split by scheduled_date into whichever half is
+// next (see half above), so a single invocation only ever has to simulate
+// ~half the week's games. Harmless for phases with no day-scoped games at
+// all (Free Agency, Draft, etc.) — the filter just matches nothing there.
 const ymdLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
-weekGamesQuery = weekGamesQuery.gte('scheduled_date', ymdLocal(halfStart)).lte('scheduled_date', ymdLocal(halfEnd))
-}
-const { data: weekGames } = await weekGamesQuery
+const { data: weekGames } = await supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
+.gte('scheduled_date', ymdLocal(halfStart)).lte('scheduled_date', ymdLocal(halfEnd))
 
 for (const sg of (weekGames||[])) {
 const ht = teamMap[sg.home_team], at = teamMap[sg.away_team]
@@ -722,25 +721,30 @@ await supabaseAdmin.from('players').update({ health:newHealth }).eq('id',pid)
 }
 
 // Keep season_config.status consistent with the same calendar the UI shows.
-// Half 1 of a Regular-Season week does NOT advance current_week yet — the
-// week isn't done until half 2 (the remaining 4 days) also completes.
+// Half 1 of any week does NOT advance current_week yet — the week isn't
+// done until half 2 (the remaining 4 days) also completes.
 const newStatus = isPreseason ? 'pre-season' : 'regular-season'
-if (!(isRegularSeason && half === 1)) {
+if (half !== 1) {
 await supabaseAdmin.from('season_config').update({ current_week: week, status: newStatus, next_sim_half: 1 }).eq('id',1)
 }
 await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number', week)
 
-if (isRegularSeason && half === 1) {
+if (half === 1) {
 // Half 1 done — give GMs a recap of just these games now (half 2 will
 // send its own recap when the week actually finishes), then stop here.
 // Everything below (attribute development, awards, power rankings, GM
 // satisfaction, full-week notifications, scouting points, etc.) is a
 // once-per-week step and only runs once the whole week is simulated.
+// For phases with no day-scoped games (Free Agency, Draft, etc.) this is
+// just a quick, mostly-empty pass — kept consistent on purpose so every
+// week always takes exactly 2 sim actions, same cadence throughout.
 try { await runPostSimNotifications(week, gamesCreated, techFoulEvents) } catch (notifErr) { console.warn('Half-1 notifications failed:', notifErr) }
 await supabaseAdmin.from('season_config').update({ next_sim_half: 2 }).eq('id',1)
 return NextResponse.json({
 success: true, week, half: 1, games_simulated: gamesSimulated,
-message: `Semana ${week} — dias 1-3 simulados (${gamesSimulated} jogos). Corre outra vez para simular os dias 4-7.`
+message: gamesSimulated > 0
+? `Semana ${week} — dias 1-3 simulados (${gamesSimulated} jogos). Corre outra vez para simular os dias 4-7.`
+: `Semana ${week} — dias 1-3 (sem jogos nesta fase). Corre outra vez para simular os dias 4-7.`
 })
 }
 
@@ -1721,7 +1725,7 @@ const scoutResult = await generateWeeklyScoutPoints()
 console.log(`Scouting points generated for ${scoutResult.updated} teams`)
 } catch(scoutErr) { console.warn('Scouting points generation failed:', scoutErr) }
 
-return NextResponse.json({ success: true, week, half: isRegularSeason ? 2 : undefined, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated })
+return NextResponse.json({ success: true, week, half: 2, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated })
 } catch (err: any) {
 return NextResponse.json({ error: err.message }, { status: 500 })
 }

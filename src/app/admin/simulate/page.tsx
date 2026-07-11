@@ -44,9 +44,10 @@ export default function AdminSimulatePage() {
       const data = await res.json()
 
       if (res.ok && data.success && data.half === 1) {
+        const noGames = !data.games_simulated
         const msg = isPT
-          ? `✅ Semana ${data.week} (dias 1-3) simulada! ${data.games_simulated} jogos. Clica outra vez para simular os dias 4-7.`
-          : `✅ Week ${data.week} (days 1-3) simulated! ${data.games_simulated} games. Click again to simulate days 4-7.`
+          ? `✅ Semana ${data.week} (dias 1-3)${noGames ? ' — sem jogos nesta fase' : ` simulada! ${data.games_simulated} jogos`}. Clica outra vez para simular os dias 4-7.`
+          : `✅ Week ${data.week} (days 1-3)${noGames ? ' — no games this phase' : ` simulated! ${data.games_simulated} games`}. Click again to simulate days 4-7.`
         setLog(prev => [...prev, msg])
         setResult(data)
       } else if (res.ok && data.success) {
