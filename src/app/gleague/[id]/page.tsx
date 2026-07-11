@@ -55,7 +55,10 @@ export default function GLeagueTeamPage({params}:{params:{id:string}}) {
   useEffect(()=>{
     Promise.all([
       supabase.from('gleague_teams').select('*, nba:teams!gleague_teams_nba_affiliate_fkey(id,name,logo_url,color)').eq('id',params.id).single(),
-      supabase.from('players').select('*, gleague_player_stats(*)').eq('gleague_team_id',params.id).order('usage',{ascending:false}),
+      // Same season-scoping fix as the NBA roster page: gleague_player_stats
+      // has one row per season, unfiltered this could return a past
+      // season's row instead of the current one.
+      supabase.from('players').select('*, gleague_player_stats(*)').eq('gleague_team_id',params.id).eq('gleague_player_stats.season','2025-26').order('usage',{ascending:false}),
       supabase.from('gleague_games').select('*, home:gleague_teams!gleague_games_home_team_fkey(id,name,color,logo_url), away:gleague_teams!gleague_games_away_team_fkey(id,name,color,logo_url)').eq('season','2025-26').gt('week_number',0).or(`home_team.eq.${params.id},away_team.eq.${params.id}`).order('played_at'),
       supabase.from('coaches').select('*').eq('gleague_team_id',params.id).limit(1),
     ]).then(([{data:t},{data:pl},{data:g},{data:c}])=>{

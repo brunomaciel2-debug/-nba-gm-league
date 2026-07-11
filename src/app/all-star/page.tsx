@@ -29,7 +29,10 @@ export default function AllStarPage() {
     const load = async () => {
       try {
         const [r1,r2,r3,r4] = await Promise.allSettled([
-          supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast)').eq('status','active'),
+          // player_stats has one row per season — without this filter a
+          // veteran's player_stats?.[0] below can grab a stale, all-null
+          // past season instead of the current one.
+          supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast)').eq('status','active').eq('player_stats.season','2025-26'),
           supabase.from('teams').select('id,name,conference,color,logo_url').not('id','in','(ALL,RVS,ROO,SOP)'),
           supabase.from('season_config').select('current_week').eq('id',1).single(),
           supabase.from('allstar_roster').select('*, players!allstar_roster_player_id_fkey(name,pos,photo_url,team_id)').eq('season','2025-26'),

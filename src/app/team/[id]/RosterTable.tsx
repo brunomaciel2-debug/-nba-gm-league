@@ -245,7 +245,7 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
                   return (
                     <td key={col.key} className="px-3 py-2 text-right font-semibold"
                         style={{
-                          color:mode==='attributes'&&col.numeric&&typeof val==='number'?attrColor(val):isActive?'#e8e2d6':col.color||'#1a1512',
+                          color:mode==='attributes'&&col.numeric&&typeof val==='number'?attrColor(val):col.color||'#1a1512',
                           background:isActive?teamColor+'11':undefined,
                         }}>
                       {fmtVal(col.key,val)}

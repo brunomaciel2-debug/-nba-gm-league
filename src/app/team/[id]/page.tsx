@@ -93,13 +93,18 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const [{ data: team }, { data: players }, { data: injuredPlayers }, { data: games }, { data: allTeams }, { data: injuries }, { data: coaches }, { data: preseasonGames }] =
     await Promise.all([
       supabase.from('teams').select('*').eq('id', teamId).single(),
+      // player_stats has one row per season (2018-19 through the current
+      // one) — without this filter, a veteran with 8 season rows gets them
+      // all back in DB order, and RosterTable.tsx's p.player_stats?.[0]
+      // could grab a long-retired, all-null season instead of this one,
+      // showing the player as if they had no stats at all.
       supabase.from('players').select('*, player_stats(*)')
-        .eq('team_id', teamId).eq('status','active').order('usage', { ascending: false }),
+        .eq('team_id', teamId).eq('status','active').eq('player_stats.season','2025-26').order('usage', { ascending: false }),
       // Injured players are deliberately excluded from the roster/orders query above
       // (they can't play), but the Injury Report still needs their name/health/photo —
       // fetched separately so it doesn't silently disappear from that screen.
       supabase.from('players').select('*, player_stats(*)')
-        .eq('team_id', teamId).eq('status','injured'),
+        .eq('team_id', teamId).eq('status','injured').eq('player_stats.season','2025-26'),
       supabase.from('games').select('*')
         .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
         .order('week_number').order('game_number'),
