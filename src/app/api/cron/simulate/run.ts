@@ -75,6 +75,7 @@ const isPreseason = getStatusForWeek(week) === 'pre-season'
 const half: 1 | 2 = cfg.next_sim_half === 2 ? 2 : 1
 
 let gamesSimulated = 0
+let friendliesSimulated = 0
 const gamesCreated: string[] = []
 const weekGamesByTeam: Record<string, number> = {}
 
@@ -729,6 +730,23 @@ await supabaseAdmin.from('season_config').update({ current_week: week, status: n
 }
 await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number', week)
 
+// ── FRIENDLY / PRE-SEASON GAMES ────────────────────────
+// Resolve every pending friendly (preseason_games) on every invocation —
+// both halves, not just half 2 — since these have their own scheduled_date
+// (set by whichever GM booked them) that has nothing to do with which half
+// of the real-game week is next. Deferring them to half 2 only meant a
+// friendly already overdue by its own date sat unresolved for an extra
+// click for no reason; resolving them as soon as any sim runs matches
+// what a commissioner actually expects to see happen.
+try {
+const { data: pendingFriendlies } = await supabaseAdmin
+.from('preseason_games').select('id').eq('season','2025-26').in('status',['scheduled','accepted'])
+for (const pf of (pendingFriendlies||[])) {
+const r = await simulatePreseasonGame(pf.id)
+if (r.success) friendliesSimulated++
+}
+} catch(friendlyErr) { console.warn('Friendly games step failed:', friendlyErr) }
+
 if (half === 1) {
 // Half 1 done — give GMs a recap of just these games now (half 2 will
 // send its own recap when the week actually finishes), then stop here.
@@ -741,9 +759,9 @@ if (half === 1) {
 try { await runPostSimNotifications(week, gamesCreated, techFoulEvents) } catch (notifErr) { console.warn('Half-1 notifications failed:', notifErr) }
 await supabaseAdmin.from('season_config').update({ next_sim_half: 2 }).eq('id',1)
 return NextResponse.json({
-success: true, week, half: 1, games_simulated: gamesSimulated,
-message: gamesSimulated > 0
-? `Semana ${week} — dias 1-3 simulados (${gamesSimulated} jogos). Corre outra vez para simular os dias 4-7.`
+success: true, week, half: 1, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated,
+message: gamesSimulated > 0 || friendliesSimulated > 0
+? `Semana ${week} — dias 1-3 simulados (${gamesSimulated} jogos, ${friendliesSimulated} amigável(is)). Corre outra vez para simular os dias 4-7.`
 : `Semana ${week} — dias 1-3 (sem jogos nesta fase). Corre outra vez para simular os dias 4-7.`
 })
 }
@@ -1651,19 +1669,6 @@ await supabaseAdmin.from('injury_log').update({ status:'resolved', healed_at:new
 }
 }
 } catch(e) { console.warn('Recovery step failed',e) }
-
-// ── FRIENDLY / PRE-SEASON GAMES ────────────────────────
-// Resolve every pending friendly (preseason_games) alongside the week's real
-// games, so the commissioner doesn't have to trigger each one individually.
-let friendliesSimulated = 0
-try {
-const { data: pendingFriendlies } = await supabaseAdmin
-.from('preseason_games').select('id').eq('season','2025-26').in('status',['scheduled','accepted'])
-for (const pf of (pendingFriendlies||[])) {
-const r = await simulatePreseasonGame(pf.id)
-if (r.success) friendliesSimulated++
-}
-} catch(friendlyErr) { console.warn('Friendly games step failed:', friendlyErr) }
 
 // ── SPONSOR OBJECTIVES ────────────────────────────────
 try {
