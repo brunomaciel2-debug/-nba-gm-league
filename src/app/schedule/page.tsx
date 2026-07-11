@@ -12,7 +12,6 @@ export default function SchedulePage() {
   const [teamMap,setTeamMap]=useState<Record<string,any>>({})
   const [worldTeamIds,setWorldTeamIds]=useState<Set<string>>(new Set())
   const [loading,setLoading]=useState(true)
-  const [expandedGame,setExpandedGame]=useState<string|null>(null)
 
   const GAME_TYPE_LABEL_EN: Record<string,{label:string,bg:string,color:string}> = {
     preseason: {label:'Pre-Season',    bg:'#f0f9ff',color:'#0369a1'},
@@ -89,53 +88,6 @@ export default function SchedulePage() {
 
   const fmtDate=(iso:string)=>new Date(iso).toLocaleDateString(isPT?'pt-PT':'en-US',{weekday:'short',month:'short',day:'numeric'})
 
-  // World-team friendlies have no /game/[id] page to link to (see
-  // preseason-simulator.ts) — show the same real per-player box score inline
-  // instead, straight from preseason_games.box_score.
-  const worldBoxTable=(rows:any[])=>(
-    <table className="w-full text-xs" style={{borderCollapse:'collapse'}}>
-      <thead>
-        <tr style={{background:'#f0ece5'}}>
-          <th className="px-3 py-1.5 text-left" style={{color:'#5c554e'}}>{isPT?'Jogador':'Player'}</th>
-          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Min':'Min'}</th>
-          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Pts':'Pts'}</th>
-          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Res':'Reb'}</th>
-          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Ass':'Ast'}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {[...rows].sort((a:any,b:any)=>b.pts-a.pts).map((p:any,i:number)=>(
-          <tr key={p.player_id} style={{background:i%2===0?'#faf8f5':'#fff'}}>
-            <td className="px-3 py-1.5 font-semibold" style={{color:'#1a1512'}}>
-              <Link href={`/player/${p.player_id}`} className="no-underline" style={{color:'#1a1512'}}>{p.name}</Link>
-              <span style={{color:'#8a8279',fontWeight:400}}> {p.pos}</span>
-            </td>
-            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.mins}</td>
-            <td className="px-2 py-1.5 text-center font-bold" style={{color:'#1a1512'}}>{p.pts}</td>
-            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.reb}</td>
-            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.ast}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-  const renderWorldBoxScore=(g:any)=>{
-    const home=g.box_score?.home||[],away=g.box_score?.away||[]
-    if(!home.length&&!away.length)return null
-    return(
-      <div className="mt-2 grid sm:grid-cols-2 gap-3">
-        <div className="rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
-          <div className="px-3 py-1.5 text-xs font-bold" style={{background:'#e2dcd5',color:'#1a1512'}}>{teamMap[g.home_team]?.name||g.home_team}</div>
-          {worldBoxTable(home)}
-        </div>
-        <div className="rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
-          <div className="px-3 py-1.5 text-xs font-bold" style={{background:'#e2dcd5',color:'#1a1512'}}>{teamMap[g.away_team]?.name||g.away_team}</div>
-          {worldBoxTable(away)}
-        </div>
-      </div>
-    )
-  }
-
   if(loading) return <div className="max-w-5xl mx-auto px-4 py-12 text-center" style={{color:'#8a8279'}}>{t('common.loading')}</div>
 
   return (
@@ -175,7 +127,6 @@ export default function SchedulePage() {
               const typeInfo=GAME_TYPE_LABEL[g.game_type||'regular']||GAME_TYPE_LABEL.regular
               const gDate=dateOf(g)
               const hasBoxScore=isFinal&&g.isWorldFriendly&&g.box_score
-              const isExpanded=expandedGame===g.id
               return(
                 <div key={g.id} className="px-4 py-2.5 rounded-xl" style={{background:'#faf8f5',border:'1px solid #e2dcd5'}}>
                   <div className="flex items-center gap-3">
@@ -194,12 +145,11 @@ export default function SchedulePage() {
                     {isFinal
                       ?(g.isWorldFriendly
                         ?(hasBoxScore
-                          ?<button onClick={()=>setExpandedGame(isExpanded?null:g.id)} className="text-xs px-2 py-1 rounded flex-shrink-0" style={{background:'#e8e2d6',color:'#1d4ed8',border:'none',cursor:'pointer'}}>{isPT?'Box Score':'Box Score'} {isExpanded?'▲':'▼'}</button>
+                          ?<Link href={`/game/friendly/${g.id}`} className="text-xs no-underline px-2 py-1 rounded flex-shrink-0" style={{background:'#e8e2d6',color:'#1d4ed8'}}>{isPT?'Box Score →':'Box Score →'}</Link>
                           :<span className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>{isPT?'Final':'Final'}</span>)
                         :<Link href={`/game/${g.id}`} className="text-xs no-underline px-2 py-1 rounded flex-shrink-0" style={{background:'#e8e2d6',color:'#1d4ed8'}}>{isPT?'Box Score →':'Box Score →'}</Link>)
                       :<span className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>{isPT?'Agendado':'Scheduled'}</span>}
                   </div>
-                  {isExpanded&&hasBoxScore&&renderWorldBoxScore(g)}
                 </div>
               )
             })}

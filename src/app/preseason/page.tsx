@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import { countryName } from '@/lib/country-pt'
@@ -51,7 +52,6 @@ export default function PreseasonPage() {
   const [notes,setNotes]=useState('')
   const [saving,setSaving]=useState(false)
   const [msg,setMsg]=useState('')
-  const [expandedGame,setExpandedGame]=useState<string|null>(null)
 
   useEffect(()=>{
     supabase.auth.getUser().then(async({data:{user}})=>{
@@ -116,55 +116,6 @@ export default function PreseasonPage() {
 
   const fmtDate=(d:string)=>new Date(d+'T12:00:00').toLocaleDateString(isPT?'pt-PT':'en-US',{weekday:'short',month:'short',day:'numeric'})
   const getTeamName=(id:string,type:string)=>type==='world'?worldTeams.find(t=>t.id===id)?.name||id:nbaTeams.find(t=>t.id===id)?.name||id
-
-  // World-team friendlies never get a real `games` row (no games/[id] page
-  // to link to — see preseason-simulator.ts), so the box score for both
-  // sides is rendered right here instead, straight from
-  // preseason_games.box_score — real per-player stats for both teams now,
-  // since the World roster is run through the same engine as an NBA team.
-  const worldBoxTable=(rows:any[])=>(
-    <table className="w-full text-xs" style={{borderCollapse:'collapse'}}>
-      <thead>
-        <tr style={{background:'#f0ece5'}}>
-          <th className="px-3 py-1.5 text-left" style={{color:'#5c554e'}}>{isPT?'Jogador':'Player'}</th>
-          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Min':'Min'}</th>
-          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Pts':'Pts'}</th>
-          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Res':'Reb'}</th>
-          <th className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{isPT?'Ass':'Ast'}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {[...rows].sort((a:any,b:any)=>b.pts-a.pts).map((p:any,i:number)=>(
-          <tr key={p.player_id} style={{background:i%2===0?'#faf8f5':'#fff'}}>
-            <td className="px-3 py-1.5 font-semibold" style={{color:'#1a1512'}}>
-              <a href={`/player/${p.player_id}`} className="no-underline" style={{color:'#1a1512'}}>{p.name}</a>
-              <span style={{color:'#8a8279',fontWeight:400}}> {p.pos}</span>
-            </td>
-            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.mins}</td>
-            <td className="px-2 py-1.5 text-center font-bold" style={{color:'#1a1512'}}>{p.pts}</td>
-            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.reb}</td>
-            <td className="px-2 py-1.5 text-center" style={{color:'#5c554e'}}>{p.ast}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-  const renderWorldBoxScore=(g:any)=>{
-    const home=g.box_score?.home||[],away=g.box_score?.away||[]
-    if(!home.length&&!away.length)return null
-    return(
-      <div className="mt-2 grid sm:grid-cols-2 gap-3">
-        <div className="rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
-          <div className="px-3 py-1.5 text-xs font-bold" style={{background:'#e2dcd5',color:'#1a1512'}}>{getTeamName(g.home_team,g.home_type)}</div>
-          {worldBoxTable(home)}
-        </div>
-        <div className="rounded-lg overflow-hidden" style={{border:'1px solid #e2dcd5'}}>
-          <div className="px-3 py-1.5 text-xs font-bold" style={{background:'#e2dcd5',color:'#1a1512'}}>{getTeamName(g.away_team,g.away_type)}</div>
-          {worldBoxTable(away)}
-        </div>
-      </div>
-    )
-  }
 
   const allDates=getDates()
 
@@ -238,11 +189,9 @@ export default function PreseasonPage() {
               const isMyRequest=g.requested_by===myTeamId
               const isWorldGame=g.home_type==='world'||g.away_type==='world'
               const hasBoxScore=g.status==='final'&&isWorldGame&&g.box_score
-              const isExpanded=expandedGame===g.id
               return(
                 <div key={g.id} className="px-4 py-3 rounded-xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-                  <div className="flex items-center gap-3" style={{cursor:hasBoxScore?'pointer':'default'}}
-                       onClick={()=>hasBoxScore&&setExpandedGame(isExpanded?null:g.id)}>
+                  <div className="flex items-center gap-3">
                     <div className="flex-1">
                       <div className="font-bold text-sm" style={{color:'#1a1512'}}>{getTeamName(g.home_team,g.home_type)}<span style={{color:'#8a8279',fontWeight:400}}> vs </span>{getTeamName(g.away_team,g.away_type)}</div>
                       <div className="text-xs" style={{color:'#8a8279'}}>{g.scheduled_date?fmtDate(g.scheduled_date):'TBD'}{isWorldGame?(isPT?' · vs Equipa Internacional (IA)':' · vs World Team (AI)'):''}</div>
@@ -250,9 +199,8 @@ export default function PreseasonPage() {
                     {g.status==='final'&&<div className="font-black text-sm" style={{color:'#1a1512'}}>{g.home_score}-{g.away_score}</div>}
                     <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:ss.bg,color:ss.color}}>
                       {ss.label}{g.status==='pending'&&isMyRequest?(isPT?' (enviado)':' (sent)'):''}</span>
-                    {hasBoxScore&&<span className="text-xs" style={{color:'#8a8279'}}>{isExpanded?'▲':'▼'}</span>}
+                    {hasBoxScore&&<Link href={`/game/friendly/${g.id}`} className="text-xs no-underline px-2 py-1 rounded flex-shrink-0" style={{background:'#e8e2d6',color:'#1d4ed8'}}>{isPT?'Box Score →':'Box Score →'}</Link>}
                   </div>
-                  {isExpanded&&hasBoxScore&&renderWorldBoxScore(g)}
                 </div>
               )
             })}
@@ -272,18 +220,15 @@ export default function PreseasonPage() {
               const ss=STATUS_STYLE[g.status]||STATUS_STYLE.pending
               const isWorldGame=g.home_type==='world'||g.away_type==='world'
               const hasBoxScore=g.status==='final'&&isWorldGame&&g.box_score
-              const isExpanded=expandedGame===`all-${g.id}`
               return(
                 <div key={g.id} className="px-4 py-2.5 rounded-lg" style={{background:'#faf8f5',border:'1px solid #e2dcd5'}}>
-                  <div className="flex items-center gap-3" style={{cursor:hasBoxScore?'pointer':'default'}}
-                       onClick={()=>hasBoxScore&&setExpandedGame(isExpanded?null:`all-${g.id}`)}>
+                  <div className="flex items-center gap-3">
                     <div className="w-24 text-xs font-semibold flex-shrink-0" style={{color:'#8a8279'}}>{g.scheduled_date?fmtDate(g.scheduled_date):'TBD'}</div>
                     <div className="flex-1 text-sm font-semibold" style={{color:'#1a1512'}}>{getTeamName(g.home_team,g.home_type)} vs {getTeamName(g.away_team,g.away_type)}</div>
                     {g.status==='final'&&<div className="font-black text-sm" style={{color:'#1a1512'}}>{g.home_score}-{g.away_score}</div>}
                     <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:ss.bg,color:ss.color}}>{ss.label}</span>
-                    {hasBoxScore&&<span className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>{isExpanded?'▲':'▼'}</span>}
+                    {hasBoxScore&&<Link href={`/game/friendly/${g.id}`} className="text-xs no-underline px-2 py-1 rounded flex-shrink-0" style={{background:'#e8e2d6',color:'#1d4ed8'}}>{isPT?'Box Score →':'Box Score →'}</Link>}
                   </div>
-                  {isExpanded&&hasBoxScore&&renderWorldBoxScore(g)}
                 </div>
               )
             })}
