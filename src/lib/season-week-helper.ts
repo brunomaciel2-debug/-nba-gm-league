@@ -12,6 +12,22 @@ export function getWeekDates(week: number): { start: Date; end: Date } {
   return { start, end }
 }
 
+// Splits a week's date range into the same two halves the simulator now
+// runs in — days 0-2 (3 days) and days 3-6 (4 days) — matching the 4
+// rounds of games per week (offsets 0,2,4,6 in schedule-generator.ts):
+// rounds 0-1 fall in half 1, rounds 2-3 fall in half 2.
+export function getHalfWeekDates(week: number, half: 1 | 2): { start: Date; end: Date } {
+  const { start: weekStart, end: weekEnd } = getWeekDates(week)
+  if (half === 1) {
+    const end = new Date(weekStart)
+    end.setDate(end.getDate() + 2)
+    return { start: weekStart, end }
+  }
+  const start = new Date(weekStart)
+  start.setDate(start.getDate() + 3)
+  return { start, end: weekEnd }
+}
+
 export function getStatusForWeek(week: number): string {
   if (week <= 0)              return 'pre-season'
   if (week === 1)             return 'free-agency'      // Jul 4-10

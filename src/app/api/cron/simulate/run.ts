@@ -5,7 +5,7 @@ import { generatePowerRankings } from '@/lib/generate-power-rankings'
 import { runPostSimNotifications } from '@/lib/notifications'
 import { generateWeeklyScoutPoints } from '@/lib/scouting'
 import { homeWinProb, updateElo } from '@/lib/elo-helper'
-import { getStatusForWeek } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates } from '@/lib/season-week-helper'
 import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
@@ -40,6 +40,15 @@ const week = cfg.current_week + 1
 // tactics/rotations only — injuries/fatigue still happen, but nothing here
 // should count toward standings, player season stats, or awards.
 const isPreseason = getStatusForWeek(week) === 'pre-season'
+// A Regular-Season week has too much work (30 teams' worth of real games +
+// injuries + the full once-per-week aftermath) to reliably fit in a single
+// invocation. Split it into 2 smaller sim actions instead: half 1 covers
+// the week's first 3 days (rounds 0-1), half 2 the remaining 4 days
+// (rounds 2-3) — see getHalfWeekDates(). Every other phase (Pre-Season,
+// Summer League, Playoffs, etc.) already fits comfortably, so it always
+// acts like "half 2" (a single full pass, current_week advances normally).
+const isRegularSeason = getStatusForWeek(week) === 'regular-season'
+const half: 1 | 2 = isRegularSeason ? (cfg.next_sim_half === 2 ? 2 : 1) : 2
 
 let gamesSimulated = 0
 const gamesCreated: string[] = []
@@ -172,8 +181,17 @@ ranked.forEach((t, i) => { const rank = i+1; if (rank>=4 && rank<=13) inFightSet
 // share the same marquee status now that each has its own real date.
 const marquee = getMarqueeWeekInfo(week)
 
-// Only the games actually scheduled for this week — nothing invented
-const { data: weekGames } = await supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
+// Only the games actually scheduled for this week — nothing invented.
+// Regular-Season weeks are further split by scheduled_date into whichever
+// half is next (see isRegularSeason/half above), so a single invocation
+// only ever has to simulate ~half the week's games.
+let weekGamesQuery = supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
+if (isRegularSeason) {
+const ymdLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
+weekGamesQuery = weekGamesQuery.gte('scheduled_date', ymdLocal(halfStart)).lte('scheduled_date', ymdLocal(halfEnd))
+}
+const { data: weekGames } = await weekGamesQuery
 
 for (const sg of (weekGames||[])) {
 const ht = teamMap[sg.home_team], at = teamMap[sg.away_team]
@@ -667,10 +685,28 @@ await supabaseAdmin.from('players').update({ health:newHealth }).eq('id',pid)
 }
 }
 
-// Keep season_config.status consistent with the same calendar the UI shows
+// Keep season_config.status consistent with the same calendar the UI shows.
+// Half 1 of a Regular-Season week does NOT advance current_week yet — the
+// week isn't done until half 2 (the remaining 4 days) also completes.
 const newStatus = isPreseason ? 'pre-season' : 'regular-season'
-await supabaseAdmin.from('season_config').update({ current_week: week, status: newStatus }).eq('id',1)
+if (!(isRegularSeason && half === 1)) {
+await supabaseAdmin.from('season_config').update({ current_week: week, status: newStatus, next_sim_half: 1 }).eq('id',1)
+}
 await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number', week)
+
+if (isRegularSeason && half === 1) {
+// Half 1 done — give GMs a recap of just these games now (half 2 will
+// send its own recap when the week actually finishes), then stop here.
+// Everything below (attribute development, awards, power rankings, GM
+// satisfaction, full-week notifications, scouting points, etc.) is a
+// once-per-week step and only runs once the whole week is simulated.
+try { await runPostSimNotifications(week, gamesCreated, techFoulEvents) } catch (notifErr) { console.warn('Half-1 notifications failed:', notifErr) }
+await supabaseAdmin.from('season_config').update({ next_sim_half: 2 }).eq('id',1)
+return NextResponse.json({
+success: true, week, half: 1, games_simulated: gamesSimulated,
+message: `Semana ${week} — dias 1-3 simulados (${gamesSimulated} jogos). Corre outra vez para simular os dias 4-7.`
+})
+}
 
 // ── ATTRIBUTE DEVELOPMENT ─────────────────────────────
 try {
@@ -1633,7 +1669,7 @@ const scoutResult = await generateWeeklyScoutPoints()
 console.log(`Scouting points generated for ${scoutResult.updated} teams`)
 } catch(scoutErr) { console.warn('Scouting points generation failed:', scoutErr) }
 
-return NextResponse.json({ success: true, week, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated })
+return NextResponse.json({ success: true, week, half: isRegularSeason ? 2 : undefined, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated })
 } catch (err: any) {
 return NextResponse.json({ error: err.message }, { status: 500 })
 }
