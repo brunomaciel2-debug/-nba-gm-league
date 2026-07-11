@@ -732,19 +732,18 @@ await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number',
 
 // ── FRIENDLY / PRE-SEASON GAMES ────────────────────────
 // Friendlies have their own scheduled_date (set by whichever GM booked
-// them), independent of the real-game week — but they still need to be
-// split across the 2 halves the same way real games are, or dumping every
-// pending friendly into whichever half happens to run first defeats the
-// entire point of splitting (that half alone could end up doing all the
-// heavy lifting again). Resolve anything due by the end of THIS half —
-// that naturally catches this half's own friendlies plus any overdue
-// backlog on half 1, while friendlies dated later wait for their own half.
+// them) and are simulated strictly within the half whose date range
+// actually contains that date — same rule as real games, no retroactive
+// catch-up. A friendly whose date has already been passed by current_week
+// stays unresolved until the commissioner explicitly rewinds current_week
+// to revisit that interval; it is never silently swept into a later,
+// unrelated half just because it's overdue.
 try {
 const ymdFriendly = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-const { end: friendlyCutoff } = getHalfWeekDates(week, half)
+const { start: friendlyStart, end: friendlyEnd } = getHalfWeekDates(week, half)
 const { data: pendingFriendlies } = await supabaseAdmin
 .from('preseason_games').select('id').eq('season','2025-26').in('status',['scheduled','accepted'])
-.lte('scheduled_date', ymdFriendly(friendlyCutoff))
+.gte('scheduled_date', ymdFriendly(friendlyStart)).lte('scheduled_date', ymdFriendly(friendlyEnd))
 for (const pf of (pendingFriendlies||[])) {
 const r = await simulatePreseasonGame(pf.id)
 if (r.success) friendliesSimulated++
