@@ -126,9 +126,14 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const space = cap - used
   const teamsMap = Object.fromEntries((allTeams||[]).map((x:any) => [x.id, x]))
 
-  // Merge preseason games
+  // Merge preseason games. An NBA-vs-NBA friendly gets its own real `games`
+  // row once simulated (game_id points to it) — that row is already in the
+  // `games` query above, so re-adding a synthetic entry for the same game
+  // here would show it twice. Only World-team friendlies (which never get a
+  // real `games` row — see preseason-simulator.ts) need a synthetic entry.
+  const realGameIds = new Set((games||[]).map((g:any) => g.id))
   const normalizedPreseason = (preseasonGames||[])
-    .filter((g:any) => ['scheduled','accepted','final'].includes(g.status))
+    .filter((g:any) => ['scheduled','accepted','final'].includes(g.status) && !(g.game_id && realGameIds.has(g.game_id)))
     .map((g:any) => ({
       id: g.game_id || g.id,
       preseason_game_id: g.id,
@@ -141,6 +146,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
       status: g.status === 'final' ? 'final' : 'scheduled',
       played_at: g.scheduled_date ? g.scheduled_date + 'T12:00:00' : null,
       game_type: 'preseason',
+      is_world_friendly: g.home_type !== 'nba' || g.away_type !== 'nba',
       _preseason: true,
     }))
 

@@ -399,7 +399,7 @@ export default function TeamSchedule({
                     })()}
                     <div className="flex-shrink-0 text-right flex items-center gap-2">
                       {isPlayed?(
-                        <Link href={`/game/${g.id}`} className="flex items-center gap-2 no-underline hover:opacity-80">
+                        <Link href={g.is_world_friendly ? `/game/friendly/${g.preseason_game_id||g.id}` : `/game/${g.id}`} className="flex items-center gap-2 no-underline hover:opacity-80">
                           <span className="text-xs font-black px-2 py-0.5 rounded"
                                 style={{background:won?'#dcfce7':'#fee2e2',color:won?'#15803d':'#dc2626'}}>
                             {won?(isPT?'V':'W'):(isPT?'D':'L')}
