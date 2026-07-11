@@ -57,8 +57,15 @@ return all
 export async function runWeeklySimulation() {
 try {
 const { data: cfg } = await supabaseAdmin.from('season_config').select('*').eq('id',1).single()
-if (!cfg || !['active','regular-season','pre-season'].includes(cfg.status)) return NextResponse.json({ message: 'Season not active' })
-const week = cfg.current_week + 1
+const week = (cfg?.current_week || 0) + 1
+// The season is only truly "done" once every week has been simulated —
+// checking a stored `status` column here (as this used to) is fragile: that
+// column is just a display mirror of getStatusForWeek(week) written back
+// below, and drifts out of sync with current_week after any manual rewind
+// (e.g. the commissioner rewinding current_week to revisit an interval),
+// which then wrongly blocked simulation entirely. week vs total_weeks is
+// the one value nothing else can desync it from.
+if (!cfg || week > (cfg.total_weeks || 52)) return NextResponse.json({ message: 'Season not active' })
 // Pre-Season weeks (per the same calendar shown in the UI) are for testing
 // tactics/rotations only — injuries/fatigue still happen, but nothing here
 // should count toward standings, player season stats, or awards.
@@ -723,8 +730,13 @@ await supabaseAdmin.from('players').update({ health:newHealth }).eq('id',pid)
 
 // Keep season_config.status consistent with the same calendar the UI shows.
 // Half 1 of any week does NOT advance current_week yet — the week isn't
-// done until half 2 (the remaining 4 days) also completes.
-const newStatus = isPreseason ? 'pre-season' : 'regular-season'
+// done until half 2 (the remaining 4 days) also completes. Must be the full
+// getStatusForWeek(week) here, not a preseason/regular-season binary — this
+// collapsed offseason, free-agency, summer-league, play-in, playoffs, and
+// draft weeks all into 'regular-season', which then also broke anything
+// downstream reading the stored status (e.g. TeamSchedule.tsx's Pre-Season
+// friendly scheduler, which only shows once status==='pre-season').
+const newStatus = getStatusForWeek(week)
 if (half !== 1) {
 await supabaseAdmin.from('season_config').update({ current_week: week, status: newStatus, next_sim_half: 1 }).eq('id',1)
 }
