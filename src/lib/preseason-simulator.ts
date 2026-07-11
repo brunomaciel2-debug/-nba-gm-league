@@ -188,15 +188,29 @@ export async function simulatePreseasonGame(id: string) {
     const nbaTeamId = nbaSideIsHome ? pg.home_team : pg.away_team
     const worldTeamId = nbaSideIsHome ? pg.away_team : pg.home_team
 
-    const [{ data: nbaTeam }, { data: worldTeam }, { data: nbaPlayers }, { data: worldPlayers }] = await Promise.all([
+    const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
+    const week = (cfg?.current_week || 0) + 1
+    const [{ data: nbaTeam }, { data: worldTeam }, { data: nbaPlayers }, { data: worldPlayers }, { data: nbaOrders }, { data: nbaHeadCoach }] = await Promise.all([
       supabaseAdmin.from('teams').select('*').eq('id', nbaTeamId).single(),
       supabaseAdmin.from('world_teams').select('*').eq('id', worldTeamId).single(),
       supabaseAdmin.from('players').select('*').eq('team_id', nbaTeamId).eq('status', 'active'),
       supabaseAdmin.from('players').select('*').eq('world_team_id', worldTeamId).eq('nba_recruitable', false),
+      supabaseAdmin.from('gm_orders').select('*').eq('week_number', week).eq('team_id', nbaTeamId).maybeSingle(),
+      supabaseAdmin.from('coaches').select('off_adjustment,def_adjustment').eq('role', 'head_coach').eq('team_id', nbaTeamId).maybeSingle(),
     ])
 
     if (nbaPlayers?.length && worldPlayers?.length) {
-      const nbaOrd = { depth_chart: buildAutoDepthChart(nbaPlayers) }
+      // A submitted GM order used to be thrown away here — the NBA side
+      // always got the same GM-less auto depth chart as the World team, so
+      // a real GM's Weekly Orders (rotation, pace, style, priorities) had
+      // zero effect on these friendlies even when they existed. Now it's
+      // used exactly like a real NBA-vs-NBA friendly does, falling back to
+      // the auto depth chart only when no orders were submitted yet.
+      const nbaOrd = nbaOrders
+        ? { ...nbaOrders, off_adjustment: nbaHeadCoach?.off_adjustment, def_adjustment: nbaHeadCoach?.def_adjustment }
+        : { depth_chart: buildAutoDepthChart(nbaPlayers) }
+      const hBallRoles = nbaOrders?.depth_chart?.ball_roles || {}
+      nbaPlayers.forEach((p: any) => { p.ball_role = hBallRoles[p.name] })
       const worldOrd = { depth_chart: buildAutoDepthChart(worldPlayers) }
       const homePlayers = nbaSideIsHome ? nbaPlayers : worldPlayers
       const awayPlayers = nbaSideIsHome ? worldPlayers : nbaPlayers
