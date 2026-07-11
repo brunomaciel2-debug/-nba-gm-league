@@ -41,6 +41,12 @@ export interface TeamInfo {
   href?: string
 }
 
+export interface PeriodScore {
+  quarter: number
+  home: number
+  away: number
+}
+
 export interface GameBoxScoreProps {
   homeTeam: TeamInfo
   awayTeam: TeamInfo
@@ -48,6 +54,7 @@ export interface GameBoxScoreProps {
   awayScore: number
   homeBox: BoxRow[]
   awayBox: BoxRow[]
+  periodScores?: PeriodScore[] | null
   playedAt?: string | null
   weekLabel?: string | null
   attendance?: number | null
@@ -95,7 +102,7 @@ const cellValue = (b: any, key: string) => {
 
 export default function GameBoxScore(props: GameBoxScoreProps) {
   const {
-    homeTeam, awayTeam, homeScore, awayScore, homeBox, awayBox,
+    homeTeam, awayTeam, homeScore, awayScore, homeBox, awayBox, periodScores,
     playedAt, weekLabel, attendance, refereeName, refereeHref, refereeRating,
     status, isPT, backHref, backLabel, playerHref,
   } = props
@@ -299,6 +306,41 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             {!homeWon && <div className="text-xs font-bold mt-1" style={{ color: '#4ade80' }}>{isPT ? 'VITÓRIA' : 'WIN'}</div>}
           </div>
         </div>
+
+        {/* LINE SCORE — Q1-Q4 plus OT1/OT2/... if the game went to overtime */}
+        {periodScores && periodScores.length > 0 && (
+          <div className="mt-5 pt-4 overflow-x-auto" style={{ borderTop: '1px solid #2a2218' }}>
+            <table className="mx-auto text-xs" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th className="px-3 py-1 text-left" style={{ color: '#5c554e' }}></th>
+                  {periodScores.map(p => (
+                    <th key={p.quarter} className="px-3 py-1 text-right font-semibold" style={{ color: '#8a8279' }}>
+                      {p.quarter <= 4 ? `Q${p.quarter}` : `OT${p.quarter - 4}`}
+                    </th>
+                  ))}
+                  <th className="px-3 py-1 text-right font-bold" style={{ color: '#8a8279' }}>{isPT ? 'FINAL' : 'FINAL'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="px-3 py-1 text-left font-semibold" style={{ color: homeColorOnDark }}>{homeTeam.name}</td>
+                  {periodScores.map(p => (
+                    <td key={p.quarter} className="px-3 py-1 text-right" style={{ color: '#d8d2c5' }}>{p.home}</td>
+                  ))}
+                  <td className="px-3 py-1 text-right font-bold" style={{ color: homeColorOnDark }}>{homeScore}</td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-1 text-left font-semibold" style={{ color: awayColorOnDark }}>{awayTeam.name}</td>
+                  {periodScores.map(p => (
+                    <td key={p.quarter} className="px-3 py-1 text-right" style={{ color: '#d8d2c5' }}>{p.away}</td>
+                  ))}
+                  <td className="px-3 py-1 text-right font-bold" style={{ color: awayColorOnDark }}>{awayScore}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* BOX SCORES */}

@@ -72,6 +72,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
       awayScore={game.away_score}
       homeBox={homeBox}
       awayBox={awayBox}
+      periodScores={game.period_scores}
       playedAt={game.played_at}
       weekLabel={game.week_number > 0 ? `${isPT ? 'Semana' : 'Week'} ${game.week_number}` : null}
       attendance={game.attendance}

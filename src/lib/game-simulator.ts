@@ -138,8 +138,30 @@ player_id: p.id, mins: p.mins, is_starter: !!p.isStarter,
 pts: s.pts||0, ast: s.ast||0, stl: s.stl||0, blk: s.blk||0,
 fga: s.fga||0, fgm: s.fgm||0, tpa: s.tpa||0, tpm: s.tpm||0, fta: s.fta||0, ftm: s.ftm||0,
 pf: s.pf||0, tech_fouls: s.tf||0, off_reb: s.or||0, def_reb: s.dr||0, reb: (s.or||0)+(s.dr||0),
-turnovers: s.to||0, plus_minus: 0,
+turnovers: s.to||0, plus_minus: s.plus_minus||0,
 }
+}
+
+// Real basketball has exactly 5 players on the floor per side at any given
+// moment — but this engine's `mins` is a whole-game eligibility weight (see
+// `ops`/`dps` above), not a substitution clock, so there's no existing
+// concept of "on the floor right now" to hang +/- off of. This reconstructs
+// one, per possession, the same way every other uncertain outcome in this
+// file is resolved: a weighted random draw (via wt()), one player per
+// position, weighted by each player's own allocated mins — a player with
+// 32 of a position's ~48 minutes is on the floor roughly 2/3 of the time,
+// a bench player with 8 roughly 1/6, matching their real submitted rotation
+// share instead of an invented number.
+function onCourtFive(ps:any[]):any[]{
+const byPos:Record<string,any[]>={}
+ps.forEach(p=>{if(p.mins>0&&!p.ejected){const pos=p.pos||"SF";(byPos[pos]=byPos[pos]||[]).push(p)}})
+const five:any[]=[]
+for(const pos of ["PG","SG","SF","PF","C"]){
+const pool=byPos[pos];if(!pool||!pool.length)continue
+const picked=wt(pool.map(p=>({p,w:Math.max(1,p.mins)})))
+if(picked)five.push(picked)
+}
+return five
 }
 
 // A technical foul counts as a personal foul AND its own separate tally.
@@ -195,7 +217,7 @@ const sc={home:0,away:0},st:Record<string,any>={},fat:Record<string,number>={},m
 const tol={home:{used:0,q:{0:0,1:0,2:0,3:0}} as any,away:{used:0,q:{0:0,1:0,2:0,3:0}} as any}
 let isGT=false,gtW=""
 const pbp:any[]=[],hb:any[]=[],ab:any[]=[]
-const seed=(ps:any[],ord:any)=>ps.forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0};fat[p.id]=Math.min(100,Math.max(40,(p.health??100)-(ord.backToBack?12*(1-coachDampen(ord.substitutions)):0)));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
+const seed=(ps:any[],ord:any)=>ps.forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0,plus_minus:0};fat[p.id]=Math.min(100,Math.max(40,(p.health??100)-(ord.backToBack?12*(1-coachDampen(ord.substitutions)):0)));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
 seed(hp,ho);seed(ap,ao)
 const pa=(ho.pace+ao.pace)/2,ppq=Math.round(23+pa/100*4)
 const gameReferee=ho.referee||ao.referee
@@ -204,6 +226,8 @@ const gameChippy=!!(ho.isRivalry||ao.isRivalry||ho.decisive||ao.decisive)
 // score is level after Q4, keep playing 5-minute overtime periods (q=4,5,6…)
 // until someone actually wins, same as real NBA rules.
 let q=0
+const periods:{quarter:number,home:number,away:number}[]=[]
+let prevHome=0,prevAway=0
 while(q<4||sc.home===sc.away){
 const isOT=q>=4
 const periodLen=isOT?300:720
@@ -230,16 +254,33 @@ const ops=side==="home"?(isGT&&side===gtW?hp.filter(p=>p.mins>0&&!p.ejected).sli
 const dps=side==="home"?ap.filter(p=>p.mins>0&&!p.ejected):hp.filter(p=>p.mins>0&&!p.ejected)
 const os=side as "home"|"away",ds=(side==="home"?"away":"home") as "home"|"away"
 if((part[ds] as number)>=8&&(tol[os].q[q]||0)<2&&tol[os].used<7){tol[os].q[q]=(tol[os].q[q]||0)+1;tol[os].used++;part.home=0;part.away=0;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"timeout",description:`⏱ TIMEOUT — ${ot.name}`,home_score:sc.home,away_score:sc.away})}
+// +/- — see onCourtFive() above for why this is a per-possession weighted
+// draw rather than a real substitution clock. Only the attacking side's
+// score can move inside simP(), so the possession's point swing applies as
+// +delta to whoever's on the floor for the scoring side and -delta to
+// whoever's on the floor for the side that just allowed it — same net
+// margin real +/- tracks, just resolved probabilistically per possession
+// instead of by a literal on/off-court clock.
+const scBefore=sc[os]
+const onCourtOff=onCourtFive(side==="home"?hp:ap)
+const onCourtDef=onCourtFive(side==="home"?ap:hp)
 simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp)
+const pmDelta=sc[os]-scBefore
+if(pmDelta!==0){
+onCourtOff.forEach(p=>{st[p.id].plus_minus+=pmDelta})
+onCourtDef.forEach(p=>{st[p.id].plus_minus-=pmDelta})
+}
 side=side==="home"?"away":"home"
 }
+periods.push({quarter:q+1,home:sc.home-prevHome,away:sc.away-prevAway})
+prevHome=sc.home;prevAway=sc.away
 q++
 }
 // Everyone gets a row now — 0-min players show up as DNP-Coach's Decision
 // in the box score UI instead of silently vanishing.
 hp.forEach(p=>hb.push(toBoxRow(p,st[p.id])))
 ap.forEach(p=>ab.push(toBoxRow(p,st[p.id])))
-return{homeScore:sc.home,awayScore:sc.away,homeBox:hb,awayBox:ab,pbp}
+return{homeScore:sc.home,awayScore:sc.away,homeBox:hb,awayBox:ab,pbp,periods}
 }
 
 function applyDC(players:any[],dc:any){

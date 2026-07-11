@@ -126,7 +126,7 @@ export async function simulatePreseasonGame(id: string) {
 
   const isNbaVsNba = pg.home_type === 'nba' && pg.away_type === 'nba'
   let homeScore = 0, awayScore = 0
-  let homeBox: any[] = [], awayBox: any[] = [], pbp: any[] = []
+  let homeBox: any[] = [], awayBox: any[] = [], pbp: any[] = [], periods: any[] = []
   let nbaPlayerIdsForInjury = new Set<string>()
 
   if (isNbaVsNba) {
@@ -175,7 +175,7 @@ export async function simulatePreseasonGame(id: string) {
 
     const result = simulateGame(homeTeam, awayTeam, hp, ap, hOrd, aOrd)
     homeScore = result.homeScore; awayScore = result.awayScore
-    homeBox = result.homeBox; awayBox = result.awayBox; pbp = result.pbp
+    homeBox = result.homeBox; awayBox = result.awayBox; pbp = result.pbp; periods = result.periods
     nbaPlayerIdsForInjury = new Set([...hp, ...ap].map((p: any) => String(p.id)))
   } else {
     // One side is a "Rest of the World" team. These DO have a real roster
@@ -220,7 +220,7 @@ export async function simulatePreseasonGame(id: string) {
       const awayTeamObj = nbaSideIsHome ? { id: worldTeam.id, name: worldTeam.name } : nbaTeam
 
       const result = simulateGame(homeTeamObj, awayTeamObj, homePlayers, awayPlayers, homeOrd, awayOrd)
-      homeScore = result.homeScore; awayScore = result.awayScore
+      homeScore = result.homeScore; awayScore = result.awayScore; periods = result.periods
       // box rows only carry player_id + stats — enrich with name/pos so the
       // World-team box score (which has no `games`/`players` join to fall
       // back on, see below) is self-contained for display.
@@ -256,6 +256,7 @@ export async function simulatePreseasonGame(id: string) {
       // happened to be in.
       scheduled_date: pg.scheduled_date,
       game_type: 'preseason',
+      period_scores: periods,
     }).select().single()
     if (!gameRec) return { success: false as const, error: 'Failed to create game record' }
     gameId = gameRec.id
@@ -279,6 +280,7 @@ export async function simulatePreseasonGame(id: string) {
 
   await supabaseAdmin.from('preseason_games').update({
     home_score: homeScore, away_score: awayScore, status: 'final', game_id: gameId,
+    period_scores: periods,
     ...(worldGameBox ? { box_score: worldGameBox } : {}),
   }).eq('id', id)
 

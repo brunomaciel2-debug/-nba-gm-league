@@ -173,6 +173,7 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
       played_at: new Date().toISOString(), game_type: 'playoff',
       attendance: Math.round((ht.arena_capacity || 18000) * 0.97), is_rivalry: false,
       referee_id: refereeId, referee_rating: refereeRating,
+      period_scores: result.periods,
     }).select().single()
 
     if (gameRec) {

@@ -91,6 +91,7 @@ export default function FriendlyGamePage({ params }: { params: { id: string } })
       awayScore={pg.away_score}
       homeBox={homeBox}
       awayBox={awayBox}
+      periodScores={pg.period_scores}
       playedAt={pg.scheduled_date ? `${pg.scheduled_date}T12:00:00` : null}
       weekLabel={isPT ? 'Amigável' : 'Friendly'}
       status={pg.status}

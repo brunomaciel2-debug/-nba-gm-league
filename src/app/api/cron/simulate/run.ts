@@ -332,6 +332,7 @@ const { data: gameRec } = await supabaseAdmin.from('games').update({
 home_score: result.homeScore, away_score: result.awayScore,
 status: 'final', played_at: new Date().toISOString(),
 attendance, is_rivalry: isRivalry, referee_id: refereeIdForGame, referee_rating: refereeRating,
+period_scores: result.periods,
 }).eq('id', sg.id).select().single()
 if (!gameRec) continue
 gamesSimulated++
