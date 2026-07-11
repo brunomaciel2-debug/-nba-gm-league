@@ -201,7 +201,15 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   const save = async () => {
     if(locked || assignedInjuredNames.length>0 || !allPositionsOk)return
     setSaving(true)
-    const week = currentWeek || ((await supabase.from('season_config').select('current_week').eq('id',1).single()).data?.current_week || 0) + 1
+    // Always re-check the live week instead of trusting the value cached in
+    // React state at page load — if the season actually advanced while this
+    // tab sat open (a simulation ran, or the commissioner did a reset), the
+    // cached currentWeek silently pointed Save at the wrong, already-passed
+    // week, overwriting that week's real (possibly locked) orders instead of
+    // the upcoming one the simulator actually reads.
+    const { data: freshCfg } = await supabase.from('season_config').select('current_week').eq('id',1).single()
+    const week = (freshCfg?.current_week || 0) + 1
+    if (week !== currentWeek) setCurrentWeek(week)
     await supabase.from('gm_orders').upsert({
       team_id:teamId, week_number:week,
       priority_1:pris[0], priority_2:pris[1], priority_3:pris[2],
