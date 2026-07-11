@@ -455,6 +455,7 @@ const { data: ex } = await supabaseAdmin.from('player_stats')
 if (ex) {
 await supabaseAdmin.from('player_stats').update({
 games: ex.games+1, pts: ex.pts+box.pts, reb: ex.reb+box.reb,
+off_reb: (ex.off_reb||0)+(box.off_reb||0), def_reb: (ex.def_reb||0)+(box.def_reb||0),
 ast: ex.ast+box.ast, stl: ex.stl+box.stl, blk: ex.blk+box.blk,
 fgm: ex.fgm+box.fgm, fga: ex.fga+box.fga,
 tpm: ex.tpm+box.tpm, tpa: ex.tpa+box.tpa,
@@ -467,6 +468,7 @@ triple_doubles: (ex.triple_doubles||0)+(isTD?1:0),
 await supabaseAdmin.from('player_stats').insert({
 player_id: box.player_id, season: '2025-26', team_id: box.team_id,
 games: 1, pts: box.pts||0, reb: box.reb||0, ast: box.ast||0, stl: box.stl||0, blk: box.blk||0,
+off_reb: box.off_reb||0, def_reb: box.def_reb||0,
 fgm: box.fgm||0, fga: box.fga||0, tpm: box.tpm||0, tpa: box.tpa||0, ftm: box.ftm||0, fta: box.fta||0,
 turnovers: box.turnovers||0, fouls: box.pf||0, tech_fouls: box.tech_fouls||0,
 triple_doubles: isTD?1:0,
