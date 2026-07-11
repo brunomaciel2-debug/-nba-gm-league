@@ -173,13 +173,21 @@ seed(hp,ho);seed(ap,ao)
 const pa=(ho.pace+ao.pace)/2,ppq=Math.round(23+pa/100*4)
 const gameReferee=ho.referee||ao.referee
 const gameChippy=!!(ho.isRivalry||ao.isRivalry||ho.decisive||ao.decisive)
-for(let q=0;q<4;q++){
+// Regulation is exactly 4 quarters, but basketball has no ties: if the
+// score is level after Q4, keep playing 5-minute overtime periods (q=4,5,6…)
+// until someone actually wins, same as real NBA rules.
+let q=0
+while(q<4||sc.home===sc.away){
+const isOT=q>=4
+const periodLen=isOT?300:720
+const periodPoss=isOT?Math.max(6,Math.round(ppq*300/720)):ppq
 part.home=0;part.away=0
 let side="home"
 rollTechs(hp,ap,"home","away",ht,sc,st,q,pbp,gameReferee,gameChippy)
 rollTechs(ap,hp,"away","home",at,sc,st,q,pbp,gameReferee,gameChippy)
-for(let i=0;i<ppq*2;i++){
-const tl=Math.max(0,Math.round(720*(1-i/(ppq*2))))
+if(isOT)pbp.push({quarter:q+1,time_left:fmt(periodLen),team_id:null,event_type:"info",description:`⏱️ OVERTIME ${q-3}! ${sc.home}-${sc.away}`,home_score:sc.home,away_score:sc.away})
+for(let i=0;i<periodPoss*2;i++){
+const tl=Math.max(0,Math.round(periodLen*(1-i/(periodPoss*2))))
 const diff=Math.abs(sc.home-sc.away)
 if(q===3&&!isGT&&((tl<=120&&diff>=20)||(tl<=90&&diff>=15))){isGT=true;gtW=sc.home>sc.away?"home":"away";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:null,event_type:"info",description:`🗑️ GARBAGE TIME — ${isGT&&gtW==="home"?ht.name:at.name} leads by ${diff}!`,home_score:sc.home,away_score:sc.away})}
 const oo=side==="home"?ho:ao,doo=side==="home"?ao:ho
@@ -187,16 +195,18 @@ const ot=side==="home"?ht:at,dt=side==="home"?at:ht
 // Rivalry games: every 4th-quarter possession is pressure-relevant, not just
 // the final 2 minutes. Decisive games (playoffs, or standings still in
 // play): the clutch window widens too, though not as far as a rivalry.
+// Overtime is always clutch — every possession can decide the game.
 const isRivalryGame=!!(ho.isRivalry||ao.isRivalry)
 const isDecisiveGame=!!(ho.decisive||ao.decisive)
-const isC=q===3&&(isRivalryGame||(isDecisiveGame?(tl<=240&&diff<=8):(tl<=120&&diff<=5)))
+const isC=isOT||(q===3&&(isRivalryGame||(isDecisiveGame?(tl<=240&&diff<=8):(tl<=120&&diff<=5))))
 const ops=side==="home"?(isGT&&side===gtW?hp.filter(p=>p.mins>0&&!p.ejected).slice(5):hp.filter(p=>p.mins>0&&!p.ejected)):(isGT&&side===gtW?ap.filter(p=>p.mins>0&&!p.ejected).slice(5):ap.filter(p=>p.mins>0&&!p.ejected))
 const dps=side==="home"?ap.filter(p=>p.mins>0&&!p.ejected):hp.filter(p=>p.mins>0&&!p.ejected)
 const os=side as "home"|"away",ds=(side==="home"?"away":"home") as "home"|"away"
-if((part[ds] as number)>=8&&tol[os].q[q]<2&&tol[os].used<7){tol[os].q[q]++;tol[os].used++;part.home=0;part.away=0;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"timeout",description:`⏱ TIMEOUT — ${ot.name}`,home_score:sc.home,away_score:sc.away})}
+if((part[ds] as number)>=8&&(tol[os].q[q]||0)<2&&tol[os].used<7){tol[os].q[q]=(tol[os].q[q]||0)+1;tol[os].used++;part.home=0;part.away=0;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"timeout",description:`⏱ TIMEOUT — ${ot.name}`,home_score:sc.home,away_score:sc.away})}
 simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp)
 side=side==="home"?"away":"home"
 }
+q++
 }
 // Everyone gets a row now — 0-min players show up as DNP-Coach's Decision
 // in the box score UI instead of silently vanishing.
