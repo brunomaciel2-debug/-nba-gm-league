@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import type { Article, Game, Team, Transaction } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
+import LeagueLeadersMini from './LeagueLeadersMini'
 import { WeeklyHighlightsHeader, HighlightCardTitle, HighlightEmpty, ViewBoxScore, WinStreakLabel, FeaturedHeader, FeaturedLabel, UnderdogLabel, UotwWinLoss, WinBadge, SeasonBadge, ArticleDate } from './HomePageClient'
 export const revalidate = 60
 
@@ -213,6 +214,9 @@ export default async function HomePage() {
           )}
         </div>
       </div>
+
+      {/* LEAGUE LEADERS MINI */}
+      <LeagueLeadersMini />
 
     </div>
   )
