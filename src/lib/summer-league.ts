@@ -84,6 +84,28 @@ function buildSummerOrders(roster: { player: any, role: string }[]) {
     usedMins[sub2.player.id] = (usedMins[sub2.player.id] || 0) + 8
   }
 
+  // A roster with zero natural players at some position used to just leave
+  // that slot out of the depth chart entirely — only 4 of 5 starter slots
+  // got built, so that position's minutes vanished instead of being played
+  // by anyone. Now the least-used remaining player fills the gap instead;
+  // the existing out-of-position penalty in game-simulator.ts's
+  // applyDC/pS/simP already makes that a real disadvantage.
+  for (const pos of POSITIONS) {
+    if (depth_chart[pos]) continue
+    const pool = roster.filter(e => (usedMins[e.player.id] || 0) < 32)
+      .sort((a, b) => (roleRank[a.role] - roleRank[b.role]) || ((usedMins[a.player.id] || 0) - (usedMins[b.player.id] || 0)))
+    if (!pool.length) continue
+    const starter = pool[0], sub1 = pool[1] || pool[0], sub2 = pool[2] || pool[0]
+    depth_chart[pos] = {
+      s: { name: starter.player.name, mins: 24 },
+      b1: { name: sub1.player.name, mins: 16 },
+      b2: { name: sub2.player.name, mins: 8 },
+    }
+    usedMins[starter.player.id] = (usedMins[starter.player.id] || 0) + 24
+    usedMins[sub1.player.id] = (usedMins[sub1.player.id] || 0) + 16
+    usedMins[sub2.player.id] = (usedMins[sub2.player.id] || 0) + 8
+  }
+
   const priorityOrder = [...roster].sort((a, b) => (roleRank[a.role] - roleRank[b.role]) || ((b.player.usage || 0) - (a.player.usage || 0)))
   const top3 = priorityOrder.slice(0, 3)
 
