@@ -83,6 +83,14 @@ export default function SchedulePage() {
     if(!byMonth[key])byMonth[key]=[]
     byMonth[key].push(g)
   })
+  // Games arrive from the DB ordered by `played_at` (null for anything not
+  // yet simulated) with World-friendly entries appended separately at the
+  // end — neither matches the intended calendar order, so each month's
+  // games must be explicitly re-sorted by their real scheduled date before
+  // rendering, or games within the same month show up in a near-random order.
+  Object.keys(byMonth).forEach(key=>{
+    byMonth[key].sort((a,b)=>(dateOf(a)?.getTime()||0)-(dateOf(b)?.getTime()||0))
+  })
   const sortedMonths=Object.keys(byMonth).sort((a,b)=>{if(a==='TBD')return 1;if(b==='TBD')return -1;return new Date(a).getTime()-new Date(b).getTime()})
   const played=games.filter(g=>g.status==='final').length
 
