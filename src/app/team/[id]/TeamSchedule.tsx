@@ -90,7 +90,10 @@ export default function TeamSchedule({
     if (filter==='away')     return g.away_team===teamId
     return true
   })
-  const effDate = (g:any) => g.played_at || (g.scheduled_date ? g.scheduled_date+'T12:00:00' : null)
+  // scheduled_date is the in-game calendar date; played_at is just the
+  // real-world server timestamp of when the simulate job happened to run
+  // (e.g. "today") — that must never win over the actual game date.
+  const effDate = (g:any) => (g.scheduled_date ? g.scheduled_date+'T12:00:00' : g.played_at)
   const byMonth: Record<string,any[]> = {}
   for (const g of filtered) {
     const iso = effDate(g)

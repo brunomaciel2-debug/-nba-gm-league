@@ -391,18 +391,29 @@ const atElo = at.elo || 1500
 const hExpected = homeWinProb(htElo, atElo)
 const htNewElo = updateElo(htElo, hWon, hExpected)
 const atNewElo = updateElo(atElo, !hWon, 1 - hExpected)
+const htNewWins = ht.wins+(hWon?1:0), htNewLosses = ht.losses+(hWon?0:1)
+const atNewWins = at.wins+(hWon?0:1), atNewLosses = at.losses+(hWon?1:0)
+const htNewPtsFor = ht.pts_for+result.homeScore, htNewPtsAgainst = ht.pts_against+result.awayScore
+const atNewPtsFor = at.pts_for+result.awayScore, atNewPtsAgainst = at.pts_against+result.homeScore
 await Promise.all([
 supabaseAdmin.from('teams').update({
-wins: ht.wins+(hWon?1:0), losses: ht.losses+(hWon?0:1),
-pts_for: ht.pts_for+result.homeScore, pts_against: ht.pts_against+result.awayScore,
+wins: htNewWins, losses: htNewLosses,
+pts_for: htNewPtsFor, pts_against: htNewPtsAgainst,
 elo: htNewElo,
 }).eq('id', ht.id),
 supabaseAdmin.from('teams').update({
-wins: at.wins+(hWon?0:1), losses: at.losses+(hWon?1:0),
-pts_for: at.pts_for+result.awayScore, pts_against: at.pts_against+result.homeScore,
+wins: atNewWins, losses: atNewLosses,
+pts_for: atNewPtsFor, pts_against: atNewPtsAgainst,
 elo: atNewElo,
 }).eq('id', at.id),
 ])
+// A team can play several games in the same invocation (up to 2 rounds
+// per half) — keep teamMap's in-memory copy in sync after every game, or
+// the next game for this same team would compute its wins/losses/elo off
+// the stale pre-week numbers and silently overwrite this game's update
+// instead of accumulating on top of it.
+teamMap[ht.id] = { ...ht, wins: htNewWins, losses: htNewLosses, pts_for: htNewPtsFor, pts_against: htNewPtsAgainst, elo: htNewElo }
+teamMap[at.id] = { ...at, wins: atNewWins, losses: atNewLosses, pts_for: atNewPtsFor, pts_against: atNewPtsAgainst, elo: atNewElo }
 
 // Accumulate player stats — DNP rows (mins=0) don't count as a game played.
 // Tagged with the team he actually suited up for THIS game (not his current
@@ -1095,8 +1106,13 @@ const hw = (g.home_score||0) > (g.away_score||0)
 gameResultMap[g.id] = { winner: hw ? g.home_team : g.away_team, loser: hw ? g.away_team : g.home_team }
 }
 
+// players!→teams has 2 possible FKs (team_id and previous_team_id) — an
+// unqualified "teams!inner(...)" is ambiguous and Supabase rejects the
+// query entirely, silently returning no rows, which made every player
+// fall through to the 'Eastern' default below regardless of their real
+// conference. Naming the FK explicitly (players_team_id_fkey) fixes it.
 const { data: allPlayersAw } = await supabaseAdmin
-.from('players').select('id,name,team_id,teams!inner(conference)')
+.from('players').select('id,name,team_id,teams!players_team_id_fkey!inner(conference)')
 .in('id', (weekBoxesAw||[]).map((b:any)=>b.player_id).filter(Boolean))
 
 const playerConf: Record<string,string> = {}
