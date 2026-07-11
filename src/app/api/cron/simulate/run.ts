@@ -27,6 +27,29 @@ import { cityDistanceMiles, computeAwayTravelCost } from '@/lib/travel-constants
 import { resolveWeeklySocialMedia } from '@/lib/social-media-resolver'
 import { resolveWeeklyGmSatisfaction } from '@/lib/gm-satisfaction'
 
+// Supabase/PostgREST silently caps any unpaginated query at db.max_rows
+// (1000 on this project) — a full week now has ~1700+ box_scores rows
+// (60 games × ~28 players), so every plain `.in('game_id', gamesCreated)`
+// query below was silently dropping ~40% of the week's box scores with
+// no error, no warning, just fewer rows back. That corrupted technical
+// foul counts, injury/health-loss rolls, Weekly Highlights, and Player of
+// the Week/Month stats depending on which rows happened to land in the
+// first 1000. Every such query now goes through this helper, which pages
+// with .range() until a short page confirms there's nothing left.
+async function fetchAllRows<T>(queryFactory: (from: number, to: number) => any): Promise<T[]> {
+const PAGE = 1000
+let all: T[] = []
+let from = 0
+while (true) {
+const { data, error } = await queryFactory(from, from + PAGE - 1)
+if (error) { console.warn('fetchAllRows: paginated query failed', error); break }
+all = all.concat((data as T[]) || [])
+if (!data || data.length < PAGE) break
+from += PAGE
+}
+return all
+}
+
 // The actual simulation logic, importable directly so callers in the same
 // deployment (e.g. the admin manual-trigger route) don't have to bounce
 // through an extra HTTP self-call — that extra hop had no timeout of its
@@ -484,18 +507,18 @@ await supabaseAdmin.from('players').update({ suspended_games_remaining: remainin
 
 // 2. Notify + apply suspensions for every player who picked up a technical this week.
 if (gamesCreated.length > 0) {
-const { data: weekTechBoxes } = await supabaseAdmin.from('box_scores')
+const weekTechBoxes = await fetchAllRows<any>((from,to) => supabaseAdmin.from('box_scores')
 .select('player_id,tech_fouls,games!inner(game_type)')
-.in('game_id', gamesCreated).eq('games.game_type', gameTypeFilter).gt('tech_fouls', 0)
+.in('game_id', gamesCreated).eq('games.game_type', gameTypeFilter).gt('tech_fouls', 0).range(from,to))
 
 const weekTechsByPlayer: Record<string,number> = {}
-for (const b of (weekTechBoxes||[])) weekTechsByPlayer[b.player_id] = (weekTechsByPlayer[b.player_id]||0) + (b.tech_fouls||0)
+for (const b of weekTechBoxes) weekTechsByPlayer[b.player_id] = (weekTechsByPlayer[b.player_id]||0) + (b.tech_fouls||0)
 
 for (const [playerId, weekTechs] of Object.entries(weekTechsByPlayer)) {
-const { data: allBoxes } = await supabaseAdmin.from('box_scores')
+const allBoxes = await fetchAllRows<any>((from,to) => supabaseAdmin.from('box_scores')
 .select('tech_fouls,games!inner(game_type)')
-.eq('player_id', playerId).eq('games.game_type', gameTypeFilter)
-const totalTechs = (allBoxes||[]).reduce((s:number,b:any)=>s+(b.tech_fouls||0),0)
+.eq('player_id', playerId).eq('games.game_type', gameTypeFilter).range(from,to))
+const totalTechs = allBoxes.reduce((s:number,b:any)=>s+(b.tech_fouls||0),0)
 const priorTechs = totalTechs - weekTechs
 
 let crossings = 0
@@ -555,9 +578,9 @@ const dampen = Math.max(-0.3, Math.min(0.3, ((c.injury_prevent ?? 50) - 50) / 50
 injuryPreventMultByTeam[c.team_id] = 1 - dampen
 })
 
-const { data: weekBoxes } = gamesCreated.length > 0 ? await supabaseAdmin
+const weekBoxes = gamesCreated.length > 0 ? await fetchAllRows<any>((from,to) => supabaseAdmin
 .from('box_scores').select('player_id,mins,team_id,game_id')
-.in('game_id', gamesCreated) : { data: [] as any[] }
+.in('game_id', gamesCreated).range(from,to)) : []
 
 const { data: weekOrders } = await supabaseAdmin.from('gm_orders').select('team_id,pace,training_intensity,def_style,atk_style').eq('week_number',week)
 const paceMap: Record<string,number> = {}
@@ -946,9 +969,9 @@ await supabaseAdmin.from('training_slots').update({ fill_pct: newFill, credits_a
 // ── WEEKLY HIGHLIGHTS ─────────────────────────
 if (!isPreseason) {
 try {
-const { data: weekBoxes2 } = await supabaseAdmin
+const weekBoxes2 = await fetchAllRows<any>((from,to) => supabaseAdmin
 .from('box_scores').select('player_id,game_id,team_id,mins,pts,reb,ast,stl,blk')
-.in('game_id', gamesCreated)
+.in('game_id', gamesCreated).range(from,to))
 
 let potwScore = 0, potwBox: any = null
 for (const box of (weekBoxes2||[])) {
@@ -1091,10 +1114,10 @@ const isEndOfMonth = week % 4 === 0
 // aging/rookie-option blocks below share this exact bug fixed the same way.
 const isEndOfSeason = week === 40 // last week of the Regular Season (see season-week-helper.ts)
 
-const { data: weekBoxesAw } = await supabaseAdmin
+const weekBoxesAw = await fetchAllRows<any>((from,to) => supabaseAdmin
 .from('box_scores')
 .select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
-.in('game_id', gamesCreated)
+.in('game_id', gamesCreated).range(from,to))
 
 const { data: weekGamesData } = await supabaseAdmin
 .from('games').select('id,home_team,away_team,home_score,away_score')
@@ -1167,9 +1190,9 @@ const monthNum = Math.floor(week/4)
 const { data: monthGameIds } = await supabaseAdmin.from('games').select('id')
 .gte('week_number', (monthNum-1)*4+1)
 .lte('week_number', monthNum*4)
-const { data: monthBoxes } = await supabaseAdmin
+const monthBoxes = await fetchAllRows<any>((from,to) => supabaseAdmin
 .from('box_scores').select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
-.in('game_id', (monthGameIds||[]).map((g:any)=>g.id))
+.in('game_id', (monthGameIds||[]).map((g:any)=>g.id)).range(from,to))
 
 const monthStats: Record<string,{pts:number,reb:number,ast:number,stl:number,blk:number,games:number,wins:number,teamId:string}> = {}
 for (const b of (monthBoxes||[])) {
@@ -1543,9 +1566,20 @@ Object.values(rosterByTeam).forEach((roster: any[]) => {
 // box_scores has no timestamp of its own — order via the real games.played_at
 // through the existing FK embed (same games!inner(...) pattern already used
 // a few blocks up for technical-foul history), not a nonexistent column.
-const { data: recentBoxAll } = activeIds.length ? await supabaseAdmin.from('box_scores')
+// .limit(3000) here used to silently come back capped at 1000 (Supabase's
+// db.max_rows overrides any larger explicit .limit()) — .range() across up
+// to 3 pages actually honors the intended 3000-row, most-recent-first cap.
+let recentBoxAll: any[] = []
+if (activeIds.length) {
+for (let page = 0; page < 3; page++) {
+const from = page * 1000
+const { data } = await supabaseAdmin.from('box_scores')
 .select('player_id,is_starter,pts,games!inner(played_at)').in('player_id',activeIds).eq('games.status','final')
-.order('played_at',{foreignTable:'games',ascending:false}).limit(3000) : { data: [] as any[] }
+.order('played_at',{foreignTable:'games',ascending:false}).range(from, from + 999)
+recentBoxAll = recentBoxAll.concat(data || [])
+if (!data || data.length < 1000) break
+}
+}
 const recentByPlayer: Record<string, any[]> = {}
 ;(recentBoxAll||[]).forEach((b:any) => { const arr=(recentByPlayer[b.player_id] ||= []); if (arr.length<5) arr.push(b) })
 
