@@ -165,9 +165,14 @@ orderMap[c.team_id].composure = c.composure_coaching
 // Tactical System Familiarity — weekly tech-tree fill/decay per team (see
 // src/lib/tactical-resolver.ts), then attach each team's CURRENT active
 // system's familiarity + mastered-node effects onto orderMap so they flow
-// into simP() the same way cohesion/composure do above.
+// into simP() the same way cohesion/composure do above. The actual weekly
+// tick only runs on half 1 (the invocation that starts a new week) — it
+// used to fire on BOTH halves of every week (and even during phases with
+// no games at all), silently applying two weeks' worth of progress/decay
+// for one real week. The read below still runs every invocation so both
+// halves' games see the current state.
 try {
-await resolveWeeklyTacticalDevelopment(week)
+if (half === 1) await resolveWeeklyTacticalDevelopment(week)
 const tacticalState = await getAllTeamsTacticalState()
 for (const teamId of Object.keys(orderMap)) {
 const activeSystem: OffSystem = orderMap[teamId]?.atk_style || 'motion'
@@ -179,11 +184,16 @@ orderMap[teamId].tacticalMods = computeTacticalMods(progressByNodeId, activeSyst
 
 // Social Media Manager — weekly follower drift + fan-interaction/social-
 // responsibility events (see src/lib/social-media-resolver.ts). Real,
-// no-op-safe for any team without one hired yet.
+// no-op-safe for any team without one hired yet. Same once-per-week fix as
+// tactical development above — this used to fire on every invocation
+// (both halves, every phase), double-applying follower drift and rolling
+// event dice twice for one real week.
+if (half === 1) {
 try {
 const smResult = await resolveWeeklySocialMedia(week)
 if (smResult.teamsProcessed > 0) console.log(`Social media resolved: ${smResult.teamsProcessed} teams, ${smResult.eventsResolved} events`)
 } catch (smErr) { console.warn('Social media resolution failed:', smErr) }
+}
 
 // Conference standings — used to detect "decisive" games. Playoffs/play-in
 // always count. In the regular season, this reflects the real Play-In
@@ -838,6 +848,17 @@ const { data: weekOrds3 } = await supabaseAdmin.from('gm_orders').select('team_i
 const ordMap3: Record<string,any> = {}
 ;(weekOrds3||[]).forEach((o:any) => ordMap3[o.team_id]=o)
 
+// Every player's update/insert used to be awaited one at a time inside
+// this loop — with ~1150+ active players that's 1150+ sequential DB
+// round-trips (~100ms each on Supabase's network) for a step that runs
+// EVERY week regardless of whether any real games were played, which is
+// exactly what made a zero-game offseason week still take ~2 minutes to
+// simulate. Now every player's math runs in memory first, then the writes
+// go out in batches of 50 concurrently (same chunking pattern as the
+// aging step further down), cutting this to a handful of round-trips.
+const allPlayerUpdates: { id:string, updates:Record<string,number> }[] = []
+const allDevLogs: any[] = []
+
 for (const p of (allPlayers3||[])) {
 const ord = ordMap3[p.team_id] || {training_intensity:'normal'}
 const coach = coachBonus[p.team_id] || {dev:60,off:60,def:60,conditioning:60,specialties:{}}
@@ -886,11 +907,19 @@ devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:att
 }
 
 if (Object.keys(updates).length > 0) {
-await supabaseAdmin.from('players').update(updates).eq('id', p.id)
+allPlayerUpdates.push({ id: p.id, updates })
 }
 if (devLogs.length > 0) {
-await supabaseAdmin.from('attribute_development').insert(devLogs)
+allDevLogs.push(...devLogs)
 }
+}
+
+for (let i = 0; i < allPlayerUpdates.length; i += 50) {
+const chunk = allPlayerUpdates.slice(i, i + 50)
+await Promise.all(chunk.map(u => supabaseAdmin.from('players').update(u.updates).eq('id', u.id)))
+}
+for (let i = 0; i < allDevLogs.length; i += 500) {
+await supabaseAdmin.from('attribute_development').insert(allDevLogs.slice(i, i + 500))
 }
 } catch(devErr) { console.warn('Development step failed', devErr) }
 
@@ -1658,6 +1687,13 @@ const boostMap: Record<string,number> = {}
 if (inj.specialist_used) boostMap[inj.player_id] = SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY[inj.severity as InjurySeverity] || 1
 })
 
+// Same sequential-award-per-player trap as the Attribute Development step
+// above — with ~1150+ active players getting a health/moral update almost
+// every single week (health regen and morale drift both move by a
+// non-zero amount nearly always), this was the other dominant cost behind
+// a "2 minutes, zero games simulated" offseason week. Math stays in
+// memory per player; writes go out in batches of 50 concurrently.
+const recoveryUpdates: { id:string, fields:Record<string,any>, recovered:boolean }[] = []
 for (const p of (allP2||[])) {
 const mod = IMOD[iMap[p.team_id]||'normal']||1.0
 const durB = ((p.durability||75)-75)/100*0.5
@@ -1671,16 +1707,25 @@ const nh = Math.min(100, Math.round((p.health||100)+hGain))
 const nm = Math.max(0, Math.min(100, Math.round((p.moral||80) + (target-(p.moral||80))*driftRate)))
 const recovered = p.status==='injured' && nh>=50
 if (nh!==(p.health||100)||nm!==(p.moral||80)||recovered) {
-await supabaseAdmin.from('players').update({
-health:nh, moral:nm, ...(recovered?{status:'active'}:{}),
-}).eq('id',p.id)
+recoveryUpdates.push({ id:p.id, fields:{ health:nh, moral:nm, ...(recovered?{status:'active'}:{}) }, recovered })
 }
-if (recovered) {
-const { data: openInj } = await supabaseAdmin.from('injury_log').select('id')
-.eq('player_id',p.id).eq('status','active').order('created_at',{ascending:false}).limit(1)
-if (openInj && openInj.length > 0) {
-await supabaseAdmin.from('injury_log').update({ status:'resolved', healed_at:new Date().toISOString(), healed_week:week }).eq('id',openInj[0].id)
 }
+
+for (let i = 0; i < recoveryUpdates.length; i += 50) {
+const chunk = recoveryUpdates.slice(i, i + 50)
+await Promise.all(chunk.map(u => supabaseAdmin.from('players').update(u.fields).eq('id', u.id)))
+}
+
+const recoveredIds = recoveryUpdates.filter(u => u.recovered).map(u => u.id)
+if (recoveredIds.length > 0) {
+const { data: openInjs } = await supabaseAdmin.from('injury_log').select('id,player_id,created_at')
+.in('player_id', recoveredIds).eq('status','active').order('created_at',{ascending:false})
+const latestOpenInjByPlayer: Record<string,string> = {}
+;(openInjs||[]).forEach((inj:any) => { if (!latestOpenInjByPlayer[inj.player_id]) latestOpenInjByPlayer[inj.player_id] = inj.id })
+const injIds = Object.values(latestOpenInjByPlayer)
+for (let i = 0; i < injIds.length; i += 50) {
+const chunk = injIds.slice(i, i + 50)
+await Promise.all(chunk.map(id => supabaseAdmin.from('injury_log').update({ status:'resolved', healed_at:new Date().toISOString(), healed_week:week }).eq('id', id)))
 }
 }
 } catch(e) { console.warn('Recovery step failed',e) }
