@@ -31,6 +31,33 @@ function posFitMultiplier(avgDistance: number): number {
   return Math.max(0.8, 1 - avgDistance * 0.05)
 }
 
+// Scoring (hidden attribute, GM never sees it) is the one thing that decides
+// HOW MANY points a player averages — the existing shot-mechanics attributes
+// (three/layup/dunk/mid/etc.) still decide HOW those points get scored (shot
+// type, make%), but no longer gate the volume. Calibrated at 36 minutes per
+// the commissioner's own scoring table; breakpoints are the exact PPG/Scoring
+// pairs from that table (Scoring is the upper bound of each PPG bucket).
+const SCORING_BREAKPOINTS:[number,number][]=[
+[0,0],[20,2],[28,4],[35,6],[41,8],[47,10],[53,12],[59,14],[65,16],[69,18],
+[73,20],[77,22],[81,24],[85,26],[89,28],[91.5,30],[95,35],
+]
+function ppg36(scoring?:number):number{
+const s=Math.max(0,Math.min(99,scoring??50))
+const bp=SCORING_BREAKPOINTS
+if(s<=bp[0][0])return bp[0][1]
+for(let i=1;i<bp.length;i++){
+if(s<=bp[i][0]){
+const[s0,p0]=bp[i-1],[s1,p1]=bp[i]
+return p0+(p1-p0)*(s-s0)/(s1-s0)
+}
+}
+// Beyond the table's top breakpoint (95): extrapolate the last segment's
+// slope, capped at a hard ceiling no real NBA workload realistically clears.
+const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
+const slope=(p1-p0)/(s1-s0)
+return Math.min(40,p1+slope*(s-s1))
+}
+
 function rnd(a:number,b:number){return Math.floor(Math.random()*(b-a+1))+a}
 function wt(pool:Array<{p:any,w:number}>){
 const t=pool.reduce((s,x)=>s+x.w,0);let r=Math.random()*t
@@ -235,7 +262,13 @@ if(ic&&ord.clutch){const cp=ps.find((p:any)=>p.name===ord.clutch);if(cp&&fat[cp.
 const pool=ps.filter((p:any)=>p.mins>0);if(!pool.length)return ps[0]
 const pris=ord.pris||[ord.priority_1,ord.priority_2,ord.priority_3]
 return wt(pool.map((p:any)=>{
-const f=fat[p.id]/100;let w=u3?p.three*1.8+p.usage*.3:p.usage*1.4+(p.layup+p.dunk)/2*.4
+const f=fat[p.id]/100
+// Scoring (hidden) is now the SOLE driver of shot volume — three/layup/dunk
+// no longer gate how often a player is picked to shoot, only how well they
+// convert once picked (see acc in simP()). Keeping them out of the weight
+// entirely is what makes Scoring, not shooting touch, decide points/game.
+const scoreVol=Math.max(.3,ppg36(p.scoring)-6)
+let w=u3?scoreVol*.85:scoreVol*3.9
 if(u3&&p.three<50)w*=.2;const pi=pris.indexOf(p.name)
 if(!u3){if(pi===0)w*=2.2;else if(pi===1)w*=1.55;else if(pi===2)w*=1.25}else{if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}
 // Ball Role (GM-set, per player): Dominant genuinely runs the ball through
