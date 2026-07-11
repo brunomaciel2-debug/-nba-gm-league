@@ -84,28 +84,6 @@ export function FeaturedLabel({ color }: { color:string }) {
   )
 }
 
-export function RecentResultsHeader() {
-  const { t } = useTranslation()
-  const isPT = t('common.save') === 'Guardar'
-  return (
-    <div className="section-header mb-4">
-      <span className="text-xs font-semibold uppercase tracking-widest" style={{color:'#1a1612',letterSpacing:'1.5px'}}>
-        <i className="ti ti-ball-basketball" style={{fontSize:14,marginRight:6,color:'#b45309'}}></i>
-        {isPT ? 'Resultados Recentes' : 'Recent Results'}
-      </span>
-      <Link href="/schedule" className="text-xs no-underline font-semibold" style={{color:'#b45309'}}>
-        {isPT ? 'Calendário Completo →' : 'Full Schedule →'}
-      </Link>
-    </div>
-  )
-}
-
-export function BoxScoreLink() {
-  const { t } = useTranslation()
-  const isPT = t('common.save') === 'Guardar'
-  return <span className="text-xs" style={{color:'#b8ae9e'}}>{isPT ? 'Box Score →' : 'Box Score →'}</span>
-}
-
 export function UnderdogLabel({ pct }: { pct:number }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
@@ -146,10 +124,4 @@ export function ArticleDate({ date }: { date: string }) {
       {new Date(date).toLocaleDateString(isPT?'pt-PT':'en-US',{month:'long',day:'numeric',year:'numeric'})}
     </p>
   )
-}
-
-export function WeekLabel({ week }: { week: number }) {
-  const { t } = useTranslation()
-  const isPT = t('common.save') === 'Guardar'
-  return <span className="text-xs w-6 font-semibold" style={{color:'#6b5f4e'}}>{isPT?'S':'W'}{week}</span>
 }

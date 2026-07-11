@@ -2,9 +2,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import type { Article, Game, Team, Transaction } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
-import LeagueLeadersMini from './LeagueLeadersMini'
-import SeasonTimeline from '@/components/SeasonTimeline'
-import { WeeklyHighlightsHeader, HighlightCardTitle, HighlightEmpty, ViewBoxScore, WinStreakLabel, FeaturedHeader, FeaturedLabel, RecentResultsHeader, BoxScoreLink, UnderdogLabel, UotwWinLoss, WinBadge, SeasonBadge, ArticleDate, WeekLabel } from './HomePageClient'
+import { WeeklyHighlightsHeader, HighlightCardTitle, HighlightEmpty, ViewBoxScore, WinStreakLabel, FeaturedHeader, FeaturedLabel, UnderdogLabel, UotwWinLoss, WinBadge, SeasonBadge, ArticleDate } from './HomePageClient'
 export const revalidate = 60
 
 function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#1d4ed8' }
@@ -34,8 +32,6 @@ export default async function HomePage() {
   const newsItems = articles?.filter((a:any) => a.position === 'news' || !['hero','featured_1','featured_2'].includes(a.position)) || []
   const bannerUrl = (siteConfig as any)?.banner_url
   const hl = highlight as any
-
-  const sortedGames = [...(recentGames||[])].sort((a:any,b:any) => new Date(b.played_at).getTime()-new Date(a.played_at).getTime())
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -217,48 +213,6 @@ export default async function HomePage() {
           )}
         </div>
       </div>
-
-      {/* SEASON TIMELINE */}
-      <SeasonTimeline />
-
-      {/* LEAGUE LEADERS MINI */}
-      <LeagueLeadersMini />
-
-      {/* RECENT RESULTS */}
-      {(recentGames||[]).length > 0 && (
-        <>
-          <RecentResultsHeader />
-          <div className="flex flex-col gap-2">
-            {(recentGames||[]).map((g:any) => {
-              const home = g.home as Team
-              const away = g.away as Team
-              const winner = (g.home_score||0) > (g.away_score||0) ? 'home' : 'away'
-              return (
-                <Link key={g.id} href={`/game/${g.id}`} className="no-underline">
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                       style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-                    <WeekLabel week={g.week_number} />
-                    <div className="flex-1 flex items-center gap-3">
-                      <span className="text-sm font-semibold" style={{color:winner==='home'?'#e8e2d6':'#5c554e'}}>
-                        <span className="inline-block w-2 h-2 rounded-full mr-1.5" style={{background:teamColor(home)}}></span>
-                        {home?.name||g.home_team}
-                      </span>
-                      <span className="text-base font-black" style={{color:winner==='home'?'#e8e2d6':'#5c554e'}}>{g.home_score}</span>
-                      <span className="text-sm" style={{color:'#b8ae9e'}}>-</span>
-                      <span className="text-base font-black" style={{color:winner==='away'?'#e8e2d6':'#5c554e'}}>{g.away_score}</span>
-                      <span className="text-sm font-semibold" style={{color:winner==='away'?'#e8e2d6':'#5c554e'}}>
-                        {away?.name||g.away_team}
-                        <span className="inline-block w-2 h-2 rounded-full ml-1.5" style={{background:teamColor(away)}}></span>
-                      </span>
-                    </div>
-                    <BoxScoreLink />
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        </>
-      )}
 
     </div>
   )
