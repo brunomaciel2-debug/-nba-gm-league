@@ -58,6 +58,31 @@ const slope=(p1-p0)/(s1-s0)
 return Math.min(40,p1+slope*(s-s1))
 }
 
+// Three Attempt Rate (hidden) is the SOLE driver of how many threes a
+// player is picked to take per game (36 min reference) — the existing
+// "three" attribute still decides how well they shoot once picked (acc in
+// simP()), same volume/quality split as Scoring vs three/layup/dunk above.
+// Same piecewise shape as SCORING_BREAKPOINTS/ppg36(), this time for the
+// commissioner's own 3PA table.
+const THREE_RATE_BREAKPOINTS:[number,number][]=[
+[0,0],[10,.5],[20,1],[28,1.5],[35,2],[42,2.5],[48,3],[54,3.5],[60,4],
+[66,4.5],[72,5],[78,5.5],[83,6],[87,6.5],[90,7],[92,7.5],[93,8],[94,8.5],[95,10.8],
+]
+function tpa36(threeAttemptRate?:number):number{
+const s=Math.max(0,Math.min(99,threeAttemptRate??50))
+const bp=THREE_RATE_BREAKPOINTS
+if(s<=bp[0][0])return bp[0][1]
+for(let i=1;i<bp.length;i++){
+if(s<=bp[i][0]){
+const[s0,p0]=bp[i-1],[s1,p1]=bp[i]
+return p0+(p1-p0)*(s-s0)/(s1-s0)
+}
+}
+const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
+const slope=(p1-p0)/(s1-s0)
+return Math.min(12,p1+slope*(s-s1))
+}
+
 // Same shape as SCORING_BREAKPOINTS/ppg36() above, this time for the hidden
 // Assist Rate attribute — breakpoints are the exact Assists/Passing pairs
 // from the commissioner's table. Existing pass attributes (pass_vis,
@@ -396,8 +421,13 @@ const f=fat[p.id]/100
 // Scoring=85 player lands on the same weight as before (already calibrated
 // against real rosters), not a fresh guess.
 const scoreVol=Math.max(.3,ppg36(p.scoring)*0.769)
-let w=u3?scoreVol*.65:scoreVol*3.0
-if(u3&&p.three<50)w*=.2;const pi=pris.indexOf(p.name)
+// Three Attempt Rate (hidden) is the SOLE driver of how often a player is
+// picked to shoot from deep — the existing "three" attribute no longer
+// gates this (see acc in simP() for where it still decides make%), the
+// same volume/quality split Scoring already has over three/layup/dunk.
+const threeVol=Math.max(.15,tpa36(p.three_attempt_rate)*2.0)
+let w=u3?threeVol:scoreVol*3.0
+const pi=pris.indexOf(p.name)
 if(!u3){if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}else{if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}
 // Ball Role (GM-set, per player): Dominant genuinely runs the ball through
 // them more. Off-Ball trades shot volume for accuracy (below) — fewer
