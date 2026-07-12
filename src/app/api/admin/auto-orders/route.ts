@@ -43,7 +43,34 @@ export async function POST(req: NextRequest) {
     const alreadyHasOrders = new Set((existingOrders || []).map((o: any) => o.team_id))
 
     let generated = 0
+    let carriedForward = 0
     const errors: string[] = []
+
+    // A real GM's Weekly Orders used to only ever exist for the exact week
+    // they were submitted — with no standing default, the very next week
+    // (or any week a GM simply didn't resubmit for) silently fell back to
+    // this route's generic usage-sorted auto lineup, discarding a real
+    // GM's actual rotation/tactics/priorities even though nothing was
+    // "changed." A real coach's rotation stays the same until they change
+    // it — so a GM team with no order yet for this week now gets their own
+    // most recent real submission copied forward (unlocked, so they can
+    // still edit it before the deadline) instead of a generic fallback.
+    for (const team of (teams || [])) {
+      if (!gmTeams.has(team.id) || alreadyHasOrders.has(team.id)) continue
+      const { data: lastOrder } = await supabaseAdmin
+        .from('gm_orders').select('*')
+        .eq('team_id', team.id).lt('week_number', week)
+        .order('week_number', { ascending: false }).limit(1).maybeSingle()
+      if (!lastOrder) continue
+      try {
+        await supabaseAdmin.from('gm_orders').upsert({
+          ...lastOrder, id: undefined, week_number: week, locked: false,
+        }, { onConflict: 'team_id,week_number' })
+        carriedForward++
+      } catch (e: any) {
+        errors.push(`${team.id} (carry-forward): ${e.message}`)
+      }
+    }
 
     for (const team of (teams || [])) {
       // Skip if team has a GM or already has orders
@@ -165,7 +192,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, week, generated, errors })
+    return NextResponse.json({ success: true, week, generated, carriedForward, errors })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

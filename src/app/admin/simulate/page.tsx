@@ -30,8 +30,8 @@ export default function AdminSimulatePage() {
       const ordData = await ordRes.json()
       if (ordData.generated !== undefined) {
         setLog(prev => [...prev, isPT
-          ? `✓ Ordens automáticas geradas para ${ordData.generated} equipas`
-          : `✓ Auto orders generated for ${ordData.generated} teams`])
+          ? `✓ Ordens automáticas geradas para ${ordData.generated} equipas${ordData.carriedForward ? `, ${ordData.carriedForward} equipa(s) com GM mantiveram a última ordem real` : ''}`
+          : `✓ Auto orders generated for ${ordData.generated} teams${ordData.carriedForward ? `, ${ordData.carriedForward} GM team(s) kept their last real order` : ''}`])
       }
 
       // Step 2: Simulate
