@@ -385,10 +385,20 @@ const f=fat[p.id]/100
 // no longer gate how often a player is picked to shoot, only how well they
 // convert once picked (see acc in simP()). Keeping them out of the weight
 // entirely is what makes Scoring, not shooting touch, decide points/game.
-const scoreVol=Math.max(.3,ppg36(p.scoring)-6)
-let w=u3?scoreVol*.85:scoreVol*3.9
+// Was a flat "-6" subtraction, floored at .3 — every player under roughly
+// 47 Scoring (ppg36 <= 6) collapsed to that identical floor, with zero
+// differentiation between them. On a roster where everyone sits in that
+// range except one outlier (a real "Rest of the World" roster: 9 players
+// at Scoring 19-22, one at 40), that lone outlier had nothing left to
+// compete against and vacuumed up half the team's shots (49 of 97 FGA in
+// 24 minutes). Scaling proportionally instead keeps real separation across
+// the whole range; the .769/.65/3.0 constants are chosen so an elite
+// Scoring=85 player lands on the same weight as before (already calibrated
+// against real rosters), not a fresh guess.
+const scoreVol=Math.max(.3,ppg36(p.scoring)*0.769)
+let w=u3?scoreVol*.65:scoreVol*3.0
 if(u3&&p.three<50)w*=.2;const pi=pris.indexOf(p.name)
-if(!u3){if(pi===0)w*=2.2;else if(pi===1)w*=1.55;else if(pi===2)w*=1.25}else{if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}
+if(!u3){if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}else{if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}
 // Ball Role (GM-set, per player): Dominant genuinely runs the ball through
 // them more. Off-Ball trades shot volume for accuracy (below) — fewer
 // touches here, a real 3PT accuracy bump in simP()'s acc formula.
@@ -397,6 +407,13 @@ else if(p.ball_role==='off_ball')w*=0.85
 // Out-of-position players are genuinely less likely to be the guy taking
 // the shot, not just less accurate when they do (see posFitMult in acc too).
 w*=(p.posFitMult??1)
+// pS()'s pool is every player with mins>0 on the team, not just whoever
+// onCourtFive() drew for this exact possession (that's a separate, cosmetic
+// +/- bookkeeping draw) — so without this, an 8-minute bench player and a
+// 48-minute starter competed for literally every possession of the whole
+// game on equal footing. Floored (not zeroed) so deep bench players still
+// occasionally get a look, same spirit as the .3 floor on scoreVol above.
+w*=Math.max(.35,(p.mins||0)/48)
 return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
 }))
 }
