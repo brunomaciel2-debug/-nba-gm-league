@@ -11,6 +11,7 @@ export interface BoxRow {
   id: string | number
   player_id: string | number | null
   name: string
+  photo_url?: string | null
   pos: string
   mins: number
   pts: number
@@ -84,6 +85,7 @@ const statCols = [
   { key: 'pf', label: 'PF' },
   { key: 'tech_fouls', label: 'TECH' },
   { key: 'plus_minus', label: '+/-' },
+  { key: 'gmsc', label: 'GmSc' },
 ] as const
 const splitCols: Record<string, [string, string]> = { fg: ['fgm', 'fga'], tp: ['tpm', 'tpa'], ft: ['ftm', 'fta'] }
 
@@ -106,6 +108,7 @@ const pct = (m: number, a: number) => a > 0 ? Math.round(m / a * 100) + '%' : '�
 const cellValue = (b: any, key: string) => {
   if (splitCols[key]) { const [m, a] = splitCols[key]; return `${b[m] || 0}-${b[a] || 0}` }
   if (key === 'plus_minus') { const v = b[key] || 0; return v > 0 ? `+${v}` : `${v}` }
+  if (key === 'gmsc') return gameScore(b).toFixed(1)
   return b[key] ?? 0
 }
 
@@ -141,7 +144,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
   const mvpColor = mvpEntry ? (mvpEntry.isHome ? homeColor : awayColor) : ''
   const mvpTeam = mvpEntry ? (mvpEntry.isHome ? homeTeam : awayTeam) : null
 
-  const BoxTable = ({ players, color, totals }: { players: BoxRow[], color: string, totals: any }) => {
+  const BoxTable = ({ players, color, totals, mvpPlayerId }: { players: BoxRow[], color: string, totals: any, mvpPlayerId?: string | number | null }) => {
     const hasStarterFlag = players.some((b) => b.is_starter)
     const played = players.filter((b) => (b.mins || 0) > 0).sort((a, b) => (b.mins || 0) - (a.mins || 0))
     const starters = hasStarterFlag ? played.filter((b) => b.is_starter) : played.slice(0, 5)
@@ -158,29 +161,34 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
       )
     }
 
-    const PlayerRow = ({ b, i }: { b: BoxRow, i: number }) => (
-      <tr style={{ background: i % 2 === 0 ? '#faf8f5' : '#f5f1eb', borderBottom: '1px solid #e8e2d6' }}>
-        <td className="px-3 py-2">
-          <NameCell b={b} />
-          <span className="ml-1.5 text-xs" style={{ color: '#9c8e7a' }}>{b.pos}</span>
-          {(b.tech_fouls || 0) >= 2 && (
-            <span className="ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: '#dc2626', color: '#fff' }}>
-              ⛔ {isPT ? 'EXPULSO' : 'EJECTED'}
-            </span>
-          )}
-        </td>
-        {statCols.map(c => (
-          <td key={c.key} className="px-2 py-2 text-right font-semibold"
-            style={{
-              color: c.key === 'pts' && (b as any)[c.key] >= 20 ? color
-                : c.key === 'tech_fouls' && (b as any)[c.key] > 0 ? '#dc2626'
-                : '#1a1512',
-            }}>
-            {cellValue(b, c.key)}
+    const PlayerRow = ({ b, i }: { b: BoxRow, i: number }) => {
+      const isMvp = mvpPlayerId != null && b.player_id === mvpPlayerId
+      return (
+        <tr style={{ background: isMvp ? '#fdf6e3' : i % 2 === 0 ? '#faf8f5' : '#f5f1eb', borderBottom: '1px solid #e8e2d6' }}>
+          <td className="px-3 py-2">
+            <NameCell b={b} />
+            <span className="ml-1.5 text-xs" style={{ color: '#9c8e7a' }}>{b.pos}</span>
+            {isMvp && <span className="ml-1.5 text-xs">🏆</span>}
+            {(b.tech_fouls || 0) >= 2 && (
+              <span className="ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: '#dc2626', color: '#fff' }}>
+                ⛔ {isPT ? 'EXPULSO' : 'EJECTED'}
+              </span>
+            )}
           </td>
-        ))}
-      </tr>
-    )
+          {statCols.map(c => (
+            <td key={c.key} className="px-2 py-2 text-right font-semibold"
+              style={{
+                color: c.key === 'gmsc' && isMvp ? '#b45309'
+                  : c.key === 'pts' && (b as any)[c.key] >= 20 ? color
+                  : c.key === 'tech_fouls' && (b as any)[c.key] > 0 ? '#dc2626'
+                  : '#1a1512',
+              }}>
+              {cellValue(b, c.key)}
+            </td>
+          ))}
+        </tr>
+      )
+    }
 
     const SectionHeader = ({ label }: { label: string }) => (
       <tr style={{ background: '#ddd7ca', borderBottom: '1px solid #d4cdc5' }}>
@@ -230,7 +238,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
               <td className="px-3 py-2 font-black text-xs" style={{ color: '#1a1512' }}>{isPT ? 'EQUIPA' : 'TEAM'}</td>
               {statCols.map(c => (
                 <td key={c.key} className="px-2 py-2 text-right font-black" style={{ color: '#1a1512' }}>
-                  {c.key === 'mins' || c.key === 'plus_minus' ? '' : cellValue(totals, c.key)}
+                  {c.key === 'mins' || c.key === 'plus_minus' || c.key === 'gmsc' ? '' : cellValue(totals, c.key)}
                 </td>
               ))}
             </tr>
@@ -366,7 +374,12 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
           ESPN use to summarize a single-game performance in one number. */}
       {mvpEntry && mvpTeam && (
         <div className="rounded-2xl p-4 mb-6 flex items-center gap-4" style={{ background: '#faf8f5', border: `1px solid ${mvpColor}` }}>
-          <div className="text-3xl">🏆</div>
+          {mvpEntry.b.photo_url ? (
+            <img src={mvpEntry.b.photo_url} alt="" className="w-14 h-14 rounded-full object-cover flex-shrink-0"
+              style={{ border: `2px solid ${mvpColor}` }} />
+          ) : (
+            <div className="text-3xl">🏆</div>
+          )}
           <div className="flex-1">
             <div className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: '#8a8279' }}>
               {isPT ? 'MVP do Jogo' : 'Game MVP'}
@@ -402,7 +415,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
               <span className="font-bold text-sm" style={{ color: homeColor }}>{homeTeam.name}</span>
               <span className="ml-auto text-lg font-black" style={{ color: '#1a1512' }}>{homeScore}</span>
             </div>
-            <BoxTable players={homeBox} color={homeColor} totals={homeTotals} />
+            <BoxTable players={homeBox} color={homeColor} totals={homeTotals} mvpPlayerId={mvpEntry?.b.player_id} />
           </div>
 
           <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #d4cdc5', borderTop: `3px solid ${awayColor}` }}>
@@ -411,7 +424,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
               <span className="font-bold text-sm" style={{ color: awayColor }}>{awayTeam.name}</span>
               <span className="ml-auto text-lg font-black" style={{ color: '#1a1512' }}>{awayScore}</span>
             </div>
-            <BoxTable players={awayBox} color={awayColor} totals={awayTotals} />
+            <BoxTable players={awayBox} color={awayColor} totals={awayTotals} mvpPlayerId={mvpEntry?.b.player_id} />
           </div>
         </div>
       ) : (

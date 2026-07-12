@@ -51,7 +51,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
   }
 
   const toBoxRow = (b: any): BoxRow => ({
-    id: b.id, player_id: b.player?.id ?? b.player_id, name: b.player?.name ?? '', pos: b.player?.pos ?? '',
+    id: b.id, player_id: b.player?.id ?? b.player_id, name: b.player?.name ?? '', photo_url: b.player?.photo_url ?? null, pos: b.player?.pos ?? '',
     mins: b.mins || 0, pts: b.pts || 0, fgm: b.fgm || 0, fga: b.fga || 0, tpm: b.tpm || 0, tpa: b.tpa || 0,
     ftm: b.ftm || 0, fta: b.fta || 0, reb: b.reb || 0, ast: b.ast || 0, turnovers: b.turnovers || 0,
     stl: b.stl || 0, blk: b.blk || 0, off_reb: b.off_reb || 0, def_reb: b.def_reb || 0, pf: b.pf || 0,

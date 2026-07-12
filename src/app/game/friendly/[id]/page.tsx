@@ -19,6 +19,7 @@ export default function FriendlyGamePage({ params }: { params: { id: string } })
   const [pg, setPg] = useState<any>(null)
   const [homeInfo, setHomeInfo] = useState<any>(null)
   const [awayInfo, setAwayInfo] = useState<any>(null)
+  const [photosByPlayerId, setPhotosByPlayerId] = useState<Record<string, string>>({})
 
   useEffect(() => {
     (async () => {
@@ -47,6 +48,18 @@ export default function FriendlyGamePage({ params }: { params: { id: string } })
       ])
       setHomeInfo(home)
       setAwayInfo(away)
+
+      // box_score is a frozen JSON blob (no photo_url stored) — a World-team
+      // opponent's players never have a `players` row at all, so only fetch
+      // for the ids that plausibly do (skips a pointless empty-array query).
+      const playerIds = [...(pgData.box_score?.home || []), ...(pgData.box_score?.away || [])]
+        .map((b: any) => b.player_id).filter(Boolean)
+      if (playerIds.length) {
+        const { data: photoRows } = await supabase.from('players').select('id,photo_url').in('id', playerIds)
+        const map: Record<string, string> = {}
+        for (const p of photoRows || []) if (p.photo_url) map[p.id] = p.photo_url
+        setPhotosByPlayerId(map)
+      }
       setLoading(false)
     })()
   }, [params.id])
@@ -62,7 +75,7 @@ export default function FriendlyGamePage({ params }: { params: { id: string } })
   }
 
   const toBoxRow = (b: any): BoxRow => ({
-    id: b.player_id, player_id: b.player_id, name: b.name || '', pos: b.pos || '',
+    id: b.player_id, player_id: b.player_id, name: b.name || '', photo_url: photosByPlayerId[b.player_id] || null, pos: b.pos || '',
     mins: b.mins || 0, pts: b.pts || 0, fgm: b.fgm || 0, fga: b.fga || 0, tpm: b.tpm || 0, tpa: b.tpa || 0,
     ftm: b.ftm || 0, fta: b.fta || 0, reb: b.reb || 0, ast: b.ast || 0, turnovers: b.turnovers || 0,
     stl: b.stl || 0, blk: b.blk || 0, off_reb: b.off_reb || 0, def_reb: b.def_reb || 0, pf: b.pf || 0,
