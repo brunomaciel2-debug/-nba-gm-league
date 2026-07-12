@@ -1,6 +1,7 @@
 'use client'
 import { useTranslation } from '@/components/I18nProvider'
 import { countryName } from '@/lib/country-pt'
+import { countryFlag } from '@/lib/country-flags'
 import { readableTeamColor } from '@/lib/color'
 import Link from 'next/link'
 
@@ -177,7 +178,12 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                 </div>
                 <h1 className="text-3xl font-black mb-2" style={{color:'#1a1512'}}>{p.name}</h1>
                 <div className="flex gap-3 text-sm flex-wrap items-center">
-                  {p.nationality && <span style={{color:'#5c554e'}}>{p.nationality}</span>}
+                  {p.nationality && (
+                    <span style={{color:'#5c554e'}}>
+                      {countryFlag(p.nationality) && <span className="mr-1">{countryFlag(p.nationality)}</span>}
+                      {countryName(p.nationality, isPT)}
+                    </span>
+                  )}
                   {p.age && <span style={{color:'#5c554e'}}>{isPT?'Idade':'Age'} {p.age}</span>}
                   {exp.bg
                     ? <span className="text-xs px-2 py-0.5 rounded font-bold" style={{background:exp.bg,color:'#fff'}}>{exp.label}</span>

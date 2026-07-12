@@ -6,9 +6,11 @@ export const COUNTRY_PT: Record<string, string> = {
   'Brazil':'Brasil', 'Argentina':'Argentina', 'Dominican Republic':'República Dominicana',
   'Puerto Rico':'Porto Rico', 'Venezuela':'Venezuela', 'Colombia':'Colômbia',
   'Mexico':'México', 'Panama':'Panamá', 'Trinidad and Tobago':'Trindade e Tobago',
-  'Bahamas':'Bahamas', 'Jamaica':'Jamaica',
+  'Bahamas':'Bahamas', 'Jamaica':'Jamaica', 'Chile':'Chile', 'Haiti':'Haiti',
+  'Dominican Rep.':'República Dominicana',
   // Europe
   'France':'França', 'Spain':'Espanha', 'Germany':'Alemanha', 'Italy':'Itália',
+  'England':'Inglaterra', 'United Kingdom':'Reino Unido', 'Great Britain':'Grã-Bretanha',
   'Greece':'Grécia', 'Serbia':'Sérvia', 'Croatia':'Croácia', 'Slovenia':'Eslovénia',
   'Lithuania':'Lituânia', 'Latvia':'Letónia', 'Montenegro':'Montenegro',
   'Bosnia':'Bósnia', 'Bosnia and Herzegovina':'Bósnia e Herzegovina',
@@ -26,7 +28,7 @@ export const COUNTRY_PT: Record<string, string> = {
   'Congo':'Congo', 'Democratic Republic of Congo':'República Democrática do Congo',
   'DR Congo':'RD Congo', 'Angola':'Angola', 'Mali':'Mali',
   'Ivory Coast':'Costa do Marfim', "Côte d'Ivoire":'Costa do Marfim',
-  'South Africa':'África do Sul', 'Egypt':'Egito', 'Morocco':'Marrocos',
+  'South Africa':'África do Sul', 'S. Africa':'África do Sul', 'Egypt':'Egito', 'Morocco':'Marrocos',
   'Tunisia':'Tunísia', 'Algeria':'Argélia', 'Kenya':'Quénia', 'Ghana':'Gana',
   'Tanzania':'Tanzânia', 'Sudan':'Sudão', 'Ethiopia':'Etiópia',
   'Guinea':'Guiné', 'South Sudan':'Sudão do Sul', 'Cape Verde':'Cabo Verde',
@@ -38,7 +40,7 @@ export const COUNTRY_PT: Record<string, string> = {
   'Philippines':'Filipinas', 'Iran':'Irão', 'Lebanon':'Líbano',
   'Jordan':'Jordânia', 'Saudi Arabia':'Arábia Saudita', 'Qatar':'Catar',
   'UAE':'Emirados Árabes', 'India':'Índia', 'Taiwan':'Taiwan',
-  'Indonesia':'Indonésia', 'Mongolia':'Mongólia',
+  'Indonesia':'Indonésia', 'Mongolia':'Mongólia', 'HK':'Hong Kong',
 }
 
 /** Returns translated country name if PT is active, otherwise returns the original */
