@@ -58,6 +58,30 @@ const slope=(p1-p0)/(s1-s0)
 return Math.min(40,p1+slope*(s-s1))
 }
 
+// Same shape as SCORING_BREAKPOINTS/ppg36() above, this time for the hidden
+// Assist Rate attribute — breakpoints are the exact Assists/Passing pairs
+// from the commissioner's table. Existing pass attributes (pass_vis,
+// pass_iq, ball_hdl, assist_role) still matter — they shape WHICH teammate
+// gets credited when a basket gets assisted (quality/read) — but this is
+// now the sole driver of HOW MANY assists a player racks up.
+const ASSIST_BREAKPOINTS:[number,number][]=[
+[0,0],[20,1],[32,2],[42,3],[50,4],[58,5],[66,6],[74,7],[80,8],[86,9],[91,10],[95,11],
+]
+function apg36(assistRate?:number):number{
+const s=Math.max(0,Math.min(99,assistRate??50))
+const bp=ASSIST_BREAKPOINTS
+if(s<=bp[0][0])return bp[0][1]
+for(let i=1;i<bp.length;i++){
+if(s<=bp[i][0]){
+const[s0,p0]=bp[i-1],[s1,p1]=bp[i]
+return p0+(p1-p0)*(s-s0)/(s1-s0)
+}
+}
+const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
+const slope=(p1-p0)/(s1-s0)
+return Math.min(14,p1+slope*(s-s1))
+}
+
 function rnd(a:number,b:number){return Math.floor(Math.random()*(b-a+1))+a}
 function wt(pool:Array<{p:any,w:number}>){
 const t=pool.reduce((s,x)=>s+x.w,0);let r=Math.random()*t
@@ -429,12 +453,13 @@ const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100
 if(lsi.length>=3){if(r2>=3)mom[sc2.id]=Math.min(3,mom[sc2.id]+(makes?1:0)*st4*2);else if(r2<=1)mom[sc2.id]=Math.max(-3,mom[sc2.id]+(makes?0:-1)*st4*2);else mom[sc2.id]*=.6}
-// Who gets credited with the assist: assist_role (their real role/usage as
-// a facilitator) is still the dominant factor, but pass_vis (court vision)
-// now genuinely pulls weight too — it used to be a real, developable stat
-// with zero effect on any actual outcome.
+// Who gets credited with the assist: Assist Rate (hidden) is now the SOLE
+// driver of HOW MANY assists a player racks up — same "volume vs. quality/
+// type" split as Scoring vs. three/layup/dunk. assist_role and pass_vis
+// still matter, just as smaller secondary reads on top of that base volume
+// rather than the primary driver.
 if(Math.random()<sc2.draw_foul/100*.10*refFoulMult*tacticalMods.foulDrawMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
-if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.55+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wt(ap2.map(p=>({p,w:p.assist_role*1.6+(p.pass_vis??50)*0.4})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
+if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.55+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wt(ap2.map(p=>({p,w:Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3)})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
 // a skill (off_reb) roll — a secondary, smaller weight so off_reb still
