@@ -105,6 +105,36 @@ const slope=(p1-p0)/(s1-s0)
 return Math.min(4,p1+slope*(s-s1))
 }
 
+// Same "volume vs. type" split as Scoring/Assist Rate: reb_rate (hidden) is
+// the sole driver of a player's TOTAL rebounds/game at 36 minutes via the
+// commissioner's table. off_reb/def_reb still matter — they no longer set
+// the total, but they do set the SPLIT of that total between offensive and
+// defensive boards (see offReboundShare/defReboundShare below), and
+// strength/technique still decide who wins a given contested ball.
+const REB_BREAKPOINTS:[number,number][]=[
+[0,0],[15,1],[25,2],[35,3],[45,4],[53,5],[60,6],[67,7],[73,8],[79,9],[84,10],[88,11],[92,12],[95,13],
+]
+function rpg36(rebRate?:number):number{
+const s=Math.max(0,Math.min(99,rebRate??50))
+const bp=REB_BREAKPOINTS
+if(s<=bp[0][0])return bp[0][1]
+for(let i=1;i<bp.length;i++){
+if(s<=bp[i][0]){
+const[s0,p0]=bp[i-1],[s1,p1]=bp[i]
+return p0+(p1-p0)*(s-s0)/(s1-s0)
+}
+}
+const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
+const slope=(p1-p0)/(s1-s0)
+return Math.min(15,p1+slope*(s-s1))
+}
+// Normalized 0-1 lean toward offensive/defensive boards from a player's own
+// off_reb/def_reb balance — multiplies the reb_rate volume base rather than
+// competing with it, so a low-reb_rate player never out-rebounds a
+// high-reb_rate one just because their split happens to favor one side.
+function offReboundShare(p:any):number{const o=p.off_reb??50,d=p.def_reb??50;return o/Math.max(1,o+d)}
+function defReboundShare(p:any):number{const o=p.off_reb??50,d=p.def_reb??50;return d/Math.max(1,o+d)}
+
 function rnd(a:number,b:number){return Math.floor(Math.random()*(b-a+1))+a}
 function wt(pool:Array<{p:any,w:number}>){
 const t=pool.reduce((s,x)=>s+x.w,0);let r=Math.random()*t
@@ -487,7 +517,7 @@ else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
 // a skill (off_reb) roll — a secondary, smaller weight so off_reb still
 // decides most of the time.
-const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:p.off_reb*.5*tacticalMods.offRebMult+(p.strength??50)*.15+10})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom);if(re){st[re.id].fga++;
+const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom);if(re){st[re.id].fga++;
 // Putback chance: whoever ends up with the loose ball finishes it better
 // the more of a standing-dunk finisher they are — real range around the
 // old flat 50%, not a fixed coin flip regardless of who's shooting.
@@ -495,5 +525,5 @@ if(Math.random()<.35+((re.standing_dunk??50)/100)*.30){st[re.id].fgm++;sc[os]+=2
 // Lockdown Defender's real cost: locked onto one man all game, he crashes
 // the defensive glass worse — the "unavailable for help and rebounds"
 // tradeoff the rules page already promises.
-const rb=wt(dps.map(p=>({p,w:p.def_reb*.5*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)+(p.strength??50)*.15+10})));st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
+const rb=wt(dps.map(p=>({p,w:Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2})));st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
 }
