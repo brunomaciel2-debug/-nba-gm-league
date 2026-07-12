@@ -47,7 +47,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   // he actually plays.
   const hasCurrentSeasonRow = (stats || []).some((s: any) => s.season === '2025-26')
   const statsForDisplay = (!hasCurrentSeasonRow && p.team_id)
-    ? [{ id: 'placeholder-2025-26', season: '2025-26', team_id: p.team_id, games: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, turnovers: 0, oreb: 0, pf: 0, mins: 0, plus_minus: 0, triple_doubles: 0 }, ...(stats || [])]
+    ? [{ id: 'placeholder-2025-26', season: '2025-26', team_id: p.team_id, games: 0, pts: 0, reb: 0, ast: 0, stl: 0, blk: 0, fgm: 0, fga: 0, tpm: 0, tpa: 0, ftm: 0, fta: 0, turnovers: 0, oreb: 0, pf: 0, mins: 0, plus_minus: 0, triple_doubles: 0, double_doubles: 0 }, ...(stats || [])]
     : (stats || [])
 
   return (

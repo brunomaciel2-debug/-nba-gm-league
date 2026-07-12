@@ -341,14 +341,14 @@ weekGamesByTeam[ht.id] = (weekGamesByTeam[ht.id]||0) + 1
 weekGamesByTeam[at.id] = (weekGamesByTeam[at.id]||0) + 1
 
 await supabaseAdmin.from('box_scores').insert([
-...result.homeBox.map((b:any) => ({
-...b, game_id: gameRec.id, team_id: ht.id,
-is_triple_double: [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length >= 3
-})),
-...result.awayBox.map((b:any) => ({
-...b, game_id: gameRec.id, team_id: at.id,
-is_triple_double: [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length >= 3
-})),
+...result.homeBox.map((b:any) => {
+const dc = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length
+return { ...b, game_id: gameRec.id, team_id: ht.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
+}),
+...result.awayBox.map((b:any) => {
+const dc = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length
+return { ...b, game_id: gameRec.id, team_id: at.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
+}),
 ])
 if (result.pbp.length > 0) {
 await supabaseAdmin.from('play_by_play').insert(result.pbp.map((p:any) => ({ ...p, game_id: gameRec.id })))
@@ -467,7 +467,9 @@ const allBox = [
 ...result.awayBox.map((b:any) => ({...b, team_id: at.id})),
 ].filter((b:any) => (b.mins||0) > 0)
 for (const box of allBox) {
-const isTD = [box.pts||0,box.reb||0,box.ast||0,box.stl||0,box.blk||0].filter((v:number)=>v>=10).length >= 3
+const doubleCount = [box.pts||0,box.reb||0,box.ast||0,box.stl||0,box.blk||0].filter((v:number)=>v>=10).length
+const isTD = doubleCount >= 3
+const isDD = doubleCount >= 2
 const { data: ex } = await supabaseAdmin.from('player_stats')
 .select('*').eq('player_id', box.player_id).eq('season','2025-26').eq('team_id', box.team_id).maybeSingle()
 if (ex) {
@@ -481,6 +483,7 @@ ftm: ex.ftm+box.ftm, fta: ex.fta+box.fta,
 turnovers: ex.turnovers+box.turnovers,
 fouls: (ex.fouls||0)+(box.pf||0), tech_fouls: (ex.tech_fouls||0)+(box.tech_fouls||0),
 triple_doubles: (ex.triple_doubles||0)+(isTD?1:0),
+double_doubles: (ex.double_doubles||0)+(isDD?1:0),
 }).eq('id', ex.id)
 } else {
 await supabaseAdmin.from('player_stats').insert({
@@ -490,6 +493,7 @@ off_reb: box.off_reb||0, def_reb: box.def_reb||0,
 fgm: box.fgm||0, fga: box.fga||0, tpm: box.tpm||0, tpa: box.tpa||0, ftm: box.ftm||0, fta: box.fta||0,
 turnovers: box.turnovers||0, fouls: box.pf||0, tech_fouls: box.tech_fouls||0,
 triple_doubles: isTD?1:0,
+double_doubles: isDD?1:0,
 })
 }
 }

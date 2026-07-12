@@ -296,8 +296,8 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
 
     if (homeBox.length || awayBox.length) {
       await supabaseAdmin.from('box_scores').insert([
-        ...homeBox.map((b: any) => ({ ...b, game_id: gameId, team_id: pg.home_team, is_triple_double: [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length >= 3 })),
-        ...awayBox.map((b: any) => ({ ...b, game_id: gameId, team_id: pg.away_team, is_triple_double: [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length >= 3 })),
+        ...homeBox.map((b: any) => { const dc = [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length; return { ...b, game_id: gameId, team_id: pg.home_team, is_double_double: dc >= 2, is_triple_double: dc >= 3 } }),
+        ...awayBox.map((b: any) => { const dc = [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length; return { ...b, game_id: gameId, team_id: pg.away_team, is_double_double: dc >= 2, is_triple_double: dc >= 3 } }),
       ])
     }
     if (pbp.length > 0) {
