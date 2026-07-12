@@ -87,6 +87,15 @@ const statCols = [
 ] as const
 const splitCols: Record<string, [string, string]> = { fg: ['fgm', 'fga'], tp: ['tpm', 'tpa'], ft: ['ftm', 'fta'] }
 
+// Game Score (GmSc) — John Hollinger's formula, the one NBA.com/ESPN/
+// Basketball-Reference actually use to summarize a single-game performance
+// in one number. 10 is average, 40+ is MVP-caliber. Entirely derivable
+// from the box score stats already stored — no new columns needed.
+const gameScore = (b: BoxRow) =>
+  b.pts + 0.4 * b.fgm - 0.7 * b.fga - 0.4 * (b.fta - b.ftm)
+  + 0.7 * b.off_reb + 0.3 * b.def_reb + b.stl + 0.7 * b.ast + 0.7 * b.blk
+  - 0.4 * b.pf - b.turnovers
+
 const sumStat = (box: BoxRow[], key: string) => box.reduce((s, b) => s + ((b as any)[key] || 0), 0)
 const teamTotals = (box: BoxRow[]) => {
   const tot: Record<string, number> = {}
@@ -121,6 +130,16 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
   const awayTotals = teamTotals(awayBox)
 
   const resolvePlayerHref = (b: BoxRow) => playerHref ? playerHref(b.player_id) : (b.player_id != null ? `/player/${b.player_id}` : null)
+
+  // Game MVP — highest Game Score among everyone who actually played, on
+  // either team. Only meaningful once the game has real box score minutes.
+  const homePlayed = homeBox.filter(b => (b.mins || 0) > 0).map(b => ({ b, isHome: true }))
+  const awayPlayed = awayBox.filter(b => (b.mins || 0) > 0).map(b => ({ b, isHome: false }))
+  const mvpEntry = [...homePlayed, ...awayPlayed].reduce<{ b: BoxRow, isHome: boolean } | null>(
+    (best, cur) => (!best || gameScore(cur.b) > gameScore(best.b)) ? cur : best, null,
+  )
+  const mvpColor = mvpEntry ? (mvpEntry.isHome ? homeColor : awayColor) : ''
+  const mvpTeam = mvpEntry ? (mvpEntry.isHome ? homeTeam : awayTeam) : null
 
   const BoxTable = ({ players, color, totals }: { players: BoxRow[], color: string, totals: any }) => {
     const hasStarterFlag = players.some((b) => b.is_starter)
@@ -342,6 +361,37 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
           </div>
         )}
       </div>
+
+      {/* GAME MVP — highest Game Score (GmSc), the same formula NBA.com/
+          ESPN use to summarize a single-game performance in one number. */}
+      {mvpEntry && mvpTeam && (
+        <div className="rounded-2xl p-4 mb-6 flex items-center gap-4" style={{ background: '#faf8f5', border: `1px solid ${mvpColor}` }}>
+          <div className="text-3xl">🏆</div>
+          <div className="flex-1">
+            <div className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: '#8a8279' }}>
+              {isPT ? 'MVP do Jogo' : 'Game MVP'}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {resolvePlayerHref(mvpEntry.b) ? (
+                <Link href={resolvePlayerHref(mvpEntry.b)!} className="no-underline font-black text-base hover:underline" style={{ color: mvpColor }}>
+                  {mvpEntry.b.name}
+                </Link>
+              ) : (
+                <span className="font-black text-base" style={{ color: mvpColor }}>{mvpEntry.b.name}</span>
+              )}
+              <span className="text-xs" style={{ color: '#8a8279' }}>{mvpTeam.name}</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: '#e8e2d6', color: '#5c554e' }}>
+                {isPT ? 'Pontuação de Jogo' : 'Game Score'}: {gameScore(mvpEntry.b).toFixed(1)}
+              </span>
+            </div>
+            <div className="text-sm font-semibold mt-1" style={{ color: '#1a1512' }}>
+              {mvpEntry.b.pts} {isPT ? 'PTS' : 'PTS'} · {mvpEntry.b.reb} {isPT ? 'RES' : 'REB'} · {mvpEntry.b.ast} {isPT ? 'AST' : 'AST'}
+              {mvpEntry.b.stl >= 3 && ` · ${mvpEntry.b.stl} ${isPT ? 'ROU' : 'STL'}`}
+              {mvpEntry.b.blk >= 3 && ` · ${mvpEntry.b.blk} ${isPT ? 'DES' : 'BLK'}`}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* BOX SCORES */}
       {(homeBox.length > 0 || awayBox.length > 0) ? (
