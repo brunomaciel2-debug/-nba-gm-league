@@ -116,7 +116,18 @@ async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<strin
   }
 }
 
-export async function simulatePreseasonGame(id: string) {
+// weekOverride: the caller (run.ts's bulk friendly-resolution loop) already
+// knows the exact week being simulated — pass it through instead of letting
+// this function re-derive "current_week+1" on its own. That self-lookup
+// used to silently break for any friendly resolved on a week-finalizing
+// (half 2) invocation: current_week gets bumped to the just-finished week
+// BEFORE the friendly loop runs, so by the time this function re-queried
+// it, "current_week+1" pointed one week PAST the real one — a real GM's
+// just-submitted Weekly Orders were never found (wrong week_number), so
+// the friendly silently fell back to the auto depth chart every time,
+// exactly what a GM would call "my orders are decorative." Only the
+// single-game admin trigger (no bulk-loop context) still self-derives it.
+export async function simulatePreseasonGame(id: string, weekOverride?: number) {
   const { data: pg } = await supabaseAdmin.from('preseason_games').select('*').eq('id', id).single()
   if (!pg) return { success: false as const, error: 'Friendly game not found' }
   if (pg.status === 'final') return { success: false as const, error: 'Already simulated' }
@@ -144,8 +155,11 @@ export async function simulatePreseasonGame(id: string) {
     // should actually respect each team's real Weekly Orders (Depth Chart,
     // Priorities, Pace, Attack/Defense Style, Double Team, Lockdown
     // Defender, Ball Role, Head Coach adjustments), same as a real game.
-    const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
-    const week = (cfg?.current_week || 0) + 1
+    let week = weekOverride
+    if (week == null) {
+      const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
+      week = (cfg?.current_week || 0) + 1
+    }
     const [{ data: orders }, { data: headCoaches }] = await Promise.all([
       supabaseAdmin.from('gm_orders').select('*').eq('week_number', week).in('team_id', [pg.home_team, pg.away_team]),
       supabaseAdmin.from('coaches').select('team_id,off_adjustment,def_adjustment').eq('role', 'head_coach').in('team_id', [pg.home_team, pg.away_team]),
@@ -188,8 +202,11 @@ export async function simulatePreseasonGame(id: string) {
     const nbaTeamId = nbaSideIsHome ? pg.home_team : pg.away_team
     const worldTeamId = nbaSideIsHome ? pg.away_team : pg.home_team
 
-    const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
-    const week = (cfg?.current_week || 0) + 1
+    let week = weekOverride
+    if (week == null) {
+      const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
+      week = (cfg?.current_week || 0) + 1
+    }
     const [{ data: nbaTeam }, { data: worldTeam }, { data: nbaPlayers }, { data: worldPlayers }, { data: nbaOrders }, { data: nbaHeadCoach }] = await Promise.all([
       supabaseAdmin.from('teams').select('*').eq('id', nbaTeamId).single(),
       supabaseAdmin.from('world_teams').select('*').eq('id', worldTeamId).single(),

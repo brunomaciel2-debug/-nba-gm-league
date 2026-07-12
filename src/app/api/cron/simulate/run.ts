@@ -768,7 +768,7 @@ const { data: pendingFriendlies } = await supabaseAdmin
 .from('preseason_games').select('id').eq('season','2025-26').in('status',['scheduled','accepted'])
 .gte('scheduled_date', ymdFriendly(friendlyStart)).lte('scheduled_date', ymdFriendly(friendlyEnd))
 for (const pf of (pendingFriendlies||[])) {
-const r = await simulatePreseasonGame(pf.id)
+const r = await simulatePreseasonGame(pf.id, week)
 if (r.success) friendliesSimulated++
 }
 } catch(friendlyErr) { console.warn('Friendly games step failed:', friendlyErr) }
