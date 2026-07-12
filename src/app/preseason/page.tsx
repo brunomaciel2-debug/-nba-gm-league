@@ -41,6 +41,13 @@ export default function PreseasonPage() {
   const STATUS_STYLE = isPT ? STATUS_STYLE_PT : STATUS_STYLE_EN
 
   const [myTeamId,setMyTeamId]=useState<string|null>(null)
+  // Commissioner-only: lets Bruno act on behalf of any team (e.g. accept/
+  // schedule/cancel a friendly for a team with no active human GM), the
+  // same override TeamSchedule.tsx already grants on a team's own page —
+  // this standalone hub previously had no way to pick a team at all, so a
+  // pure commissioner account (team_id null) saw the whole page blank.
+  const [isCommissioner,setIsCommissioner]=useState(false)
+  const [ownTeamId,setOwnTeamId]=useState<string|null>(null)
   const [myGames,setMyGames]=useState<any[]>([])
   const [allGames,setAllGames]=useState<any[]>([])
   const [nbaTeams,setNbaTeams]=useState<any[]>([])
@@ -59,7 +66,8 @@ export default function PreseasonPage() {
     supabase.auth.getUser().then(async({data:{user}})=>{
       if(!user){setLoading(false);return}
       const{data:gm}=await supabase.from('gm_profiles').select('team_id,role').eq('id',user.id).single()
-      if(gm?.team_id)setMyTeamId(gm.team_id)
+      if(gm?.team_id){setMyTeamId(gm.team_id);setOwnTeamId(gm.team_id)}
+      if(gm?.role==='commissioner')setIsCommissioner(true)
       setLoading(false)
     })
     loadData()
@@ -129,6 +137,22 @@ export default function PreseasonPage() {
         <h1 className="text-3xl font-black mb-1" style={{color:'#1a1512'}}>🏀 {isPT?'Pré-Época':'Pre-Season'}</h1>
         <p className="text-sm" style={{color:'#8a8279'}}>{isPT?'2–17 Out 2025 · Máx 5 jogos por equipa · Sem back-to-backs':'Oct 2–17, 2025 · Max 5 games per team · No back-to-back games'}</p>
       </div>
+
+      {isCommissioner&&(
+        <div className="mb-6 px-4 py-3 rounded-xl flex items-center gap-3" style={{background:'#fffbeb',border:'1px solid #fde68a'}}>
+          <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#92400e'}}>👑 {isPT?'Comissário — gerir como':'Commissioner — manage as'}</span>
+          <select
+            value={myTeamId||''}
+            onChange={e=>setMyTeamId(e.target.value||null)}
+            className="text-sm px-3 py-1.5 rounded-lg font-semibold"
+            style={{background:'#fff',border:'1px solid #d4cdc5',color:'#1a1512'}}>
+            <option value="">{isPT?'— selecionar equipa —':'— select team —'}</option>
+            {nbaTeams.map(t=>(
+              <option key={t.id} value={t.id}>{t.name}{t.id===ownTeamId?(isPT?' (a tua equipa)':' (your team)'):''}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {myTeamId&&(
         <div className="grid grid-cols-3 gap-3 mb-6">
