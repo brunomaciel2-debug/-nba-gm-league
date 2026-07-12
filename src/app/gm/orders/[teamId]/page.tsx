@@ -88,6 +88,16 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   const [saved, setSaved] = useState(false)
   const [locked, setLocked] = useState(false)
   const [currentWeek, setCurrentWeek] = useState(0)
+  // The existing order for this week (if any) loads over 2 sequential
+  // network round-trips (season_config, then gm_orders) after the page is
+  // already visible and interactive. A GM who starts filling in the Depth
+  // Chart during that short window was editing state that the load then
+  // silently overwrote the moment it resolved — every position edited
+  // BEFORE the load finished got reset back to 0, while whatever was
+  // edited AFTER kept working, exactly matching a report of "I filled in
+  // every position but only the last one I touched actually saved."
+  // Locking the form until the load completes closes that window.
+  const [ordersLoaded, setOrdersLoaded] = useState(false)
   type Assignment = { double_team_target?:string, lockdown_target?:string, lockdown_defender?:string }
   const [specialAssignments, setSpecialAssignments] = useState<Record<string,Assignment>>({})
   const [activeOppTab, setActiveOppTab] = useState<string>('')
@@ -116,7 +126,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       })
     supabase.from('season_config').select('current_week').eq('id',1).single()
       .then(({data:cfg})=>{
-        if(!cfg)return
+        if(!cfg){ setOrdersLoaded(true); return }
         const week = cfg.current_week + 1
         setCurrentWeek(week)
         // A team plays SEVERAL games in a single simulated week (this league
@@ -169,7 +179,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         })
         supabase.from('gm_orders').select('*').eq('team_id',teamId).eq('week_number',week).single()
           .then(({data:ord})=>{
-            if(!ord)return
+            if(!ord){ setOrdersLoaded(true); return }
             // Restore all saved values
             setPris([ord.priority_1||'',ord.priority_2||'',ord.priority_3||''])
             setClutch(ord.clutch_player||'')
@@ -187,6 +197,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
               if(ball_roles) setBallRoles(ball_roles)
             }
             if(ord.ball_roles) setBallRoles(ord.ball_roles)
+            setOrdersLoaded(true)
           })
       })
   }, [teamId])
@@ -199,7 +210,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
   ))
 
   const save = async () => {
-    if(locked || assignedInjuredNames.length>0 || !allPositionsOk)return
+    if(locked || !ordersLoaded || assignedInjuredNames.length>0 || !allPositionsOk)return
     setSaving(true)
     // Always re-check the live week instead of trusting the value cached in
     // React state at page load — if the season actually advanced while this
@@ -267,6 +278,17 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         {locked && <span className="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold"
           style={{background:'#fee2e2',color:'#dc2626'}}>⚠️ {isPT?'Bloqueado':'Locked'}</span>}
       </div>
+
+      {!ordersLoaded && (
+        <div className="rounded-xl p-3 mb-5 text-xs font-semibold text-center" style={{background:'#e0e7ff',color:'#3730a3'}}>
+          {isPT?'⏳ A carregar as tuas ordens desta semana — espera antes de editar, para não perderes o que já tinhas gravado...':'⏳ Loading your orders for this week — wait before editing, so nothing you already saved gets lost...'}
+        </div>
+      )}
+
+      {/* Locked until the async load of this week's saved order finishes —
+          see the ordersLoaded comment above. Prevents a GM's edits from
+          being silently overwritten the moment the load resolves. */}
+      <div style={{pointerEvents:ordersLoaded?'auto':'none',opacity:ordersLoaded?1:0.5}}>
 
       {/* DEPTH CHART */}
       <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>
@@ -550,6 +572,8 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         ))}
       </div>
 
+      </div>
+
       {assignedInjuredNames.length>0&&(
         <div className="rounded-xl p-4 mb-4" style={{background:'#fee2e2',border:'1px solid #dc2626'}}>
           <div className="text-sm font-bold mb-1" style={{color:'#dc2626'}}>
@@ -572,7 +596,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         </div>
       )}
 
-      <button onClick={save} disabled={saving||locked||assignedInjuredNames.length>0||!allPositionsOk}
+      <button onClick={save} disabled={saving||locked||!ordersLoaded||assignedInjuredNames.length>0||!allPositionsOk}
         className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 transition-colors"
         style={{background:saved?'#dcfce7':locked?'#fee2e2':'#1d4ed8',color:saved?'#15803d':locked?'#dc2626':'#fff'}}>
         {saving?(isPT?'A guardar...':'Saving...')
