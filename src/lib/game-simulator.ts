@@ -501,9 +501,13 @@ w*=(p.posFitMult??1)
 // onCourtFive() drew for this exact possession (that's a separate, cosmetic
 // +/- bookkeeping draw) — so without this, an 8-minute bench player and a
 // 48-minute starter competed for literally every possession of the whole
-// game on equal footing. Floored (not zeroed) so deep bench players still
-// occasionally get a look, same spirit as the .3 floor on scoreVol above.
-w*=Math.max(.35,(p.mins||0)/48)
+// game on equal footing. Floored (not zeroed) so a real 1-2 minute garbage-
+// time cameo still gets an occasional look — but the floor used to be .35,
+// which inflated a 2-minute player (true share 2/48=.04) up to a weight
+// equivalent to a ~17-minute rotation player, producing box scores like
+// 6 shot attempts in 2 minutes. .04 keeps mins genuinely proportional for
+// anyone playing more than a couple of minutes.
+w*=Math.max(.04,(p.mins||0)/48)
 return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
 }))
 }
