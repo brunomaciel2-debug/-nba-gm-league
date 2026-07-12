@@ -49,7 +49,12 @@ export default function TeamSchedule({
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set())
   const [previewGame, setPreviewGame] = useState<any>(null)
 
-  const isPreseasonPeriod = seasonStatus === 'pre-season'
+  // Was seasonStatus==='pre-season' exactly — the real Pre-Season phase
+  // (games actually get simulated) only starts at week 14, but GMs should
+  // be able to plan/accept/decline friendlies for that Oct 2-17 window
+  // well ahead of time, same as real NBA scheduling. Only exclude phases
+  // where scheduling one no longer makes sense (regular season onward).
+  const isPreseasonPeriod = !['regular-season','play-in','playoffs','draft-submission-r1','draft-round1','draft-round2'].includes(seasonStatus)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
