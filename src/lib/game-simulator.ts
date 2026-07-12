@@ -82,6 +82,29 @@ const slope=(p1-p0)/(s1-s0)
 return Math.min(14,p1+slope*(s-s1))
 }
 
+// blk stays exactly what it always was — shot-blocking ability — but now
+// directly defines the average blocks/game at 36 minutes via the
+// commissioner's table, same piecewise shape as ppg36()/apg36() above,
+// instead of an arbitrary flat "blk/100 * .065" per-shot chance with no
+// real calibrated target.
+const BLK_BREAKPOINTS:[number,number][]=[
+[0,0],[15,.2],[28,.4],[40,.6],[50,.8],[58,1.0],[65,1.2],[72,1.5],[79,1.8],[85,2.1],[89,2.4],[92,2.7],[95,3.1],
+]
+function bpg36(blk?:number):number{
+const s=Math.max(0,Math.min(99,blk??50))
+const bp=BLK_BREAKPOINTS
+if(s<=bp[0][0])return bp[0][1]
+for(let i=1;i<bp.length;i++){
+if(s<=bp[i][0]){
+const[s0,p0]=bp[i-1],[s1,p1]=bp[i]
+return p0+(p1-p0)*(s-s0)/(s1-s0)
+}
+}
+const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
+const slope=(p1-p0)/(s1-s0)
+return Math.min(4,p1+slope*(s-s1))
+}
+
 function rnd(a:number,b:number){return Math.floor(Math.random()*(b-a+1))+a}
 function wt(pool:Array<{p:any,w:number}>){
 const t=pool.reduce((s,x)=>s+x.w,0);let r=Math.random()*t
@@ -436,7 +459,7 @@ if(Math.random()<(.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015+(isDouble
 // stl is still the dominant factor, speed/agility a real secondary one.
 const quickness=st3.stl*.75+((st3.speed??50)+(st3.agility??50))/2*.25
 if(Math.random()<quickness/100*.7)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
-if(!u3&&Math.random()<def.blk/100*.065*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
+if(!u3&&Math.random()<bpg36(def.blk)*.12*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
 ss.fga++;if(u3)ss.tpa++
 const offBallMult=(u3&&sc2.ball_role==='off_ball')?1.08:1.0
 // Tactical shot-zone bonus — which multiplier applies depends on shot type;
