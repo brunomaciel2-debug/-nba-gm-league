@@ -2,6 +2,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { simulateGame } from '@/lib/game-simulator'
 import { notify } from '@/lib/notifications'
 import { getTeamLang, notifInjury } from '@/lib/notifications-helpers'
+import { computeGameAttendance } from '@/lib/audience-segments'
+import { rateRefereePerformance } from '@/lib/referees'
 
 // Resolves a single scheduled friendly/pre-season game (a preseason_games row) —
 // NBA vs NBA, or NBA vs a "Rest of the World" team. Produces an isolated
@@ -143,6 +145,30 @@ async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<strin
 // the friendly silently fell back to the auto depth chart every time,
 // exactly what a GM would call "my orders are decorative." Only the
 // single-game admin trigger (no bulk-loop context) still self-derives it.
+async function computeFriendlyGameMeta(homeTeam: any, awayTeam: any, homeBox: any[], awayBox: any[]) {
+  const [{ data: ticketConfig }, { data: referees }] = await Promise.all([
+    supabaseAdmin.from('franchise_config').select('ticket_lower,ticket_upper,ticket_courtside').eq('team_id', homeTeam.id).maybeSingle(),
+    supabaseAdmin.from('referees').select('id'),
+  ])
+  const isRivalry = homeTeam.rival_team_id === awayTeam.id || awayTeam.rival_team_id === homeTeam.id
+  const attendanceResult = computeGameAttendance({
+    teamId: homeTeam.id, popularity: homeTeam.popularity ?? 50,
+    capacity: homeTeam.arena_capacity || 18000,
+    winPct: (homeTeam.wins || 0) / Math.max(1, (homeTeam.wins || 0) + (homeTeam.losses || 0)),
+    isRivalry, isMarquee: false,
+    prices: {
+      lower: ticketConfig?.ticket_lower ?? 80, upper: ticketConfig?.ticket_upper ?? 45,
+      courtside: ticketConfig?.ticket_courtside ?? 500,
+    },
+    randomJitter: Math.random() * 0.06 - 0.03,
+    followers: homeTeam.social_media_followers,
+  })
+  const refIds = (referees || []).map((r: any) => r.id as string)
+  const refereeId = refIds.length ? refIds[Math.floor(Math.random() * refIds.length)] : null
+  const refereeRating = refereeId ? rateRefereePerformance(homeBox, awayBox, isRivalry, false) : null
+  return { attendance: attendanceResult.attendance, isRivalry, refereeId, refereeRating }
+}
+
 export async function simulatePreseasonGame(id: string, weekOverride?: number) {
   const { data: pg } = await supabaseAdmin.from('preseason_games').select('*').eq('id', id).single()
   if (!pg) return { success: false as const, error: 'Friendly game not found' }
@@ -155,6 +181,15 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
   let homeScore = 0, awayScore = 0
   let homeBox: any[] = [], awayBox: any[] = [], pbp: any[] = [], periods: any[] = []
   let nbaPlayerIdsForInjury = new Set<string>()
+  // A friendly never had a real referee or attendance figure — attendance
+  // stayed 0 and referee_id stayed null forever, so the box score's
+  // scoreboard header silently showed neither, unlike every real game.
+  // Same real formulas as a regular-season game (audience-segments.ts,
+  // rateRefereePerformance), just without any of the financial side effects
+  // (ticket/concession revenue, referee meritocracy assignment) real games
+  // carry — this is display-only, matching this file's existing "isolated
+  // result, never touches revenue/standings" contract for friendlies.
+  let friendlyGameMeta: { attendance: number, isRivalry: boolean, refereeId: string | null, refereeRating: number | null } | null = null
 
   if (isNbaVsNba) {
     const [{ data: homeTeam }, { data: awayTeam }, { data: hp }, { data: ap }] = await Promise.all([
@@ -207,6 +242,7 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
     homeScore = result.homeScore; awayScore = result.awayScore
     homeBox = result.homeBox; awayBox = result.awayBox; pbp = result.pbp; periods = result.periods
     nbaPlayerIdsForInjury = new Set([...hp, ...ap].map((p: any) => String(p.id)))
+    friendlyGameMeta = await computeFriendlyGameMeta(homeTeam, awayTeam, result.homeBox, result.awayBox)
   } else {
     // One side is a "Rest of the World" team. These DO have a real roster
     // (players.world_team_id, nba_recruitable=false — see /world/[id] page)
@@ -290,6 +326,10 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
       scheduled_date: pg.scheduled_date,
       game_type: 'preseason',
       period_scores: periods,
+      attendance: friendlyGameMeta?.attendance ?? 0,
+      is_rivalry: friendlyGameMeta?.isRivalry ?? false,
+      referee_id: friendlyGameMeta?.refereeId ?? null,
+      referee_rating: friendlyGameMeta?.refereeRating ?? null,
     }).select().single()
     if (!gameRec) return { success: false as const, error: 'Failed to create game record' }
     gameId = gameRec.id
