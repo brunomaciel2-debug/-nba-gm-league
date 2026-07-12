@@ -121,7 +121,11 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
         // No declared foreign key from injury_log to players — fetch active
         // injuries separately and cross-reference by id, same no-embed
         // pattern used everywhere else this session.
-        const { data: injuries } = await supabase.from('injury_log').select('player_id').eq('status','active').in('player_id', data.map((p:any)=>p.id))
+        // Only block on injuries the system itself flags as unplayable
+        // (can_play=false) — an open-but-playable injury (e.g. a moderate
+        // sprain the player can still suit up for) shouldn't hard-block
+        // Save, since the injury system already lets a GM play through it.
+        const { data: injuries } = await supabase.from('injury_log').select('player_id').eq('status','active').eq('can_play',false).in('player_id', data.map((p:any)=>p.id))
         setInjuredNames(new Set(data.filter((p:any)=>(injuries||[]).some((i:any)=>i.player_id===p.id)).map((p:any)=>p.name)))
       })
     supabase.from('season_config').select('current_week').eq('id',1).single()

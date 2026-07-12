@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { simulateGame } from '@/lib/game-simulator'
+import { notify } from '@/lib/notifications'
+import { getTeamLang, notifInjury } from '@/lib/notifications-helpers'
 
 // Resolves a single scheduled friendly/pre-season game (a preseason_games row) —
 // NBA vs NBA, or NBA vs a "Rest of the World" team. Produces an isolated
@@ -71,7 +73,7 @@ async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<strin
   const playerIds = relevant.map(b => b.player_id)
   const [{ data: injTypes }, { data: playersInfo }] = await Promise.all([
     supabaseAdmin.from('injury_types').select('*'),
-    supabaseAdmin.from('players').select('id,health,moral,durability').in('id', playerIds),
+    supabaseAdmin.from('players').select('id,name,team_id,health,moral,durability').in('id', playerIds),
   ])
   const pMap: Record<string, any> = {}
   ;(playersInfo || []).forEach((p: any) => { pMap[p.id] = p })
@@ -110,6 +112,20 @@ async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<strin
         status: injHealth < 50 ? 'injured' : 'active',
         injury_type: chosen.name,
       }).eq('id', p.id)
+
+      // Real-game injuries notify the GM (notifications.ts) but friendlies
+      // previously didn't — a player could get hurt in a pre-season game
+      // with no message ever reaching the GM's inbox.
+      if (p.team_id) {
+        try {
+          const lang = await getTeamLang(p.team_id)
+          const notif = notifInjury(lang, p.name, chosen.name, gamesOut)
+          await notify(p.team_id, 'injury', notif.subject, notif.body, {
+            player_id: p.id, injury_type: chosen.name, severity: chosen.severity,
+            games_out: gamesOut, occurred_in: 'preseason_game',
+          })
+        } catch { /* notification failure shouldn't block the game result */ }
+      }
     } else {
       await supabaseAdmin.from('players').update({ health: newHealth }).eq('id', p.id)
     }
