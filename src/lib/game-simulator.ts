@@ -83,6 +83,32 @@ const slope=(p1-p0)/(s1-s0)
 return Math.min(12,p1+slope*(s-s1))
 }
 
+// Steal Rate (hidden) is the SOLE driver of how many steals a player
+// racks up per game (36 min reference) — "stl" (and speed/agility) still
+// decide the quality/how of it (who's quick enough to actually be the one
+// near the play), not how often. The commissioner only gave the table's
+// upper half (79-95 rating -> 0.9-2.0 STL); everything below 79 is a
+// straight line back to (0,0), same floor convention as every other rate
+// table here.
+const STEAL_RATE_BREAKPOINTS:[number,number][]=[
+[0,0],[79,.9],[81,1.0],[83,1.1],[85,1.2],[87,1.3],[89,1.4],[90,1.5],
+[91,1.6],[92,1.7],[93,1.8],[94,1.9],[95,2.0],
+]
+function spg36(stealRate?:number):number{
+const s=Math.max(0,Math.min(99,stealRate??50))
+const bp=STEAL_RATE_BREAKPOINTS
+if(s<=bp[0][0])return bp[0][1]
+for(let i=1;i<bp.length;i++){
+if(s<=bp[i][0]){
+const[s0,p0]=bp[i-1],[s1,p1]=bp[i]
+return p0+(p1-p0)*(s-s0)/(s1-s0)
+}
+}
+const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
+const slope=(p1-p0)/(s1-s0)
+return Math.min(2.5,p1+slope*(s-s1))
+}
+
 // Same shape as SCORING_BREAKPOINTS/ppg36() above, this time for the hidden
 // Assist Rate attribute — breakpoints are the exact Assists/Passing pairs
 // from the commissioner's table. Existing pass attributes (pass_vis,
@@ -531,11 +557,15 @@ const refFoulMult=ref?refFoulRate*(1+(os==='home'?refHomeSkew:-refHomeSkew))*ref
 const moralMult=.92+(sc2.moral??80)/100*.08
 
 if(Math.random()<(.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015+(isDoubled?0.04:0))*(1-cohesionDampen(oo.cohesion,0.2))*tacticalMods.toMult){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:p.stl*.5+20})));
-// A forced turnover only becomes a real steal (vs. just a live-ball TO) if
-// the defender is quick enough to actually close and jump the passing lane —
-// stl is still the dominant factor, speed/agility a real secondary one.
-const quickness=st3.stl*.75+((st3.speed??50)+(st3.agility??50))/2*.25
-if(Math.random()<quickness/100*.7)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
+// A forced turnover only becomes a real credited steal (vs. just a live-
+// ball TO) if the defender converts it — Steal Rate (hidden) is now the
+// SOLE driver of how often that happens, same volume/quality split as
+// every other rate attribute here. stl/speed/agility (quality — being
+// quick enough to actually close and jump the lane) stay a real but
+// secondary multiplier instead of driving frequency themselves.
+const stealVol=Math.max(.1,spg36(st3.steal_rate))
+const stealQualityMult=0.7+((st3.stl??50)/100)*.2+(((st3.speed??50)+(st3.agility??50))/200)*.1
+if(Math.random()<Math.min(1,stealVol/1.4)*.7*stealQualityMult)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
 if(!u3&&Math.random()<bpg36(def.blk)*.12*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
 ss.fga++;if(u3)ss.tpa++
 const offBallMult=(u3&&sc2.ball_role==='off_ball')?1.08:1.0
