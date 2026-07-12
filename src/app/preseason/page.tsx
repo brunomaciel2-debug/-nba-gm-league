@@ -27,6 +27,7 @@ export default function PreseasonPage() {
     accepted:  {bg:'#dcfce7',color:'#15803d',label:'Accepted'},
     scheduled: {bg:'#dbeafe',color:'#1d4ed8',label:'Scheduled'},
     declined:  {bg:'#fee2e2',color:'#dc2626',label:'Declined'},
+    cancelled: {bg:'#fee2e2',color:'#dc2626',label:'Cancelled'},
     final:     {bg:'#f0ece5',color:'#5c554e',label:'Final'},
   }
   const STATUS_STYLE_PT: Record<string,{bg:string,color:string,label:string}> = {
@@ -34,6 +35,7 @@ export default function PreseasonPage() {
     accepted:  {bg:'#dcfce7',color:'#15803d',label:'Aceite'},
     scheduled: {bg:'#dbeafe',color:'#1d4ed8',label:'Agendado'},
     declined:  {bg:'#fee2e2',color:'#dc2626',label:'Recusado'},
+    cancelled: {bg:'#fee2e2',color:'#dc2626',label:'Cancelado'},
     final:     {bg:'#f0ece5',color:'#5c554e',label:'Final'},
   }
   const STATUS_STYLE = isPT ? STATUS_STYLE_PT : STATUS_STYLE_EN
@@ -184,7 +186,7 @@ export default function PreseasonPage() {
         <div className="mb-6">
           <h2 className="text-sm font-bold uppercase tracking-widest mb-3" style={{color:'#5c554e'}}>{isPT?'Os Meus Jogos':'My Games'}</h2>
           <div className="flex flex-col gap-2">
-            {myGames.filter(g=>g.status!=='declined').sort((a,b)=>(a.scheduled_date||'').localeCompare(b.scheduled_date||'')).map(g=>{
+            {myGames.filter(g=>g.status!=='declined'&&g.status!=='cancelled').sort((a,b)=>(a.scheduled_date||'').localeCompare(b.scheduled_date||'')).map(g=>{
               const ss=STATUS_STYLE[g.status]||STATUS_STYLE.pending
               const isMyRequest=g.requested_by===myTeamId
               const isWorldGame=g.home_type==='world'||g.away_type==='world'
@@ -210,13 +212,13 @@ export default function PreseasonPage() {
 
       <div>
         <h2 className="text-sm font-bold uppercase tracking-widest mb-3" style={{color:'#5c554e'}}>{isPT?'Todos os Jogos Pré-Época':'All Pre-Season Games'}</h2>
-        {allGames.filter(g=>g.status!=='declined').length===0?(
+        {allGames.filter(g=>g.status!=='declined'&&g.status!=='cancelled').length===0?(
           <div className="text-center py-8 rounded-xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
             <p className="text-sm" style={{color:'#8a8279'}}>{isPT?'Nenhum jogo agendado ainda.':'No games scheduled yet.'}</p>
           </div>
         ):(
           <div className="flex flex-col gap-1.5">
-            {allGames.filter(g=>g.status!=='declined').sort((a,b)=>(a.scheduled_date||'').localeCompare(b.scheduled_date||'')).map(g=>{
+            {allGames.filter(g=>g.status!=='declined'&&g.status!=='cancelled').sort((a,b)=>(a.scheduled_date||'').localeCompare(b.scheduled_date||'')).map(g=>{
               const ss=STATUS_STYLE[g.status]||STATUS_STYLE.pending
               const isWorldGame=g.home_type==='world'||g.away_type==='world'
               const hasBoxScore=g.status==='final'&&isWorldGame&&g.box_score
