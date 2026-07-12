@@ -109,6 +109,40 @@ const slope=(p1-p0)/(s1-s0)
 return Math.min(2.5,p1+slope*(s-s1))
 }
 
+// Free Throw Rate (hidden) is the SOLE driver of how often a player gets
+// to the free throw line per game (36 min reference) — "ft" still decides
+// FT% once there (unchanged), and draw_foul now plays the same secondary
+// "quality" role stl/speed/agility play for Steal Rate (a real but smaller
+// nudge on whether a given trip to the rim actually draws iron, not the
+// volume itself). Breakpoints are the average FTA/rating pull from the
+// commissioner's top-100 table (77-95 rating -> 2.3-10.1 FTA), same floor
+// convention as every other rate table here (straight line back to 0,0
+// below the table's lowest given rating).
+const FT_RATE_BREAKPOINTS:[number,number][]=[
+[0,0],[77,2.3],[79,2.7],[81,3.3],[83,3.7],[85,4.1],[87,4.7],[89,5.3],
+[90,5.6],[91,6.2],[92,7.4],[93,8.2],[94,9.1],[95,10.1],
+]
+// Calibrated (see __ft_rate_calibrate.ts backtest) so a rating-78 player —
+// the pre-existing "neutral default" draw_foul value used throughout this
+// file's test rosters — lands on roughly the same per-shot foul-drawing
+// odds the old flat draw_foul/100*.10 formula produced, before compounding
+// by the new curve's shape at the extremes.
+const FT_RATE_K=0.018
+function ftpg36(freeThrowRate?:number):number{
+const s=Math.max(0,Math.min(99,freeThrowRate??50))
+const bp=FT_RATE_BREAKPOINTS
+if(s<=bp[0][0])return bp[0][1]
+for(let i=1;i<bp.length;i++){
+if(s<=bp[i][0]){
+const[s0,p0]=bp[i-1],[s1,p1]=bp[i]
+return p0+(p1-p0)*(s-s0)/(s1-s0)
+}
+}
+const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
+const slope=(p1-p0)/(s1-s0)
+return Math.min(12,p1+slope*(s-s1))
+}
+
 // Same shape as SCORING_BREAKPOINTS/ppg36() above, this time for the hidden
 // Assist Rate attribute — breakpoints are the exact Assists/Passing pairs
 // from the commissioner's table. Existing pass attributes (pass_vis,
@@ -583,12 +617,13 @@ const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100
 if(lsi.length>=3){if(r2>=3)mom[sc2.id]=Math.min(3,mom[sc2.id]+(makes?1:0)*st4*2);else if(r2<=1)mom[sc2.id]=Math.max(-3,mom[sc2.id]+(makes?0:-1)*st4*2);else mom[sc2.id]*=.6}
-// Who gets credited with the assist: Assist Rate (hidden) is now the SOLE
-// driver of HOW MANY assists a player racks up — same "volume vs. quality/
-// type" split as Scoring vs. three/layup/dunk. assist_role and pass_vis
-// still matter, just as smaller secondary reads on top of that base volume
-// rather than the primary driver.
-if(Math.random()<sc2.draw_foul/100*.10*refFoulMult*tacticalMods.foulDrawMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+// Free Throw Rate (hidden) is now the SOLE driver of how often a shot
+// attempt turns into a trip to the line — draw_foul (secondary quality,
+// same span as stealQualityMult below) still nudges it, but no longer
+// sets the base rate on its own, same volume/quality split as every other
+// rate attribute here.
+const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
+if(Math.random()<Math.min(.4,ftpg36(sc2.free_throw_rate)*FT_RATE_K)*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
 if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.55+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wt(ap2.map(p=>({p,w:Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3)})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
