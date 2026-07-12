@@ -149,6 +149,7 @@ export default function Navbar() {
     { href: '/admin/coaches',      label: 'Staff Técnico',        icon: 'ti-whistle' },
     { href: '/admin/applications', label: 'Candidaturas GM',      icon: 'ti-clipboard-list' },
     { href: '/admin/gms',          label: 'Gerir GMs',            icon: 'ti-users' },
+    { href: '/preseason',          label: 'Amigáveis (por equipa)', icon: 'ti-calendar-event' },
   ] : [
     { href: '/admin',              label: 'Commissioner Panel', icon: 'ti-settings' },
     { href: '/admin/article/new',  label: 'Write Article',      icon: 'ti-pencil' },
@@ -157,6 +158,7 @@ export default function Navbar() {
     { href: '/admin/coaches',      label: 'Coaching Staff',     icon: 'ti-whistle' },
     { href: '/admin/applications', label: 'GM Applications',    icon: 'ti-clipboard-list' },
     { href: '/admin/gms',          label: 'Manage GMs',         icon: 'ti-users' },
+    { href: '/preseason',          label: 'Friendlies (per team)', icon: 'ti-calendar-event' },
   ]
 
   const GM_LINKS = [
