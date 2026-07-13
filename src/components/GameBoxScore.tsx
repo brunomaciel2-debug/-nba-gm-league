@@ -375,10 +375,10 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
       {mvpEntry && mvpTeam && (
         <div className="rounded-2xl p-4 mb-6 flex items-center gap-4" style={{ background: '#faf8f5', border: `1px solid ${mvpColor}` }}>
           {mvpEntry.b.photo_url ? (
-            <img src={mvpEntry.b.photo_url} alt="" className="w-14 h-14 rounded-full object-cover flex-shrink-0"
-              style={{ border: `2px solid ${mvpColor}` }} />
+            <img src={mvpEntry.b.photo_url} alt="" className="w-24 h-24 rounded-full object-cover flex-shrink-0"
+              style={{ border: `3px solid ${mvpColor}` }} />
           ) : (
-            <div className="text-3xl">🏆</div>
+            <div className="text-5xl">🏆</div>
           )}
           <div className="flex-1">
             <div className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: '#8a8279' }}>
