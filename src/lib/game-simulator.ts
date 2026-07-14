@@ -131,7 +131,22 @@ const FT_RATE_BREAKPOINTS:[number,number][]=[
 // can still run well above his own individual per-36 target on a given
 // night — real variance, same as an actual box score — but the team total
 // this is actually calibrated against matches.
-const FT_RATE_K=0.042
+const FT_RATE_K=0.03
+// Real per-shot ceiling for a shooting foul — the previous ".55" cap was
+// applied to the base frequency term BEFORE foulDrawQualityMult/refFoulMult/
+// tacticalMods.foulDrawMult multiplied it further, so the real per-shot
+// chance for a maxed-out player could climb past 90% (see the fix at the
+// shooting-foul roll below, which now caps the FULLY-combined probability
+// instead). ~0.22 keeps an elite free_throw_rate/draw_foul player's
+// per-shot shooting-foul chance in a believable range.
+const SHOOTING_FOUL_CAP=0.18
+// Per-possession chance of a common/non-shooting foul (reach-in, illegal
+// screen, loose ball) — independent of the shot itself, and NOT
+// automatically a trip to the line (see the bonus/penalty check where this
+// is used). Calibrated together with SHOOTING_FOUL_CAP/FT_RATE_K against
+// real DB rosters to land team fouls at ~25/game (~23 FT-awarding) and team
+// FTA at ~24.8/game — Bruno's real 2025-26 NBA reference numbers.
+const NONSHOOTING_FOUL_CHANCE=0.15
 function ftpg36(freeThrowRate?:number):number{
 const s=Math.max(0,Math.min(99,freeThrowRate??50))
 const bp=FT_RATE_BREAKPOINTS
@@ -381,6 +396,12 @@ ensurePlayableDepthChart(ap,ao.depth_chart)
 // fresher on the second night of a back-to-back.
 const sc={home:0,away:0},st:Record<string,any>={},fat:Record<string,number>={},mom:Record<string,number>={},ls:Record<string,number[]>={},part={home:0,away:0}
 const tol={home:{used:0,q:{0:0,1:0,2:0,3:0}} as any,away:{used:0,q:{0:0,1:0,2:0,3:0}} as any}
+// Team foul count for the CURRENT quarter only (resets every period, same as
+// the real NBA) — drives the bonus/penalty: once a team reaches 5 fouls in
+// a quarter, the opponent shoots FT on every further non-shooting foul that
+// quarter too, not just shooting fouls. Counts both foul types, since real
+// team-foul totals do.
+const teamFouls={home:0,away:0}
 let isGT=false,gtW=""
 const pbp:any[]=[],hb:any[]=[],ab:any[]=[]
 const seed=(ps:any[],ord:any)=>ps.forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0,plus_minus:0};fat[p.id]=Math.min(100,Math.max(40,(p.health??100)-(ord.backToBack?12*(1-coachDampen(ord.substitutions)):0)));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
@@ -399,6 +420,7 @@ const isOT=q>=4
 const periodLen=isOT?300:720
 const periodPoss=isOT?Math.max(6,Math.round(ppq*300/720)):ppq
 part.home=0;part.away=0
+teamFouls.home=0;teamFouls.away=0
 let side="home"
 rollTechs(hp,ap,"home","away",ht,sc,st,q,pbp,gameReferee,gameChippy)
 rollTechs(ap,hp,"away","home",at,sc,st,q,pbp,gameReferee,gameChippy)
@@ -430,7 +452,7 @@ if((part[ds] as number)>=8&&(tol[os].q[q]||0)<2&&tol[os].used<7){tol[os].q[q]=(t
 const scBefore=sc[os]
 const onCourtOff=onCourtFive(side==="home"?hp:ap)
 const onCourtDef=onCourtFive(side==="home"?ap:hp)
-simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp)
+simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp,teamFouls)
 const pmDelta=sc[os]-scBefore
 if(pmDelta!==0){
 onCourtOff.forEach(p=>{st[p.id].plus_minus+=pmDelta})
@@ -475,6 +497,28 @@ p._posFitWeightedDist+=dist*e.mins
 // Minutes-weighted average position distance across every slot a player was
 // assigned to this week, converted into one blended real performance hit.
 players.forEach(p=>{if(p.mins>0)p.posFitMult=posFitMultiplier(p._posFitWeightedDist/p.mins)})
+// Weekly Orders minutes are a target AVERAGE, not an identical number every
+// single game — game flow, matchups, and foul trouble move a real
+// rotation's minutes around night to night. Jitter each player's assigned
+// minutes with a bell-ish factor (average of 3 uniform randoms, centered at
+// 1.0) before renormalizing the whole team back to the same total the
+// depth chart originally summed to, so no new team-wide invariant is
+// introduced — only the per-player split varies. Flows straight into both
+// the box score's MIN column and pS()'s shot-volume weighting, since both
+// read p.mins directly and this is the only place it gets set.
+const jittered=players.filter(p=>p.mins>0)
+if(jittered.length){
+const totalBefore=jittered.reduce((s,p)=>s+p.mins,0)
+jittered.forEach(p=>{
+const jitter=1+((Math.random()+Math.random()+Math.random())/3-0.5)*0.36
+p.mins=Math.max(2,p.mins*jitter)
+})
+const totalAfter=jittered.reduce((s,p)=>s+p.mins,0)
+if(totalAfter>0){
+const scale=totalBefore/totalAfter
+jittered.forEach(p=>{p.mins=Math.max(2,p.mins*scale)})
+}
+}
 }
 
 function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>){
@@ -504,6 +548,13 @@ const scoreVol=Math.max(.3,ppg36(p.scoring)*0.769)
 // same volume/quality split Scoring already has over three/layup/dunk.
 const threeVol=Math.max(.15,tpa36(p.three_attempt_rate)*2.0)
 let w=u3?threeVol:scoreVol*3.0
+// Coming off the bench is a real, if modest, rhythm/role tax on shot
+// volume — a bench player with identical ratings to a starter doesn't get
+// the same number of touches (different role in the second unit, coming
+// in cold). Accuracy (acc() in simP()) is untouched: a good bench scorer
+// still shoots his real percentage, he's just selected for the shot
+// slightly less often.
+if(!p.isStarter)w*=0.90
 const pi=pris.indexOf(p.name)
 if(!u3){if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}else{if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}
 // Ball Role (GM-set, per player): Dominant genuinely runs the ball through
@@ -531,7 +582,7 @@ return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
 
 function simFT(p:any,n:number,fat:Record<string,number>){let m=0;for(let i=0;i<n;i++)if(Math.random()<p.ft/100*(.88+fat[p.id]/100*.12))m++;return m}
 
-function simP(ot:any,dt:any,ops:any[],dps:any[],oo:any,doo:any,sc:any,st:any,fat:any,mom:any,ls:any,part:any,isC:boolean,os:"home"|"away",ds:"home"|"away",q:number,tl:number,pbp:any[]){
+function simP(ot:any,dt:any,ops:any[],dps:any[],oo:any,doo:any,sc:any,st:any,fat:any,mom:any,ls:any,part:any,isC:boolean,os:"home"|"away",ds:"home"|"away",q:number,tl:number,pbp:any[],teamFouls:{home:number,away:number}){
 if(!ops.length||!dps.length)return
 const u3=Math.random()<r3p(oo.three_rate||oo.threeRate||38)
 const shotProfile=SHOT_PROFILE_BY_ATK_STYLE[oo.atk_style]||SHOT_PROFILE_BY_ATK_STYLE.motion
@@ -548,6 +599,35 @@ if(!def)return
 const ss=st[sc2.id],ds2=st[def.id],fs=fat[sc2.id]/100
 fat[sc2.id]=Math.max(40,fat[sc2.id]-(14/sc2.stamina)*.7*1.2)
 fat[def.id]=Math.max(40,fat[def.id]-(14/def.stamina)*.7)
+
+// Common/non-shooting foul (reach-in, illegal screen, loose ball) — a real,
+// distinct foul type from the shooting foul below. Real NBA rule: a common
+// foul only sends the other team to the line once the fouling team is
+// already in the bonus (5+ team fouls this quarter); before that it's just
+// a whistle with no free throws, which the engine previously had no way to
+// model at all (its only foul mechanic was the shooting foul, so ~every
+// foul used to award FT). Rolled once per possession, independent of the
+// shot itself — real refFoulMult (crew-chief tendency) still applies, same
+// as every other foul roll here.
+const refFoulMultForCommon=(oo.referee||doo.referee)?((oo.referee||doo.referee).foul_rate/100*.6+.7):1
+if(Math.random()<NONSHOOTING_FOUL_CHANCE*refFoulMultForCommon){
+teamFouls[ds]=(teamFouls[ds]||0)+1
+ds2.pf++
+if(teamFouls[ds]>=5){
+// Who gets fouled here is picked flat by minutes played, not reusing sc2
+// (this possession's already scoring-weighted shooter) — a common/reach-in
+// foul happens to whoever's bringing the ball up or setting a screen, not
+// disproportionately the primary scorer. Reusing sc2 here compounded with
+// his already-elevated shooting-foul rate to produce real outliers (a
+// 28-FTA game for a single high-usage star during calibration).
+const fouled=wt(ops.filter((p:any)=>p.mins>0).map((p:any)=>({p,w:p.mins||1})))||sc2
+const f=simFT(fouled,2,fat);sc[os]+=f;st[fouled.id].pts+=f;st[fouled.id].ftm+=f;st[fouled.id].fta+=2;st[fouled.id].fd++
+pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${dt.name} in the penalty — ${fouled.name} shoots 2 — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})
+}else{
+pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"foul",description:`Foul on ${def.name}`,home_score:sc.home,away_score:sc.away})
+}
+return
+}
 
 // Real matchup: this attacking style vs. this defensive style, adjusted by
 // each side's Pace synergy and dampened/sharpened by each Head Coach's
@@ -621,7 +701,7 @@ if(Math.random()<(.08+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0015+(isDouble
 const stealVol=Math.max(.1,spg36(st3.steal_rate))
 const stealQualityMult=0.7+((st3.stl??50)/100)*.2+(((st3.speed??50)+(st3.agility??50))/200)*.1
 if(Math.random()<Math.min(1,stealVol/1.4)*.7*stealQualityMult)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
-if(!u3&&Math.random()<bpg36(def.blk)*.12*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
+if(!u3&&Math.random()<bpg36(def.blk)*.12*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away});return}
 ss.fga++;if(u3)ss.tpa++
 const offBallMult=(u3&&sc2.ball_role==='off_ball')?1.08:1.0
 // Tactical shot-zone bonus — which multiplier applies depends on shot type;
@@ -644,7 +724,16 @@ if(lsi.length>=3){if(r2>=3)mom[sc2.id]=Math.min(3,mom[sc2.id]+(makes?1:0)*st4*2)
 // sets the base rate on its own, same volume/quality split as every other
 // rate attribute here.
 const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
-if(Math.random()<Math.min(.55,ftpg36(sc2.free_throw_rate)*FT_RATE_K)*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+// The cap MUST wrap the fully-combined probability, not just the base
+// frequency term — capping only ftpg36(...)*FT_RATE_K and then still
+// multiplying the (already-capped) result by foulDrawQualityMult*
+// refFoulMult*tacticalMods.foulDrawMult let the real per-shot chance climb
+// well past the intended ceiling (a maxed-out free_throw_rate/draw_foul
+// player with a whistle-happy ref could clear 90%+ per shot attempt —
+// exactly how a single game produced 18 FTA in 32 minutes). Capped at
+// SHOOTING_FOUL_CAP now, after every multiplier has already applied.
+const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult)
+if(Math.random()<shootingFoulChance){ds2.pf++;ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
 if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.55+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wt(ap2.map(p=>({p,w:Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3)})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just

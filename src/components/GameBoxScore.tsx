@@ -40,6 +40,8 @@ export interface TeamInfo {
   logo_url?: string | null
   color?: string | null
   href?: string
+  arena?: string | null
+  city?: string | null
 }
 
 export interface PeriodScore {
@@ -272,6 +274,11 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
 
       {/* SCOREBOARD */}
       <div className="rounded-2xl p-6 mb-6" style={{ background: '#1a1512', border: '1px solid #2a2218' }}>
+        {homeTeam.arena && (
+          <div className="text-center text-sm font-bold mb-1" style={{ color: '#e8e2d6' }}>
+            {homeTeam.arena}{homeTeam.city && ` · ${homeTeam.city}`}
+          </div>
+        )}
         <div className="text-center text-xs mb-3" style={{ color: '#8a8279' }}>
           {playedAt ? fmtDate(playedAt) : ''}
           {weekLabel && ` · ${weekLabel}`}

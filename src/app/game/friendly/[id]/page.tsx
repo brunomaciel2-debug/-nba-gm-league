@@ -43,8 +43,8 @@ export default function FriendlyGamePage({ params }: { params: { id: string } })
       const homeTable = pgData.home_type === 'nba' ? 'teams' : 'world_teams'
       const awayTable = pgData.away_type === 'nba' ? 'teams' : 'world_teams'
       const [{ data: home }, { data: away }] = await Promise.all([
-        supabase.from(homeTable).select('id,name,logo_url,color').eq('id', pgData.home_team).single(),
-        supabase.from(awayTable).select('id,name,logo_url,color').eq('id', pgData.away_team).single(),
+        supabase.from(homeTable).select('id,name,logo_url,color,arena,city').eq('id', pgData.home_team).single(),
+        supabase.from(awayTable).select('id,name,logo_url,color,arena,city').eq('id', pgData.away_team).single(),
       ])
       setHomeInfo(home)
       setAwayInfo(away)
@@ -95,6 +95,7 @@ export default function FriendlyGamePage({ params }: { params: { id: string } })
       homeTeam={{
         id: pg.home_team, name: homeInfo?.name || pg.home_team, logo_url: homeInfo?.logo_url, color: homeInfo?.color,
         href: homeIsWorld ? `/world/${pg.home_team}` : `/team/${pg.home_team}`,
+        arena: homeInfo?.arena, city: homeInfo?.city,
       }}
       awayTeam={{
         id: pg.away_team, name: awayInfo?.name || pg.away_team, logo_url: awayInfo?.logo_url, color: awayInfo?.color,
