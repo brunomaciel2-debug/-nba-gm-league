@@ -353,7 +353,7 @@ gamesCreated.push(gameRec.id)
 weekGamesByTeam[ht.id] = (weekGamesByTeam[ht.id]||0) + 1
 weekGamesByTeam[at.id] = (weekGamesByTeam[at.id]||0) + 1
 
-await supabaseAdmin.from('box_scores').insert([
+const { error: boxErr } = await supabaseAdmin.from('box_scores').insert([
 ...result.homeBox.map((b:any) => {
 const dc = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length
 return { ...b, game_id: gameRec.id, team_id: ht.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
@@ -363,6 +363,7 @@ const dc = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=
 return { ...b, game_id: gameRec.id, team_id: at.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
 }),
 ])
+if (boxErr) console.warn(`box_scores insert failed for game ${gameRec.id}:`, boxErr.message)
 if (result.pbp.length > 0) {
 await supabaseAdmin.from('play_by_play').insert(result.pbp.map((p:any) => ({ ...p, game_id: gameRec.id })))
 }

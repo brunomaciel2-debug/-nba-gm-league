@@ -518,6 +518,12 @@ if(totalAfter>0){
 const scale=totalBefore/totalAfter
 jittered.forEach(p=>{p.mins=Math.max(2,p.mins*scale)})
 }
+// box_scores.mins is an integer column — a fractional value here (e.g.
+// 29.87) makes the DB insert fail outright with "invalid input syntax for
+// type integer", silently wiping the box score for the whole game (no
+// error was ever checked on that insert). Round to a whole number, same
+// as any real box score already shows.
+jittered.forEach(p=>{p.mins=Math.round(p.mins)})
 }
 }
 

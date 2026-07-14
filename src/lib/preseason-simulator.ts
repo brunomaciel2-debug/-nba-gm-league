@@ -303,10 +303,11 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
     gameId = gameRec.id
 
     if (homeBox.length || awayBox.length) {
-      await supabaseAdmin.from('box_scores').insert([
+      const { error: boxErr } = await supabaseAdmin.from('box_scores').insert([
         ...homeBox.map((b: any) => { const dc = [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length; return { ...b, game_id: gameId, team_id: pg.home_team, is_double_double: dc >= 2, is_triple_double: dc >= 3 } }),
         ...awayBox.map((b: any) => { const dc = [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length; return { ...b, game_id: gameId, team_id: pg.away_team, is_double_double: dc >= 2, is_triple_double: dc >= 3 } }),
       ])
+      if (boxErr) console.warn(`box_scores insert failed for friendly game ${gameId}:`, boxErr.message)
     }
     if (pbp.length > 0) {
       await supabaseAdmin.from('play_by_play').insert(pbp.map((p: any) => ({ ...p, game_id: gameId })))
