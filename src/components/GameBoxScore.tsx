@@ -199,7 +199,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
 
     const SectionHeader = ({ label }: { label: string }) => (
       <tr style={{ background: '#ddd7ca', borderBottom: '1px solid #d4cdc5' }}>
-        <th className="px-3 py-2 text-left font-bold" style={{ color: '#5c554e', minWidth: 140 }}>{label}</th>
+        <th className="px-3 py-2 text-left font-bold" style={{ color: '#5c554e', minWidth: 140, borderLeft: `3px solid ${color}` }}>{label}</th>
         {statCols.map(c => (
           <th key={c.key} className="px-2 py-2 text-right font-bold" style={{ color: '#5c554e' }}>{c.label}</th>
         ))}
@@ -273,7 +273,18 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
       </Link>
 
       {/* SCOREBOARD */}
-      <div className="rounded-2xl p-6 mb-6" style={{ background: '#1a1512', border: '1px solid #2a2218' }}>
+      <div
+        className="relative overflow-hidden rounded-2xl p-6 mb-6"
+        style={{
+          background: `radial-gradient(ellipse 120% 100% at 0% 0%, ${homeColorOnDark}1c, transparent 55%), radial-gradient(ellipse 120% 100% at 100% 0%, ${awayColorOnDark}1c, transparent 55%), #1a1512`,
+          border: '1px solid #2a2218',
+          boxShadow: '0 10px 34px rgba(0,0,0,0.35)',
+        }}
+      >
+        <div
+          className="absolute top-0 left-0 right-0 h-1"
+          style={{ background: `linear-gradient(90deg, ${homeColorOnDark} 0%, ${homeColorOnDark} 50%, ${awayColorOnDark} 50%, ${awayColorOnDark} 100%)` }}
+        />
         {homeTeam.arena && (
           <div className="text-center text-sm font-bold mb-1" style={{ color: '#e8e2d6' }}>
             {homeTeam.arena}{homeTeam.city && ` · ${homeTeam.city}`}
@@ -323,18 +334,35 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
           <div className="flex-1 text-center">
             {homeTeam.href ? (
               <Link href={homeTeam.href} className="no-underline">
-                {homeTeam.logo_url && <img src={homeTeam.logo_url} alt="" className="w-20 h-20 object-contain mx-auto mb-3" />}
+                {homeTeam.logo_url && (
+                  <div
+                    className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center"
+                    style={{ background: `radial-gradient(circle, ${homeColorOnDark}29 0%, transparent 72%)` }}
+                  >
+                    <img src={homeTeam.logo_url} alt="" className="w-20 h-20 object-contain" />
+                  </div>
+                )}
                 <div className="text-sm font-bold" style={{ color: homeColorOnDark }}>{homeTeam.name}</div>
                 <div className="text-xs mb-2" style={{ color: '#8a8279' }}>{isPT ? 'CASA' : 'HOME'}</div>
               </Link>
             ) : (
               <>
-                {homeTeam.logo_url && <img src={homeTeam.logo_url} alt="" className="w-20 h-20 object-contain mx-auto mb-3" />}
+                {homeTeam.logo_url && (
+                  <div
+                    className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center"
+                    style={{ background: `radial-gradient(circle, ${homeColorOnDark}29 0%, transparent 72%)` }}
+                  >
+                    <img src={homeTeam.logo_url} alt="" className="w-20 h-20 object-contain" />
+                  </div>
+                )}
                 <div className="text-sm font-bold" style={{ color: homeColorOnDark }}>{homeTeam.name}</div>
                 <div className="text-xs mb-2" style={{ color: '#8a8279' }}>{isPT ? 'CASA' : 'HOME'}</div>
               </>
             )}
-            <div className="text-6xl font-black" style={{ color: homeWon ? homeColorOnDark : '#5c554e' }}>
+            <div
+              className="text-6xl font-black"
+              style={{ color: homeWon ? homeColorOnDark : '#5c554e', textShadow: homeWon ? `0 0 28px ${homeColorOnDark}55` : 'none' }}
+            >
               {homeScore}
             </div>
             {homeWon && <div className="text-xs font-bold mt-1" style={{ color: '#4ade80' }}>{isPT ? 'VITÓRIA' : 'WIN'}</div>}
@@ -342,9 +370,14 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
 
           {/* VS */}
           <div className="text-center flex-shrink-0">
-            <div className="text-2xl font-black" style={{ color: '#3a3228' }}>VS</div>
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-black"
+              style={{ background: '#241d15', border: '1px solid #3a3026', color: '#5c554e' }}
+            >
+              VS
+            </div>
             {status === 'final' && (
-              <div className="text-xs px-2 py-0.5 rounded mt-1" style={{ background: '#2a2218', color: '#8a8279' }}>
+              <div className="text-xs px-2 py-0.5 rounded mt-2 font-bold tracking-wide" style={{ background: '#2a2218', color: '#8a8279' }}>
                 {isPT ? 'FINAL' : 'FINAL'}
               </div>
             )}
@@ -354,18 +387,35 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
           <div className="flex-1 text-center">
             {awayTeam.href ? (
               <Link href={awayTeam.href} className="no-underline">
-                {awayTeam.logo_url && <img src={awayTeam.logo_url} alt="" className="w-20 h-20 object-contain mx-auto mb-3" />}
+                {awayTeam.logo_url && (
+                  <div
+                    className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center"
+                    style={{ background: `radial-gradient(circle, ${awayColorOnDark}29 0%, transparent 72%)` }}
+                  >
+                    <img src={awayTeam.logo_url} alt="" className="w-20 h-20 object-contain" />
+                  </div>
+                )}
                 <div className="text-sm font-bold" style={{ color: awayColorOnDark }}>{awayTeam.name}</div>
                 <div className="text-xs mb-2" style={{ color: '#8a8279' }}>{isPT ? 'FORA' : 'AWAY'}</div>
               </Link>
             ) : (
               <>
-                {awayTeam.logo_url && <img src={awayTeam.logo_url} alt="" className="w-20 h-20 object-contain mx-auto mb-3" />}
+                {awayTeam.logo_url && (
+                  <div
+                    className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center"
+                    style={{ background: `radial-gradient(circle, ${awayColorOnDark}29 0%, transparent 72%)` }}
+                  >
+                    <img src={awayTeam.logo_url} alt="" className="w-20 h-20 object-contain" />
+                  </div>
+                )}
                 <div className="text-sm font-bold" style={{ color: awayColorOnDark }}>{awayTeam.name}</div>
                 <div className="text-xs mb-2" style={{ color: '#8a8279' }}>{isPT ? 'FORA' : 'AWAY'}</div>
               </>
             )}
-            <div className="text-6xl font-black" style={{ color: !homeWon ? awayColorOnDark : '#5c554e' }}>
+            <div
+              className="text-6xl font-black"
+              style={{ color: !homeWon ? awayColorOnDark : '#5c554e', textShadow: !homeWon ? `0 0 28px ${awayColorOnDark}55` : 'none' }}
+            >
               {awayScore}
             </div>
             {!homeWon && <div className="text-xs font-bold mt-1" style={{ color: '#4ade80' }}>{isPT ? 'VITÓRIA' : 'WIN'}</div>}
@@ -375,32 +425,32 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
         {/* LINE SCORE — Q1-Q4 plus OT1/OT2/... if the game went to overtime */}
         {periodScores && periodScores.length > 0 && (
           <div className="mt-5 pt-4 overflow-x-auto" style={{ borderTop: '1px solid #2a2218' }}>
-            <table className="mx-auto text-xs" style={{ borderCollapse: 'collapse' }}>
+            <table className="mx-auto text-xs rounded-lg overflow-hidden" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
               <thead>
                 <tr>
-                  <th className="px-3 py-1 text-left" style={{ color: '#5c554e' }}></th>
+                  <th className="px-3 py-1.5 text-left" style={{ color: '#5c554e', background: '#150f0a' }}></th>
                   {periodScores.map(p => (
-                    <th key={p.quarter} className="px-3 py-1 text-right font-semibold" style={{ color: '#8a8279' }}>
+                    <th key={p.quarter} className="px-3 py-1.5 text-right font-semibold" style={{ color: '#8a8279', background: '#150f0a' }}>
                       {p.quarter <= 4 ? `Q${p.quarter}` : `OT${p.quarter - 4}`}
                     </th>
                   ))}
-                  <th className="px-3 py-1 text-right font-bold" style={{ color: '#8a8279' }}>{isPT ? 'FINAL' : 'FINAL'}</th>
+                  <th className="px-3 py-1.5 text-right font-bold" style={{ color: '#8a8279', background: '#150f0a' }}>{isPT ? 'FINAL' : 'FINAL'}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td className="px-3 py-1 text-left font-semibold" style={{ color: homeColorOnDark }}>{homeTeam.name}</td>
+                  <td className="px-3 py-1.5 text-left font-semibold" style={{ color: homeColorOnDark, background: 'rgba(255,255,255,0.03)' }}>{homeTeam.name}</td>
                   {periodScores.map(p => (
-                    <td key={p.quarter} className="px-3 py-1 text-right" style={{ color: '#d8d2c5' }}>{p.home}</td>
+                    <td key={p.quarter} className="px-3 py-1.5 text-right" style={{ color: '#d8d2c5', background: 'rgba(255,255,255,0.03)' }}>{p.home}</td>
                   ))}
-                  <td className="px-3 py-1 text-right font-bold" style={{ color: homeColorOnDark }}>{homeScore}</td>
+                  <td className="px-3 py-1.5 text-right font-black" style={{ color: homeColorOnDark, background: 'rgba(255,255,255,0.03)' }}>{homeScore}</td>
                 </tr>
                 <tr>
-                  <td className="px-3 py-1 text-left font-semibold" style={{ color: awayColorOnDark }}>{awayTeam.name}</td>
+                  <td className="px-3 py-1.5 text-left font-semibold" style={{ color: awayColorOnDark }}>{awayTeam.name}</td>
                   {periodScores.map(p => (
-                    <td key={p.quarter} className="px-3 py-1 text-right" style={{ color: '#d8d2c5' }}>{p.away}</td>
+                    <td key={p.quarter} className="px-3 py-1.5 text-right" style={{ color: '#d8d2c5' }}>{p.away}</td>
                   ))}
-                  <td className="px-3 py-1 text-right font-bold" style={{ color: awayColorOnDark }}>{awayScore}</td>
+                  <td className="px-3 py-1.5 text-right font-black" style={{ color: awayColorOnDark }}>{awayScore}</td>
                 </tr>
               </tbody>
             </table>
@@ -411,10 +461,14 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
       {/* GAME MVP — highest Game Score (GmSc), the same formula NBA.com/
           ESPN use to summarize a single-game performance in one number. */}
       {mvpEntry && mvpTeam && (
-        <div className="rounded-2xl p-4 mb-6 flex items-center gap-4" style={{ background: '#faf8f5', border: `1px solid ${mvpColor}` }}>
+        <div
+          className="relative overflow-hidden rounded-2xl p-4 mb-6 flex items-center gap-4"
+          style={{ background: `linear-gradient(120deg, #fdf6e3, #faf8f5 60%)`, border: `1px solid ${mvpColor}`, boxShadow: `0 6px 24px ${mvpColor}22` }}
+        >
+          <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${mvpColor}, #f5c542)` }} />
           {mvpEntry.b.photo_url ? (
             <img src={mvpEntry.b.photo_url} alt="" className="w-24 h-24 rounded-full object-cover flex-shrink-0"
-              style={{ border: `3px solid ${mvpColor}` }} />
+              style={{ border: `3px solid ${mvpColor}`, boxShadow: `0 0 0 4px ${mvpColor}1a` }} />
           ) : (
             <div className="text-5xl">🏆</div>
           )}
@@ -447,20 +501,20 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
       {/* BOX SCORES */}
       {(homeBox.length > 0 || awayBox.length > 0) ? (
         <div className="flex flex-col gap-6">
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #d4cdc5', borderTop: `3px solid ${homeColor}` }}>
-            <div className="px-4 py-3 flex items-center gap-3" style={{ background: '#e8e2d6' }}>
-              {homeTeam.logo_url && <img src={homeTeam.logo_url} alt="" className="w-6 h-6 object-contain" />}
-              <span className="font-bold text-sm" style={{ color: homeColor }}>{homeTeam.name}</span>
-              <span className="ml-auto text-lg font-black" style={{ color: '#1a1512' }}>{homeScore}</span>
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #d4cdc5', borderTop: `3px solid ${homeColor}`, boxShadow: '0 4px 16px rgba(26,21,18,0.08)' }}>
+            <div className="px-4 py-3 flex items-center gap-3" style={{ background: `linear-gradient(90deg, ${homeColor}1f, #e8e2d6 65%)` }}>
+              {homeTeam.logo_url && <img src={homeTeam.logo_url} alt="" className="w-8 h-8 object-contain" />}
+              <span className="font-black text-sm tracking-wide" style={{ color: homeColor }}>{homeTeam.name}</span>
+              <span className="ml-auto text-xl font-black" style={{ color: '#1a1512' }}>{homeScore}</span>
             </div>
             <BoxTable players={homeBox} color={homeColor} totals={homeTotals} mvpPlayerId={mvpEntry?.b.player_id} />
           </div>
 
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #d4cdc5', borderTop: `3px solid ${awayColor}` }}>
-            <div className="px-4 py-3 flex items-center gap-3" style={{ background: '#e8e2d6' }}>
-              {awayTeam.logo_url && <img src={awayTeam.logo_url} alt="" className="w-6 h-6 object-contain" />}
-              <span className="font-bold text-sm" style={{ color: awayColor }}>{awayTeam.name}</span>
-              <span className="ml-auto text-lg font-black" style={{ color: '#1a1512' }}>{awayScore}</span>
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #d4cdc5', borderTop: `3px solid ${awayColor}`, boxShadow: '0 4px 16px rgba(26,21,18,0.08)' }}>
+            <div className="px-4 py-3 flex items-center gap-3" style={{ background: `linear-gradient(90deg, ${awayColor}1f, #e8e2d6 65%)` }}>
+              {awayTeam.logo_url && <img src={awayTeam.logo_url} alt="" className="w-8 h-8 object-contain" />}
+              <span className="font-black text-sm tracking-wide" style={{ color: awayColor }}>{awayTeam.name}</span>
+              <span className="ml-auto text-xl font-black" style={{ color: '#1a1512' }}>{awayScore}</span>
             </div>
             <BoxTable players={awayBox} color={awayColor} totals={awayTotals} mvpPlayerId={mvpEntry?.b.player_id} />
           </div>
