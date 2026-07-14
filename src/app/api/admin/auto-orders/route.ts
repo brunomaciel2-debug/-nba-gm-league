@@ -62,14 +62,15 @@ export async function POST(req: NextRequest) {
         .eq('team_id', team.id).lt('week_number', week)
         .order('week_number', { ascending: false }).limit(1).maybeSingle()
       if (!lastOrder) continue
-      try {
-        await supabaseAdmin.from('gm_orders').upsert({
-          ...lastOrder, id: undefined, week_number: week, locked: false,
-        }, { onConflict: 'team_id,week_number' })
-        carriedForward++
-      } catch (e: any) {
-        errors.push(`${team.id} (carry-forward): ${e.message}`)
-      }
+      // .upsert() resolves with { error }, it doesn't throw — a wrapping
+      // try/catch here silently believed every write succeeded even when it
+      // didn't, which is exactly how this route's real bug (see below) went
+      // undetected all season.
+      const { error: cfErr } = await supabaseAdmin.from('gm_orders').upsert({
+        ...lastOrder, id: undefined, week_number: week, locked: false,
+      }, { onConflict: 'team_id,week_number' })
+      if (cfErr) errors.push(`${team.id} (carry-forward): ${cfErr.message}`)
+      else carriedForward++
     }
 
     for (const team of (teams || [])) {
@@ -168,28 +169,35 @@ export async function POST(req: NextRequest) {
         (b.siq + b.ft) - (a.siq + a.ft)
       )[0]
 
-      try {
-        await supabaseAdmin.from('gm_orders').upsert({
-          team_id: team.id,
-          week_number: week,
-          depth_chart,
-          priority_1: top3[0]?.name || null,
-          priority_2: top3[1]?.name || null,
-          priority_3: top3[2]?.name || null,
-          clutch_player: clutchPlayer?.name || top3[0]?.name || null,
-          pace: 70,
-          three_rate,
-          atk_style,
-          def_style: 'man',
-          training_intensity,
-          ball_roles: {},
-          locked: false,
-          is_auto: true,
-        }, { onConflict: 'team_id,week_number' })
-        generated++
-      } catch (e: any) {
-        errors.push(`${team.id}: ${e.message}`)
-      }
+      // ball_roles/is_auto used to be written as top-level columns that
+      // don't exist on gm_orders (ball_roles actually lives inside
+      // depth_chart.ball_roles, same convention every other caller uses —
+      // see orderMap[...]?.depth_chart?.ball_roles in cron/simulate/run.ts
+      // and preseason-simulator.ts). Supabase's upsert() resolves with
+      // { error } rather than throwing, so the surrounding try/catch never
+      // saw it: every auto-order write for a no-GM team silently failed
+      // all season while this route still reported success and incremented
+      // `generated`. Simulation itself was never actually broken by this —
+      // simulateGame()'s own depth-chart validation covers a missing order
+      // — but the DB never had a real Weekly Orders row for these teams to
+      // show anywhere in the UI.
+      const { error: genErr } = await supabaseAdmin.from('gm_orders').upsert({
+        team_id: team.id,
+        week_number: week,
+        depth_chart: { ...depth_chart, ball_roles: {} },
+        priority_1: top3[0]?.name || null,
+        priority_2: top3[1]?.name || null,
+        priority_3: top3[2]?.name || null,
+        clutch_player: clutchPlayer?.name || top3[0]?.name || null,
+        pace: 70,
+        three_rate,
+        atk_style,
+        def_style: 'man',
+        training_intensity,
+        locked: false,
+      }, { onConflict: 'team_id,week_number' })
+      if (genErr) errors.push(`${team.id}: ${genErr.message}`)
+      else generated++
     }
 
     return NextResponse.json({ success: true, week, generated, carriedForward, errors })
