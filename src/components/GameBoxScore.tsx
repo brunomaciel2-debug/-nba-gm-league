@@ -42,6 +42,7 @@ export interface TeamInfo {
   href?: string
   arena?: string | null
   city?: string | null
+  capacity?: number | null
 }
 
 export interface PeriodScore {
@@ -117,6 +118,45 @@ const cellValue = (b: any, key: string) => {
   if (key === 'plus_minus') { const v = b[key] || 0; return v > 0 ? `+${v}` : `${v}` }
   if (key === 'gmsc') return gameScore(b).toFixed(1)
   return b[key] ?? 0
+}
+
+// Stadium-bowl attendance meter — a ring of "seats" (radial ticks) around the
+// arena's real capacity, lit up in the home team's color for the fraction
+// that's actually filled. Attendance/capacity were already computed and
+// stored per game (audience-segments.ts) but only ever showed up as a plain
+// number — this makes "how full was the building" something you can read at
+// a glance instead of doing the division in your head.
+const ArenaBowl = ({ attendance, capacity, color, isPT }: { attendance: number, capacity: number, color: string, isPT: boolean }) => {
+  const fillPct = Math.max(0, Math.min(1, attendance / capacity))
+  const totalSeats = 64
+  const filledSeats = Math.round(fillPct * totalSeats)
+  const cx = 100, cy = 100, rInner = 58, rOuter = 80
+  const seats = Array.from({ length: totalSeats }).map((_, i) => {
+    const angle = (i / totalSeats) * Math.PI * 2 - Math.PI / 2
+    const x1 = cx + rInner * Math.cos(angle), y1 = cy + rInner * Math.sin(angle)
+    const x2 = cx + rOuter * Math.cos(angle), y2 = cy + rOuter * Math.sin(angle)
+    const filled = i < filledSeats
+    return (
+      <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
+        stroke={filled ? color : 'rgba(255,255,255,0.14)'}
+        strokeWidth={4.2} strokeLinecap="round"
+        style={filled ? { filter: `drop-shadow(0 0 4px ${color}aa)` } : undefined}
+      />
+    )
+  })
+  return (
+    <div className="flex flex-col items-center">
+      <svg viewBox="0 0 200 200" className="w-28 h-28">
+        {seats}
+        <circle cx={cx} cy={cy} r={rInner - 16} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" />
+        <text x={cx} y={cy - 3} textAnchor="middle" fontSize="24" fontWeight="900" fill="#fff">{Math.round(fillPct * 100)}%</text>
+        <text x={cx} y={cy + 17} textAnchor="middle" fontSize="9" fontWeight="700" letterSpacing="1" fill="#b9b2d0">{isPT ? 'LOTAÇÃO' : 'CAPACITY'}</text>
+      </svg>
+      <div className="text-xs font-semibold mt-1" style={{ color: '#d6d0e8' }}>
+        {attendance.toLocaleString()} <span style={{ color: '#8a83a3' }}>/ {capacity.toLocaleString()}</span>
+      </div>
+    </div>
+  )
 }
 
 export default function GameBoxScore(props: GameBoxScoreProps) {
@@ -293,40 +333,45 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
         <div className="text-center text-xs mb-3" style={{ color: '#b9b2d0' }}>
           {playedAt ? fmtDate(playedAt) : ''}
           {weekLabel && ` · ${weekLabel}`}
-          {!!attendance && attendance > 0 && ` · ${attendance.toLocaleString()} ${isPT ? 'adeptos' : 'fans'}`}
+          {!!attendance && attendance > 0 && !homeTeam.capacity && ` · ${attendance.toLocaleString()} ${isPT ? 'adeptos' : 'fans'}`}
         </div>
-        {refereeName && (
-          <div className="flex items-center justify-center mb-4">
-            <div className="flex items-center gap-3 rounded-2xl pl-2 pr-4 py-2" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <div
-                className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
-              >
-                {refereePhotoUrl
-                  ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
-                  : <span className="text-lg font-black" style={{ color: '#b9b2d0' }}>
-                      {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </span>}
-              </div>
-              <div>
-                <div className="text-[11px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro' : 'Referee'}</div>
-                <div className="flex items-center gap-2">
-                  {refereeHref ? (
-                    <Link href={refereeHref} className="text-sm font-bold no-underline" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
-                  ) : (
-                    <span className="text-sm font-bold" style={{ color: '#f5f2fa' }}>{refereeName}</span>
-                  )}
-                  {status === 'final' && refereeRating != null && (
-                    <span
-                      className="text-xs font-black px-1.5 py-0.5 rounded-full"
-                      style={{ color: refRatingColor(refereeRating), background: refRatingColor(refereeRating) + '22' }}
-                    >
-                      {refereeRating.toFixed(1)}
-                    </span>
-                  )}
+        {(refereeName || (!!attendance && attendance > 0 && !!homeTeam.capacity)) && (
+          <div className="flex items-center justify-center gap-6 mb-4 flex-wrap">
+            {!!attendance && attendance > 0 && !!homeTeam.capacity && (
+              <ArenaBowl attendance={attendance} capacity={homeTeam.capacity} color={homeColorOnDark} isPT={isPT} />
+            )}
+            {refereeName && (
+              <div className="flex items-center gap-3 rounded-2xl pl-2 pr-4 py-2" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div
+                  className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
+                >
+                  {refereePhotoUrl
+                    ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
+                    : <span className="text-lg font-black" style={{ color: '#b9b2d0' }}>
+                        {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </span>}
+                </div>
+                <div>
+                  <div className="text-[11px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro' : 'Referee'}</div>
+                  <div className="flex items-center gap-2">
+                    {refereeHref ? (
+                      <Link href={refereeHref} className="text-sm font-bold no-underline" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
+                    ) : (
+                      <span className="text-sm font-bold" style={{ color: '#f5f2fa' }}>{refereeName}</span>
+                    )}
+                    {status === 'final' && refereeRating != null && (
+                      <span
+                        className="text-xs font-black px-1.5 py-0.5 rounded-full"
+                        style={{ color: refRatingColor(refereeRating), background: refRatingColor(refereeRating) + '22' }}
+                      >
+                        {refereeRating.toFixed(1)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
         <div className="flex items-center justify-between gap-4">

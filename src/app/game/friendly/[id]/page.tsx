@@ -42,8 +42,11 @@ export default function FriendlyGamePage({ params }: { params: { id: string } })
 
       const homeTable = pgData.home_type === 'nba' ? 'teams' : 'world_teams'
       const awayTable = pgData.away_type === 'nba' ? 'teams' : 'world_teams'
+      // world_teams has no arena_capacity column (no arena economy for World
+      // opponents) — only request it against the real `teams` table.
+      const homeCols = homeTable === 'teams' ? 'id,name,logo_url,color,arena,city,arena_capacity' : 'id,name,logo_url,color,arena,city'
       const [{ data: home }, { data: away }] = await Promise.all([
-        supabase.from(homeTable).select('id,name,logo_url,color,arena,city').eq('id', pgData.home_team).single(),
+        supabase.from(homeTable).select(homeCols).eq('id', pgData.home_team).single(),
         supabase.from(awayTable).select('id,name,logo_url,color,arena,city').eq('id', pgData.away_team).single(),
       ])
       setHomeInfo(home)
@@ -95,7 +98,7 @@ export default function FriendlyGamePage({ params }: { params: { id: string } })
       homeTeam={{
         id: pg.home_team, name: homeInfo?.name || pg.home_team, logo_url: homeInfo?.logo_url, color: homeInfo?.color,
         href: homeIsWorld ? `/world/${pg.home_team}` : `/team/${pg.home_team}`,
-        arena: homeInfo?.arena, city: homeInfo?.city,
+        arena: homeInfo?.arena, city: homeInfo?.city, capacity: (homeInfo as any)?.arena_capacity,
       }}
       awayTeam={{
         id: pg.away_team, name: awayInfo?.name || pg.away_team, logo_url: awayInfo?.logo_url, color: awayInfo?.color,
