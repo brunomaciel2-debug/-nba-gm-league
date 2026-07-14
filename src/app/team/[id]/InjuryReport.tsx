@@ -142,6 +142,7 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                     <div className="text-sm font-semibold" style={{color:'#1a1612'}}>
                       {inj.occurred_in === 'game' ? (isPT?'🏀 Jogo':'🏀 Game')
                         : inj.occurred_in === 'preseason_game' ? (isPT?'🏀 Amigável':'🏀 Friendly')
+                        : inj.occurred_in === 'off_court' ? (isPT?'🌆 Fora do Profissionalismo':'🌆 Off the Court')
                         : (isPT?'🏋️ Treino':'🏋️ Practice')}
                     </div>
                   </div>

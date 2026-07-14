@@ -26,6 +26,7 @@ import { getGymGradeBonus } from '@/lib/facility-constants'
 import { cityDistanceMiles, computeAwayTravelCost } from '@/lib/travel-constants'
 import { resolveWeeklySocialMedia } from '@/lib/social-media-resolver'
 import { resolveWeeklyGmSatisfaction } from '@/lib/gm-satisfaction'
+import { resolveWeeklyPracticeAndOffCourtInjuries } from '@/lib/practice-injuries'
 
 // Supabase/PostgREST silently caps any unpaginated query at db.max_rows
 // (1000 on this project) — a full week now has ~1700+ box_scores rows
@@ -193,6 +194,18 @@ try {
 const smResult = await resolveWeeklySocialMedia(week)
 if (smResult.teamsProcessed > 0) console.log(`Social media resolved: ${smResult.teamsProcessed} teams, ${smResult.eventsResolved} events`)
 } catch (smErr) { console.warn('Social media resolution failed:', smErr) }
+}
+
+// Practice injuries + off-court incidents — the only two injury sources
+// that never depended on a real game happening, so they run here (once per
+// week, every phase) rather than inside the per-game health-loss block
+// below. week_number matches what the weekly notification digest already
+// queries, so no separate notification wiring is needed.
+if (half === 1) {
+try {
+const pi = await resolveWeeklyPracticeAndOffCourtInjuries(week)
+if (pi.practiceInjuries > 0 || pi.offCourtIncidents > 0) console.log(`Practice/off-court injuries: ${pi.practiceInjuries} practice, ${pi.offCourtIncidents} off-court`)
+} catch (piErr) { console.warn('Practice/off-court injury resolution failed:', piErr) }
 }
 
 // Conference standings — used to detect "decisive" games. Playoffs/play-in
