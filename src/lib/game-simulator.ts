@@ -122,12 +122,15 @@ const FT_RATE_BREAKPOINTS:[number,number][]=[
 [0,0],[77,2.3],[79,2.7],[81,3.3],[83,3.7],[85,4.1],[87,4.7],[89,5.3],
 [90,5.6],[91,6.2],[92,7.4],[93,8.2],[94,9.1],[95,10.1],
 ]
-// Calibrated (see __ft_rate_calibrate.ts backtest) so a rating-78 player —
-// the pre-existing "neutral default" draw_foul value used throughout this
-// file's test rosters — lands on roughly the same per-shot foul-drawing
-// odds the old flat draw_foul/100*.10 formula produced, before compounding
-// by the new curve's shape at the extremes.
-const FT_RATE_K=0.018
+// Calibrated against real team-level FTA, not just one player in isolation —
+// the commissioner reported team FTA looked low league-wide against the real
+// 2025-26 NBA average (24.8 FTA/team/game). Backtested with real DB rosters
+// (not synthetic dummies): summed across a full team, this K lands the
+// simulated average at ~24.8 FTA/team/game. A single very high-usage star
+// can still run well above his own individual per-36 target on a given
+// night — real variance, same as an actual box score — but the team total
+// this is actually calibrated against matches.
+const FT_RATE_K=0.042
 function ftpg36(freeThrowRate?:number):number{
 const s=Math.max(0,Math.min(99,freeThrowRate??50))
 const bp=FT_RATE_BREAKPOINTS
@@ -627,7 +630,7 @@ if(lsi.length>=3){if(r2>=3)mom[sc2.id]=Math.min(3,mom[sc2.id]+(makes?1:0)*st4*2)
 // sets the base rate on its own, same volume/quality split as every other
 // rate attribute here.
 const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
-if(Math.random()<Math.min(.4,ftpg36(sc2.free_throw_rate)*FT_RATE_K)*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+if(Math.random()<Math.min(.55,ftpg36(sc2.free_throw_rate)*FT_RATE_K)*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult){ds2.pf++;ss.fd++;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
 if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.55+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wt(ap2.map(p=>({p,w:Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3)})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
