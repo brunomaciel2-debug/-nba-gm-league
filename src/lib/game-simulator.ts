@@ -3,6 +3,7 @@
 // by the preseason/friendly-game simulator without duplicating this logic.
 
 import { familiarityBoost, TacticalMods } from './tactical-constants'
+import { buildAutoDepthChart } from './auto-depth-chart'
 
 const NEUTRAL_TACTICAL_MODS: TacticalMods = {
   toMult: 1, astMult: 1, midMult: 1, postMult: 1, threeMult: 1, rimMult: 1,
@@ -366,8 +367,8 @@ const defOrd=(ps:any[])=>{const s=[...ps].sort((a,b)=>b.usage-a.usage);return{pr
 // must apply even to a team that never submitted Weekly Orders, so a partial
 // hOrd/aOrd (just those fields) still gets real pace/style defaults underneath.
 const ho={...defOrd(hp),...(hOrd||{})},ao={...defOrd(ap),...(aOrd||{})}
-if(ho.depth_chart)applyDC(hp,ho.depth_chart)
-if(ao.depth_chart)applyDC(ap,ao.depth_chart)
+ensurePlayableDepthChart(hp,ho.depth_chart)
+ensurePlayableDepthChart(ap,ao.depth_chart)
 // fat[] is seeded from each player's weekly health (not a flat 100) so a
 // player who's still banged up starts the game already worn down — it then
 // degrades further as the game itself wears on, same as before. A team
@@ -446,6 +447,19 @@ q++
 hp.forEach(p=>hb.push(toBoxRow(p,st[p.id])))
 ap.forEach(p=>ab.push(toBoxRow(p,st[p.id])))
 return{homeScore:sc.home,awayScore:sc.away,homeBox:hb,awayBox:ab,pbp,periods}
+}
+
+// A submitted Weekly Order can be malformed in ways that still pass the UI's
+// own save guard — e.g. real player names assigned to every position slot
+// but minutes only actually typed in for one of them (everyone else left at
+// 0). applyDC() takes the depth chart at face value, so that case used to
+// quietly field fewer than 5 players. Whenever the real depth chart (or its
+// total absence) leaves the team below a playable 5, fall back to the same
+// best-player-per-position auto-builder already used for GM-less teams —
+// a real, if generic, 5-man rotation instead of a broken box score.
+function ensurePlayableDepthChart(players:any[],dc:any){
+if(dc)applyDC(players,dc)
+if(players.filter((p:any)=>p.mins>0).length<5)applyDC(players,buildAutoDepthChart(players))
 }
 
 function applyDC(players:any[],dc:any){
