@@ -502,9 +502,20 @@ if(players.filter((p:any)=>p.mins>0).length<5)applyDC(players,auto)
 
 function applyDC(players:any[],dc:any){
 players.forEach(p=>{p.mins=0;p.isStarter=false;p.posFitMult=1;p._posFitWeightedDist=0})
+// A malformed depth chart can name the same real player in more than one
+// slot (a real incident: one player listed as his own position's starter,
+// b1, AND b2 all at once) — applyDC used to just sum every slot's minutes
+// onto that one player regardless, so he silently absorbed his whole
+// position group's minutes (24+16+8=48) instead of just his own slot,
+// showing up in the box score at 50 minutes in a game that never went to
+// overtime. Each player can only be assigned minutes from ONE slot per
+// game — the first slot found (position/slot iteration order) wins, any
+// later slot naming the same player is skipped instead of stacking.
+const alreadyAssigned=new Set<string|number>()
 ;["PG","SG","SF","PF","C"].forEach(pos=>{
 const pd=dc[pos];if(!pd)return
-;["s","b1","b2"].forEach(sl=>{const e=pd[sl];if(e?.name&&e.mins>0){const p=players.find((pl:any)=>pl.name===e.name);if(p){
+;["s","b1","b2"].forEach(sl=>{const e=pd[sl];if(e?.name&&e.mins>0){const p=players.find((pl:any)=>pl.name===e.name);if(p&&!alreadyAssigned.has(p.id)){
+alreadyAssigned.add(p.id)
 p.mins+=e.mins;if(sl==="s")p.isStarter=true
 const dist=Math.abs(POSITION_ORDER.indexOf(pos)-POSITION_ORDER.indexOf(p.pos))
 p._posFitWeightedDist+=dist*e.mins
@@ -527,12 +538,17 @@ if(jittered.length){
 const totalBefore=jittered.reduce((s,p)=>s+p.mins,0)
 jittered.forEach(p=>{
 const jitter=1+((Math.random()+Math.random()+Math.random())/3-0.5)*0.36
-p.mins=Math.max(2,p.mins*jitter)
+// A single player can never actually play more than a full 48-minute
+// regulation game — the dedupe above already stops one player from being
+// double/triple-booked across slots, but this is a second, unconditional
+// backstop against any other future path that could push one player's
+// pre-game plan past what's physically possible.
+p.mins=Math.min(48,Math.max(2,p.mins*jitter))
 })
 const totalAfter=jittered.reduce((s,p)=>s+p.mins,0)
 if(totalAfter>0){
 const scale=totalBefore/totalAfter
-jittered.forEach(p=>{p.mins=Math.max(2,p.mins*scale)})
+jittered.forEach(p=>{p.mins=Math.min(48,Math.max(2,p.mins*scale))})
 }
 // box_scores.mins is an integer column — a fractional value here (e.g.
 // 29.87) makes the DB insert fail outright with "invalid input syntax for
