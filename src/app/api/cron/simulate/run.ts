@@ -646,6 +646,12 @@ return a
 
 const healthUpdates: Record<string,{health:number,moral:number,wins:number,losses:number}> = {}
 const oppAggroAccum: Record<string,{sum:number,count:number}> = {}
+// The health/injury roll below runs once per player per half-week, in
+// aggregate across every game they played (a player can appear in 2 games
+// in one half-week) — there's no single "the" game an injury happened in.
+// Tracking the LAST game_id a player shows up in here is an approximation,
+// but a far better one than no game reference at all for the notification.
+const lastGameIdByPlayer: Record<string,string> = {}
 for (const box of (weekBoxes||[])) {
 const p = playerMap[box.player_id]
 if (!p) continue
@@ -657,6 +663,7 @@ healthUpdates[p.id].health = Math.max(0, healthUpdates[p.id].health - healthLoss
 if (!oppAggroAccum[p.id]) oppAggroAccum[p.id] = { sum:0, count:0 }
 oppAggroAccum[p.id].sum += opponentAggro(box.team_id, box.game_id)
 oppAggroAccum[p.id].count += 1
+if (box.game_id) lastGameIdByPlayer[p.id] = box.game_id
 }
 
 // Reinjury window — a player who recently recovered from an injury is more
@@ -708,17 +715,18 @@ const daysOut = Math.round((chosen.days_min + Math.random()*(chosen.days_max-cho
 const gamesOut = Math.max(1, Math.round(daysOut/3.5))
 const hImpact = Math.round(chosen.health_impact_min + Math.random()*(chosen.health_impact_max-chosen.health_impact_min))
 
-await supabaseAdmin.from('injury_log').insert({
+const { error: injErr } = await supabaseAdmin.from('injury_log').insert({
 player_id:pid, season:'2025-26', week_number:week,
 injury_type:chosen.name, injury_category:chosen.category,
-body_part:chosen.body_part, severity:chosen.severity,
-occurred_in:'game', health_at_injury:newHealth,
+body_part:chosen.body_part, severity:chosen.severity, notes:chosen.notes,
+occurred_in:'game', game_id:lastGameIdByPlayer[pid]||null, health_at_injury:newHealth,
 health_impact:hImpact, moral_impact:chosen.moral_impact||0,
 days_out:daysOut, games_out:gamesOut,
 return_week:week+Math.ceil(gamesOut/2),
 is_recurring:isRec, can_play:newHealth>=50,
 play_risk:newHealth<65?75:newHealth<75?40:15, status:'active'
 })
+if (injErr) console.warn('injury_log insert (game) failed:', injErr.message)
 
 // Medical bill — every injury costs the team money, scaled by severity
 const medicalCost = MEDICAL_COST_BY_SEVERITY[chosen.severity as InjurySeverity] || 0

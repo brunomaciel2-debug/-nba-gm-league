@@ -99,10 +99,10 @@ export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
     const hImpact = Math.round(chosen.health_impact_min + Math.random() * (chosen.health_impact_max - chosen.health_impact_min))
     const newHealth = Math.round(p.health ?? 100)
 
-    await supabaseAdmin.from('injury_log').insert({
+    const { error: injErr } = await supabaseAdmin.from('injury_log').insert({
       player_id: p.id, season: '2025-26', week_number: week,
       injury_type: chosen.name, injury_category: chosen.category,
-      body_part: chosen.body_part, severity: chosen.severity,
+      body_part: chosen.body_part, severity: chosen.severity, notes: chosen.notes,
       occurred_in: occurredIn, health_at_injury: newHealth,
       health_impact: hImpact, moral_impact: chosen.moral_impact || 0,
       days_out: daysOut, games_out: gamesOut,
@@ -110,6 +110,7 @@ export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
       is_recurring: isRec, can_play: newHealth >= 50,
       play_risk: newHealth < 65 ? 75 : newHealth < 75 ? 40 : 15, status: 'active',
     })
+    if (injErr) console.warn('injury_log insert (practice/off-court) failed:', injErr.message)
 
     const medicalCost = MEDICAL_COST_BY_SEVERITY[chosen.severity as InjurySeverity] || 0
     if (medicalCost > 0 && p.team_id) {

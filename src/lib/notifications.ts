@@ -145,10 +145,12 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
             ? `\n\n🩺 Podes levar ${inj.players?.name} a um especialista externo por $${(specialistCost/1000).toFixed(0)}K para acelerar a recuperação dele em ${specialistBoostPct}% (não cura na hora) — vê o Relatório de Lesões da tua equipa.`
             : `\n\n🩺 You can send ${inj.players?.name} to an outside specialist for $${(specialistCost/1000).toFixed(0)}K to speed up his recovery by ${specialistBoostPct}% (not an instant cure) — check your team's Injury Report.`)
         : ''
-      const bodyPart = lang === 'pt' ? `Zona afetada: ${inj.body_part}\nRecuperação estimada: ${inj.games_out} jogos (aprox. ${Math.ceil(inj.games_out/4)} semanas)${recurring}` : `Body part: ${inj.body_part}\nEstimated recovery: ${inj.games_out} games (approx. ${Math.ceil(inj.games_out/4)} weeks)${recurring}`
+      const detail = inj.notes ? `\n${inj.notes}` : ''
+      const bodyPart = lang === 'pt' ? `Zona afetada: ${inj.body_part}${detail}\nRecuperação estimada: ${inj.games_out} jogos (aprox. ${Math.ceil(inj.games_out/4)} semanas)${recurring}` : `Body part: ${inj.body_part}${detail}\nEstimated recovery: ${inj.games_out} games (approx. ${Math.ceil(inj.games_out/4)} weeks)${recurring}`
       await notify(teamId, 'injury', `${emoji} ${notif.subject.replace('🏥 Injury — ', '').replace('🏥 Lesão — ', '')}`, `${notif.body}\n\n${bodyPart}${medLine}${specialistLine}`, {
         player_id: inj.player_id, injury_type: inj.injury_type, severity, games_out: inj.games_out,
         specialist_eligible: eligible, specialist_cost: specialistCost, specialist_used: false,
+        game_id: inj.game_id || undefined,
       })
     }
   }

@@ -22,7 +22,7 @@ import { buildAutoDepthChart } from '@/lib/auto-depth-chart'
 // ever applied to real NBA player ids — a World team's roster is flavor
 // opposition with no persistent team in this league, so there's nothing to
 // track health/injuries against for them.
-async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<string>) {
+async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<string>, gameId: string | null) {
   const relevant = box.filter(b => nbaPlayerIds.has(String(b.player_id)))
   if (!relevant.length) return
   const playerIds = relevant.map(b => b.player_id)
@@ -51,16 +51,17 @@ async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<strin
       const daysOut = Math.round(chosen.days_min + Math.random() * (chosen.days_max - chosen.days_min))
       const gamesOut = Math.max(1, Math.round(daysOut / 3.5))
       const hImpact = Math.round(chosen.health_impact_min + Math.random() * (chosen.health_impact_max - chosen.health_impact_min))
-      await supabaseAdmin.from('injury_log').insert({
+      const { error: injErr } = await supabaseAdmin.from('injury_log').insert({
         player_id: p.id, season: '2025-26',
         injury_type: chosen.name, injury_category: chosen.category,
-        body_part: chosen.body_part, severity: chosen.severity,
-        occurred_in: 'preseason_game', health_at_injury: newHealth,
+        body_part: chosen.body_part, severity: chosen.severity, notes: chosen.notes,
+        occurred_in: 'preseason_game', game_id: gameId, health_at_injury: newHealth,
         health_impact: hImpact, moral_impact: chosen.moral_impact || 0,
         days_out: daysOut, games_out: gamesOut,
         is_recurring: false, can_play: newHealth >= 50,
         play_risk: newHealth < 65 ? 75 : newHealth < 75 ? 40 : 15, status: 'active',
       })
+      if (injErr) console.warn('injury_log insert (friendly) failed:', injErr.message)
       const injHealth = Math.max(0, newHealth - hImpact)
       await supabaseAdmin.from('players').update({
         health: injHealth, moral: Math.max(0, (p.moral ?? 80) - (chosen.moral_impact || 0)),
@@ -70,14 +71,22 @@ async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<strin
 
       // Real-game injuries notify the GM (notifications.ts) but friendlies
       // previously didn't — a player could get hurt in a pre-season game
-      // with no message ever reaching the GM's inbox.
+      // with no message ever reaching the GM's inbox. The base notifInjury()
+      // text only ever said "in a friendly game" with no way to tell WHICH
+      // one — body_part/notes give real detail on the injury itself, and
+      // metadata.game_id (once gameId exists, i.e. an NBA-vs-NBA friendly)
+      // makes inbox.tsx's existing generic "View Box Score →" button appear
+      // so the GM can see the exact opponent/date/score.
       if (p.team_id) {
         try {
           const lang = await getTeamLang(p.team_id)
           const notif = notifInjury(lang, p.name, chosen.name, gamesOut, 'preseason_game')
-          await notify(p.team_id, 'injury', notif.subject, notif.body, {
+          const detailLine = lang === 'pt'
+            ? `\n\nZona afetada: ${chosen.body_part}${chosen.notes ? `\n${chosen.notes}` : ''}`
+            : `\n\nBody part: ${chosen.body_part}${chosen.notes ? `\n${chosen.notes}` : ''}`
+          await notify(p.team_id, 'injury', notif.subject, `${notif.body}${detailLine}`, {
             player_id: p.id, injury_type: chosen.name, severity: chosen.severity,
-            games_out: gamesOut, occurred_in: 'preseason_game',
+            games_out: gamesOut, occurred_in: 'preseason_game', game_id: gameId,
           })
         } catch { /* notification failure shouldn't block the game result */ }
       }
@@ -262,8 +271,6 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
     }
   }
 
-  await applyFriendlyFatigueAndInjury([...homeBox, ...awayBox], nbaPlayerIdsForInjury)
-
   // games.home_team/away_team have a hard foreign key to teams.id only — a
   // "Rest of the World" team id (e.g. Red Star Belgrade = CZV) would violate
   // that constraint. So a real `games` row (and its box score page) only
@@ -305,6 +312,12 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
       await supabaseAdmin.from('play_by_play').insert(pbp.map((p: any) => ({ ...p, game_id: gameId })))
     }
   }
+
+  // Runs after gameId is resolved (moved from right after simulateGame())
+  // so a real injury can actually be attributed to this exact game — it
+  // used to run before gameId existed, so the injury notification's "which
+  // game" link had nothing to point at.
+  await applyFriendlyFatigueAndInjury([...homeBox, ...awayBox], nbaPlayerIdsForInjury, gameId)
 
   // World-team friendlies never get a `games` row (see the comment above), so
   // the real box score for both sides has nowhere else to live — persist it
