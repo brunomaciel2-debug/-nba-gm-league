@@ -279,11 +279,14 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
         </div>
         {refereeName && (
           <div className="flex items-center justify-center mb-4">
-            <div className="flex items-center gap-2 rounded-full pl-1 pr-3 py-1" style={{ background: '#241d15', border: '1px solid #3a3026' }}>
-              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: '#3a3026' }}>
+            <div className="flex items-center gap-2.5 rounded-full pl-1.5 pr-3 py-1.5" style={{ background: '#241d15', border: '1px solid #3a3026' }}>
+              <div
+                className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                style={{ background: '#3a3026', border: '1.5px solid #5c554e' }}
+              >
                 {refereePhotoUrl
                   ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
-                  : <span className="text-[10px] font-black" style={{ color: '#8a8279' }}>
+                  : <span className="text-xs font-black" style={{ color: '#8a8279' }}>
                       {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </span>}
               </div>
