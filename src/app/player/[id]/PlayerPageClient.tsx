@@ -117,7 +117,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
       {key:'mid',      label: isPT?'Meia Distância':'Mid-Range',      tip: isPT?'Meia Distância — capacidade de pontuar de meia distância.':'Mid-Range — ability to score from mid-range.'},
       {key:'ft',       label: isPT?'Lances Livres':'Free Throws',    tip: isPT?'Lances Livres — precisão na linha de lance livre.':'Free Throws — free throw shooting accuracy.'},
       {key:'siq',      label: 'Shot IQ',                             tip: isPT?'Shot IQ — capacidade de decisão no lançamento.':'Shot IQ — decision-making on shot selection.'},
-      {key:'draw_foul',label: isPT?'Provoca Falta':'Draw Foul',     tip: isPT?'Provoca Falta — capacidade de chegar à linha de lances livres.':'Draw Foul — ability to get to the free throw line.'},
+      {key:'draw_foul',label: isPT?'Provoca Falta':'Draw Foul',     tip: isPT?'Provoca Falta — qualidade do contacto que provoca quando ataca o cesto.':'Draw Foul — quality of the contact he draws when attacking the basket.'},
     ]},
     { label: isPT?'Defesa':'Defense', color:'#15803d', attrs:[
       {key:'blk',  label: isPT?'Desarme de Lançamento':'Block',                  tip: isPT?'Desarme de Lançamento — capacidade de travar lançamentos adversários.':'Block — ability to block opponent shots.'},
