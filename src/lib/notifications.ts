@@ -133,7 +133,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     for (const inj of teamInjuries) {
       const severity = inj.severity
       const emoji = severity === 'career_threatening' ? '🚨' : severity === 'severe' ? '🔴' : severity === 'serious' ? '🟠' : '🟡'
-      const notif = notifInjury(lang, inj.players?.name, inj.injury_type, inj.games_out)
+      const notif = notifInjury(lang, inj.players?.name, inj.injury_type, inj.games_out, inj.occurred_in)
       const recurring = inj.is_recurring ? (lang === 'pt' ? '\n⚠️ Esta é uma lesão recorrente.' : '\n⚠️ This is a recurring injury.') : ''
       const medCost = MEDICAL_COST_BY_SEVERITY[severity as InjurySeverity] || 0
       const medLine = lang === 'pt' ? `\n💵 Despesas médicas: $${(medCost/1000).toFixed(0)}K (já debitadas)` : `\n💵 Medical bill: $${(medCost/1000).toFixed(0)}K (already charged)`

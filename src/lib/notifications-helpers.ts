@@ -232,12 +232,20 @@ export function notifWeeklyResults(lang: 'en'|'pt', teamName: string, wins: numb
   }
 }
 
-export function notifInjury(lang: 'en'|'pt', player: string, injuryType: string, gamesOut: number) {
+// occurredIn mirrors injury_log.occurred_in — every injury this engine
+// generates comes from a simulated game (real or friendly); there's no
+// practice or off-court injury mechanic, so those are the only two real
+// values today. Left optional so any other occurred_in value degrades to
+// the generic "in a game" phrasing instead of breaking.
+export function notifInjury(lang: 'en'|'pt', player: string, injuryType: string, gamesOut: number, occurredIn?: string) {
+  const where = occurredIn === 'preseason_game'
+    ? (lang === 'pt' ? ' num jogo amigável' : ' in a friendly game')
+    : (lang === 'pt' ? ' num jogo' : ' in a game')
   return {
     subject: lang === 'pt' ? `🏥 Lesão — ${player}` : `🏥 Injury — ${player}`,
     body: lang === 'pt'
-      ? `O ${player} sofreu uma ${injuryType} e deverá falhar aproximadamente ${gamesOut} jogo${gamesOut !== 1 ? 's' : ''}.`
-      : `${player} suffered a ${injuryType} and is expected to miss approximately ${gamesOut} game${gamesOut !== 1 ? 's' : ''}.`,
+      ? `O ${player} sofreu uma ${injuryType}${where} e deverá falhar aproximadamente ${gamesOut} jogo${gamesOut !== 1 ? 's' : ''}.`
+      : `${player} suffered a ${injuryType}${where} and is expected to miss approximately ${gamesOut} game${gamesOut !== 1 ? 's' : ''}.`,
   }
 }
 

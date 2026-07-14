@@ -140,7 +140,9 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                   <div>
                     <div className="text-xs mb-1" style={{color:'#6b5f4e'}}>{isPT?'Ocorreu em':'Occurred in'}</div>
                     <div className="text-sm font-semibold" style={{color:'#1a1612'}}>
-                      {inj.occurred_in === 'game' ? (isPT?'🏀 Jogo':'🏀 Game') : (isPT?'🏋️ Treino':'🏋️ Practice')}
+                      {inj.occurred_in === 'game' ? (isPT?'🏀 Jogo':'🏀 Game')
+                        : inj.occurred_in === 'preseason_game' ? (isPT?'🏀 Amigável':'🏀 Friendly')
+                        : (isPT?'🏋️ Treino':'🏋️ Practice')}
                     </div>
                   </div>
                   <div>

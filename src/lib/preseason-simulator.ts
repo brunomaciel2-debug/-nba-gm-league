@@ -121,7 +121,7 @@ async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<strin
       if (p.team_id) {
         try {
           const lang = await getTeamLang(p.team_id)
-          const notif = notifInjury(lang, p.name, chosen.name, gamesOut)
+          const notif = notifInjury(lang, p.name, chosen.name, gamesOut, 'preseason_game')
           await notify(p.team_id, 'injury', notif.subject, notif.body, {
             player_id: p.id, injury_type: chosen.name, severity: chosen.severity,
             games_out: gamesOut, occurred_in: 'preseason_game',
