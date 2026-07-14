@@ -26,7 +26,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
       // convention as team_id elsewhere) — fetch the name separately rather
       // than risk an embedded-join 400.
       if (gameData.referee_id) {
-        const { data: ref } = await supabase.from('referees').select('name').eq('id', gameData.referee_id).single()
+        const { data: ref } = await supabase.from('referees').select('name,photo_url').eq('id', gameData.referee_id).single()
         setReferee(ref)
       }
 
@@ -78,6 +78,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
       attendance={game.attendance}
       refereeName={referee?.name || null}
       refereeHref={referee?.name ? `/referees/${game.referee_id}` : null}
+      refereePhotoUrl={referee?.photo_url || null}
       refereeRating={game.referee_rating}
       status={game.status}
       isPT={isPT}

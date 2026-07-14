@@ -61,6 +61,7 @@ export interface GameBoxScoreProps {
   attendance?: number | null
   refereeName?: string | null
   refereeHref?: string | null
+  refereePhotoUrl?: string | null
   refereeRating?: number | null
   status?: string
   isPT: boolean
@@ -105,6 +106,10 @@ const teamTotals = (box: BoxRow[]) => {
   return tot
 }
 const pct = (m: number, a: number) => a > 0 ? Math.round(m / a * 100) + '%' : '—'
+// Same 4-tier scale used on the referee profile / officials-ranking pages,
+// recolored for the dark scoreboard header (the light page's "good" tier
+// color, #1a1512, would be invisible on this background).
+const refRatingColor = (v: number) => v >= 8 ? '#22c55e' : v >= 6.5 ? '#e8e2d6' : v >= 5 ? '#f59e0b' : '#ef4444'
 const cellValue = (b: any, key: string) => {
   if (splitCols[key]) { const [m, a] = splitCols[key]; return `${b[m] || 0}-${b[a] || 0}` }
   if (key === 'plus_minus') { const v = b[key] || 0; return v > 0 ? `+${v}` : `${v}` }
@@ -115,7 +120,7 @@ const cellValue = (b: any, key: string) => {
 export default function GameBoxScore(props: GameBoxScoreProps) {
   const {
     homeTeam, awayTeam, homeScore, awayScore, homeBox, awayBox, periodScores,
-    playedAt, weekLabel, attendance, refereeName, refereeHref, refereeRating,
+    playedAt, weekLabel, attendance, refereeName, refereeHref, refereePhotoUrl, refereeRating,
     status, isPT, backHref, backLabel, playerHref,
   } = props
 
@@ -267,19 +272,38 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
 
       {/* SCOREBOARD */}
       <div className="rounded-2xl p-6 mb-6" style={{ background: '#1a1512', border: '1px solid #2a2218' }}>
-        <div className="text-center text-xs mb-4" style={{ color: '#8a8279' }}>
+        <div className="text-center text-xs mb-3" style={{ color: '#8a8279' }}>
           {playedAt ? fmtDate(playedAt) : ''}
           {weekLabel && ` · ${weekLabel}`}
           {!!attendance && attendance > 0 && ` · ${attendance.toLocaleString()} ${isPT ? 'adeptos' : 'fans'}`}
-          {refereeName && (
-            <>
-              {' · '}{isPT ? 'Árbitro' : 'Ref'}: {refereeHref ? (
-                <Link href={refereeHref} style={{ color: '#8a8279', textDecoration: 'underline' }}>{refereeName}</Link>
-              ) : refereeName}
-              {status === 'final' && refereeRating != null && ` (${refereeRating.toFixed(1)}/10)`}
-            </>
-          )}
         </div>
+        {refereeName && (
+          <div className="flex items-center justify-center mb-4">
+            <div className="flex items-center gap-2 rounded-full pl-1 pr-3 py-1" style={{ background: '#241d15', border: '1px solid #3a3026' }}>
+              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ background: '#3a3026' }}>
+                {refereePhotoUrl
+                  ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
+                  : <span className="text-[10px] font-black" style={{ color: '#8a8279' }}>
+                      {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    </span>}
+              </div>
+              <span className="text-[11px]" style={{ color: '#8a8279' }}>{isPT ? 'Árbitro' : 'Ref'}</span>
+              {refereeHref ? (
+                <Link href={refereeHref} className="text-xs font-bold no-underline" style={{ color: '#e8e2d6' }}>{refereeName}</Link>
+              ) : (
+                <span className="text-xs font-bold" style={{ color: '#e8e2d6' }}>{refereeName}</span>
+              )}
+              {status === 'final' && refereeRating != null && (
+                <span
+                  className="text-xs font-black px-1.5 py-0.5 rounded-full"
+                  style={{ color: refRatingColor(refereeRating), background: refRatingColor(refereeRating) + '22' }}
+                >
+                  {refereeRating.toFixed(1)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between gap-4">
           {/* Home */}
           <div className="flex-1 text-center">
