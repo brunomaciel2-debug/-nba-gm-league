@@ -4,6 +4,7 @@ import { notify } from '@/lib/notifications'
 import { getTeamLang, notifInjury } from '@/lib/notifications-helpers'
 import { computeGameAttendance } from '@/lib/audience-segments'
 import { rateRefereePerformance } from '@/lib/referees'
+import { getWeekForDate } from '@/lib/season-week-helper'
 
 // Resolves a single scheduled friendly/pre-season game (a preseason_games row) —
 // NBA vs NBA, or NBA vs a "Rest of the World" team. Produces an isolated
@@ -206,7 +207,15 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
     // should actually respect each team's real Weekly Orders (Depth Chart,
     // Priorities, Pace, Attack/Defense Style, Double Team, Lockdown
     // Defender, Ball Role, Head Coach adjustments), same as a real game.
-    let week = weekOverride
+    // The Weekly Orders that apply are whichever week the friendly's own
+    // scheduled_date actually falls into — NOT "whatever week the season
+    // sim happens to be sitting at right now." Friendlies get scheduled
+    // across the whole pre-season window well ahead of time, so by the
+    // time one gets resolved, current_week can easily be a week (or more)
+    // behind the friendly's real calendar date, silently pulling an
+    // earlier, possibly-incomplete week's orders instead of the ones the
+    // GM actually set for that date.
+    let week = weekOverride ?? (pg.scheduled_date ? getWeekForDate(pg.scheduled_date) : null)
     if (week == null) {
       const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
       week = (cfg?.current_week || 0) + 1
@@ -254,7 +263,7 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
     const nbaTeamId = nbaSideIsHome ? pg.home_team : pg.away_team
     const worldTeamId = nbaSideIsHome ? pg.away_team : pg.home_team
 
-    let week = weekOverride
+    let week = weekOverride ?? (pg.scheduled_date ? getWeekForDate(pg.scheduled_date) : null)
     if (week == null) {
       const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
       week = (cfg?.current_week || 0) + 1

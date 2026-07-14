@@ -12,6 +12,16 @@ export function getWeekDates(week: number): { start: Date; end: Date } {
   return { start, end }
 }
 
+// Reverse of getWeekDates() — which week number a real calendar date falls
+// into. Accepts a 'YYYY-MM-DD' string (matching how scheduled_date is
+// stored) so callers never have to worry about timezone drift from
+// constructing a Date directly.
+export function getWeekForDate(dateStr: string): number {
+  const d = new Date(dateStr + 'T00:00:00')
+  const diffDays = Math.round((d.getTime() - SEASON_WEEK_START.getTime()) / (1000 * 60 * 60 * 24))
+  return Math.floor(diffDays / 7) + 1
+}
+
 // Splits a week's date range into the same two halves the simulator now
 // runs in — days 0-2 (3 days) and days 3-6 (4 days) — matching the 4
 // rounds of games per week (offsets 0,2,4,6 in schedule-generator.ts):
