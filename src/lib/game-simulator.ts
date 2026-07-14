@@ -474,14 +474,30 @@ return{homeScore:sc.home,awayScore:sc.away,homeBox:hb,awayBox:ab,pbp,periods}
 // A submitted Weekly Order can be malformed in ways that still pass the UI's
 // own save guard — e.g. real player names assigned to every position slot
 // but minutes only actually typed in for one of them (everyone else left at
-// 0). applyDC() takes the depth chart at face value, so that case used to
-// quietly field fewer than 5 players. Whenever the real depth chart (or its
-// total absence) leaves the team below a playable 5, fall back to the same
-// best-player-per-position auto-builder already used for GM-less teams —
-// a real, if generic, 5-man rotation instead of a broken box score.
+// 0). This used to be treated as all-or-nothing: any team that fell below 5
+// players with real minutes had its ENTIRE depth chart discarded — including
+// whichever positions WERE filled in correctly — and replaced with a fully
+// auto-generated lineup, silently overriding a GM's real submitted rotation
+// (a real incident: a team's depth chart had valid PG minutes but every
+// other position left at 0 — the auto-fallback then benched the real PG
+// starter in favor of a bench player it decided was the auto-starter,
+// exactly what a GM would call "my orders were ignored"). Now only the
+// positions that are actually broken (no real minutes anywhere in that
+// position's 3 slots) get patched in from the auto-builder — every position
+// the GM genuinely filled in stays exactly as submitted.
 function ensurePlayableDepthChart(players:any[],dc:any){
-if(dc)applyDC(players,dc)
-if(players.filter((p:any)=>p.mins>0).length<5)applyDC(players,buildAutoDepthChart(players))
+const auto=buildAutoDepthChart(players)
+const merged:any={}
+;["PG","SG","SF","PF","C"].forEach(pos=>{
+const pd=dc?.[pos]
+const posHasMins=!!pd&&["s","b1","b2"].some(sl=>pd[sl]?.name&&(pd[sl]?.mins||0)>0)
+merged[pos]=posHasMins?pd:auto[pos]
+})
+if(dc?.ball_roles)merged.ball_roles=dc.ball_roles
+applyDC(players,merged)
+// Final safety net — only reachable if even the merged chart (real + auto
+// patched positions) somehow still leaves the team unplayable.
+if(players.filter((p:any)=>p.mins>0).length<5)applyDC(players,auto)
 }
 
 function applyDC(players:any[],dc:any){
