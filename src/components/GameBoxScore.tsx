@@ -276,45 +276,45 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
       <div
         className="relative overflow-hidden rounded-2xl p-6 mb-6"
         style={{
-          background: `radial-gradient(ellipse 120% 100% at 0% 0%, ${homeColorOnDark}1c, transparent 55%), radial-gradient(ellipse 120% 100% at 100% 0%, ${awayColorOnDark}1c, transparent 55%), #1a1512`,
-          border: '1px solid #2a2218',
-          boxShadow: '0 10px 34px rgba(0,0,0,0.35)',
+          background: `linear-gradient(120deg, ${homeColorOnDark}59 0%, #1a1329 38%, #1a1329 62%, ${awayColorOnDark}59 100%), repeating-linear-gradient(115deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 2px, transparent 2px, transparent 13px), #1a1329`,
+          border: '1px solid #352a4a',
+          boxShadow: `0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)`,
         }}
       >
         <div
-          className="absolute top-0 left-0 right-0 h-1"
-          style={{ background: `linear-gradient(90deg, ${homeColorOnDark} 0%, ${homeColorOnDark} 50%, ${awayColorOnDark} 50%, ${awayColorOnDark} 100%)` }}
+          className="absolute top-0 left-0 right-0 h-1.5"
+          style={{ background: `linear-gradient(90deg, ${homeColorOnDark} 0%, #fff 50%, ${awayColorOnDark} 100%)`, boxShadow: `0 0 16px ${homeColorOnDark}88` }}
         />
         {homeTeam.arena && (
-          <div className="text-center text-sm font-bold mb-1" style={{ color: '#e8e2d6' }}>
+          <div className="text-center text-sm font-bold mb-1" style={{ color: '#f5f2fa' }}>
             {homeTeam.arena}{homeTeam.city && ` · ${homeTeam.city}`}
           </div>
         )}
-        <div className="text-center text-xs mb-3" style={{ color: '#8a8279' }}>
+        <div className="text-center text-xs mb-3" style={{ color: '#b9b2d0' }}>
           {playedAt ? fmtDate(playedAt) : ''}
           {weekLabel && ` · ${weekLabel}`}
           {!!attendance && attendance > 0 && ` · ${attendance.toLocaleString()} ${isPT ? 'adeptos' : 'fans'}`}
         </div>
         {refereeName && (
           <div className="flex items-center justify-center mb-4">
-            <div className="flex items-center gap-3 rounded-2xl pl-2 pr-4 py-2" style={{ background: '#241d15', border: '1px solid #3a3026' }}>
+            <div className="flex items-center gap-3 rounded-2xl pl-2 pr-4 py-2" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
               <div
                 className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                style={{ background: '#3a3026', border: '2px solid #5c554e' }}
+                style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
               >
                 {refereePhotoUrl
                   ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
-                  : <span className="text-lg font-black" style={{ color: '#8a8279' }}>
+                  : <span className="text-lg font-black" style={{ color: '#b9b2d0' }}>
                       {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </span>}
               </div>
               <div>
-                <div className="text-[11px] uppercase tracking-widest mb-0.5" style={{ color: '#8a8279' }}>{isPT ? 'Árbitro' : 'Referee'}</div>
+                <div className="text-[11px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro' : 'Referee'}</div>
                 <div className="flex items-center gap-2">
                   {refereeHref ? (
-                    <Link href={refereeHref} className="text-sm font-bold no-underline" style={{ color: '#e8e2d6' }}>{refereeName}</Link>
+                    <Link href={refereeHref} className="text-sm font-bold no-underline" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
                   ) : (
-                    <span className="text-sm font-bold" style={{ color: '#e8e2d6' }}>{refereeName}</span>
+                    <span className="text-sm font-bold" style={{ color: '#f5f2fa' }}>{refereeName}</span>
                   )}
                   {status === 'final' && refereeRating != null && (
                     <span
@@ -337,47 +337,61 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 {homeTeam.logo_url && (
                   <div
                     className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center"
-                    style={{ background: `radial-gradient(circle, ${homeColorOnDark}29 0%, transparent 72%)` }}
+                    style={{ background: `radial-gradient(circle, ${homeColorOnDark}3d 0%, transparent 72%)`, filter: `drop-shadow(0 0 10px ${homeColorOnDark}40)` }}
                   >
                     <img src={homeTeam.logo_url} alt="" className="w-20 h-20 object-contain" />
                   </div>
                 )}
-                <div className="text-sm font-bold" style={{ color: homeColorOnDark }}>{homeTeam.name}</div>
-                <div className="text-xs mb-2" style={{ color: '#8a8279' }}>{isPT ? 'CASA' : 'HOME'}</div>
+                <div className="text-base font-black" style={{ color: '#f5f2fa' }}>{homeTeam.name}</div>
+                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 mt-1 tracking-widest"
+                  style={{ background: `${homeColorOnDark}2a`, color: homeColorOnDark }}>{isPT ? 'CASA' : 'HOME'}</span>
               </Link>
             ) : (
               <>
                 {homeTeam.logo_url && (
                   <div
                     className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center"
-                    style={{ background: `radial-gradient(circle, ${homeColorOnDark}29 0%, transparent 72%)` }}
+                    style={{ background: `radial-gradient(circle, ${homeColorOnDark}3d 0%, transparent 72%)`, filter: `drop-shadow(0 0 10px ${homeColorOnDark}40)` }}
                   >
                     <img src={homeTeam.logo_url} alt="" className="w-20 h-20 object-contain" />
                   </div>
                 )}
-                <div className="text-sm font-bold" style={{ color: homeColorOnDark }}>{homeTeam.name}</div>
-                <div className="text-xs mb-2" style={{ color: '#8a8279' }}>{isPT ? 'CASA' : 'HOME'}</div>
+                <div className="text-base font-black" style={{ color: '#f5f2fa' }}>{homeTeam.name}</div>
+                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 mt-1 tracking-widest"
+                  style={{ background: `${homeColorOnDark}2a`, color: homeColorOnDark }}>{isPT ? 'CASA' : 'HOME'}</span>
               </>
             )}
             <div
-              className="text-6xl font-black"
-              style={{ color: homeWon ? homeColorOnDark : '#5c554e', textShadow: homeWon ? `0 0 28px ${homeColorOnDark}55` : 'none' }}
+              className="mx-auto rounded-2xl py-2 px-4 inline-block"
+              style={{
+                background: homeWon ? `linear-gradient(180deg, ${homeColorOnDark}33, ${homeColorOnDark}0d)` : 'rgba(255,255,255,0.04)',
+                border: homeWon ? `1px solid ${homeColorOnDark}66` : '1px solid rgba(255,255,255,0.06)',
+              }}
             >
-              {homeScore}
+              <div
+                className="text-6xl font-black leading-none"
+                style={{ color: homeWon ? '#ffffff' : '#8a83a3', textShadow: homeWon ? `0 0 32px ${homeColorOnDark}bb` : 'none' }}
+              >
+                {homeScore}
+              </div>
             </div>
-            {homeWon && <div className="text-xs font-bold mt-1" style={{ color: '#4ade80' }}>{isPT ? 'VITÓRIA' : 'WIN'}</div>}
+            {homeWon && <div className="text-xs font-black mt-2 tracking-widest" style={{ color: '#4ade80' }}>● {isPT ? 'VITÓRIA' : 'WIN'}</div>}
           </div>
 
           {/* VS */}
           <div className="text-center flex-shrink-0">
             <div
-              className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-black"
-              style={{ background: '#241d15', border: '1px solid #3a3026', color: '#5c554e' }}
+              className="w-16 h-16 flex items-center justify-center text-base font-black rotate-45"
+              style={{
+                background: `linear-gradient(135deg, ${homeColorOnDark}, ${awayColorOnDark})`,
+                boxShadow: `0 4px 20px rgba(0,0,0,0.4)`,
+                borderRadius: '18px',
+              }}
             >
-              VS
+              <span className="-rotate-45" style={{ color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>VS</span>
             </div>
             {status === 'final' && (
-              <div className="text-xs px-2 py-0.5 rounded mt-2 font-bold tracking-wide" style={{ background: '#2a2218', color: '#8a8279' }}>
+              <div className="text-[11px] px-2.5 py-1 rounded-full mt-3 font-black tracking-widest" style={{ background: 'rgba(255,255,255,0.08)', color: '#d6d0e8', border: '1px solid rgba(255,255,255,0.1)' }}>
                 {isPT ? 'FINAL' : 'FINAL'}
               </div>
             )}
@@ -390,65 +404,75 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 {awayTeam.logo_url && (
                   <div
                     className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center"
-                    style={{ background: `radial-gradient(circle, ${awayColorOnDark}29 0%, transparent 72%)` }}
+                    style={{ background: `radial-gradient(circle, ${awayColorOnDark}3d 0%, transparent 72%)`, filter: `drop-shadow(0 0 10px ${awayColorOnDark}40)` }}
                   >
                     <img src={awayTeam.logo_url} alt="" className="w-20 h-20 object-contain" />
                   </div>
                 )}
-                <div className="text-sm font-bold" style={{ color: awayColorOnDark }}>{awayTeam.name}</div>
-                <div className="text-xs mb-2" style={{ color: '#8a8279' }}>{isPT ? 'FORA' : 'AWAY'}</div>
+                <div className="text-base font-black" style={{ color: '#f5f2fa' }}>{awayTeam.name}</div>
+                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 mt-1 tracking-widest"
+                  style={{ background: `${awayColorOnDark}2a`, color: awayColorOnDark }}>{isPT ? 'FORA' : 'AWAY'}</span>
               </Link>
             ) : (
               <>
                 {awayTeam.logo_url && (
                   <div
                     className="w-24 h-24 rounded-full mx-auto mb-3 flex items-center justify-center"
-                    style={{ background: `radial-gradient(circle, ${awayColorOnDark}29 0%, transparent 72%)` }}
+                    style={{ background: `radial-gradient(circle, ${awayColorOnDark}3d 0%, transparent 72%)`, filter: `drop-shadow(0 0 10px ${awayColorOnDark}40)` }}
                   >
                     <img src={awayTeam.logo_url} alt="" className="w-20 h-20 object-contain" />
                   </div>
                 )}
-                <div className="text-sm font-bold" style={{ color: awayColorOnDark }}>{awayTeam.name}</div>
-                <div className="text-xs mb-2" style={{ color: '#8a8279' }}>{isPT ? 'FORA' : 'AWAY'}</div>
+                <div className="text-base font-black" style={{ color: '#f5f2fa' }}>{awayTeam.name}</div>
+                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 mt-1 tracking-widest"
+                  style={{ background: `${awayColorOnDark}2a`, color: awayColorOnDark }}>{isPT ? 'FORA' : 'AWAY'}</span>
               </>
             )}
             <div
-              className="text-6xl font-black"
-              style={{ color: !homeWon ? awayColorOnDark : '#5c554e', textShadow: !homeWon ? `0 0 28px ${awayColorOnDark}55` : 'none' }}
+              className="mx-auto rounded-2xl py-2 px-4 inline-block"
+              style={{
+                background: !homeWon ? `linear-gradient(180deg, ${awayColorOnDark}33, ${awayColorOnDark}0d)` : 'rgba(255,255,255,0.04)',
+                border: !homeWon ? `1px solid ${awayColorOnDark}66` : '1px solid rgba(255,255,255,0.06)',
+              }}
             >
-              {awayScore}
+              <div
+                className="text-6xl font-black leading-none"
+                style={{ color: !homeWon ? '#ffffff' : '#8a83a3', textShadow: !homeWon ? `0 0 32px ${awayColorOnDark}bb` : 'none' }}
+              >
+                {awayScore}
+              </div>
             </div>
-            {!homeWon && <div className="text-xs font-bold mt-1" style={{ color: '#4ade80' }}>{isPT ? 'VITÓRIA' : 'WIN'}</div>}
+            {!homeWon && <div className="text-xs font-black mt-2 tracking-widest" style={{ color: '#4ade80' }}>● {isPT ? 'VITÓRIA' : 'WIN'}</div>}
           </div>
         </div>
 
         {/* LINE SCORE — Q1-Q4 plus OT1/OT2/... if the game went to overtime */}
         {periodScores && periodScores.length > 0 && (
-          <div className="mt-5 pt-4 overflow-x-auto" style={{ borderTop: '1px solid #2a2218' }}>
+          <div className="mt-5 pt-4 overflow-x-auto" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
             <table className="mx-auto text-xs rounded-lg overflow-hidden" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
               <thead>
                 <tr>
-                  <th className="px-3 py-1.5 text-left" style={{ color: '#5c554e', background: '#150f0a' }}></th>
+                  <th className="px-3 py-1.5 text-left" style={{ color: '#8a83a3', background: 'rgba(255,255,255,0.05)' }}></th>
                   {periodScores.map(p => (
-                    <th key={p.quarter} className="px-3 py-1.5 text-right font-semibold" style={{ color: '#8a8279', background: '#150f0a' }}>
+                    <th key={p.quarter} className="px-3 py-1.5 text-right font-semibold" style={{ color: '#b9b2d0', background: 'rgba(255,255,255,0.05)' }}>
                       {p.quarter <= 4 ? `Q${p.quarter}` : `OT${p.quarter - 4}`}
                     </th>
                   ))}
-                  <th className="px-3 py-1.5 text-right font-bold" style={{ color: '#8a8279', background: '#150f0a' }}>{isPT ? 'FINAL' : 'FINAL'}</th>
+                  <th className="px-3 py-1.5 text-right font-bold" style={{ color: '#b9b2d0', background: 'rgba(255,255,255,0.05)' }}>{isPT ? 'FINAL' : 'FINAL'}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td className="px-3 py-1.5 text-left font-semibold" style={{ color: homeColorOnDark, background: 'rgba(255,255,255,0.03)' }}>{homeTeam.name}</td>
                   {periodScores.map(p => (
-                    <td key={p.quarter} className="px-3 py-1.5 text-right" style={{ color: '#d8d2c5', background: 'rgba(255,255,255,0.03)' }}>{p.home}</td>
+                    <td key={p.quarter} className="px-3 py-1.5 text-right" style={{ color: '#e8e4f2', background: 'rgba(255,255,255,0.03)' }}>{p.home}</td>
                   ))}
                   <td className="px-3 py-1.5 text-right font-black" style={{ color: homeColorOnDark, background: 'rgba(255,255,255,0.03)' }}>{homeScore}</td>
                 </tr>
                 <tr>
                   <td className="px-3 py-1.5 text-left font-semibold" style={{ color: awayColorOnDark }}>{awayTeam.name}</td>
                   {periodScores.map(p => (
-                    <td key={p.quarter} className="px-3 py-1.5 text-right" style={{ color: '#d8d2c5' }}>{p.away}</td>
+                    <td key={p.quarter} className="px-3 py-1.5 text-right" style={{ color: '#e8e4f2' }}>{p.away}</td>
                   ))}
                   <td className="px-3 py-1.5 text-right font-black" style={{ color: awayColorOnDark }}>{awayScore}</td>
                 </tr>
