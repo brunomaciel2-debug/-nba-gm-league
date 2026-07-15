@@ -240,9 +240,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
               </span>
             )}
             {(b.pf || 0) >= 4 && (b.pf || 0) < 6 && (
-              <span className="ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: '#f59e0b', color: '#1a1512' }}>
-                ⚠️ {isPT ? 'EM APUROS' : 'FOUL TROUBLE'}
-              </span>
+              <span className="ml-1.5 text-xs" title={isPT ? 'Em apuros de faltas' : 'Foul trouble'}>⚠️</span>
             )}
           </td>
           {statCols.map(c => (
@@ -592,19 +590,19 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             className="flex items-center justify-center p-3"
             style={{ borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.15)' }}
           >
-            <div className="flex items-center gap-2.5 rounded-2xl pl-2 pr-3 py-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div className="flex items-center gap-3 rounded-2xl pl-2 pr-3 py-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
               <div
-                className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
                 style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
               >
                 {refereePhotoUrl
                   ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
-                  : <span className="text-sm font-black" style={{ color: '#b9b2d0' }}>
+                  : <span className="text-xl font-black" style={{ color: '#b9b2d0' }}>
                       {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                     </span>}
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro' : 'Referee'}</div>
+                <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro Principal' : 'Lead Official'}</div>
                 {refereeHref ? (
                   <Link href={refereeHref} className="text-sm font-bold no-underline block" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
                 ) : (
@@ -649,6 +647,11 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             </div>
             <BoxTable players={awayBox} color={awayColor} totals={awayTotals} mvpPlayerId={mvpEntry?.b.player_id} />
           </div>
+          {[...homeBox, ...awayBox].some(b => (b.pf || 0) >= 4 && (b.pf || 0) < 6) && (
+            <div className="text-xs px-1" style={{ color: '#8a8279' }}>
+              ⚠️ {isPT ? '= em apuros de faltas (4 ou 5 faltas pessoais)' : '= in foul trouble (4 or 5 personal fouls)'}
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-center py-12 rounded-2xl" style={{ background: '#faf8f5', border: '1px solid #d4cdc5' }}>
