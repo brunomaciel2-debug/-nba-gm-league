@@ -30,11 +30,22 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Club name lookup for player/staff sublabels — fetched once (teams barely
+  // change mid-season) rather than re-queried on every keystroke.
+  const teamNameById = useRef<Record<string, string>>({})
 
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  useEffect(() => {
+    supabase.from('teams').select('id,name').not('id', 'in', PLACEHOLDER_TEAM_IDS).then(({ data }) => {
+      const map: Record<string, string> = {}
+      for (const tm of data || []) map[tm.id] = tm.name
+      teamNameById.current = map
+    })
   }, [])
 
   useEffect(() => {
@@ -45,21 +56,23 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
     debounceRef.current = setTimeout(async () => {
       const [{ data: teams }, { data: players }, { data: coaches }] = await Promise.all([
         supabase.from('teams').select('id,name,logo_url').ilike('name', `%${query}%`).not('id', 'in', PLACEHOLDER_TEAM_IDS).limit(5),
-        supabase.from('players').select('id,name,pos,photo_url').ilike('name', `%${query}%`).limit(6),
-        supabase.from('coaches').select('id,name,role,photo_url').ilike('name', `%${query}%`).limit(5),
+        supabase.from('players').select('id,name,pos,team_id,photo_url').ilike('name', `%${query}%`).limit(6),
+        supabase.from('coaches').select('id,name,role,team_id,photo_url').ilike('name', `%${query}%`).limit(5),
       ])
+      const clubLabel = (teamId: string | null) => teamId ? (teamNameById.current[teamId] || teamId) : 'FA'
       const teamResults: Result[] = (teams || []).map((tm: any) => ({
         id: `t-${tm.id}`, label: tm.name, sublabel: isPT ? 'Equipa' : 'Team',
         href: `/team/${tm.id}`, icon: 'ti-shirt-sport', photo_url: tm.logo_url,
       }))
       const playerResults: Result[] = (players || []).map((p: any) => ({
-        id: `p-${p.id}`, label: p.name, sublabel: p.pos || (isPT ? 'Jogador' : 'Player'),
+        id: `p-${p.id}`, label: p.name, sublabel: clubLabel(p.team_id),
         href: `/player/${p.id}`, icon: 'ti-basketball', photo_url: p.photo_url,
       }))
       const coachResults: Result[] = (coaches || []).map((c: any) => {
         const roleLabel = STAFF_ROLE_LABEL[c.role]
+        const role = roleLabel ? (isPT ? roleLabel.pt : roleLabel.en) : c.role
         return {
-          id: `c-${c.id}`, label: c.name, sublabel: roleLabel ? (isPT ? roleLabel.pt : roleLabel.en) : c.role,
+          id: `c-${c.id}`, label: c.name, sublabel: `${role} · ${clubLabel(c.team_id)}`,
           href: `/staff/${c.id}`, icon: 'ti-whistle', photo_url: c.photo_url,
         }
       })
@@ -113,7 +126,7 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
                     <i className={`ti ${r.icon}`} style={{ fontSize: 22, color: '#c8102e', width: 40, textAlign: 'center', flexShrink: 0 }}></i>
                   )}
                   <span className="flex-1 min-w-0 truncate font-semibold">{r.label}</span>
-                  <span className="flex-shrink-0" style={{ color: '#8a8279' }}>{r.sublabel}</span>
+                  <span className="flex-shrink-0 text-right" style={{ color: '#8a8279', maxWidth: 130 }}>{r.sublabel}</span>
                 </Link>
               ))}
             </div>
