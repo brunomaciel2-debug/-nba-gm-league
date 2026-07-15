@@ -355,6 +355,38 @@ if(picked)five.push(picked)
 return five
 }
 
+// Real garbage time: once a game is truly decided, BOTH benches empty —
+// not just a possession-selection trick that leaves the box score's MIN
+// column looking exactly like it would have in a close game. This actually
+// rewrites p.mins for the rest of the game — the team's 5 heaviest-minute
+// players (its de facto starters, whether or not they were flagged as such)
+// give up a chunk of their remaining planned minutes, and that same chunk
+// gets handed to the 5 LEAST-used players on the roster, including anyone
+// originally penciled in for 0 minutes — real bench call-ups nobody
+// expected to see the floor tonight. Since every stat-crediting weight in
+// this file already reads p.mins directly, this one mutation is all it
+// takes to cascade correctly into shot volume, assists, rebounds, steals,
+// and the final box score — no separate possession-pool hack needed.
+function applyGarbageTimeSubs(players:any[],remainingMin:number){
+if(remainingMin<=0)return
+const active=[...players].filter(p=>p.mins>0).sort((a,b)=>b.mins-a.mins)
+const stars=active.slice(0,5)
+if(!stars.length)return
+// The 5 who get pulled would all have played this exact same closing
+// stretch simultaneously — each one individually loses up to the full
+// clock time remaining, not a shared pool divided five ways. Their direct
+// bench replacements (the 5 least-used players on the roster, including
+// anyone originally at 0) each pick up that same real minutes swing.
+const starIds=new Set(stars.map(p=>p.id))
+const deepBench=[...players].filter(p=>!starIds.has(p.id)).sort((a,b)=>(a.mins||0)-(b.mins||0)).slice(0,stars.length)
+stars.forEach((p,i)=>{
+const taken=Math.min(remainingMin,p.mins*0.85)
+p.mins=Math.max(2,p.mins-taken)
+const replacement=deepBench[i]
+if(replacement)replacement.mins=(replacement.mins||0)+taken
+})
+}
+
 // A technical foul counts as a personal foul AND its own separate tally.
 // A player's 2nd technical foul in the same game is an automatic ejection —
 // same real-world NBA rule. Rolled once per quarter per active player,
@@ -438,7 +470,18 @@ if(isOT)pbp.push({quarter:q+1,time_left:fmt(periodLen),team_id:null,event_type:"
 for(let i=0;i<periodPoss*2;i++){
 const tl=Math.max(0,Math.round(periodLen*(1-i/(periodPoss*2))))
 const diff=Math.abs(sc.home-sc.away)
-if(q===3&&!isGT&&((tl<=120&&diff>=20)||(tl<=90&&diff>=15))){isGT=true;gtW=sc.home>sc.away?"home":"away";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:null,event_type:"info",description:`🗑️ GARBAGE TIME — ${isGT&&gtW==="home"?ht.name:at.name} leads by ${diff}!`,home_score:sc.home,away_score:sc.away})}
+// Widened beyond the old tight "2 minutes left, up 20" trigger — a real
+// blowout gets conceded well before the final minutes, so a big-enough
+// margin fires this much earlier in the 4th. Both benches empty once it's
+// truly decided, not just the leading team's — the losing side has no
+// reason to keep running its stars into a lost cause either.
+if(q===3&&!isGT&&((diff>=25&&tl<=360)||(diff>=20&&tl<=240)||(diff>=15&&tl<=120))){
+isGT=true;gtW=sc.home>sc.away?"home":"away"
+const remainingMin=tl/60
+applyGarbageTimeSubs(hp,remainingMin)
+applyGarbageTimeSubs(ap,remainingMin)
+pbp.push({quarter:q+1,time_left:fmt(tl),team_id:null,event_type:"info",description:`🗑️ GARBAGE TIME — ${gtW==="home"?ht.name:at.name} leads by ${diff}, both benches empty!`,home_score:sc.home,away_score:sc.away})
+}
 const oo=side==="home"?ho:ao,doo=side==="home"?ao:ho
 const ot=side==="home"?ht:at,dt=side==="home"?at:ht
 // Rivalry games: every 4th-quarter possession is pressure-relevant, not just
@@ -448,7 +491,11 @@ const ot=side==="home"?ht:at,dt=side==="home"?at:ht
 const isRivalryGame=!!(ho.isRivalry||ao.isRivalry)
 const isDecisiveGame=!!(ho.decisive||ao.decisive)
 const isC=isOT||(q===3&&(isRivalryGame||(isDecisiveGame?(tl<=240&&diff<=8):(tl<=120&&diff<=5))))
-const ops=side==="home"?(isGT&&side===gtW?hp.filter(p=>p.mins>0&&!p.ejected).slice(5):hp.filter(p=>p.mins>0&&!p.ejected)):(isGT&&side===gtW?ap.filter(p=>p.mins>0&&!p.ejected).slice(5):ap.filter(p=>p.mins>0&&!p.ejected))
+// Garbage time no longer needs a separate possession-pool carve-out here —
+// applyGarbageTimeSubs() already rewrote p.mins for both teams the moment
+// it triggered, so the normal mins>0 pool (and every mins-weighted stat
+// formula downstream) naturally shifts toward whoever's actually in now.
+const ops=side==="home"?hp.filter(p=>p.mins>0&&!p.ejected):ap.filter(p=>p.mins>0&&!p.ejected)
 const dps=side==="home"?ap.filter(p=>p.mins>0&&!p.ejected):hp.filter(p=>p.mins>0&&!p.ejected)
 const os=side as "home"|"away",ds=(side==="home"?"away":"home") as "home"|"away"
 if((part[ds] as number)>=8&&(tol[os].q[q]||0)<2&&tol[os].used<7){tol[os].q[q]=(tol[os].q[q]||0)+1;tol[os].used++;part.home=0;part.away=0;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"timeout",description:`⏱ TIMEOUT — ${ot.name}`,home_score:sc.home,away_score:sc.away})}
