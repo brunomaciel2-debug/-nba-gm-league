@@ -304,6 +304,28 @@ const t=pool.reduce((s,x)=>s+x.w,0);let r=Math.random()*t
 for(const x of pool){r-=x.w;if(r<=0)return x.p}
 return pool[pool.length-1].p
 }
+// Team-share cap for any weighted draw among teammates competing for a single
+// credit (a shot, a rebound, an assist) — a real incident (LaMelo Ball taking
+// 49 shots against a much-weaker supporting cast, then Matas Buzelis doing
+// the same to rebounds) showed a plain weighted draw has no ceiling on how
+// much of a shared pool one standout talent can absorb purely because
+// everyone else in the pool is worse. Real basketball puts a soft ceiling on
+// this regardless of talent gap (defenses adjust, teammates crowd the same
+// space) — capped here at the pool level so it only ever activates when one
+// player's raw share is already extreme; the excess is redistributed across
+// the rest of the same pool, never removed from the team's total.
+function wtCapped(pool:Array<{p:any,w:number}>,cap=.33){
+if(pool.length>1){
+const totalW=pool.reduce((s,x)=>s+x.w,0)
+if(totalW>0){
+let maxIdx=0
+for(let i=1;i<pool.length;i++)if(pool[i].w>pool[maxIdx].w)maxIdx=i
+const maxW=pool[maxIdx].w,others=totalW-maxW
+if(maxW/totalW>cap&&others>0)pool[maxIdx].w=(cap/(1-cap))*others
+}
+}
+return wt(pool)
+}
 function r3p(v:number){return(20+(v/100)*22)/100}
 function fmt(tl:number){return Math.floor(tl/60)+":"+String(tl%60).padStart(2,"0")}
 
@@ -458,6 +480,7 @@ const chance=(0.003+((p.trash_talk??50)/100)*0.012)*refTechMult*chippyMult
 if(Math.random()>=chance)continue
 const s=st[p.id]
 s.tf=(s.tf||0)+1;s.pf=(s.pf||0)+1
+foulOutCheck(p,s,offTeam,q,720,pbp,sc)
 const activeOpp=defense.filter((o:any)=>o.mins>0&&!o.ejected)
 if(activeOpp.length){
 const shooter=wt(activeOpp.map((o:any)=>({p:o,w:(o.ft||70)})))
@@ -470,6 +493,20 @@ if(s.tf>=2){
 p.ejected=true
 pbp.push({quarter:q+1,time_left:fmt(720),team_id:offTeam.id,event_type:"ejection",description:`⛔ ${p.name} EJECTED — 2nd technical foul!`,home_score:sc.home,away_score:sc.away})
 }
+}
+}
+
+// A player disqualified for the rest of the game once his personal fouls
+// reach 6 — the same real NBA rule already modeled for technical fouls (2nd
+// tech = ejection) never existed for ordinary personal fouls, so a player
+// could rack up 7, 8, 9+ fouls in a single game and keep playing. Reuses the
+// same p.ejected flag the technical-foul ejection already sets, so a
+// fouled-out player is automatically excluded from every future possession's
+// player pool (ops/dps filters) with no other code changes needed.
+function foulOutCheck(p:any,s:any,team:any,q:number,tlSeconds:number,pbp:any[],sc:any){
+if((s.pf||0)>=6&&!p.ejected){
+p.ejected=true
+pbp.push({quarter:q+1,time_left:fmt(tlSeconds),team_id:team.id,event_type:"ejection",description:`⛔ ${p.name} FOULED OUT — 6th personal foul!`,home_score:sc.home,away_score:sc.away})
 }
 }
 
@@ -745,26 +782,7 @@ w*=Math.max(.04,(p.mins||0)/48)
 w*=scoreTaper(st?.[p.id]?.fga||0)
 return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
 })
-// Team-share cap: a real incident (a "Rest of the World" roster where one
-// outlier scoring rating vacuumed up half the team's shots, then LaMelo
-// Ball doing the same against a much-weaker supporting cast) shows the
-// weighted draw above has no ceiling on how much of the team's offense one
-// player can absorb purely because everyone else is bad. Real NBA usage
-// essentially never exceeds ~40% of a team's shots even for the most
-// ball-dominant star on the worst supporting cast — defenses, shot clocks,
-// and a coach's own sense of shot distribution all put a soft ceiling on
-// it. Capped here at the pool level (not per-player), so it only ever
-// activates when one player's raw share is already extreme; the excess is
-// redistributed across the rest of the same pool, never removed from the
-// team's total shot volume.
-const totalW=weighted.reduce((s,x)=>s+x.w,0)
-if(totalW>0&&weighted.length>1){
-let maxIdx=0
-for(let i=1;i<weighted.length;i++)if(weighted[i].w>weighted[maxIdx].w)maxIdx=i
-const CAP=.33,maxW=weighted[maxIdx].w,others=totalW-maxW
-if(maxW/totalW>CAP&&others>0)weighted[maxIdx].w=(CAP/(1-CAP))*others
-}
-return wt(weighted)
+return wtCapped(weighted)
 }
 
 function simFT(p:any,n:number,fat:Record<string,number>){let m=0;for(let i=0;i<n;i++)if(Math.random()<p.ft/100*(.88+fat[p.id]/100*.12))m++;return m}
@@ -800,6 +818,7 @@ const refFoulMultForCommon=(oo.referee||doo.referee)?((oo.referee||doo.referee).
 if(Math.random()<NONSHOOTING_FOUL_CHANCE*refFoulMultForCommon){
 teamFouls[ds]=(teamFouls[ds]||0)+1
 ds2.pf++
+foulOutCheck(def,ds2,dt,q,tl,pbp,sc)
 if(teamFouls[ds]>=5){
 // Who gets fouled here is picked flat by minutes played, not reusing sc2
 // (this possession's already scoring-weighted shooter) — a common/reach-in
@@ -888,14 +907,14 @@ if(Math.random()<(.115+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0021+(isDoubl
 const stealVol=Math.max(.1,spg36(st3.steal_rate))
 const stealQualityMult=0.7+((st3.stl??50)/100)*.2+(((st3.speed??50)+(st3.agility??50))/200)*.1
 if(Math.random()<Math.min(1,stealVol/1.4)*1.0*stealQualityMult)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
-if(!u3&&Math.random()<bpg36(def.blk)*.145*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else{
+if(!u3&&Math.random()<bpg36(def.blk)*.145*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;foulOutCheck(def,ds2,dt,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else{
 // A blocked shot almost always stays inbounds — real box scores still
 // credit someone with the rebound, same OREB/DREB split as any other miss
 // (mostly the defense, sometimes the shooting team recovers the carom).
 // This used to just vanish (possession ends, nobody gets a rebound stat),
 // quietly undercounting team REB by exactly the number of blocks in the game.
-if(Math.random()<.27){const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})));st[rb.id].or++;st[rb.id].reb++}
-else{const rb=wt(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})));st[rb.id].dr++;st[rb.id].reb++}
+if(Math.random()<.27){const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})),.45);st[rb.id].or++;st[rb.id].reb++}
+else{const rb=wtCapped(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})),.45);st[rb.id].dr++;st[rb.id].reb++}
 pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away})
 };return}
 ss.fga++;if(u3)ss.tpa++
@@ -929,13 +948,13 @@ const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
 // exactly how a single game produced 18 FTA in 32 minutes). Capped at
 // SHOOTING_FOUL_CAP now, after every multiplier has already applied.
 const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult)
-if(Math.random()<shootingFoulChance){ds2.pf++;ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.40+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wt(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0)})));st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
-if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.78+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wt(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0)})));st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
+if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.40+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0)})),.45);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.78+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0)})),.45);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
 // a skill (off_reb) roll — a secondary, smaller weight so off_reb still
 // decides most of the time.
-const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st);if(re){st[re.id].fga++;
+const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})),.45);st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st);if(re){st[re.id].fga++;
 // Putback chance: whoever ends up with the loose ball finishes it better
 // the more of a standing-dunk finisher they are — real range around the
 // old flat 50%, not a fixed coin flip regardless of who's shooting.
@@ -943,5 +962,5 @@ if(Math.random()<.35+((re.standing_dunk??50)/100)*.30){st[re.id].fgm++;sc[os]+=2
 // Lockdown Defender's real cost: locked onto one man all game, he crashes
 // the defensive glass worse — the "unavailable for help and rebounds"
 // tradeoff the rules page already promises.
-const rb=wt(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})));st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
+const rb=wtCapped(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})),.45);st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
 }
