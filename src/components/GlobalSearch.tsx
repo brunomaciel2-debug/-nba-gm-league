@@ -4,7 +4,19 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
 
-type Result = { id: string, label: string, sublabel: string, href: string, icon: string, photo_url?: string | null }
+type Result = { id: string, label: string, sublabel: string, href: string, photo_url?: string | null }
+
+// Generic "unknown person/crest" avatar for any result with no photo_url —
+// a plain inline SVG rather than an icon-font glyph, so it can never go
+// invisible the way the ti-basketball fallback did (that class name doesn't
+// exist in the tabler set — ti-ball-basketball is the real one — so it was
+// silently rendering nothing for every photo-less player).
+const UnknownAvatar = ({ size }: { size: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" className="rounded-full flex-shrink-0" style={{ background: '#d6d0c6' }}>
+    <circle cx="12" cy="8.5" r="3.5" fill="#a89f97" />
+    <path d="M4.5 20c0-4.2 3.4-6.5 7.5-6.5s7.5 2.3 7.5 6.5" fill="#a89f97" />
+  </svg>
+)
 
 const STAFF_ROLE_LABEL: Record<string, { en: string; pt: string }> = {
   head_coach:            { en: 'Head Coach',            pt: 'Treinador Principal' },
@@ -62,18 +74,18 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
       const clubLabel = (teamId: string | null) => teamId ? (teamNameById.current[teamId] || teamId) : 'FA'
       const teamResults: Result[] = (teams || []).map((tm: any) => ({
         id: `t-${tm.id}`, label: tm.name, sublabel: isPT ? 'Equipa' : 'Team',
-        href: `/team/${tm.id}`, icon: 'ti-shirt-sport', photo_url: tm.logo_url,
+        href: `/team/${tm.id}`, photo_url: tm.logo_url,
       }))
       const playerResults: Result[] = (players || []).map((p: any) => ({
         id: `p-${p.id}`, label: p.name, sublabel: clubLabel(p.team_id),
-        href: `/player/${p.id}`, icon: 'ti-basketball', photo_url: p.photo_url,
+        href: `/player/${p.id}`, photo_url: p.photo_url,
       }))
       const coachResults: Result[] = (coaches || []).map((c: any) => {
         const roleLabel = STAFF_ROLE_LABEL[c.role]
         const role = roleLabel ? (isPT ? roleLabel.pt : roleLabel.en) : c.role
         return {
           id: `c-${c.id}`, label: c.name, sublabel: `${role} · ${clubLabel(c.team_id)}`,
-          href: `/staff/${c.id}`, icon: 'ti-whistle', photo_url: c.photo_url,
+          href: `/staff/${c.id}`, photo_url: c.photo_url,
         }
       })
       setResults([...teamResults, ...playerResults, ...coachResults])
@@ -106,8 +118,8 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
 
       {open && q.trim().length >= 2 && (
         <div className="absolute right-0 top-full mt-1.5 z-50 rounded-xl overflow-hidden"
-             style={{ background: '#ede8df', border: '1px solid #cec8be', width: 300, maxWidth: '90vw',
-                      maxHeight: 380, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+             style={{ background: '#ede8df', border: '1px solid #cec8be', width: 340, maxWidth: '90vw',
+                      maxHeight: 420, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
           {loading ? (
             <div className="px-4 py-4 text-xs" style={{ color: '#8a8279' }}>{isPT ? 'A procurar…' : 'Searching…'}</div>
           ) : results.length === 0 ? (
@@ -116,14 +128,14 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
             <div className="py-1">
               {results.map(r => (
                 <Link key={r.id} href={r.href} onClick={close}
-                  className="flex items-center gap-3 px-4 py-2 text-xs no-underline transition-all"
+                  className="flex items-center gap-3 px-4 py-2.5 text-xs no-underline transition-all"
                   style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   {r.photo_url ? (
-                    <img src={r.photo_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ background: '#d6d0c6' }} />
+                    <img src={r.photo_url} alt="" className="w-14 h-14 rounded-full object-cover flex-shrink-0" style={{ background: '#d6d0c6' }} />
                   ) : (
-                    <i className={`ti ${r.icon}`} style={{ fontSize: 22, color: '#c8102e', width: 40, textAlign: 'center', flexShrink: 0 }}></i>
+                    <UnknownAvatar size={56} />
                   )}
                   <span className="flex-1 min-w-0 truncate font-semibold">{r.label}</span>
                   <span className="flex-shrink-0 text-right" style={{ color: '#8a8279', maxWidth: 130 }}>{r.sublabel}</span>
