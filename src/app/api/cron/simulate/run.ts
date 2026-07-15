@@ -1094,7 +1094,13 @@ if (winnerProb < uotwOdds) { uotwOdds = winnerProb; uotwGame = g }
 
 const { data: allRecentGames } = await supabaseAdmin.from('games').select('*').eq('status','final').order('played_at',{ascending:false}).limit(100)
 const streaks: Record<string,{count:number,games:string[]}> = {}
-for (const g of (allRecentGames||[])) {
+// Process oldest -> newest (the query above fetches newest-first, so
+// reverse it here) so each team's counter reflects their CURRENT streak —
+// the one ending at their most recent game. Processing newest-first while
+// clobbering the same running counter on every one of a team's games left
+// the final value reflecting whichever game was OLDEST in the 100-game
+// window, not their actual current form.
+for (const g of [...(allRecentGames||[])].reverse()) {
 const hw = (g.home_score||0)>(g.away_score||0)
 const wt2 = hw?g.home_team:g.away_team
 const lt = hw?g.away_team:g.home_team
@@ -1105,7 +1111,12 @@ streaks[wt2].games.push(g.id)
 streaks[lt].count=0
 streaks[lt].games=[]
 }
-const hotTeam = Object.entries(streaks).sort((a,b)=>b[1].count-a[1].count)[0]
+// A real "Hot Streak" callout needs an actual streak — without a floor,
+// right after a reset (when most teams are still 0-0) the very first team
+// to win a single game would "win" this comparison and get badged as
+// on a hot streak for 1 win, which isn't a streak at all.
+const hotTeamRaw = Object.entries(streaks).sort((a,b)=>b[1].count-a[1].count)[0]
+const hotTeam = hotTeamRaw && hotTeamRaw[1].count>=3 ? hotTeamRaw : null
 
 if (potwBox || uotwGame || hotTeam) {
 await supabaseAdmin.from('weekly_highlights').upsert({
@@ -1125,7 +1136,10 @@ uotw_score: uotwGame ? `${uotwGame.home_score}-${uotwGame.away_score}` : null,
 uotw_odds: uotwOdds,
 hstreak_team_id: hotTeam?.[0] || null,
 hstreak_wins: hotTeam?.[1].count || 0,
-hstreak_games: hotTeam?.[1].games.slice(0,5) || [],
+// games[] now accumulates oldest -> newest (chronological processing
+// order above) — reverse so the saved list is most-recent-first, same
+// display order the Weekly Highlights card expects.
+hstreak_games: hotTeam?.[1].games.slice(-5).reverse() || [],
 },{onConflict:'season,week_number'})
 }
 } catch(hlErr) { console.warn('Highlights step failed', hlErr) }
