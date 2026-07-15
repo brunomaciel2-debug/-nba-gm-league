@@ -253,6 +253,30 @@ function astTaper(astSoFar:number):number{return astSoFar<=7?1:Math.max(.22,1-(a
 // hot-hand feedback loop (momentum boosts both weight and accuracy at once)
 // can't push one player's FGA to unrealistic totals in a single game.
 function scoreTaper(fgaSoFar:number):number{return fgaSoFar<=18?1:Math.max(.30,1-(fgaSoFar-18)*.07)}
+// Real NBA "usage curve": a player who's carrying a much bigger share of
+// the offense than normal doesn't just take more shots (scoreTaper above
+// already tempers that within one game) — the shots themselves are tougher
+// on average (more contested, later in the shot clock, worse looks), so
+// true efficiency drifts down a little as sustained volume climbs. Modest
+// by design (max ~15% haircut) — this is a real but secondary effect next
+// to a player's own shooting ratings, not a hard cap.
+function usageEffMult(fgaSoFar:number):number{return fgaSoFar<=15?1:Math.max(.85,1-(fgaSoFar-15)*.012)}
+// Floor spacing: a shooter's real look quality depends on who's on the floor
+// with him, not just his own ability — bad outside shooters let the defense
+// sag off them and collapse onto whoever has the ball, while good shooters
+// pull their defenders out to the arc and open things up. Modeled off the
+// mins-weighted average "three" rating of the rest of the shot pool (the
+// same pool pS() draws from), centered on a league-average teammate (three
+// rating 50 => neutral) so this only ever helps or hurts relative to a
+// normal supporting cast, never on its own.
+function teamSpacingMult(shooter:any,pool:any[]):number{
+const others=pool.filter(p=>p.id!==shooter.id&&(p.mins||0)>0)
+if(!others.length)return 1
+let wSum=0,mSum=0
+others.forEach(p=>{const m=p.mins||0;wSum+=m;mSum+=(p.three??50)*m})
+const avgThree=wSum>0?mSum/wSum:50
+return Math.min(1.06,Math.max(.92,1+(avgThree-50)/50*.06))
+}
 function rpg36(rebRate?:number):number{
 const s=Math.max(0,Math.min(99,rebRate??50))
 const bp=REB_BREAKPOINTS
@@ -865,7 +889,7 @@ const tacticalShotMult=u3?tacticalMods.threeMult*(isBig?tacticalMods.bigThreeMul
 // shots complementing them) — a third real finishing input, not just the
 // two that already carried this term.
 const rimSkill=(sc2.layup+sc2.dunk+(sc2.close_shot??sc2.layup))/300
-const acc=Math.min(.74,Math.max(.18,(u3?.355+(sc2.three-50)/100*.20:isPost?.47:isMid?.43+(sc2.mid-50)/100*.10:.535+rimSkill*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult*(sc2.posFitMult??1)))
+const acc=Math.min(.74,Math.max(.18,(u3?.355+(sc2.three-50)/100*.20:isPost?.47:isMid?.43+(sc2.mid-50)/100*.10:.535+rimSkill*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult*(sc2.posFitMult??1)*usageEffMult(st[sc2.id]?.fga||0)*teamSpacingMult(sc2,ops)))
 const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100
