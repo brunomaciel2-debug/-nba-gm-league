@@ -45,6 +45,10 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
   // Club name lookup for player/staff sublabels — fetched once (teams barely
   // change mid-season) rather than re-queried on every keystroke.
   const teamNameById = useRef<Record<string, string>>({})
+  // Players/coaches can belong to a "Rest of the World" side instead of a
+  // real NBA team (team_id null, world_team_id set) — those are NOT free
+  // agents, so a separate lookup is needed to tell the two apart.
+  const worldTeamNameById = useRef<Record<string, string>>({})
 
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
@@ -58,6 +62,11 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
       for (const tm of data || []) map[tm.id] = tm.name
       teamNameById.current = map
     })
+    supabase.from('world_teams').select('id,name').then(({ data }) => {
+      const map: Record<string, string> = {}
+      for (const tm of data || []) map[tm.id] = tm.name
+      worldTeamNameById.current = map
+    })
   }, [])
 
   useEffect(() => {
@@ -68,7 +77,7 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
     debounceRef.current = setTimeout(async () => {
       const [{ data: teams }, { data: players }, { data: coaches }] = await Promise.all([
         supabase.from('teams').select('id,name,logo_url').ilike('name', `%${query}%`).not('id', 'in', PLACEHOLDER_TEAM_IDS).limit(5),
-        supabase.from('players').select('id,name,pos,team_id,photo_url').ilike('name', `%${query}%`).limit(6),
+        supabase.from('players').select('id,name,pos,team_id,world_team_id,photo_url').ilike('name', `%${query}%`).limit(6),
         supabase.from('coaches').select('id,name,role,team_id,photo_url').ilike('name', `%${query}%`).limit(5),
       ])
       const clubLabel = (teamId: string | null) => teamId ? (teamNameById.current[teamId] || teamId) : 'FA'
@@ -77,7 +86,11 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
         href: `/team/${tm.id}`, photo_url: tm.logo_url,
       }))
       const playerResults: Result[] = (players || []).map((p: any) => ({
-        id: `p-${p.id}`, label: p.name, sublabel: clubLabel(p.team_id),
+        id: `p-${p.id}`, label: p.name,
+        // A player with no team_id but a world_team_id plays for a "Rest of
+        // the World" side, not a real free agent — only fall back to FA
+        // when neither is set.
+        sublabel: p.team_id ? clubLabel(p.team_id) : (p.world_team_id ? (worldTeamNameById.current[p.world_team_id] || p.world_team_id) : 'FA'),
         href: `/player/${p.id}`, photo_url: p.photo_url,
       }))
       const coachResults: Result[] = (coaches || []).map((c: any) => {
