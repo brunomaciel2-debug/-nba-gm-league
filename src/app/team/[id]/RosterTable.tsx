@@ -53,9 +53,10 @@ function TH({ col, sortKey, sortDir, onSort, tooltips }: {
 }) {
   const tip = tooltips[col.key]
   const isActive = sortKey === col.key
+  const isSortable = col.numeric || col.key === 'pos'
   return (
     <th onClick={() => onSort(col.key, col.numeric)}
-        className={`px-3 py-2.5 font-semibold select-none whitespace-nowrap ${col.numeric ? 'text-right cursor-pointer' : 'text-left'} ${col.key === 'name' ? 'sticky left-0 z-10' : ''}`}
+        className={`px-3 py-2.5 font-semibold select-none whitespace-nowrap ${col.numeric ? 'text-right' : 'text-left'} ${isSortable ? 'cursor-pointer' : ''} ${col.key === 'name' ? 'sticky left-0 z-10' : ''}`}
         style={{ color: isActive ? (col.color||'#1d4ed8') : '#5c554e', background: col.key==='name' ? '#eee8df' : undefined }}>
       <span className="inline-flex items-center gap-0.5 group relative">
         {col.label}
@@ -74,6 +75,11 @@ function TH({ col, sortKey, sortDir, onSort, tooltips }: {
     </th>
   )
 }
+
+// Real basketball position order (PG->C), not alphabetical — used as the
+// default roster sort, with name as an alphabetical tie-break within a
+// position (Bruno's request: "organize by position, then alphabetical").
+const POS_ORDER: Record<string, number> = { PG: 0, SG: 1, SF: 2, PF: 3, C: 4 }
 
 function attrColor(v: number) {
   if (v >= 90) return '#b45309'; if (v >= 80) return '#15803d'
@@ -135,8 +141,10 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
   const TOOLTIPS = isPT ? TOOLTIPS_PT : TOOLTIPS_EN
 
   const [mode, setMode] = useState<Mode>('stats')
-  const [sortKey, setSortKey] = useState('ppg')
-  const [sortDir, setSortDir] = useState<'desc'|'asc'>('desc')
+  // Default view: position order (PG->C), alphabetical within a position —
+  // Bruno's requested roster organization, not stats-sorted.
+  const [sortKey, setSortKey] = useState('pos')
+  const [sortDir, setSortDir] = useState<'desc'|'asc'>('asc')
 
   const rows = players.map((p: any) => {
     const s = p.player_stats?.[0] || {}
@@ -162,12 +170,17 @@ export default function RosterTable({ players, teamColor }: { players: any[], te
   })
 
   const handleSort = (key: string, numeric: boolean) => {
-    if (!numeric) return
+    if (!numeric && key !== 'pos') return
     if (sortKey === key) setSortDir(d => d==='desc'?'asc':'desc')
-    else { setSortKey(key); setSortDir('desc') }
+    else { setSortKey(key); setSortDir(key==='pos'?'asc':'desc') }
   }
 
   const sorted = [...rows].sort((a:any, b:any) => {
+    if (sortKey === 'pos') {
+      const av = POS_ORDER[a.pos] ?? 99, bv = POS_ORDER[b.pos] ?? 99
+      const cmp = sortDir==='desc' ? bv-av : av-bv
+      return cmp !== 0 ? cmp : a.name.localeCompare(b.name)
+    }
     const av=a[sortKey], bv=b[sortKey]
     if (typeof av==='number' && typeof bv==='number') return sortDir==='desc' ? bv-av : av-bv
     return 0
