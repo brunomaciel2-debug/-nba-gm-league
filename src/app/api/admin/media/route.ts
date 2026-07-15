@@ -71,14 +71,11 @@ export async function POST(request: Request) {
   const { type, id, url, table, field, value } = body;
 
   // Novo formato
-  if (body.photo_url !== undefined) { const t2=body.table||'players'; const eqId=t2==='players'?Number(body.id):body.id; await supabase.from(t2).update({photo_url:body.photo_url}).eq('id',eqId); revalidatePath('/'); return NextResponse.json({success:true}); }    if (type === 'player_photo') {
-    await supabase.from('players').update({ photo_url: url }).eq('id', id);
-    revalidatePath('/');
-    return NextResponse.json({ success: true });
-  }
-
-  if (type === 'staff_photo') {
-    await supabase.from('coaches').update({ photo_url: url }).eq('id', id);
+  if (body.photo_url !== undefined) {
+    const t2 = body.table || 'players';
+    const eqId = t2 === 'players' ? Number(body.id) : body.id;
+    const { error } = await supabase.from(t2).update({ photo_url: body.photo_url }).eq('id', eqId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     revalidatePath('/');
     return NextResponse.json({ success: true });
   }

@@ -183,19 +183,25 @@ export default function AdminMediaPage() {
 
   const savePhoto=async(id:string,url:string,type:'player'|'staff'|'prospect'|'referee')=>{
     setSaving(id)
+    let ok = true
     if(type==='prospect'){
-      await supabase.from('prospects').update({photo_url:url}).eq('id',id)
-      setProspectItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+      const { error } = await supabase.from('prospects').update({photo_url:url}).eq('id',id)
+      if(error){ok=false;alert((isPT?'Erro ao guardar: ':'Error saving: ')+error.message)}
+      else setProspectItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
     } else if(type==='referee'){
-      await supabase.from('referees').update({photo_url:url}).eq('id',id)
-      setRefereeItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+      const { error } = await supabase.from('referees').update({photo_url:url}).eq('id',id)
+      if(error){ok=false;alert((isPT?'Erro ao guardar: ':'Error saving: ')+error.message)}
+      else setRefereeItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
     } else {
       const table=type==='player'?'players':'coaches'
-      await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table,id:type==='player'?Number(id):id,photo_url:url})})
-      if(type==='player')setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+      const res=await fetch('/api/admin/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({table,id:type==='player'?Number(id):id,photo_url:url})})
+      const json=await res.json().catch(()=>({}))
+      if(!res.ok||json.error){ok=false;alert((isPT?'Erro ao guardar: ':'Error saving: ')+(json.error||res.statusText))}
+      else if(type==='player')setPhotoItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
       else setStaffItems(p=>p.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
     }
-    setSaving(null);setSaved(id);setTimeout(()=>setSaved(null),1500)
+    setSaving(null)
+    if(ok){setSaved(id);setTimeout(()=>setSaved(null),1500)}
   }
 
   const saveSponsorImage=async(teamId:string,tier:string,option:number,companyName:string,url:string,description:string)=>{
