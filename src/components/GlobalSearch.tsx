@@ -118,8 +118,8 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
 
       {open && q.trim().length >= 2 && (
         <div className="absolute right-0 top-full mt-1.5 z-50 rounded-xl overflow-hidden"
-             style={{ background: '#ede8df', border: '1px solid #cec8be', width: 340, maxWidth: '90vw',
-                      maxHeight: 420, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
+             style={{ background: '#ede8df', border: '1px solid #cec8be', width: 380, maxWidth: '90vw',
+                      maxHeight: 460, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
           {loading ? (
             <div className="px-4 py-4 text-xs" style={{ color: '#8a8279' }}>{isPT ? 'A procurar…' : 'Searching…'}</div>
           ) : results.length === 0 ? (
@@ -128,14 +128,14 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
             <div className="py-1">
               {results.map(r => (
                 <Link key={r.id} href={r.href} onClick={close}
-                  className="flex items-center gap-3 px-4 py-2.5 text-xs no-underline transition-all"
+                  className="flex items-center gap-3 px-4 py-3 text-xs no-underline transition-all"
                   style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   {r.photo_url ? (
-                    <img src={r.photo_url} alt="" className="w-14 h-14 rounded-full object-cover flex-shrink-0" style={{ background: '#d6d0c6' }} />
+                    <img src={r.photo_url} alt="" className="w-20 h-20 rounded-full object-cover flex-shrink-0" style={{ background: '#d6d0c6' }} />
                   ) : (
-                    <UnknownAvatar size={56} />
+                    <UnknownAvatar size={80} />
                   )}
                   <span className="flex-1 min-w-0 truncate font-semibold">{r.label}</span>
                   <span className="flex-shrink-0 text-right" style={{ color: '#8a8279', maxWidth: 130 }}>{r.sublabel}</span>
