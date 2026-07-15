@@ -44,7 +44,7 @@ function NavDropdown({ label, icon, items, onNavigate }: {
         onMouseLeave={e => navBtnLeave(e, open)}>
         <i className={`ti ${icon}`} style={{ fontSize: 14 }}></i>
         {label}
-        <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 10, marginLeft: 1 }}></i>
+        <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 13, marginLeft: 2, color: '#d4a537' }}></i>
       </button>
       {open && (
         <div className="absolute left-0 top-full z-50 rounded-xl overflow-hidden py-1"

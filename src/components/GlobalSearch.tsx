@@ -103,14 +103,14 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
             <div className="py-1">
               {results.map(r => (
                 <Link key={r.id} href={r.href} onClick={close}
-                  className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
+                  className="flex items-center gap-3 px-4 py-2 text-xs no-underline transition-all"
                   style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   {r.photo_url ? (
-                    <img src={r.photo_url} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" style={{ background: '#d6d0c6' }} />
+                    <img src={r.photo_url} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" style={{ background: '#d6d0c6' }} />
                   ) : (
-                    <i className={`ti ${r.icon}`} style={{ fontSize: 15, color: '#c8102e', width: 24, textAlign: 'center', flexShrink: 0 }}></i>
+                    <i className={`ti ${r.icon}`} style={{ fontSize: 22, color: '#c8102e', width: 40, textAlign: 'center', flexShrink: 0 }}></i>
                   )}
                   <span className="flex-1 min-w-0 truncate font-semibold">{r.label}</span>
                   <span className="flex-shrink-0" style={{ color: '#8a8279' }}>{r.sublabel}</span>
