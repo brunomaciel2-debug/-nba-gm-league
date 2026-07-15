@@ -199,7 +199,7 @@ export default function Navbar() {
             </span>
           </Link>
 
-          <div className="hidden lg:flex items-center flex-1 min-w-0 overflow-x-auto no-scrollbar">
+          <div className="hidden lg:flex items-center flex-1 min-w-0">
             <Link href="/"
               className="flex items-center gap-1 no-underline transition-all"
               style={navBtnStyle}

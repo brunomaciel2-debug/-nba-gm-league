@@ -119,7 +119,7 @@ export default function SimulatorBanner() {
 
         {/* Middle: global search — moved here from the top nav bar, which got
             too cramped once it also carried the menus + account controls */}
-        <div className="hidden md:block flex-shrink-0" style={{ width: 200 }}>
+        <div className="hidden md:block flex-shrink-0" style={{ width: 280 }}>
           <GlobalSearch compact />
         </div>
 
@@ -135,9 +135,9 @@ export default function SimulatorBanner() {
               <span style={{ color: '#8a8279' }}>{fmtEventDate(nextEvent.start_date)}</span>
             </span>
           )}
-          <span className="text-xs" style={{ color: '#506070' }}>
+          <span className="text-xs" style={{ color: '#8a8279' }}>
             Sim:{' '}
-            <span style={{ color: '#8a8279' }}>
+            <span style={{ color: '#d4cdc5' }}>
               {simDay(config.sim_day_1)} & {simDay(config.sim_day_2)}
             </span>
           </span>
