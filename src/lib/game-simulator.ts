@@ -247,6 +247,15 @@ function rebTaper(rebSoFar:number):number{return rebSoFar<=10?1:Math.max(.25,1-(
 // team-wide assist total (it only redistributes the lost share to the same
 // pool of teammates already on the floor).
 function astTaper(astSoFar:number):number{return astSoFar<=7?1:Math.max(.22,1-(astSoFar-7)*.11)}
+// Real "foul trouble" caution — a coach genuinely plays a player more
+// carefully (or shifts defensive matchups away from him) once he's already
+// picked up a few fouls, rather than letting the same heavy-minutes
+// defender keep absorbing the team's whole foul total possession after
+// possession until he fouls out almost every game. Tapers a player's own
+// defender-selection weight down as HIS OWN personal fouls this game climb
+// — the same self-taper pattern as rebTaper/astTaper/scoreTaper, so the
+// team's total foul volume is unchanged, just who ends up picking them up.
+function foulTaper(pfSoFar:number):number{return pfSoFar<=1?1:Math.max(.12,1-(pfSoFar-1)*.24)}
 // Same idea again, this time on shot-selection weight (see pS() below) — a
 // player's own field-goal-attempt count this game tapers his own shot
 // weight down once it passes a normal monster-game volume, so the runaway
@@ -823,7 +832,7 @@ if(!sc2)return
 // assigned defender is actually on the floor, that defender guards him,
 // full stop, instead of the usual random weighted pick.
 const lockDef=doo.lockdown_target&&sc2.name===doo.lockdown_target?dps.find((p:any)=>p.name===doo.lockdown_defender&&p.mins>0&&!p.ejected):null
-const def=lockDef||wt(dps.map(p=>({p,w:((p.idef+p.pdef)/2*.5+20)*Math.max(.04,(p.mins||0)/48)})))
+const def=lockDef||wt(dps.map(p=>({p,w:((p.idef+p.pdef)/2*.5+20)*Math.max(.04,(p.mins||0)/48)*foulTaper(st[p.id]?.pf||0)})))
 if(!def)return
 const ss=st[sc2.id],ds2=st[def.id],fs=fat[sc2.id]/100
 fat[sc2.id]=Math.max(40,fat[sc2.id]-(14/sc2.stamina)*.7*1.2)
