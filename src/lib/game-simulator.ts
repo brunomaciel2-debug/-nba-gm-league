@@ -247,6 +247,12 @@ function rebTaper(rebSoFar:number):number{return rebSoFar<=10?1:Math.max(.25,1-(
 // team-wide assist total (it only redistributes the lost share to the same
 // pool of teammates already on the floor).
 function astTaper(astSoFar:number):number{return astSoFar<=7?1:Math.max(.22,1-(astSoFar-7)*.11)}
+// Same idea again, this time on shot-selection weight (see pS() below) — a
+// player's own field-goal-attempt count this game tapers his own shot
+// weight down once it passes a normal monster-game volume, so the runaway
+// hot-hand feedback loop (momentum boosts both weight and accuracy at once)
+// can't push one player's FGA to unrealistic totals in a single game.
+function scoreTaper(fgaSoFar:number):number{return fgaSoFar<=18?1:Math.max(.30,1-(fgaSoFar-18)*.07)}
 function rpg36(rebRate?:number):number{
 const s=Math.max(0,Math.min(99,rebRate??50))
 const bp=REB_BREAKPOINTS
@@ -647,7 +653,7 @@ jittered.forEach(p=>{p.mins=Math.round(p.mins)})
 }
 }
 
-function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>){
+function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>,st?:Record<string,any>){
 if(ic&&ord.clutch){const cp=ps.find((p:any)=>p.name===ord.clutch);if(cp&&fat[cp.id]>40)return cp}
 const pool=ps.filter((p:any)=>p.mins>0);if(!pool.length)return ps[0]
 const pris=ord.pris||[ord.priority_1,ord.priority_2,ord.priority_3]
@@ -702,6 +708,17 @@ w*=(p.posFitMult??1)
 // 6 shot attempts in 2 minutes. .04 keeps mins genuinely proportional for
 // anyone playing more than a couple of minutes.
 w*=Math.max(.04,(p.mins||0)/48)
+// A real incident: LaMelo Ball took 49 shot attempts in 34 minutes and
+// scored 70 in one game — the momentum term just above (mom*streaky) is a
+// self-reinforcing loop (hit shots -> more weight AND better acc() next
+// possession -> hit more shots -> even more weight...) with nothing to
+// stop it from running away for an entire game. Same fix as
+// rebTaper/astTaper: taper a player's own shot-selection weight down once
+// HIS OWN attempts this game climb past a normal monster-game level — a
+// defense keys on a red-hot scorer harder as the game goes on. Only
+// redistributes shots to the same on-court pool, never touches the team's
+// total FGA.
+w*=scoreTaper(st?.[p.id]?.fga||0)
 return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
 }))
 }
@@ -713,7 +730,7 @@ if(!ops.length||!dps.length)return
 const u3=Math.random()<r3p(oo.three_rate||oo.threeRate||38)
 const shotProfile=SHOT_PROFILE_BY_ATK_STYLE[oo.atk_style]||SHOT_PROFILE_BY_ATK_STYLE.motion
 const isMid=!u3&&Math.random()<shotProfile.mid,isPost=!u3&&!isMid&&Math.random()<shotProfile.post
-const sc2=pS(ops,oo,u3,isC,fat,mom)
+const sc2=pS(ops,oo,u3,isC,fat,mom,st)
 if(!sc2)return
 // Lockdown Defender: a GM-assigned individual matchup, no penalty elsewhere
 // (unlike Double Team) — if the locked-down player has the ball and his
@@ -874,7 +891,7 @@ else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
 // a skill (off_reb) roll — a secondary, smaller weight so off_reb still
 // decides most of the time.
-const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom);if(re){st[re.id].fga++;
+const rb=wt(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})));st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st);if(re){st[re.id].fga++;
 // Putback chance: whoever ends up with the loose ball finishes it better
 // the more of a standing-dunk finisher they are — real range around the
 // old flat 50%, not a fixed coin flip regardless of who's shooting.
