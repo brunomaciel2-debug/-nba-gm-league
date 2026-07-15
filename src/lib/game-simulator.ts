@@ -681,7 +681,7 @@ function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom
 if(ic&&ord.clutch){const cp=ps.find((p:any)=>p.name===ord.clutch);if(cp&&fat[cp.id]>40)return cp}
 const pool=ps.filter((p:any)=>p.mins>0);if(!pool.length)return ps[0]
 const pris=ord.pris||[ord.priority_1,ord.priority_2,ord.priority_3]
-return wt(pool.map((p:any)=>{
+const weighted=pool.map((p:any)=>{
 const f=fat[p.id]/100
 // Scoring (hidden) is now the SOLE driver of shot volume — three/layup/dunk
 // no longer gate how often a player is picked to shoot, only how well they
@@ -744,7 +744,27 @@ w*=Math.max(.04,(p.mins||0)/48)
 // total FGA.
 w*=scoreTaper(st?.[p.id]?.fga||0)
 return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
-}))
+})
+// Team-share cap: a real incident (a "Rest of the World" roster where one
+// outlier scoring rating vacuumed up half the team's shots, then LaMelo
+// Ball doing the same against a much-weaker supporting cast) shows the
+// weighted draw above has no ceiling on how much of the team's offense one
+// player can absorb purely because everyone else is bad. Real NBA usage
+// essentially never exceeds ~40% of a team's shots even for the most
+// ball-dominant star on the worst supporting cast — defenses, shot clocks,
+// and a coach's own sense of shot distribution all put a soft ceiling on
+// it. Capped here at the pool level (not per-player), so it only ever
+// activates when one player's raw share is already extreme; the excess is
+// redistributed across the rest of the same pool, never removed from the
+// team's total shot volume.
+const totalW=weighted.reduce((s,x)=>s+x.w,0)
+if(totalW>0&&weighted.length>1){
+let maxIdx=0
+for(let i=1;i<weighted.length;i++)if(weighted[i].w>weighted[maxIdx].w)maxIdx=i
+const CAP=.33,maxW=weighted[maxIdx].w,others=totalW-maxW
+if(maxW/totalW>CAP&&others>0)weighted[maxIdx].w=(CAP/(1-CAP))*others
+}
+return wt(weighted)
 }
 
 function simFT(p:any,n:number,fat:Record<string,number>){let m=0;for(let i=0;i<n;i++)if(Math.random()<p.ft/100*(.88+fat[p.id]/100*.12))m++;return m}
