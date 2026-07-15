@@ -7,6 +7,18 @@ import InboxButton from './InboxButton'
 import ChatButton from './ChatButton'
 import SimulatorBanner from './SimulatorBanner'
 import LanguageSwitcher from './LanguageSwitcher'
+import GlobalSearch from './GlobalSearch'
+
+// Dark-bar styling shared by every top-level nav link/dropdown trigger — the
+// whole nav row now lives on the same dark strip as the logo/icons (merged
+// from what used to be two separate bars), so these replace the old
+// light-background colors (#2d2722 text / red-on-hover) with white-on-dark.
+const navBtnStyle: React.CSSProperties = {
+  padding: '10px 12px', fontSize: 13.5, fontWeight: 600, color: '#c9d1d9',
+  borderBottom: '3px solid transparent', marginBottom: -1, whiteSpace: 'nowrap',
+}
+const navBtnHover = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderBottomColor = '#c8102e' }
+const navBtnLeave = (e: React.MouseEvent<HTMLElement>, active: boolean) => { if (!active) { e.currentTarget.style.color = '#c9d1d9'; e.currentTarget.style.borderBottomColor = 'transparent' } }
 
 function NavDropdown({ label, icon, items, onNavigate }: {
   label: string, icon: string, items: any[], onNavigate: () => void
@@ -26,26 +38,18 @@ function NavDropdown({ label, icon, items, onNavigate }: {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
-        style={{
-          padding: '14px 16px', fontSize: 14, fontWeight: 600,
-          color: open ? '#c8102e' : '#2d2722',
-          borderBottom: open ? '3px solid #c8102e' : '3px solid transparent',
-          marginBottom: -2, background: 'transparent', border: 'none',
-          borderBottomStyle: 'solid', borderBottomWidth: 3,
-          borderBottomColor: open ? '#c8102e' : 'transparent',
-          cursor: 'pointer',
-        }}
-        onMouseEnter={e => { if (!open) { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' } }}
-        onMouseLeave={e => { if (!open) { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' } }}>
-        <i className={`ti ${icon}`} style={{ fontSize: 15 }}></i>
+        className="flex items-center gap-1.5 no-underline transition-all"
+        style={{ ...navBtnStyle, color: open ? '#fff' : navBtnStyle.color, borderBottomColor: open ? '#c8102e' : 'transparent', background: 'transparent', border: 'none', borderBottomWidth: 3, borderBottomStyle: 'solid', cursor: 'pointer' }}
+        onMouseEnter={navBtnHover}
+        onMouseLeave={e => navBtnLeave(e, open)}>
+        <i className={`ti ${icon}`} style={{ fontSize: 14 }}></i>
         {label}
-        <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 11, marginLeft: 2 }}></i>
+        <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 10, marginLeft: 1 }}></i>
       </button>
       {open && (
         <div className="absolute left-0 top-full z-50 rounded-xl overflow-hidden py-1"
              style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 200,
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.12)', marginTop: 2 }}>
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.2)', marginTop: 8 }}>
           {items.map((item: any) => (
             <Link key={item.href} href={item.href}
               onClick={() => { setOpen(false); onNavigate() }}
@@ -181,15 +185,62 @@ export default function Navbar() {
 
   return (
     <>
-      {/* TOP BAR */}
+      {/* SINGLE MERGED BAR — logo, menus, search and account controls all on
+          one dark strip (previously two separate bars: a dark account/logo
+          bar and a light menu bar underneath). Only the week/simulation
+          status strip below stays as its own separate bar. */}
       <div style={{ background: '#0f1623', borderBottom: '1px solid #1f2937' }}>
-        <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-12">
-          <Link href="/" className="no-underline flex items-center gap-2.5">
-            <span className="text-lg font-bold" style={{ color: '#fff', letterSpacing: '-0.3px' }}>
+        <div className="max-w-7xl mx-auto px-4 flex items-center gap-2" style={{ minHeight: 52 }}>
+          <Link href="/" className="no-underline flex items-center gap-2 flex-shrink-0 mr-1">
+            <span className="text-base font-bold" style={{ color: '#fff', letterSpacing: '-0.3px' }}>
               🏀 Beyond the Court
             </span>
           </Link>
-          <div className="flex items-center gap-3">
+
+          <div className="hidden lg:flex items-center flex-1 min-w-0 overflow-x-auto">
+            <Link href="/"
+              className="flex items-center gap-1.5 no-underline transition-all"
+              style={navBtnStyle}
+              onMouseEnter={navBtnHover}
+              onMouseLeave={e => navBtnLeave(e, false)}>
+              <i className="ti ti-home" style={{ fontSize: 14 }}></i>
+              {isPT ? 'Início' : 'Home'}
+            </Link>
+
+            {NAV_DROPDOWNS.map(d => (
+              <NavDropdown key={d.label} label={d.label} icon={d.icon} items={d.items} onNavigate={() => {}} />
+            ))}
+
+            {NAV_LINKS_STATIC.map(item => (
+              <Link key={item.href} href={item.href}
+                className="flex items-center gap-1.5 no-underline transition-all"
+                style={navBtnStyle}
+                onMouseEnter={navBtnHover}
+                onMouseLeave={e => navBtnLeave(e, false)}>
+                <i className={`ti ${item.icon}`} style={{ fontSize: 14 }}></i>
+                {item.label}
+              </Link>
+            ))}
+
+            <NavDropdown label={RULES_DROPDOWN.label} icon={RULES_DROPDOWN.icon} items={RULES_DROPDOWN.items} onNavigate={() => {}} />
+
+            {NAV_LINKS_RIGHT.map(item => (
+              <Link key={item.href} href={item.href}
+                className="flex items-center gap-1.5 no-underline transition-all"
+                style={navBtnStyle}
+                onMouseEnter={navBtnHover}
+                onMouseLeave={e => navBtnLeave(e, false)}>
+                <i className={`ti ${item.icon}`} style={{ fontSize: 14 }}></i>
+                {item.label}
+              </Link>
+            ))}
+          </div>
+
+          <div className="hidden lg:block flex-shrink-0" style={{ width: 220 }}>
+            <GlobalSearch />
+          </div>
+
+          <div className="flex items-center gap-3 flex-shrink-0 ml-auto lg:ml-0">
             <LanguageSwitcher />
             <ChatButton />
             <InboxButton />
@@ -269,11 +320,11 @@ export default function Navbar() {
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold" style={{ color: '#8a8279' }}>
+                  <span className="text-xs font-semibold" style={{ color: '#c9d1d9' }}>
                     {profile?.display_name || user.email?.split('@')[0]}
                   </span>
                   <button onClick={signOut} className="text-xs px-3 py-1.5 rounded-lg"
-                    style={{ background: 'rgba(255,255,255,0.1)', color: '#1a1512' }}>
+                    style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
                     {isPT ? 'Terminar Sessão' : 'Sign Out'}
                   </button>
                 </div>
@@ -285,78 +336,29 @@ export default function Navbar() {
               </Link>
             )}
             <button onClick={() => setOpen(!open)} className="lg:hidden p-1.5 rounded"
-              style={{ background: 'rgba(255,255,255,0.1)', color: '#1a1512' }}>
+              style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}>
               <i className={`ti ${open ? 'ti-x' : 'ti-menu-2'}`} style={{ fontSize: 18 }}></i>
             </button>
           </div>
         </div>
-      </div>
 
-      {/* SIMULATOR BANNER */}
-      <SimulatorBanner />
-
-      {/* NAV BAR */}
-      <nav style={{ background: '#faf8f5', borderBottom: '2px solid #d4cdc5', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-        <div className="max-w-7xl mx-auto px-4 hidden lg:flex items-center justify-between">
-          <div className="flex items-center">
-            <Link href="/"
-              className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
-              style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#2d2722',
-                       borderBottom: '3px solid transparent', marginBottom: -2 }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
-              <i className="ti ti-home" style={{ fontSize: 15 }}></i>
-              {isPT ? 'Início' : 'Home'}
-            </Link>
-
-            {NAV_DROPDOWNS.map(d => (
-              <NavDropdown key={d.label} label={d.label} icon={d.icon} items={d.items} onNavigate={() => {}} />
-            ))}
-
-            {NAV_LINKS_STATIC.map(item => (
-              <Link key={item.href} href={item.href}
-                className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
-                style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#2d2722',
-                         borderBottom: '3px solid transparent', marginBottom: -2 }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
-                onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
-                <i className={`ti ${item.icon}`} style={{ fontSize: 15 }}></i>
-                {item.label}
-              </Link>
-            ))}
-          </div>
-
-          <div className="flex items-center">
-            <NavDropdown label={RULES_DROPDOWN.label} icon={RULES_DROPDOWN.icon} items={RULES_DROPDOWN.items} onNavigate={() => {}} />
-
-            {NAV_LINKS_RIGHT.map(item => (
-              <Link key={item.href} href={item.href}
-                className="flex items-center gap-1.5 no-underline whitespace-nowrap transition-all"
-                style={{ padding: '14px 16px', fontSize: 14, fontWeight: 600, color: '#2d2722',
-                         borderBottom: '3px solid transparent', marginBottom: -2 }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#c8102e'; e.currentTarget.style.borderBottomColor = '#c8102e' }}
-                onMouseLeave={e => { e.currentTarget.style.color = '#2d2722'; e.currentTarget.style.borderBottomColor = 'transparent' }}>
-                <i className={`ti ${item.icon}`} style={{ fontSize: 15 }}></i>
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* MOBILE */}
+        {/* MOBILE PANEL */}
         {open && (
-          <div className="lg:hidden px-4 pb-3 flex flex-col gap-1" style={{ borderTop: '1px solid #e5e1d8' }}>
+          <div className="lg:hidden px-4 pb-3 flex flex-col gap-1" style={{ borderTop: '1px solid #1f2937' }}>
+            <div className="py-2.5">
+              <GlobalSearch onNavigate={() => setOpen(false)} />
+            </div>
             <Link href="/" onClick={() => setOpen(false)}
               className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm no-underline"
-              style={{ color: '#2d2722' }}>
+              style={{ color: '#c9d1d9' }}>
               <i className="ti ti-home" style={{ fontSize: 16 }}></i>
               {isPT ? 'Início' : 'Home'}
             </Link>
             {ALL_MOBILE.map(item => (
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm no-underline"
-                style={{ color: '#2d2722' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
+                style={{ color: '#c9d1d9' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <i className={`ti ${item.icon}`} style={{ fontSize: 16 }}></i>
                 {item.label}
@@ -367,7 +369,10 @@ export default function Navbar() {
             </div>
           </div>
         )}
-      </nav>
+      </div>
+
+      {/* SIMULATOR BANNER — kept as its own, separate strip */}
+      <SimulatorBanner />
     </>
   )
 }
