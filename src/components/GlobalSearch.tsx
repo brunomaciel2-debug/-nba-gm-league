@@ -21,7 +21,7 @@ const STAFF_ROLE_LABEL: Record<string, { en: string; pt: string }> = {
 // exclusion every other team listing in the app already applies.
 const PLACEHOLDER_TEAM_IDS = '(ALL,RVS,ROO,SOP)'
 
-export default function GlobalSearch({ onNavigate, autoFocus }: { onNavigate?: () => void, autoFocus?: boolean }) {
+export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNavigate?: () => void, autoFocus?: boolean, compact?: boolean }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const [q, setQ] = useState('')
@@ -73,20 +73,20 @@ export default function GlobalSearch({ onNavigate, autoFocus }: { onNavigate?: (
 
   return (
     <div ref={ref} className="relative w-full">
-      <div className="flex items-center gap-2 rounded-full" style={{ background: '#faf8f5', padding: '7px 14px', minWidth: 0 }}>
-        <i className="ti ti-search" style={{ fontSize: 14, color: '#8a8279', flexShrink: 0 }}></i>
+      <div className="flex items-center gap-1.5 rounded-full" style={{ background: '#faf8f5', padding: compact ? '4px 10px' : '7px 14px', minWidth: 0 }}>
+        <i className="ti ti-search" style={{ fontSize: compact ? 12 : 14, color: '#8a8279', flexShrink: 0 }}></i>
         <input
           value={q}
           onChange={e => { setQ(e.target.value); setOpen(true) }}
           onFocus={() => setOpen(true)}
           autoFocus={autoFocus}
           placeholder={isPT ? 'Equipas, jogadores, staff…' : 'Teams, players, staff…'}
-          className="text-xs bg-transparent border-none outline-none w-full"
-          style={{ color: '#2d2722' }}
+          className="bg-transparent border-none outline-none w-full"
+          style={{ color: '#2d2722', fontSize: compact ? 11 : 12 }}
         />
         {q && (
           <button onClick={() => { setQ(''); setResults([]) }} className="flex-shrink-0" style={{ color: '#8a8279' }}>
-            <i className="ti ti-x" style={{ fontSize: 13 }}></i>
+            <i className="ti ti-x" style={{ fontSize: compact ? 11 : 13 }}></i>
           </button>
         )}
       </div>

@@ -14,7 +14,7 @@ import GlobalSearch from './GlobalSearch'
 // from what used to be two separate bars), so these replace the old
 // light-background colors (#2d2722 text / red-on-hover) with white-on-dark.
 const navBtnStyle: React.CSSProperties = {
-  padding: '10px 12px', fontSize: 13.5, fontWeight: 600, color: '#c9d1d9',
+  padding: '9px 9px', fontSize: 13, fontWeight: 600, color: '#c9d1d9',
   borderBottom: '3px solid transparent', marginBottom: -1, whiteSpace: 'nowrap',
 }
 const navBtnHover = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderBottomColor = '#c8102e' }
@@ -38,7 +38,7 @@ function NavDropdown({ label, icon, items, onNavigate }: {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1.5 no-underline transition-all"
+        className="flex items-center gap-1 no-underline transition-all"
         style={{ ...navBtnStyle, color: open ? '#fff' : navBtnStyle.color, borderBottomColor: open ? '#c8102e' : 'transparent', background: 'transparent', border: 'none', borderBottomWidth: 3, borderBottomStyle: 'solid', cursor: 'pointer' }}
         onMouseEnter={navBtnHover}
         onMouseLeave={e => navBtnLeave(e, open)}>
@@ -197,9 +197,9 @@ export default function Navbar() {
             </span>
           </Link>
 
-          <div className="hidden lg:flex items-center flex-1 min-w-0 overflow-x-auto">
+          <div className="hidden lg:flex items-center flex-1 min-w-0 overflow-x-auto no-scrollbar">
             <Link href="/"
-              className="flex items-center gap-1.5 no-underline transition-all"
+              className="flex items-center gap-1 no-underline transition-all"
               style={navBtnStyle}
               onMouseEnter={navBtnHover}
               onMouseLeave={e => navBtnLeave(e, false)}>
@@ -213,7 +213,7 @@ export default function Navbar() {
 
             {NAV_LINKS_STATIC.map(item => (
               <Link key={item.href} href={item.href}
-                className="flex items-center gap-1.5 no-underline transition-all"
+                className="flex items-center gap-1 no-underline transition-all"
                 style={navBtnStyle}
                 onMouseEnter={navBtnHover}
                 onMouseLeave={e => navBtnLeave(e, false)}>
@@ -226,7 +226,7 @@ export default function Navbar() {
 
             {NAV_LINKS_RIGHT.map(item => (
               <Link key={item.href} href={item.href}
-                className="flex items-center gap-1.5 no-underline transition-all"
+                className="flex items-center gap-1 no-underline transition-all"
                 style={navBtnStyle}
                 onMouseEnter={navBtnHover}
                 onMouseLeave={e => navBtnLeave(e, false)}>
@@ -234,10 +234,6 @@ export default function Navbar() {
                 {item.label}
               </Link>
             ))}
-          </div>
-
-          <div className="hidden lg:block flex-shrink-0" style={{ width: 220 }}>
-            <GlobalSearch />
           </div>
 
           <div className="flex items-center gap-3 flex-shrink-0 ml-auto lg:ml-0">

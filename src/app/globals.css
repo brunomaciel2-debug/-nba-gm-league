@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Scrollable nav row that should never show a visible scrollbar track — it's
+   a safety net for very narrow windows, not a feature, so it stays invisible
+   even while active (still scrollable via wheel/drag/touch). */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
 @import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
 

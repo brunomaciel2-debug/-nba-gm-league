@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
 import { getStatusForWeek, getHalfWeekDates, formatSimDate } from '@/lib/season-week-helper'
+import GlobalSearch from './GlobalSearch'
 
 export default function SimulatorBanner() {
   const { t } = useTranslation()
@@ -115,6 +116,13 @@ export default function SimulatorBanner() {
             </span>
           )}
         </div>
+
+        {/* Middle: global search — moved here from the top nav bar, which got
+            too cramped once it also carried the menus + account controls */}
+        <div className="hidden md:block flex-shrink-0" style={{ width: 200 }}>
+          <GlobalSearch compact />
+        </div>
+
         {/* Right: next event + sim days */}
         <div className="flex items-center gap-4">
           {nextEvent && (
