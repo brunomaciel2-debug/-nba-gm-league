@@ -560,10 +560,10 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             >
               <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${mvpColor}, #f5c542)` }} />
               {mvpEntry.b.photo_url ? (
-                <img src={mvpEntry.b.photo_url} alt="" className="w-14 h-14 rounded-full object-cover flex-shrink-0"
+                <img src={mvpEntry.b.photo_url} alt="" className="w-24 h-24 rounded-full object-cover flex-shrink-0"
                   style={{ border: `3px solid ${mvpColor}`, boxShadow: `0 0 0 4px ${mvpColor}1a` }} />
               ) : (
-                <div className="text-3xl flex-shrink-0">🏆</div>
+                <div className="text-5xl flex-shrink-0">🏆</div>
               )}
               <div className="min-w-0">
                 <div className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: '#8a8279' }}>
