@@ -192,8 +192,10 @@ export default function Navbar() {
       <div style={{ background: '#0f1623', borderBottom: '1px solid #1f2937' }}>
         <div className="max-w-7xl mx-auto px-4 flex items-center gap-2" style={{ minHeight: 52 }}>
           <Link href="/" className="no-underline flex items-center gap-2 flex-shrink-0 mr-1">
-            <span className="text-base font-bold" style={{ color: '#fff', letterSpacing: '-0.3px' }}>
-              🏀 Beyond the Court
+            <span style={{ fontSize: 22 }}>🏀</span>
+            <span className="font-black italic" style={{ fontSize: 17, letterSpacing: '-0.2px', lineHeight: 1 }}>
+              <span style={{ color: '#fff' }}>BEYOND </span>
+              <span style={{ color: '#d4a537' }}>THE COURT</span>
             </span>
           </Link>
 
@@ -222,6 +224,11 @@ export default function Navbar() {
               </Link>
             ))}
 
+            {/* Separates primary league navigation from reference material
+                (Rules & Info / Job Openings) — Bruno's call: "assuntos bem
+                diferentes" from the League/Events/G-League group. */}
+            <span style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.15)', margin: '0 6px', flexShrink: 0 }} />
+
             <NavDropdown label={RULES_DROPDOWN.label} icon={RULES_DROPDOWN.icon} items={RULES_DROPDOWN.items} onNavigate={() => {}} />
 
             {NAV_LINKS_RIGHT.map(item => (
@@ -237,7 +244,7 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-3 flex-shrink-0 ml-auto lg:ml-0">
-            <LanguageSwitcher />
+            <LanguageSwitcher stacked />
             <ChatButton />
             <InboxButton />
             {loading ? (

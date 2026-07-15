@@ -25,8 +25,31 @@ const FlagPT = () => (
   </svg>
 )
 
-export default function LanguageSwitcher() {
+// `stacked`: two small standalone chips, one above the other — for the dark
+// top nav bar, where there's more vertical room than horizontal room next to
+// the Commissioner button. Default (unstacked) keeps the original single
+// joined pill, used in the mobile menu panel where a wide row is free.
+export default function LanguageSwitcher({ stacked }: { stacked?: boolean } = {}) {
   const { locale, setLocale } = useTranslation()
+
+  if (stacked) {
+    const chipStyle = (active: boolean): React.CSSProperties => ({
+      padding: '2px 7px', borderRadius: 5, fontSize: 10, fontWeight: 700,
+      cursor: 'pointer', border: 'none', display: 'flex', alignItems: 'center', gap: 4,
+      background: active ? '#faf8f5' : 'rgba(255,255,255,0.08)',
+      color: active ? '#1a1512' : '#a89f97',
+    })
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <button onClick={() => setLocale('en')} title="English" style={chipStyle(locale === 'en')}>
+          <FlagGB/>EN
+        </button>
+        <button onClick={() => setLocale('pt')} title="Português" style={chipStyle(locale === 'pt')}>
+          <FlagPT/>PT
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div style={{display:'flex',alignItems:'center',gap:2,background:'#1a1512',borderRadius:8,padding:2}}>
