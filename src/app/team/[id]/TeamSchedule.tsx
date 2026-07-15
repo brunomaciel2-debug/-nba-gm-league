@@ -142,6 +142,23 @@ export default function TeamSchedule({
     setSaving(true); setMsg('')
     const home = isHome ? myTeamId : selectedOpp
     const away = isHome ? selectedOpp : myTeamId
+
+    // getAvailableOpponents() only filters against the page's already-loaded
+    // allPreseasonGames snapshot — scheduling several friendlies in the same
+    // session without a reload in between lets an opponent already booked
+    // by an earlier submission still show up as "available." Re-check the
+    // live DB right before the actual insert so two real games can never
+    // land on the same team on the same day.
+    const dStr=isoDate(selectedDate), prevStr=isoDate(addDays(selectedDate,-1)), nextStr=isoDate(addDays(selectedDate,1))
+    const { data: conflicts } = await supabase.from('preseason_games').select('home_team,away_team,scheduled_date,status')
+      .in('status',['pending','accepted','scheduled','final'])
+      .in('scheduled_date',[prevStr,dStr,nextStr])
+    const stillBusy = new Set((conflicts||[]).flatMap((g:any)=>[g.home_team,g.away_team]))
+    if (stillBusy.has(home)||stillBusy.has(away)) {
+      setMsg(isPT?'❌ Uma das equipas já tem um jogo marcado perto desta data. Escolhe outra data.':'❌ One of the teams already has a game near this date. Pick another date.')
+      setSaving(false); return
+    }
+
     const { error } = await supabase.from('preseason_games').insert({
       season:'2025-26', home_team:home, away_team:away,
       home_type: isHome?'nba':oppType, away_type: isHome?oppType:'nba',

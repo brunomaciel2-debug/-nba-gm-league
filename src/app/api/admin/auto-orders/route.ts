@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-// Generates automatic weekly orders for teams without a GM
+// Carries forward each team's most recent real Weekly Order for teams with
+// no order yet this week, and only generates a fresh generic auto lineup
+// for a team that has genuinely never had any order at all.
 // Called by admin before simulation, or can be integrated into the simulate cron
 
 export async function POST(req: NextRequest) {
@@ -16,15 +18,6 @@ export async function POST(req: NextRequest) {
       .from('teams')
       .select('id, wins, losses')
       .not('id', 'in', '(ALL,RVS,ROO,SOP)')
-
-    // Get teams that already have a GM
-    const { data: gms } = await supabaseAdmin
-      .from('gm_profiles')
-      .select('team_id')
-      .eq('role', 'gm')
-      .not('team_id', 'is', null)
-
-    const gmTeams = new Set((gms || []).map((g: any) => g.team_id))
 
     // Get the week number from season_config if not provided
     let week = week_number
@@ -45,18 +38,23 @@ export async function POST(req: NextRequest) {
     let generated = 0
     let carriedForward = 0
     const errors: string[] = []
+    const carriedForwardTeams = new Set<string>()
 
-    // A real GM's Weekly Orders used to only ever exist for the exact week
-    // they were submitted — with no standing default, the very next week
-    // (or any week a GM simply didn't resubmit for) silently fell back to
-    // this route's generic usage-sorted auto lineup, discarding a real
-    // GM's actual rotation/tactics/priorities even though nothing was
-    // "changed." A real coach's rotation stays the same until they change
-    // it — so a GM team with no order yet for this week now gets their own
-    // most recent real submission copied forward (unlocked, so they can
-    // still edit it before the deadline) instead of a generic fallback.
+    // A team's Weekly Orders used to only ever exist for the exact week they
+    // were submitted — with no standing default, the very next week (or any
+    // week nobody resubmitted for) silently fell back to this route's
+    // generic usage-sorted auto lineup, discarding whatever real
+    // rotation/tactics/priorities were already set, even though nothing was
+    // "changed." This used to only carry forward for teams with a currently
+    // assigned GM — but a team that lost its GM (or never had one — e.g. the
+    // commissioner setting orders by hand for every team in a test league)
+    // still has a real prior order sitting in the DB that deserves the same
+    // treatment: a rotation stays the same until someone actually changes
+    // it, GM or not. So this now carries forward ANY team's most recent
+    // real order regardless of current GM status, and only the genuinely
+    // never-had-an-order case falls through to fresh generation below.
     for (const team of (teams || [])) {
-      if (!gmTeams.has(team.id) || alreadyHasOrders.has(team.id)) continue
+      if (alreadyHasOrders.has(team.id)) continue
       const { data: lastOrder } = await supabaseAdmin
         .from('gm_orders').select('*')
         .eq('team_id', team.id).lt('week_number', week)
@@ -70,12 +68,12 @@ export async function POST(req: NextRequest) {
         ...lastOrder, id: undefined, week_number: week, locked: false,
       }, { onConflict: 'team_id,week_number' })
       if (cfErr) errors.push(`${team.id} (carry-forward): ${cfErr.message}`)
-      else carriedForward++
+      else { carriedForward++; carriedForwardTeams.add(team.id) }
     }
 
     for (const team of (teams || [])) {
-      // Skip if team has a GM or already has orders
-      if (gmTeams.has(team.id) || alreadyHasOrders.has(team.id)) continue
+      // Skip if team already has orders this week or just got carried forward
+      if (alreadyHasOrders.has(team.id) || carriedForwardTeams.has(team.id)) continue
 
       // Get players for this team ordered by usage
       const { data: players } = await supabaseAdmin
@@ -107,19 +105,25 @@ export async function POST(req: NextRequest) {
         const pool = byPos[pos]?.filter((p: any) => (usedMins[p.id] || 0) < 36) || []
         if (pool.length === 0) continue
 
+        // Only fill a slot when a genuinely distinct player is available —
+        // `sub1 = pool[1] || pool[0]` used to reuse the starter for a
+        // missing backup, writing the same player into a position's s/b1/b2
+        // slots at once (a real "playing for 2" case Bruno explicitly
+        // called out as never allowed). A thin position just runs under 48
+        // minutes instead, same as a real depth chart with an empty slot.
         const starter = pool[0]
-        const sub1 = pool[1] || pool[0]
-        const sub2 = pool[2] || pool[0]
+        const sub1 = pool[1]
+        const sub2 = pool[2]
 
         depth_chart[pos] = {
-          s:  { name: starter.name, mins: 24 },
-          b1: { name: sub1.name,   mins: 16 },
-          b2: { name: sub2.name,   mins: 8  },
+          s: { name: starter.name, mins: 24 },
+          ...(sub1 ? { b1: { name: sub1.name, mins: 16 } } : {}),
+          ...(sub2 ? { b2: { name: sub2.name, mins: 8 } } : {}),
         }
 
         usedMins[starter.id] = (usedMins[starter.id] || 0) + 24
-        usedMins[sub1.id]    = (usedMins[sub1.id]    || 0) + 16
-        usedMins[sub2.id]    = (usedMins[sub2.id]    || 0) + 8
+        if (sub1) usedMins[sub1.id] = (usedMins[sub1.id] || 0) + 16
+        if (sub2) usedMins[sub2.id] = (usedMins[sub2.id] || 0) + 8
       }
 
       // A roster with zero natural players at some position used to just
@@ -137,18 +141,18 @@ export async function POST(req: NextRequest) {
         if (pool.length === 0) continue
 
         const starter = pool[0]
-        const sub1 = pool[1] || pool[0]
-        const sub2 = pool[2] || pool[0]
+        const sub1 = pool[1]
+        const sub2 = pool[2]
 
         depth_chart[pos] = {
-          s:  { name: starter.name, mins: 24 },
-          b1: { name: sub1.name,   mins: 16 },
-          b2: { name: sub2.name,   mins: 8  },
+          s: { name: starter.name, mins: 24 },
+          ...(sub1 ? { b1: { name: sub1.name, mins: 16 } } : {}),
+          ...(sub2 ? { b2: { name: sub2.name, mins: 8 } } : {}),
         }
 
         usedMins[starter.id] = (usedMins[starter.id] || 0) + 24
-        usedMins[sub1.id]    = (usedMins[sub1.id]    || 0) + 16
-        usedMins[sub2.id]    = (usedMins[sub2.id]    || 0) + 8
+        if (sub1) usedMins[sub1.id] = (usedMins[sub1.id] || 0) + 16
+        if (sub2) usedMins[sub2.id] = (usedMins[sub2.id] || 0) + 8
       }
 
       // Top 3 scorers as priorities

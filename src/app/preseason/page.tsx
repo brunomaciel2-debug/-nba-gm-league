@@ -104,6 +104,25 @@ export default function PreseasonPage() {
     const homeTeam=isHome?myTeamId:selectedOpponent
     const awayTeam=isHome?selectedOpponent:myTeamId
     const isWorldGame=opponentType==='world'
+
+    // getAvailableOpponents() already filters the modal's opponent list against
+    // the busy-date window, but only from the `allGames` snapshot loaded when
+    // the page opened — scheduling several friendlies back-to-back in one
+    // session (exactly how a commissioner sets up a full test round) never
+    // refreshes that snapshot in between, so a team already booked by an
+    // earlier submission in the same session still shows up as "available."
+    // Re-checking against the live DB right before the actual insert is what
+    // caught the Boston Celtics double-booking (two real games same day).
+    const dateStr=isoDate(selectedDate),prevStr=isoDate(addDays(selectedDate,-1)),nextStr=isoDate(addDays(selectedDate,1))
+    const{data:conflicts}=await supabase.from('preseason_games').select('home_team,away_team,scheduled_date,status')
+      .in('status',['pending','accepted','scheduled','final'])
+      .in('scheduled_date',[prevStr,dateStr,nextStr])
+    const stillBusy=new Set((conflicts||[]).flatMap(g=>[g.home_team,g.away_team]))
+    if(stillBusy.has(homeTeam)||stillBusy.has(awayTeam)){
+      setMsg(isPT?'❌ Uma das equipas já tem um jogo marcado perto desta data. Escolhe outra data.':'❌ One of the teams already has a game near this date. Pick another date.')
+      setSaving(false);return
+    }
+
     const{error}=await supabase.from('preseason_games').insert({
       season:'2025-26',home_team:homeTeam,away_team:awayTeam,
       home_type:isHome?'nba':opponentType,away_type:isHome?opponentType:'nba',

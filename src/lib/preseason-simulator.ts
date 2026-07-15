@@ -303,9 +303,17 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
     gameId = gameRec.id
 
     if (homeBox.length || awayBox.length) {
+      // box_scores.mins is an integer column. Every known source of a
+      // fractional p.mins upstream (applyDC's jitter, Garbage Time
+      // reallocation) already rounds before this point — but a single
+      // stray float anywhere fails the whole batch insert at once (Postgres
+      // rejects the entire array), silently wiping every player's box score
+      // for the game while it still gets marked "final" with a real
+      // score. Rounding again right here is a last-resort backstop so a
+      // future formula change can never reintroduce that failure mode.
       const { error: boxErr } = await supabaseAdmin.from('box_scores').insert([
-        ...homeBox.map((b: any) => { const dc = [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length; return { ...b, game_id: gameId, team_id: pg.home_team, is_double_double: dc >= 2, is_triple_double: dc >= 3 } }),
-        ...awayBox.map((b: any) => { const dc = [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length; return { ...b, game_id: gameId, team_id: pg.away_team, is_double_double: dc >= 2, is_triple_double: dc >= 3 } }),
+        ...homeBox.map((b: any) => { const dc = [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length; return { ...b, mins: Math.round(b.mins || 0), game_id: gameId, team_id: pg.home_team, is_double_double: dc >= 2, is_triple_double: dc >= 3 } }),
+        ...awayBox.map((b: any) => { const dc = [b.pts || 0, b.reb || 0, b.ast || 0, b.stl || 0, b.blk || 0].filter((v: number) => v >= 10).length; return { ...b, mins: Math.round(b.mins || 0), game_id: gameId, team_id: pg.away_team, is_double_double: dc >= 2, is_triple_double: dc >= 3 } }),
       ])
       if (boxErr) console.warn(`box_scores insert failed for friendly game ${gameId}:`, boxErr.message)
     }

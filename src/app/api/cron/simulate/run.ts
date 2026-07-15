@@ -353,14 +353,21 @@ gamesCreated.push(gameRec.id)
 weekGamesByTeam[ht.id] = (weekGamesByTeam[ht.id]||0) + 1
 weekGamesByTeam[at.id] = (weekGamesByTeam[at.id]||0) + 1
 
+// box_scores.mins is an integer column — every known source of a
+// fractional p.mins (applyDC's jitter, Garbage Time reallocation) already
+// rounds upstream, but a single stray float anywhere fails this whole
+// batch insert at once (Postgres rejects the entire array), silently
+// wiping every player's box score for the game while it still gets
+// created with a real final score. Rounding again right here is a
+// last-resort backstop so a future formula change can't reintroduce that.
 const { error: boxErr } = await supabaseAdmin.from('box_scores').insert([
 ...result.homeBox.map((b:any) => {
 const dc = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length
-return { ...b, game_id: gameRec.id, team_id: ht.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
+return { ...b, mins: Math.round(b.mins||0), game_id: gameRec.id, team_id: ht.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
 }),
 ...result.awayBox.map((b:any) => {
 const dc = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length
-return { ...b, game_id: gameRec.id, team_id: at.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
+return { ...b, mins: Math.round(b.mins||0), game_id: gameRec.id, team_id: at.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
 }),
 ])
 if (boxErr) console.warn(`box_scores insert failed for game ${gameRec.id}:`, boxErr.message)
