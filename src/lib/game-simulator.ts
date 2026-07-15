@@ -215,8 +215,18 @@ return Math.min(4,p1+slope*(s-s1))
 // the total, but they do set the SPLIT of that total between offensive and
 // defensive boards (see offReboundShare/defReboundShare below), and
 // strength/technique still decide who wins a given contested ball.
+// Recalibrated after fixing reb_rate's correlation with off_reb/def_reb —
+// with that fix, the league's genuinely elite bigs (Sabonis, Gobert, Jokic,
+// Giannis, Embiid...) now cluster around reb_rate 58-65, not up near 90+.
+// The old curve was near-linear across the whole 0-95 range, so that
+// cluster only translated to ~6-7 boards/36 — real elite bigs average
+// 10-14. This doesn't touch total team rebounds at all (that's set by how
+// many missed shots reach the rebound step, not by this curve) — it only
+// reshapes the weighted pick AMONG a team's own rotation for who actually
+// grabs each one, so the stars now pull far more of their team's boards
+// instead of the total being smeared evenly across the roster.
 const REB_BREAKPOINTS:[number,number][]=[
-[0,0],[15,1],[25,2],[35,3],[45,4],[53,5],[60,6],[67,7],[73,8],[79,9],[84,10],[88,11],[92,12],[95,13],
+[0,0],[15,0.5],[20,1],[26,1.5],[30,2],[34,2.5],[40,3.5],[45,4.5],[53,6.5],[58,8],[64,10.5],[70,12],[80,13.5],[88,14.5],[95,15.5],
 ]
 function rpg36(rebRate?:number):number{
 const s=Math.max(0,Math.min(99,rebRate??50))
