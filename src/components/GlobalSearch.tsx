@@ -118,7 +118,7 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
 
       {open && q.trim().length >= 2 && (
         <div className="absolute right-0 top-full mt-1.5 z-50 rounded-xl overflow-hidden"
-             style={{ background: '#ede8df', border: '1px solid #cec8be', width: 380, maxWidth: '90vw',
+             style={{ background: '#ede8df', border: '1px solid #cec8be', width: 460, maxWidth: '95vw',
                       maxHeight: 460, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
           {loading ? (
             <div className="px-4 py-4 text-xs" style={{ color: '#8a8279' }}>{isPT ? 'A procurar…' : 'Searching…'}</div>
@@ -138,7 +138,7 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
                     <UnknownAvatar size={80} />
                   )}
                   <span className="flex-1 min-w-0 truncate font-semibold">{r.label}</span>
-                  <span className="flex-shrink-0 text-right" style={{ color: '#8a8279', maxWidth: 130 }}>{r.sublabel}</span>
+                  <span className="flex-shrink-0 text-right whitespace-nowrap" style={{ color: '#8a8279' }}>{r.sublabel}</span>
                 </Link>
               ))}
             </div>
