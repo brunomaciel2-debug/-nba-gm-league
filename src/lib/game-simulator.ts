@@ -502,20 +502,26 @@ if(players.filter((p:any)=>p.mins>0).length<5)applyDC(players,auto)
 
 function applyDC(players:any[],dc:any){
 players.forEach(p=>{p.mins=0;p.isStarter=false;p.posFitMult=1;p._posFitWeightedDist=0})
-// A malformed depth chart can name the same real player in more than one
-// slot (a real incident: one player listed as his own position's starter,
-// b1, AND b2 all at once) — applyDC used to just sum every slot's minutes
-// onto that one player regardless, so he silently absorbed his whole
+// A real, intentional use of the Depth Chart: a versatile player listed as
+// starter at ONE position and bench at a DIFFERENT position, so he gets
+// most of his minutes in his primary slot but also plays some minutes
+// alongside a different set of teammates — that's the only way to give a
+// player minutes with a lineup other than the opening five. Those cross-
+// position minutes must keep accumulating exactly as before.
+// What's actually malformed is the SAME position listing the SAME player
+// in more than one of its own 3 slots (a real incident: one player as his
+// own position's starter, b1, AND b2 all at once) — that's never a real
+// GM intent, just a bad save, and it let him silently absorb his whole
 // position group's minutes (24+16+8=48) instead of just his own slot,
 // showing up in the box score at 50 minutes in a game that never went to
-// overtime. Each player can only be assigned minutes from ONE slot per
-// game — the first slot found (position/slot iteration order) wins, any
-// later slot naming the same player is skipped instead of stacking.
-const alreadyAssigned=new Set<string|number>()
+// overtime. So the dedupe is scoped to within one position only — a
+// player can still legitimately appear in two DIFFERENT positions, just
+// not twice in the same one.
 ;["PG","SG","SF","PF","C"].forEach(pos=>{
 const pd=dc[pos];if(!pd)return
-;["s","b1","b2"].forEach(sl=>{const e=pd[sl];if(e?.name&&e.mins>0){const p=players.find((pl:any)=>pl.name===e.name);if(p&&!alreadyAssigned.has(p.id)){
-alreadyAssigned.add(p.id)
+const seenThisPosition=new Set<string|number>()
+;["s","b1","b2"].forEach(sl=>{const e=pd[sl];if(e?.name&&e.mins>0){const p=players.find((pl:any)=>pl.name===e.name);if(p&&!seenThisPosition.has(p.id)){
+seenThisPosition.add(p.id)
 p.mins+=e.mins;if(sl==="s")p.isStarter=true
 const dist=Math.abs(POSITION_ORDER.indexOf(pos)-POSITION_ORDER.indexOf(p.pos))
 p._posFitWeightedDist+=dist*e.mins
