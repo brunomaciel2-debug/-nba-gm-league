@@ -1,3 +1,11 @@
+/* @import must come before every other rule (CSS spec — @charset aside), or
+   browsers silently drop it. @tailwind directives expand into real rules at
+   build time, so these two imports (site font + every ti-* icon glyph used
+   across the whole app) were being dropped whenever anything else preceded
+   them here — moved to the very top so that can never happen again. */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
+@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -7,9 +15,6 @@
    even while active (still scrollable via wheel/drag/touch). */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
-
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap');
-@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css');
 
 :root {
   /* Backgrounds — 4 tones, clearly distinct */
