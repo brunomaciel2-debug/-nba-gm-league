@@ -149,6 +149,8 @@ export default function AdminMediaPage() {
       supabase.from('players').select('id,name,pos,age,photo_url').is('team_id',null).is('gleague_team_id',null).is('world_team_id',null).eq('status','active').order('name').then(({data})=>setPhotoItems(data||[]))
     } else if(selPlayerTeam.startsWith('GL_')){
       supabase.from('players').select('id,name,pos,age,photo_url').eq('gleague_team_id',selPlayerTeam.replace('GL_','')).order('name').then(({data})=>setPhotoItems(data||[]))
+    } else if(selPlayerTeam.startsWith('W_')){
+      supabase.from('players').select('id,name,pos,age,photo_url').eq('world_team_id',selPlayerTeam.replace('W_','')).order('name').then(({data})=>setPhotoItems(data||[]))
     } else {
       supabase.from('players').select('id,name,pos,age,photo_url').eq('team_id',selPlayerTeam).order('usage',{ascending:false}).then(({data})=>setPhotoItems(data||[]))
     }
@@ -295,6 +297,15 @@ export default function AdminMediaPage() {
                   {nbaRegular.map((tt:any)=><button key={tt.id} style={sideBtn(selPlayerTeam===tt.id)} onClick={()=>setSelPlayerTeam(tt.id)}>{tt.name}</button>)}
                   <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#8a8279',padding:'8px 6px 4px',marginTop:4}}>G-League</div>
                   {glTeams.map((tt:any)=><button key={tt.id} style={sideBtn(selPlayerTeam===`GL_${tt.id}`)} onClick={()=>setSelPlayerTeam(`GL_${tt.id}`)}>{tt.name}</button>)}
+                  <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#8a8279',padding:'8px 6px 4px',marginTop:4}}>{isPT?'Resto do Mundo':'Rest of the World'}</div>
+                  {continents.map((cont:any)=>(
+                    <React.Fragment key={cont}>
+                      <div style={{fontSize:9,fontWeight:700,color:'#a89f97',padding:'4px 6px 2px'}}>{cont}</div>
+                      {worldTeams.filter((tt:any)=>tt.continent===cont).map((tt:any)=>
+                        <button key={tt.id} style={sideBtn(selPlayerTeam===`W_${tt.id}`)} onClick={()=>setSelPlayerTeam(`W_${tt.id}`)}>{tt.name}</button>
+                      )}
+                    </React.Fragment>
+                  ))}
                   <div style={{fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#8a8279',padding:'8px 6px 4px',marginTop:4}}>{isPT?'Outros':'Other'}</div>
                   <button style={sideBtn(selPlayerTeam==='FA')} onClick={()=>setSelPlayerTeam('FA')}>{isPT?'Agentes Livres':'Free Agents'}</button>
                   <button style={sideBtn(selPlayerTeam==='DRAFT')} onClick={()=>setSelPlayerTeam('DRAFT')}>{isPT?`Draft (${prospectItems.length})`:`Draft Pool (${prospectItems.length})`}</button>
