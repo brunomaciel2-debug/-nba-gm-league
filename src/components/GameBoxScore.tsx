@@ -198,6 +198,10 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
     (best, cur) => (!best || gameScore(cur.b) > gameScore(best.b)) ? cur : best, null,
   )
   const mvpColor = mvpEntry ? (mvpEntry.isHome ? homeColor : awayColor) : ''
+  // The MVP card now lives inside the dark scoreboard panel (see below), so
+  // it needs the same dark-background-safe team color every other element
+  // in that panel already uses, not the light-box-score variant.
+  const mvpColorOnDark = mvpEntry ? (mvpEntry.isHome ? homeColorOnDark : awayColorOnDark) : ''
   const mvpTeam = mvpEntry ? (mvpEntry.isHome ? homeTeam : awayTeam) : null
 
   const BoxTable = ({ players, color, totals, mvpPlayerId }: { players: BoxRow[], color: string, totals: any, mvpPlayerId?: string | number | null }) => {
@@ -333,11 +337,20 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
         ← {backLabel}
       </Link>
 
-      {/* SCOREBOARD */}
+      {/* SCOREBOARD — one continuous panel from the arena header all the way
+          down through the line score, MVP, referee and attendance. These used
+          to be two separate rounded cards (a dark one, then a light cream one
+          right underneath for the MVP) with a visible gap between them — the
+          hard color switch made the MVP card read as a disconnected, bolted-on
+          afterthought instead of part of the same scoreboard. Now it's a
+          single card with one shared background running top to bottom;
+          internal sections are separated by a subtle border instead of a gap,
+          and the MVP card was restyled to use the same dark palette as
+          everything else in here instead of switching to a light cream card. */}
       <div
-        className="relative overflow-hidden rounded-2xl p-4 mb-4"
+        className="relative overflow-hidden rounded-2xl mb-4"
         style={{
-          background: `linear-gradient(120deg, ${homeColorOnDark}59 0%, #1a1329 38%, #1a1329 62%, ${awayColorOnDark}59 100%), repeating-linear-gradient(115deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 2px, transparent 2px, transparent 13px), #1a1329`,
+          background: `linear-gradient(160deg, ${homeColorOnDark}59 0%, #1a1329 30%, #1a1329 70%, ${awayColorOnDark}59 100%), repeating-linear-gradient(115deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 2px, transparent 2px, transparent 13px), #1a1329`,
           border: '1px solid #352a4a',
           boxShadow: `0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)`,
         }}
@@ -346,58 +359,17 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
           className="absolute top-0 left-0 right-0 h-1.5"
           style={{ background: `linear-gradient(90deg, ${homeColorOnDark} 0%, #fff 50%, ${awayColorOnDark} 100%)`, boxShadow: `0 0 16px ${homeColorOnDark}88` }}
         />
+        <div className="p-4">
         {homeTeam.arena && (
           <div className="text-center text-sm font-bold mb-0.5" style={{ color: '#f5f2fa' }}>
             {homeTeam.arena}{homeTeam.city && ` · ${homeTeam.city}`}
           </div>
         )}
-        <div className="text-center text-xs mb-2" style={{ color: '#b9b2d0' }}>
+        <div className="text-center text-xs mb-3" style={{ color: '#b9b2d0' }}>
           {playedAt ? fmtDate(playedAt) : ''}
           {weekLabel && ` · ${weekLabel}`}
           {!!attendance && attendance > 0 && !homeTeam.capacity && ` · ${attendance.toLocaleString()} ${isPT ? 'adeptos' : 'fans'}`}
         </div>
-        {(refereeName || (!!attendance && attendance > 0 && !!homeTeam.capacity)) && (
-          <div className="flex items-center justify-center gap-4 mb-3 flex-wrap">
-            {!!attendance && attendance > 0 && !!homeTeam.capacity && (
-              <ArenaBowl attendance={attendance} capacity={homeTeam.capacity} color={homeColorOnDark} isPT={isPT} />
-            )}
-            {refereeName && (
-              <div className="flex items-center gap-2.5 rounded-2xl pl-2 pr-3 py-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div
-                  className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                  style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
-                >
-                  {refereePhotoUrl
-                    ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
-                    : <span className="text-sm font-black" style={{ color: '#b9b2d0' }}>
-                        {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                      </span>}
-                </div>
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro' : 'Referee'}</div>
-                  {refereeHref ? (
-                    <Link href={refereeHref} className="text-sm font-bold no-underline block" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
-                  ) : (
-                    <span className="text-sm font-bold block" style={{ color: '#f5f2fa' }}>{refereeName}</span>
-                  )}
-                  {status === 'final' && refereeRating != null && (
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span
-                        className="text-xs font-black px-1.5 py-0.5 rounded-full"
-                        style={{ color: '#1a1512', background: refRatingColor(refereeRating), boxShadow: `0 0 8px ${refRatingColor(refereeRating)}88` }}
-                      >
-                        {refereeRating.toFixed(1)}
-                      </span>
-                      <span className="text-[10px] font-bold" style={{ color: refRatingColor(refereeRating) }}>
-                        {refRatingLabel(refereeRating, isPT)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
         <div className="flex items-center justify-between gap-3">
           {/* Home */}
           <div className="flex-1 text-center">
@@ -521,89 +493,146 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             {!homeWon && <div className="text-xs font-black mt-1 tracking-widest" style={{ color: '#4ade80' }}>● {isPT ? 'VITÓRIA' : 'WIN'}</div>}
           </div>
         </div>
+        </div>
 
-      </div>
+        {/* RESULTS STRIP — line score + MVP, docked side by side inside the
+            same panel (no gap, no rounded corners of its own) so it reads as
+            a continuation of the scoreboard above rather than a second card.
+            The MVP side now uses the same dark palette + a team-color radial
+            glow as everything else here instead of a light cream background. */}
+        {((periodScores && periodScores.length > 0) || (mvpEntry && mvpTeam)) && (
+          <div className="flex flex-col sm:flex-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            {/* LINE SCORE — Q1-Q4 plus OT1/OT2/... if the game went to overtime */}
+            {periodScores && periodScores.length > 0 && (
+              <div className="flex-shrink-0 overflow-x-auto flex items-center">
+                <table className="text-xs" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                  <thead>
+                    <tr>
+                      <th className="px-3 py-1 text-left" style={{ color: '#8a83a3' }}></th>
+                      {periodScores.map(p => (
+                        <th key={p.quarter} className="px-3 py-1 text-right font-semibold" style={{ color: p.quarter > 4 ? '#f59e0b' : '#b9b2d0' }}>
+                          {p.quarter <= 4 ? `Q${p.quarter}` : `OT${p.quarter - 4}`}
+                        </th>
+                      ))}
+                      <th className="px-3 py-1 text-right font-bold" style={{ color: '#b9b2d0' }}>{isPT ? 'FINAL' : 'FINAL'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="px-3 py-1 text-left font-semibold" style={{ color: homeColorOnDark }}>{homeTeam.name}</td>
+                      {periodScores.map(p => (
+                        <td key={p.quarter} className="px-3 py-1 text-right" style={{ color: '#e8e4f2' }}>{p.home}</td>
+                      ))}
+                      <td className="px-3 py-1 text-right font-black" style={{ color: homeColorOnDark }}>{homeScore}</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-1 text-left font-semibold" style={{ color: awayColorOnDark }}>{awayTeam.name}</td>
+                      {periodScores.map(p => (
+                        <td key={p.quarter} className="px-3 py-1 text-right" style={{ color: '#e8e4f2' }}>{p.away}</td>
+                      ))}
+                      <td className="px-3 py-1 text-right font-black" style={{ color: awayColorOnDark }}>{awayScore}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-      {/* LINE SCORE + GAME MVP — same row, docked side by side, instead of
-          the MVP eating a full extra width of vertical space on its own. */}
-      {((periodScores && periodScores.length > 0) || (mvpEntry && mvpTeam)) && (
-        <div className="flex flex-col sm:flex-row rounded-2xl overflow-hidden mb-4" style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
-          {/* LINE SCORE — Q1-Q4 plus OT1/OT2/... if the game went to overtime */}
-          {periodScores && periodScores.length > 0 && (
-            <div className="flex-shrink-0 overflow-x-auto flex items-center" style={{ background: '#1a1329' }}>
-              <table className="text-xs" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead>
-                  <tr>
-                    <th className="px-3 py-1 text-left" style={{ color: '#8a83a3', background: 'rgba(255,255,255,0.05)' }}></th>
-                    {periodScores.map(p => (
-                      <th key={p.quarter} className="px-3 py-1 text-right font-semibold" style={{ color: p.quarter > 4 ? '#f59e0b' : '#b9b2d0', background: 'rgba(255,255,255,0.05)' }}>
-                        {p.quarter <= 4 ? `Q${p.quarter}` : `OT${p.quarter - 4}`}
-                      </th>
-                    ))}
-                    <th className="px-3 py-1 text-right font-bold" style={{ color: '#b9b2d0', background: 'rgba(255,255,255,0.05)' }}>{isPT ? 'FINAL' : 'FINAL'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="px-3 py-1 text-left font-semibold" style={{ color: homeColorOnDark, background: 'rgba(255,255,255,0.03)' }}>{homeTeam.name}</td>
-                    {periodScores.map(p => (
-                      <td key={p.quarter} className="px-3 py-1 text-right" style={{ color: '#e8e4f2', background: 'rgba(255,255,255,0.03)' }}>{p.home}</td>
-                    ))}
-                    <td className="px-3 py-1 text-right font-black" style={{ color: homeColorOnDark, background: 'rgba(255,255,255,0.03)' }}>{homeScore}</td>
-                  </tr>
-                  <tr>
-                    <td className="px-3 py-1 text-left font-semibold" style={{ color: awayColorOnDark }}>{awayTeam.name}</td>
-                    {periodScores.map(p => (
-                      <td key={p.quarter} className="px-3 py-1 text-right" style={{ color: '#e8e4f2' }}>{p.away}</td>
-                    ))}
-                    <td className="px-3 py-1 text-right font-black" style={{ color: awayColorOnDark }}>{awayScore}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* GAME MVP — highest Game Score (GmSc), the same formula NBA.com/
-              ESPN use to summarize a single-game performance in one number. */}
-          {mvpEntry && mvpTeam && (
-            <div
-              className="relative flex-1 overflow-hidden p-3 flex items-center gap-3 min-w-0"
-              style={{ background: `linear-gradient(120deg, #fdf6e3, #faf8f5 60%)`, borderTop: `1px solid ${mvpColor}`, borderRight: `1px solid ${mvpColor}`, borderBottom: `1px solid ${mvpColor}` }}
-            >
-              <div className="absolute top-0 left-0 right-0 h-1" style={{ background: `linear-gradient(90deg, ${mvpColor}, #f5c542)` }} />
-              {mvpEntry.b.photo_url ? (
-                <img src={mvpEntry.b.photo_url} alt="" className="w-24 h-24 rounded-full object-cover flex-shrink-0"
-                  style={{ border: `3px solid ${mvpColor}`, boxShadow: `0 0 0 4px ${mvpColor}1a` }} />
-              ) : (
-                <div className="text-5xl flex-shrink-0">🏆</div>
-              )}
-              <div className="min-w-0">
-                <div className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: '#8a8279' }}>
-                  {isPT ? 'MVP do Jogo' : 'Game MVP'}
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {resolvePlayerHref(mvpEntry.b) ? (
-                    <Link href={resolvePlayerHref(mvpEntry.b)!} className="no-underline font-black text-base hover:underline" style={{ color: mvpColor }}>
-                      {mvpEntry.b.name}
-                    </Link>
-                  ) : (
-                    <span className="font-black text-base" style={{ color: mvpColor }}>{mvpEntry.b.name}</span>
-                  )}
-                  <span className="text-xs" style={{ color: '#8a8279' }}>{mvpTeam.name}</span>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: '#e8e2d6', color: '#5c554e' }}>
-                    {isPT ? 'Pontuação de Jogo' : 'Game Score'}: {gameScore(mvpEntry.b).toFixed(1)}
-                  </span>
-                </div>
-                <div className="text-sm font-semibold mt-0.5" style={{ color: '#1a1512' }}>
-                  {mvpEntry.b.pts} {isPT ? 'PTS' : 'PTS'} · {mvpEntry.b.reb} {isPT ? 'RES' : 'REB'} · {mvpEntry.b.ast} {isPT ? 'AST' : 'AST'}
-                  {mvpEntry.b.stl >= 3 && ` · ${mvpEntry.b.stl} ${isPT ? 'ROU' : 'STL'}`}
-                  {mvpEntry.b.blk >= 3 && ` · ${mvpEntry.b.blk} ${isPT ? 'DES' : 'BLK'}`}
+            {/* GAME MVP — highest Game Score (GmSc), the same formula NBA.com/
+                ESPN use to summarize a single-game performance in one number. */}
+            {mvpEntry && mvpTeam && (
+              <div
+                className="relative flex-1 overflow-hidden p-3 flex items-center gap-3 min-w-0"
+                style={{
+                  background: `radial-gradient(circle at 0% 50%, ${mvpColorOnDark}26 0%, transparent 65%)`,
+                  borderLeft: periodScores && periodScores.length > 0 ? '1px solid rgba(255,255,255,0.1)' : undefined,
+                }}
+              >
+                <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: `linear-gradient(90deg, ${mvpColorOnDark}, #f5c542)` }} />
+                {mvpEntry.b.photo_url ? (
+                  <img src={mvpEntry.b.photo_url} alt="" className="w-20 h-20 rounded-full object-cover flex-shrink-0"
+                    style={{ border: `3px solid ${mvpColorOnDark}`, boxShadow: `0 0 0 4px ${mvpColorOnDark}1a` }} />
+                ) : (
+                  <div className="text-5xl flex-shrink-0">🏆</div>
+                )}
+                <div className="min-w-0">
+                  <div className="text-xs font-bold uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>
+                    {isPT ? 'MVP do Jogo' : 'Game MVP'}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {resolvePlayerHref(mvpEntry.b) ? (
+                      <Link href={resolvePlayerHref(mvpEntry.b)!} className="no-underline font-black text-base hover:underline" style={{ color: mvpColorOnDark }}>
+                        {mvpEntry.b.name}
+                      </Link>
+                    ) : (
+                      <span className="font-black text-base" style={{ color: mvpColorOnDark }}>{mvpEntry.b.name}</span>
+                    )}
+                    <span className="text-xs" style={{ color: '#b9b2d0' }}>{mvpTeam.name}</span>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.08)', color: '#d6d0e8' }}>
+                      {isPT ? 'Pontuação de Jogo' : 'Game Score'}: {gameScore(mvpEntry.b).toFixed(1)}
+                    </span>
+                  </div>
+                  <div className="text-sm font-semibold mt-0.5" style={{ color: '#f5f2fa' }}>
+                    {mvpEntry.b.pts} {isPT ? 'PTS' : 'PTS'} · {mvpEntry.b.reb} {isPT ? 'RES' : 'REB'} · {mvpEntry.b.ast} {isPT ? 'AST' : 'AST'}
+                    {mvpEntry.b.stl >= 3 && ` · ${mvpEntry.b.stl} ${isPT ? 'ROU' : 'STL'}`}
+                    {mvpEntry.b.blk >= 3 && ` · ${mvpEntry.b.blk} ${isPT ? 'DES' : 'BLK'}`}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+
+        {/* GAME INFO STRIP — referee + attendance, grouped together at the
+            bottom as "facts about how the game was run/attended" instead of
+            floating side by side up top between the arena name and the
+            actual score, which read as two unrelated things stuck together
+            with no organizing idea behind their pairing. */}
+        {(refereeName || (!!attendance && attendance > 0 && !!homeTeam.capacity)) && (
+          <div
+            className="flex items-center justify-center gap-6 flex-wrap p-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.15)' }}
+          >
+            {!!attendance && attendance > 0 && !!homeTeam.capacity && (
+              <ArenaBowl attendance={attendance} capacity={homeTeam.capacity} color={homeColorOnDark} isPT={isPT} />
+            )}
+            {refereeName && (
+              <div className="flex items-center gap-2.5 rounded-2xl pl-2 pr-3 py-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <div
+                  className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
+                >
+                  {refereePhotoUrl
+                    ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
+                    : <span className="text-sm font-black" style={{ color: '#b9b2d0' }}>
+                        {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </span>}
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro' : 'Referee'}</div>
+                  {refereeHref ? (
+                    <Link href={refereeHref} className="text-sm font-bold no-underline block" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
+                  ) : (
+                    <span className="text-sm font-bold block" style={{ color: '#f5f2fa' }}>{refereeName}</span>
+                  )}
+                  {status === 'final' && refereeRating != null && (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span
+                        className="text-xs font-black px-1.5 py-0.5 rounded-full"
+                        style={{ color: '#1a1512', background: refRatingColor(refereeRating), boxShadow: `0 0 8px ${refRatingColor(refereeRating)}88` }}
+                      >
+                        {refereeRating.toFixed(1)}
+                      </span>
+                      <span className="text-[10px] font-bold" style={{ color: refRatingColor(refereeRating) }}>
+                        {refRatingLabel(refereeRating, isPT)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* BOX SCORES */}
       {(homeBox.length > 0 || awayBox.length > 0) ? (
