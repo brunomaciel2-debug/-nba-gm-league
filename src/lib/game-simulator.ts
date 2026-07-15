@@ -490,6 +490,7 @@ if(Math.random()>=chance)continue
 const s=st[p.id]
 s.tf=(s.tf||0)+1;s.pf=(s.pf||0)+1
 foulOutCheck(p,s,offTeam,offense,q,720,pbp,sc)
+foulTroubleCheck(p,s,offTeam,offense,q,720,pbp,sc)
 const activeOpp=defense.filter((o:any)=>o.mins>0&&!o.ejected)
 if(activeOpp.length){
 const shooter=wt(activeOpp.map((o:any)=>({p:o,w:(o.ft||70)})))
@@ -540,6 +541,34 @@ sub.mins=Math.round((sub.mins||0)+remaining)
 pbp.push({quarter:q+1,time_left:fmt(tlSeconds),team_id:team.id,event_type:"substitution",description:`🔄 ${sub.name} checks in for ${p.name}`,home_score:sc.home,away_score:sc.away})
 }
 }
+}
+}
+
+// Real "foul trouble" caution, distinct from foulTaper() above — foulTaper
+// only shades WHO gets picked as the next defender possession-to-possession
+// (a probabilistic nudge), it never actually shortens a player's game. This
+// is the other real half of the same coaching decision: once a player picks
+// up his 4th personal foul (the classic NBA "sit him, we can't risk #5"
+// threshold, well before the 6-foul disqualification foulOutCheck already
+// models), a coach genuinely plays him fewer of his remaining minutes as a
+// protective measure. Fires exactly once per game — pf only ever climbs by
+// 1 at a time, so the ===4 check can only ever match on the possession that
+// brings him from 3 to 4 fouls — and only trims a portion (35%) of his
+// remaining planned minutes, not all of them (he isn't disqualified, just
+// managed more carefully), handing that portion to whichever teammate has
+// played the least so far. Reuses the exact same elapsed-minutes math and
+// substitute-selection pattern as foulOutCheck for consistency.
+function foulTroubleCheck(p:any,s:any,team:any,teammates:any[],q:number,tlSeconds:number,pbp:any[],sc:any){
+if((s.pf||0)!==4||p.ejected)return
+const elapsed=elapsedMinutes(q,tlSeconds)
+const remaining=Math.max(0,(p.mins||0)-elapsed)
+const protectiveCut=remaining*0.35
+if(protectiveCut<=0)return
+p.mins=Math.round(Math.max(elapsed,(p.mins||0)-protectiveCut))
+const sub=teammates.filter((o:any)=>o.id!==p.id&&!o.ejected).sort((a:any,b:any)=>(a.mins||0)-(b.mins||0))[0]
+if(sub){
+sub.mins=Math.round((sub.mins||0)+protectiveCut)
+pbp.push({quarter:q+1,time_left:fmt(tlSeconds),team_id:team.id,event_type:"foul_trouble",description:`⚠️ ${p.name} in foul trouble (4 fouls) — ${sub.name} gets extra minutes`,home_score:sc.home,away_score:sc.away})
 }
 }
 
@@ -852,6 +881,7 @@ if(Math.random()<NONSHOOTING_FOUL_CHANCE*refFoulMultForCommon){
 teamFouls[ds]=(teamFouls[ds]||0)+1
 ds2.pf++
 foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc)
+foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc)
 if(teamFouls[ds]>=5){
 // Who gets fouled here is picked flat by minutes played, not reusing sc2
 // (this possession's already scoring-weighted shooter) — a common/reach-in
@@ -940,7 +970,7 @@ if(Math.random()<(.115+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0021+(isDoubl
 const stealVol=Math.max(.1,spg36(st3.steal_rate))
 const stealQualityMult=0.7+((st3.stl??50)/100)*.2+(((st3.speed??50)+(st3.agility??50))/200)*.1
 if(Math.random()<Math.min(1,stealVol/1.4)*1.0*stealQualityMult)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
-if(!u3&&Math.random()<bpg36(def.blk)*.145*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else{
+if(!u3&&Math.random()<bpg36(def.blk)*.145*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else{
 // A blocked shot almost always stays inbounds — real box scores still
 // credit someone with the rebound, same OREB/DREB split as any other miss
 // (mostly the defense, sometimes the shooting team recovers the carom).
@@ -981,7 +1011,7 @@ const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
 // exactly how a single game produced 18 FTA in 32 minutes). Capped at
 // SHOOTING_FOUL_CAP now, after every multiplier has already applied.
 const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult)
-if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.40+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0)})),.45);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.40+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0)})),.45);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
 if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.78+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0)})),.45);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just

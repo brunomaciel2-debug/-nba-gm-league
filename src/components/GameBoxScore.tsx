@@ -230,6 +230,16 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 ⛔ {isPT ? 'EXPULSO' : 'EJECTED'}
               </span>
             )}
+            {(b.tech_fouls || 0) < 2 && (b.pf || 0) >= 6 && (
+              <span className="ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: '#dc2626', color: '#fff' }}>
+                ⛔ {isPT ? 'DESQUALIFICADO' : 'FOULED OUT'}
+              </span>
+            )}
+            {(b.pf || 0) >= 4 && (b.pf || 0) < 6 && (
+              <span className="ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded" style={{ background: '#f59e0b', color: '#1a1512' }}>
+                ⚠️ {isPT ? 'EM APUROS' : 'FOUL TROUBLE'}
+              </span>
+            )}
           </td>
           {statCols.map(c => (
             <td key={c.key} className="px-2 py-1 text-right font-semibold"
@@ -237,6 +247,8 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 color: c.key === 'gmsc' && isMvp ? '#b45309'
                   : c.key === 'pts' && (b as any)[c.key] >= 20 ? color
                   : c.key === 'tech_fouls' && (b as any)[c.key] > 0 ? '#dc2626'
+                  : c.key === 'pf' && (b.pf || 0) >= 6 ? '#dc2626'
+                  : c.key === 'pf' && (b.pf || 0) >= 4 ? '#f59e0b'
                   : '#1a1512',
               }}>
               {cellValue(b, c.key)}

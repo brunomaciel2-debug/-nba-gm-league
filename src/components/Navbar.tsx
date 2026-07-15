@@ -123,7 +123,7 @@ export default function Navbar() {
       { label: isPT ? 'Regras de Treino'           : 'Training Rules',      href: '/rules/training', icon: 'ti-barbell' },
       { label: isPT ? 'Regras de Free Agency'      : 'Free Agency Rules',   href: '/rules/free-agency', icon: 'ti-user-dollar' },
       { label: isPT ? 'Regras do Draft'            : 'Draft Rules',         href: '/rules/draft',    icon: 'ti-clipboard-list' },
-      { label: isPT ? 'Regras de Faltas Técnicas'  : 'Technical Foul Rules',href: '/rules/technical-fouls', icon: 'ti-flag' },
+      { label: isPT ? 'Regras de Faltas'  : 'Foul Rules',href: '/rules/technical-fouls', icon: 'ti-flag' },
       { label: isPT ? 'Regras de Lesões'           : 'Injury Rules',        href: '/rules/injuries', icon: 'ti-first-aid-kit' },
       { label: isPT ? 'Moral e Interações'          : 'Morale & Interactions', href: '/rules/interactions', icon: 'ti-message-circle' },
       { label: isPT ? 'Guia das Ordens Semanais'  : 'Weekly Orders Guide',  href: '/rules/orders',   icon: 'ti-clipboard-list' },
