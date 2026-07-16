@@ -302,7 +302,7 @@ function foulTaper(pfSoFar:number):number{return pfSoFar<=1?1:Math.max(.12,1-(pf
 // "tapering". Same idea as astTaper's .11->.20 steepening earlier.
 function scoreTaper(fgaSoFar:number,mins:number):number{
 const threshold=Math.max(4,(mins/36)*18)
-return fgaSoFar<=threshold?1:Math.max(.13,1-(fgaSoFar-threshold)*.17)
+return fgaSoFar<=threshold?1:Math.max(.06,1-(fgaSoFar-threshold)*.24)
 }
 // scoreTaper above only throttles raw shot COUNT — and-1s, made 3s, and free
 // throws all add points without necessarily adding to FGA, so a hot enough
@@ -321,8 +321,8 @@ return fgaSoFar<=threshold?1:Math.max(.13,1-(fgaSoFar-threshold)*.17)
 // monster game instead of leveling off around one.
 function pointsTaper(ptsSoFar:number,mins:number,scoring?:number):number{
 const expected=Math.max(6,ppg36(scoring)*(mins/36))
-const threshold=expected*1.5
-return ptsSoFar<=threshold?1:Math.max(.10,1-(ptsSoFar-threshold)/expected*2.4)
+const threshold=expected*1.3
+return ptsSoFar<=threshold?1:Math.max(.05,1-(ptsSoFar-threshold)/expected*3.5)
 }
 // Real NBA "usage curve": a player who's carrying a much bigger share of
 // the offense than normal doesn't just take more shots (scoreTaper above
@@ -514,7 +514,18 @@ return five
 // this file already reads p.mins directly, this one mutation is all it
 // takes to cascade correctly into shot volume, assists, rebounds, steals,
 // and the final box score — no separate possession-pool hack needed.
-function applyGarbageTimeSubs(players:any[],remainingMin:number){
+// elapsed = how much game clock has already run (elapsedMinutes(q,tl) at the
+// trigger point). A star who's played most of the game before garbage time
+// hits has already been accumulating stats (points, rebounds...) at a pace
+// consistent with that much real playing time — cutting his FINAL displayed
+// mins below that, using only his original pregame allocation and the clock
+// time left, could shrink it well under how long he'd actually been
+// producing those stats for. A real incident: box scores showing a star's
+// normal, unremarkable point total next to an artificially tiny minutes
+// total (e.g., 24pts/9min), reading as an impossible per-minute rate even
+// though the points themselves were earned at a normal pace over most of
+// the game — the bug was in the DISPLAYED minutes, not the scoring.
+function applyGarbageTimeSubs(players:any[],remainingMin:number,elapsed:number){
 if(remainingMin<=0)return
 // A player who already fouled out has a correct, final p.mins (his real
 // elapsed time, set once by foulOutCheck) — he must never be touched again
@@ -536,7 +547,8 @@ const starIds=new Set(stars.map(p=>p.id))
 const deepBench=[...players].filter(p=>!starIds.has(p.id)&&!p.ejected).sort((a,b)=>(a.mins||0)-(b.mins||0)).slice(0,stars.length)
 stars.forEach((p,i)=>{
 const taken=Math.min(remainingMin,p.mins*0.85)
-p.mins=Math.round(Math.max(2,p.mins-taken))
+const floorMins=Math.min(p.mins,elapsed)
+p.mins=Math.round(Math.max(2,floorMins,p.mins-taken))
 const replacement=deepBench[i]
 // box_scores.mins is an integer column — this mid-game reallocation
 // runs after applyDC()'s own rounding pass, so a fractional remainder
@@ -731,8 +743,9 @@ const totalRemainingSec=tl+(3-q)*720
 if(q>=2&&q<=3&&!isGT&&((diff>=30&&totalRemainingSec<=900)||(diff>=25&&totalRemainingSec<=360)||(diff>=20&&totalRemainingSec<=240)||(diff>=15&&totalRemainingSec<=120))){
 isGT=true;gtW=sc.home>sc.away?"home":"away"
 const remainingMin=totalRemainingSec/60
-applyGarbageTimeSubs(hp,remainingMin)
-applyGarbageTimeSubs(ap,remainingMin)
+const elapsedNow=elapsedMinutes(q,tl)
+applyGarbageTimeSubs(hp,remainingMin,elapsedNow)
+applyGarbageTimeSubs(ap,remainingMin,elapsedNow)
 pbp.push({quarter:q+1,time_left:fmt(tl),team_id:null,event_type:"info",description:`🗑️ GARBAGE TIME — ${gtW==="home"?ht.name:at.name} leads by ${diff}, both benches empty!`,home_score:sc.home,away_score:sc.away})
 }
 const oo=side==="home"?ho:ao,doo=side==="home"?ao:ho
@@ -1108,7 +1121,21 @@ const tacticalShotMult=u3?tacticalMods.threeMult*(isBig?tacticalMods.bigThreeMul
 // shots complementing them) — a third real finishing input, not just the
 // two that already carried this term.
 const rimSkill=(sc2.layup+sc2.dunk+(sc2.close_shot??sc2.layup))/300
-const acc=Math.min(.74,Math.max(.18,(u3?.355+(sc2.three-50)/100*.20:isPost?.47:isMid?.43+(sc2.mid-50)/100*.10:.535+rimSkill*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult*(sc2.posFitMult??1)*usageEffMult(st[sc2.id]?.fga||0)*teamSpacingMult(sc2,ops)))
+// pointsTaper/scoreTaper above only ever throttle shot-selection WEIGHT
+// (how often this player gets picked next) — accuracy was never touched, so
+// on a short stint a player could still convert his handful of remaining
+// looks at his full, undiminished shooting% even after tapering had already
+// floored his weight. With so few total possessions in a short stint, that
+// floored weight barely gets a chance to act before the game (for him) is
+// over — a real incident: 12 points in 8 minutes (54 ppg36 pace), 31 in 18
+// (62 ppg36), both from players who were already deep in taper territory by
+// the time they got there. This adds a real, modest accuracy cost once a
+// player is deep in his own points taper (defenses genuinely key harder on
+// someone who's already well past his normal pace) — capped at a 12%
+// haircut, not a hard shutoff, so a real hot game can still happen, just
+// not an outright statistically-impossible one.
+const hotHandAccDamp=0.80+0.20*pointsTaper(st[sc2.id]?.pts||0,sc2.mins||0,sc2.scoring)
+const acc=Math.min(.74,Math.max(.18,(u3?.355+(sc2.three-50)/100*.20:isPost?.47:isMid?.43+(sc2.mid-50)/100*.10:.535+rimSkill*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult*(sc2.posFitMult??1)*usageEffMult(st[sc2.id]?.fga||0)*teamSpacingMult(sc2,ops)*hotHandAccDamp))
 const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100

@@ -2,6 +2,18 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
+import { supabase } from '@/lib/supabase'
+
+// How long to wait for /api/admin/simulate's own HTTP response before
+// falling back to polling the database directly. A real incident: a week
+// with a lot of processing outlasted the hosting platform's own gateway
+// timeout, which silently drops the response even though the backend keeps
+// running to completion (season_config genuinely advanced) — the browser
+// was left showing "Simulating..." forever with no way to tell the step had
+// actually finished.
+const FETCH_TIMEOUT_MS = 90_000
+const POLL_INTERVAL_MS = 5_000
+const POLL_MAX_MS = 10 * 60_000
 
 export default function AdminSimulatePage() {
   const { t } = useTranslation()
@@ -12,6 +24,54 @@ export default function AdminSimulatePage() {
   const [log, setLog]         = useState<string[]>([])
   const [weekCount, setWeekCount] = useState(1)
 
+  const getSeasonState = async () => {
+    const { data } = await supabase.from('season_config').select('current_week,next_sim_half').eq('id',1).single()
+    return { week: data?.current_week as number, half: (data?.next_sim_half as number) || 1 }
+  }
+
+  // One /api/admin/simulate call = one "half" of a week. If the direct
+  // response is late, this confirms against season_config instead of
+  // waiting forever — the (week, half) pair only changes once that specific
+  // step has actually finished server-side, regardless of whether its HTTP
+  // response made it back to the browser.
+  const callSimulateStep = async (before: {week:number, half:number}): Promise<any> => {
+    const direct = fetch('/api/admin/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: 'nba-admin-2025' }),
+    }).then(async res => {
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || (isPT ? 'Erro desconhecido' : 'Unknown error'))
+      return data
+    })
+
+    const timeout = new Promise<'TIMEOUT'>(resolve => setTimeout(() => resolve('TIMEOUT'), FETCH_TIMEOUT_MS))
+    const first = await Promise.race([direct, timeout])
+    if (first !== 'TIMEOUT') return first
+
+    setLog(prev => [...prev, isPT
+      ? '⏳ A resposta está a demorar mais que o normal — a confirmar diretamente na base de dados...'
+      : '⏳ Response is taking longer than usual — confirming directly against the database...'])
+
+    const deadline = Date.now() + POLL_MAX_MS
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+      const now = await getSeasonState()
+      if (now.week !== before.week || now.half !== before.half) {
+        return {
+          week: before.week,
+          games_simulated: null,
+          friendlies_simulated: null,
+          half: now.week === before.week ? before.half : undefined,
+          _confirmedByPoll: true,
+        }
+      }
+    }
+    throw new Error(isPT
+      ? 'A simulação não respondeu a tempo, mesmo depois de confirmar diretamente na base de dados.'
+      : 'The simulation did not respond in time, even after checking the database directly.')
+  }
+
   // Runs ONE full week (a week can come back split in two "halves" — days
   // 1-3 then days 4-7 — when there are too many games to fit the route's
   // own maxDuration in a single call, so this keeps calling /api/admin/simulate
@@ -20,19 +80,14 @@ export default function AdminSimulatePage() {
     setLog(prev => [...prev, isPT ? '⏳ A simular...' : '⏳ Simulating...'])
     let data: any = null
     for (let part = 0; part < 2; part++) {
-      const res = await fetch('/api/admin/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret: 'nba-admin-2025' }),
-      })
-      data = await res.json()
-      if (!res.ok || !data.success) throw new Error(data.error || (isPT ? 'Erro desconhecido' : 'Unknown error'))
+      const before = await getSeasonState()
+      data = await callSimulateStep(before)
 
       if (data.half === 1) {
         const noGames = !data.games_simulated && !data.friendlies_simulated
         setLog(prev => [...prev, isPT
-          ? `✓ Semana ${data.week} (dias 1-3)${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}. A continuar para os dias 4-7...`
-          : `✓ Week ${data.week} (days 1-3)${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}. Continuing to days 4-7...`])
+          ? `✓ Semana ${data.week} (dias 1-3)${data._confirmedByPoll ? ' — confirmada na base de dados' : noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}. A continuar para os dias 4-7...`
+          : `✓ Week ${data.week} (days 1-3)${data._confirmedByPoll ? ' — confirmed against the database' : noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}. Continuing to days 4-7...`])
         continue
       }
       return data
@@ -67,9 +122,9 @@ export default function AdminSimulatePage() {
         }
 
         const data = await simulateOneWeek()
-        const msg = isPT
-          ? `✅ Semana ${data.week} simulada! ${data.games_simulated} jogos.`
-          : `✅ Week ${data.week} simulated! ${data.games_simulated} games.`
+        const msg = data._confirmedByPoll
+          ? (isPT ? `✅ Semana ${data.week} simulada (confirmado na base de dados).` : `✅ Week ${data.week} simulated (confirmed against the database).`)
+          : (isPT ? `✅ Semana ${data.week} simulada! ${data.games_simulated} jogos.` : `✅ Week ${data.week} simulated! ${data.games_simulated} games.`)
         setLog(prev => [...prev, msg])
         if (data.friendlies_simulated > 0) {
           setLog(prev => [...prev, isPT
