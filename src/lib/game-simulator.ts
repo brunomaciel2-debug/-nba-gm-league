@@ -133,7 +133,7 @@ const FT_RATE_BREAKPOINTS:[number,number][]=[
 // this is actually calibrated against matches.
 // Nudged .03->.032 to compensate for the new ftTaper/tighter SHOOTING_FOUL_CAP
 // below pulling the team-level average down slightly below this real target.
-const FT_RATE_K=0.032
+const FT_RATE_K=0.039
 // Real per-shot ceiling for a shooting foul — the previous ".55" cap was
 // applied to the base frequency term BEFORE foulDrawQualityMult/refFoulMult/
 // tacticalMods.foulDrawMult multiplied it further, so the real per-shot
@@ -145,7 +145,7 @@ const FT_RATE_K=0.032
 // under this ceiling already (FT_RATE_K is tuned for the average, not the
 // cap), so this mainly shaves the extreme tail (a maxed-out player plus a
 // whistle-happy ref) rather than moving the calibrated team-level average.
-const SHOOTING_FOUL_CAP=0.15
+const SHOOTING_FOUL_CAP=0.10
 // Per-possession chance of a common/non-shooting foul (reach-in, illegal
 // screen, loose ball) — independent of the shot itself, and NOT
 // automatically a trip to the line (see the bonus/penalty check where this
@@ -177,8 +177,8 @@ return Math.min(12,p1+slope*(s-s1))
 // several players individually posting real per-36 outliers. Same
 // self-taper pattern, applied to shootingFoulChance below.
 function ftTaper(ftaSoFar:number,mins:number):number{
-const threshold=Math.max(1.5,(mins/36)*6)
-return ftaSoFar<=threshold?1:Math.max(.12,1-(ftaSoFar-threshold)*.25)
+const threshold=Math.max(1,(mins/36)*4)
+return ftaSoFar<=threshold?1:Math.max(.05,1-(ftaSoFar-threshold)*.45)
 }
 
 // Same shape as SCORING_BREAKPOINTS/ppg36() above, this time for the hidden
@@ -1099,10 +1099,20 @@ const pressureMult=isC?(decisive?(.75+(sc2.pressure/100)*.45)*tacticalMods.clutc
 // side is home, crowd_error_rate makes him call noticeably more once the
 // building is genuinely packed (attRate>0.75) — real home-crowd data, not an
 // invented number.
+// refFoulRate span narrowed .7-1.3 -> .85-1.15 and refCrowdErr's coefficient
+// halved 1.2->0.6 — this per-ref multiplier applies to EVERY shot for the
+// WHOLE game for both teams, so the two compounding at their extremes (a
+// whistle-happy ref like Scott Foster in a packed arena) pushed the entire
+// game's foul-drawing chance up 30-40% across the board. SHOOTING_FOUL_CAP
+// already caps any ONE shot's chance, but that doesn't stop MANY shots each
+// getting pushed up toward that same cap — a real incident: 76-83 combined
+// FTA in a single game (verified this was a testing gap, not a fixed bug —
+// earlier verification never actually included a real assigned referee, so
+// it never exercised this multiplier at all).
 const ref=oo.referee||doo.referee
-const refFoulRate=ref?(.7+(ref.foul_rate/100)*.6):1
+const refFoulRate=ref?(.85+(ref.foul_rate/100)*.3):1
 const refHomeSkew=ref?((ref.home_bias-50)/50)*.08:0
-const refCrowdErr=ref?1+Math.max(0,attRate-0.75)*(ref.crowd_error_rate/100)*1.2:1
+const refCrowdErr=ref?1+Math.max(0,attRate-0.75)*(ref.crowd_error_rate/100)*.6:1
 const refFoulMult=ref?refFoulRate*(1+(os==='home'?refHomeSkew:-refHomeSkew))*refCrowdErr:1
 // An unhappy player is genuinely a worse shooter, not just a contract/morale
 // abstraction — a real but modest effect (moral 0 -> 0.92x, moral 100 -> 1.00x),
