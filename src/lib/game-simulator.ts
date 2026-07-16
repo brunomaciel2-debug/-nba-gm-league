@@ -131,7 +131,9 @@ const FT_RATE_BREAKPOINTS:[number,number][]=[
 // can still run well above his own individual per-36 target on a given
 // night — real variance, same as an actual box score — but the team total
 // this is actually calibrated against matches.
-const FT_RATE_K=0.03
+// Nudged .03->.032 to compensate for the new ftTaper/tighter SHOOTING_FOUL_CAP
+// below pulling the team-level average down slightly below this real target.
+const FT_RATE_K=0.032
 // Real per-shot ceiling for a shooting foul — the previous ".55" cap was
 // applied to the base frequency term BEFORE foulDrawQualityMult/refFoulMult/
 // tacticalMods.foulDrawMult multiplied it further, so the real per-shot
@@ -139,7 +141,11 @@ const FT_RATE_K=0.03
 // shooting-foul roll below, which now caps the FULLY-combined probability
 // instead). ~0.22 keeps an elite free_throw_rate/draw_foul player's
 // per-shot shooting-foul chance in a believable range.
-const SHOOTING_FOUL_CAP=0.18
+// Tightened .18->.15 alongside the new ftTaper below — most shots sit well
+// under this ceiling already (FT_RATE_K is tuned for the average, not the
+// cap), so this mainly shaves the extreme tail (a maxed-out player plus a
+// whistle-happy ref) rather than moving the calibrated team-level average.
+const SHOOTING_FOUL_CAP=0.15
 // Per-possession chance of a common/non-shooting foul (reach-in, illegal
 // screen, loose ball) — independent of the shot itself, and NOT
 // automatically a trip to the line (see the bonus/penalty check where this
@@ -160,6 +166,19 @@ return p0+(p1-p0)*(s-s0)/(s1-s0)
 const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
 const slope=(p1-p0)/(s1-s0)
 return Math.min(12,p1+slope*(s-s1))
+}
+// FT_RATE_K/NONSHOOTING_FOUL_CHANCE above were already carefully calibrated
+// to land the TEAM-level FTA average right on the real 2025-26 NBA target
+// (~24.8/team/game) — and they do. The problem was never the average, it
+// was the tail: nothing tapered a player's own shooting-foul-draw chance
+// back down as he kept drawing them, the same gap rebTaper/astTaper/
+// scoreTaper each closed for their own stat. Real incident: a single game
+// with 76 combined FTA (both teams), well above the calibrated target, with
+// several players individually posting real per-36 outliers. Same
+// self-taper pattern, applied to shootingFoulChance below.
+function ftTaper(ftaSoFar:number,mins:number):number{
+const threshold=Math.max(1.5,(mins/36)*6)
+return ftaSoFar<=threshold?1:Math.max(.12,1-(ftaSoFar-threshold)*.25)
 }
 
 // Same shape as SCORING_BREAKPOINTS/ppg36() above, this time for the hidden
@@ -1154,7 +1173,7 @@ const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
 // player with a whistle-happy ref could clear 90%+ per shot attempt —
 // exactly how a single game produced 18 FTA in 32 minutes). Capped at
 // SHOOTING_FOUL_CAP now, after every multiplier has already applied.
-const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult)
+const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult*ftTaper(ss.fta||0,sc2.mins||0))
 if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.40+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)*pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring)})),.45);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
 if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.78+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)*pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring)})),.45);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
