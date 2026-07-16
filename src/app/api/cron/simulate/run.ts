@@ -1092,7 +1092,11 @@ const winnerProb = homeWin ? hProb : (1 - hProb)
 if (winnerProb < uotwOdds) { uotwOdds = winnerProb; uotwGame = g }
 }
 
-const { data: allRecentGames } = await supabaseAdmin.from('games').select('*').eq('status','final').order('played_at',{ascending:false}).limit(100)
+// Regular-season only — without this, a team's "Hot Streak" could be built
+// from preseason results mixed in with real games (preseason doesn't even
+// count toward their record), producing a streak that has nothing to do
+// with their actual current form.
+const { data: allRecentGames } = await supabaseAdmin.from('games').select('*').eq('status','final').eq('game_type','regular').order('played_at',{ascending:false}).limit(100)
 const streaks: Record<string,{count:number,games:string[]}> = {}
 // Process oldest -> newest (the query above fetches newest-first, so
 // reverse it here) so each team's counter reflects their CURRENT streak —
@@ -1100,7 +1104,19 @@ const streaks: Record<string,{count:number,games:string[]}> = {}
 // clobbering the same running counter on every one of a team's games left
 // the final value reflecting whichever game was OLDEST in the 100-game
 // window, not their actual current form.
+// games has no season column, so a season boundary is only detectable
+// indirectly: regular-season week_number always runs 17-40 within one
+// season (see getStatusForWeek in season-week-helper.ts) then wraps back to
+// 17 for the next one — a drop in week_number while scanning oldest->newest
+// IS that wrap. Without this, a team that closed last season on a winning
+// streak and opened this one the same way would have both streaks silently
+// stitched into one, crediting form that carried across an entire
+// off-season. No new-season games exist yet to have hit this in practice,
+// but the gap was real the moment a second season becomes reachable.
+let prevWeek = -Infinity
 for (const g of [...(allRecentGames||[])].reverse()) {
+if (g.week_number < prevWeek) { for (const k of Object.keys(streaks)) { streaks[k].count=0; streaks[k].games=[] } }
+prevWeek = g.week_number
 const hw = (g.home_score||0)>(g.away_score||0)
 const wt2 = hw?g.home_team:g.away_team
 const lt = hw?g.away_team:g.home_team

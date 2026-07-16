@@ -163,7 +163,14 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const teamPlayerIds = new Set([...(players||[]), ...(injuredPlayers||[])].map((p:any) => p.id))
   const teamInjuries = (injuries||[]).filter((i:any) => teamPlayerIds.has(i.player_id))
 
-  const played = (games||[]).filter((g:any) => g.status === 'final')
+  // Regular-season only — matches exactly what teams.wins/losses (the
+  // stored column standings reads) actually counts: run.ts only updates it
+  // inside its `!isPreseason` branch, and playoff-resolver.ts tracks
+  // playoff wins separately (playoff_series.wins_high/wins_low), never
+  // touching teams.wins/losses either. Without this filter, this header
+  // counted preseason (and playoff) results too, so a team's record here
+  // never matched the Standings page for the same team.
+  const played = (games||[]).filter((g:any) => g.status === 'final' && g.game_type === 'regular')
   const wins = played.filter((g:any) =>
     (g.home_team===teamId ? g.home_score : g.away_score) > (g.home_team===teamId ? g.away_score : g.home_score)
   ).length

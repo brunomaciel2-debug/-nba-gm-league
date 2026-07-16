@@ -143,11 +143,11 @@ export default async function HomePage() {
                   </div>
                   <UotwWinLoss isWin={true} />
                   <div className="text-xs text-center" style={{color:'#1a1612'}}>{hl.uotw_winner.name}</div>
+                  {hl.uotw_odds != null && <UnderdogLabel pct={Math.round(hl.uotw_odds*100)} role="underdog" />}
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-black" style={{color:'#dc2626'}}>🆚</div>
                   <div className="text-base font-black" style={{color:'#1a1612'}}>{hl.uotw_score}</div>
-                  {hl.uotw_odds && <UnderdogLabel pct={Math.round(hl.uotw_odds*100)} />}
                 </div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="w-14 h-14 rounded-xl overflow-hidden"
@@ -159,6 +159,7 @@ export default async function HomePage() {
                   </div>
                   <UotwWinLoss isWin={false} />
                   <div className="text-xs text-center" style={{color:'#6b5f4e'}}>{hl.uotw_loser?.name}</div>
+                  {hl.uotw_odds != null && <UnderdogLabel pct={Math.round(hl.uotw_odds*100)} role="favorite" />}
                 </div>
               </div>
               {hl.uotw_notes && <p className="text-sm mb-3" style={{color:'#6b5f4e'}}>{hl.uotw_notes}</p>}

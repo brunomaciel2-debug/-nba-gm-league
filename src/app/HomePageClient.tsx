@@ -84,10 +84,16 @@ export function FeaturedLabel({ color }: { color:string }) {
   )
 }
 
-export function UnderdogLabel({ pct }: { pct:number }) {
+// pct is always the UNDERDOG's (the eventual winner's) pre-game win chance —
+// shown attached to each team instead of floating unlabeled between the two
+// logos, so it's clear at a glance which side was actually expected to win.
+export function UnderdogLabel({ pct, role }: { pct:number, role: 'underdog'|'favorite' }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
-  return <div className="text-xs" style={{color:'#9c8e7a'}}>{isPT ? `${pct}% azarão` : `${pct}% underdog`}</div>
+  if (role === 'underdog') {
+    return <div className="text-xs font-bold" style={{color:'#dc2626'}}>{isPT ? `🎲 ${pct}% outsider` : `🎲 ${pct}% underdog`}</div>
+  }
+  return <div className="text-xs" style={{color:'#9c8e7a'}}>{isPT ? `${100-pct}% favorito` : `${100-pct}% favorite`}</div>
 }
 
 export function UotwWinLoss({ isWin }: { isWin:boolean }) {
