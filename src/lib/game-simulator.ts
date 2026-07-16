@@ -258,9 +258,17 @@ return rebSoFar<=threshold?1:Math.max(.25,1-(rebSoFar-threshold)*.10)
 // pool of teammates already on the floor). Same mins-scaled threshold as
 // rebTaper above, for the same reason — a 20-minute player and a 40-minute
 // starter can't fairly share one flat assist ceiling.
+// Decay rate steepened from .11 to .20 — at the old rate, a player who'd
+// already climbed 3 assists past his own threshold still kept 67% of his
+// original weight, nowhere near tapered enough to stop MULTIPLE teammates
+// from independently crossing 10+ assists in the same game (a real
+// incident: 3 different players on one team all hit double-digit assists —
+// real NBA games essentially never see even 2). At .20, a player is
+// already down to the floor by 4 assists past threshold instead of
+// drifting there slowly.
 function astTaper(astSoFar:number,mins:number):number{
 const threshold=Math.max(2,(mins/36)*7)
-return astSoFar<=threshold?1:Math.max(.22,1-(astSoFar-threshold)*.11)
+return astSoFar<=threshold?1:Math.max(.22,1-(astSoFar-threshold)*.20)
 }
 // Real "foul trouble" caution — a coach genuinely plays a player more
 // carefully (or shifts defensive matchups away from him) once he's already
@@ -597,19 +605,32 @@ pbp.push({quarter:q+1,time_left:fmt(tlSeconds),team_id:team.id,event_type:"subst
 // Real "foul trouble" caution, distinct from foulTaper() above — foulTaper
 // only shades WHO gets picked as the next defender possession-to-possession
 // (a probabilistic nudge), it never actually shortens a player's game. This
-// is the other real half of the same coaching decision: once a player picks
-// up his 4th personal foul (the classic NBA "sit him, we can't risk #5"
-// threshold, well before the 6-foul disqualification foulOutCheck already
-// models), a coach genuinely plays him fewer of his remaining minutes as a
-// protective measure. Fires exactly once per game — pf only ever climbs by
-// 1 at a time, so the ===4 check can only ever match on the possession that
-// brings him from 3 to 4 fouls — and only trims a portion (35%) of his
-// remaining planned minutes, not all of them (he isn't disqualified, just
-// managed more carefully), handing that portion to whichever teammate has
-// played the least so far. Reuses the exact same elapsed-minutes math and
-// substitute-selection pattern as foulOutCheck for consistency.
+// is the other real half of the same coaching decision: once a player is in
+// real foul trouble (see the quarter-aware thresholds below), a coach
+// genuinely plays him fewer of his remaining minutes as a protective
+// measure — trimming a portion (35%) of his remaining planned minutes, not
+// all of them (he isn't disqualified, just managed more carefully), and
+// handing that portion to whichever teammate has played the least so far.
+// Reuses the exact same elapsed-minutes math and substitute-selection
+// pattern as foulOutCheck for consistency.
+// Real "foul trouble" is an early-game read, not just "4 personal fouls"
+// whenever it happens to occur — a coach worries about 3 fouls in the 1st
+// quarter, or 4 fouls by the end of the 2nd (still enough game left that
+// fouling out would cost real playing time), but by the 4th quarter there's
+// too little game left for a preemptive bench move to make sense, so it no
+// longer counts as foul trouble at all. The previous version fired on a
+// flat "exactly 4 fouls" regardless of quarter, which could (and did)
+// trigger deep into the 4th quarter of a close game — exactly backwards
+// from the real basketball convention. Guarded by _foulTroubleApplied
+// instead of an exact-count match, since two different thresholds (Q1's 3,
+// Q1-2's 4) can both be crossed in the same game and this should only ever
+// fire once.
 function foulTroubleCheck(p:any,s:any,team:any,teammates:any[],q:number,tlSeconds:number,pbp:any[],sc:any){
-if((s.pf||0)!==4||p.ejected)return
+if(p.ejected||p._foulTroubleApplied)return
+const pf=s.pf||0
+const inTrouble=(q===0&&pf>=3)||(q<=1&&pf>=4)
+if(!inTrouble)return
+p._foulTroubleApplied=true
 const elapsed=elapsedMinutes(q,tlSeconds)
 const remaining=Math.max(0,(p.mins||0)-elapsed)
 const protectiveCut=remaining*0.35
@@ -618,7 +639,7 @@ p.mins=Math.round(Math.max(elapsed,(p.mins||0)-protectiveCut))
 const sub=teammates.filter((o:any)=>o.id!==p.id&&!o.ejected).sort((a:any,b:any)=>(a.mins||0)-(b.mins||0))[0]
 if(sub){
 sub.mins=Math.round((sub.mins||0)+protectiveCut)
-pbp.push({quarter:q+1,time_left:fmt(tlSeconds),team_id:team.id,event_type:"foul_trouble",description:`⚠️ ${p.name} in foul trouble (4 fouls) — ${sub.name} gets extra minutes`,home_score:sc.home,away_score:sc.away})
+pbp.push({quarter:q+1,time_left:fmt(tlSeconds),team_id:team.id,event_type:"foul_trouble",description:`⚠️ ${p.name} in foul trouble (${pf} fouls, Q${q+1}) — ${sub.name} gets extra minutes`,home_score:sc.home,away_score:sc.away})
 }
 }
 
@@ -676,12 +697,23 @@ const tl=Math.max(0,Math.round(periodLen*(1-i/(periodPoss*2))))
 const diff=Math.abs(sc.home-sc.away)
 // Widened beyond the old tight "2 minutes left, up 20" trigger — a real
 // blowout gets conceded well before the final minutes, so a big-enough
-// margin fires this much earlier in the 4th. Both benches empty once it's
-// truly decided, not just the leading team's — the losing side has no
-// reason to keep running its stars into a lost cause either.
-if(q===3&&!isGT&&((diff>=25&&tl<=360)||(diff>=20&&tl<=240)||(diff>=15&&tl<=120))){
+// margin fires this much earlier. Both benches empty once it's truly
+// decided, not just the leading team's — the losing side has no reason to
+// keep running its stars into a lost cause either.
+// Real incident: a 30+ point lead built up by the 3rd quarter still kept
+// both teams' starters in for the whole 3rd AND most of the 4th, since
+// this used to only ever check q===3 (4th quarter) — a genuinely decided
+// game a full quarter early never got conceded until much too late, if at
+// all. Widened to q>=2 (3rd quarter onward), with a new bigger-margin tier
+// for how much game-time can possibly be left at that point, and
+// totalRemainingSec (rest of THIS quarter plus every full quarter still to
+// come) instead of just tl (time left in the current quarter alone) — a
+// trigger in the 3rd quarter has a whole 4th quarter still ahead of it,
+// which the old tl-only check had no way to account for.
+const totalRemainingSec=tl+(3-q)*720
+if(q>=2&&q<=3&&!isGT&&((diff>=30&&totalRemainingSec<=900)||(diff>=25&&totalRemainingSec<=360)||(diff>=20&&totalRemainingSec<=240)||(diff>=15&&totalRemainingSec<=120))){
 isGT=true;gtW=sc.home>sc.away?"home":"away"
-const remainingMin=tl/60
+const remainingMin=totalRemainingSec/60
 applyGarbageTimeSubs(hp,remainingMin)
 applyGarbageTimeSubs(ap,remainingMin)
 pbp.push({quarter:q+1,time_left:fmt(tl),team_id:null,event_type:"info",description:`🗑️ GARBAGE TIME — ${gtW==="home"?ht.name:at.name} leads by ${diff}, both benches empty!`,home_score:sc.home,away_score:sc.away})
