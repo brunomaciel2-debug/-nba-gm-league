@@ -43,6 +43,8 @@ export interface TeamInfo {
   arena?: string | null
   city?: string | null
   capacity?: number | null
+  wins?: number | null
+  losses?: number | null
 }
 
 export interface PeriodScore {
@@ -391,8 +393,10 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                   </div>
                 )}
                 <div className="text-sm font-black" style={{ color: '#f5f2fa' }}>{homeTeam.name}</div>
-                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 mt-0.5 tracking-widest"
-                  style={{ background: `${homeColorOnDark}2a`, color: homeColorOnDark }}>{isPT ? 'CASA' : 'HOME'}</span>
+                <div className="mb-1 mt-0.5">
+                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full tracking-widest"
+                    style={{ background: `${homeColorOnDark}2a`, color: homeColorOnDark }}>{isPT ? 'CASA' : 'HOME'}</span>
+                </div>
               </Link>
             ) : (
               <>
@@ -405,8 +409,10 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                   </div>
                 )}
                 <div className="text-sm font-black" style={{ color: '#f5f2fa' }}>{homeTeam.name}</div>
-                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 mt-0.5 tracking-widest"
-                  style={{ background: `${homeColorOnDark}2a`, color: homeColorOnDark }}>{isPT ? 'CASA' : 'HOME'}</span>
+                <div className="mb-1 mt-0.5">
+                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full tracking-widest"
+                    style={{ background: `${homeColorOnDark}2a`, color: homeColorOnDark }}>{isPT ? 'CASA' : 'HOME'}</span>
+                </div>
               </>
             )}
             <div
@@ -423,7 +429,13 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 {homeScore}
               </div>
             </div>
-            {homeWon && <div className="text-xs font-black mt-1 tracking-widest" style={{ color: '#4ade80' }}>● {isPT ? 'VITÓRIA' : 'WIN'}</div>}
+            {/* Record after this game, not a redundant "WIN" tag — the score
+                itself already shows who won. */}
+            {status === 'final' && homeTeam.wins != null && homeTeam.losses != null && (
+              <div className="text-xs font-bold mt-1 tracking-widest" style={{ color: '#b9b2d0' }}>
+                {isPT ? `${homeTeam.wins}V ${homeTeam.losses}D` : `${homeTeam.wins}-${homeTeam.losses}`}
+              </div>
+            )}
           </div>
 
           {/* VS */}
@@ -465,8 +477,10 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                   </div>
                 )}
                 <div className="text-sm font-black" style={{ color: '#f5f2fa' }}>{awayTeam.name}</div>
-                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 mt-0.5 tracking-widest"
-                  style={{ background: `${awayColorOnDark}2a`, color: awayColorOnDark }}>{isPT ? 'FORA' : 'AWAY'}</span>
+                <div className="mb-1 mt-0.5">
+                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full tracking-widest"
+                    style={{ background: `${awayColorOnDark}2a`, color: awayColorOnDark }}>{isPT ? 'FORA' : 'AWAY'}</span>
+                </div>
               </Link>
             ) : (
               <>
@@ -479,8 +493,10 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                   </div>
                 )}
                 <div className="text-sm font-black" style={{ color: '#f5f2fa' }}>{awayTeam.name}</div>
-                <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1 mt-0.5 tracking-widest"
-                  style={{ background: `${awayColorOnDark}2a`, color: awayColorOnDark }}>{isPT ? 'FORA' : 'AWAY'}</span>
+                <div className="mb-1 mt-0.5">
+                  <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full tracking-widest"
+                    style={{ background: `${awayColorOnDark}2a`, color: awayColorOnDark }}>{isPT ? 'FORA' : 'AWAY'}</span>
+                </div>
               </>
             )}
             <div
@@ -497,7 +513,11 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 {awayScore}
               </div>
             </div>
-            {!homeWon && <div className="text-xs font-black mt-1 tracking-widest" style={{ color: '#4ade80' }}>● {isPT ? 'VITÓRIA' : 'WIN'}</div>}
+            {status === 'final' && awayTeam.wins != null && awayTeam.losses != null && (
+              <div className="text-xs font-bold mt-1 tracking-widest" style={{ color: '#b9b2d0' }}>
+                {isPT ? `${awayTeam.wins}V ${awayTeam.losses}D` : `${awayTeam.wins}-${awayTeam.losses}`}
+              </div>
+            )}
           </div>
         </div>
         </div>

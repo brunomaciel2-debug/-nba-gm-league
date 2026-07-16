@@ -66,8 +66,8 @@ export default function GamePage({ params }: { params: { id: string } }) {
 
   return (
     <GameBoxScore
-      homeTeam={{ id: game.home_team, name: home?.name, logo_url: home?.logo_url, color: home?.color, href: `/team/${game.home_team}`, arena: home?.arena, city: home?.city, capacity: home?.arena_capacity }}
-      awayTeam={{ id: game.away_team, name: away?.name, logo_url: away?.logo_url, color: away?.color, href: `/team/${game.away_team}` }}
+      homeTeam={{ id: game.home_team, name: home?.name, logo_url: home?.logo_url, color: home?.color, href: `/team/${game.home_team}`, arena: home?.arena, city: home?.city, capacity: home?.arena_capacity, wins: home?.wins, losses: home?.losses }}
+      awayTeam={{ id: game.away_team, name: away?.name, logo_url: away?.logo_url, color: away?.color, href: `/team/${game.away_team}`, wins: away?.wins, losses: away?.losses }}
       homeScore={game.home_score}
       awayScore={game.away_score}
       homeBox={homeBox}
