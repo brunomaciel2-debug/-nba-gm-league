@@ -22,15 +22,21 @@ export default function AdminSimulatePage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult]   = useState<any>(null)
   const [log, setLog]         = useState<string[]>([])
-  const [weekCount, setWeekCount] = useState(1)
+  // A "block" is one /api/admin/simulate call = one half of a week (3 days,
+  // then 4 days) — the Commissioner wants every simulate action, in every
+  // season phase, to advance by exactly that much and stop there, never
+  // silently chaining into the next block even when a stretch has no games
+  // (a real incident: pre-season weeks with nothing scheduled still need to
+  // be steppable one block at a time, not skipped through in a single click).
+  const [blockCount, setBlockCount] = useState(1)
 
   const getSeasonState = async () => {
     const { data } = await supabase.from('season_config').select('current_week,next_sim_half').eq('id',1).single()
     return { week: data?.current_week as number, half: (data?.next_sim_half as number) || 1 }
   }
 
-  // One /api/admin/simulate call = one "half" of a week. If the direct
-  // response is late, this confirms against season_config instead of
+  // One /api/admin/simulate call = one "half" of a week (one block). If the
+  // direct response is late, this confirms against season_config instead of
   // waiting forever — the (week, half) pair only changes once that specific
   // step has actually finished server-side, regardless of whether its HTTP
   // response made it back to the browser.
@@ -58,13 +64,7 @@ export default function AdminSimulatePage() {
       await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
       const now = await getSeasonState()
       if (now.week !== before.week || now.half !== before.half) {
-        return {
-          week: before.week,
-          games_simulated: null,
-          friendlies_simulated: null,
-          half: now.week === before.week ? before.half : undefined,
-          _confirmedByPoll: true,
-        }
+        return { week: before.week, games_simulated: null, friendlies_simulated: null, _confirmedByPoll: true }
       }
     }
     throw new Error(isPT
@@ -72,65 +72,48 @@ export default function AdminSimulatePage() {
       : 'The simulation did not respond in time, even after checking the database directly.')
   }
 
-  // Runs ONE full week (a week can come back split in two "halves" — days
-  // 1-3 then days 4-7 — when there are too many games to fit the route's
-  // own maxDuration in a single call, so this keeps calling /api/admin/simulate
-  // until that same week reports back without half===1 pending).
-  const simulateOneWeek = async (): Promise<any> => {
-    setLog(prev => [...prev, isPT ? '⏳ A simular...' : '⏳ Simulating...'])
-    let data: any = null
-    for (let part = 0; part < 2; part++) {
-      const before = await getSeasonState()
-      data = await callSimulateStep(before)
-
-      if (data.half === 1) {
-        const noGames = !data.games_simulated && !data.friendlies_simulated
-        setLog(prev => [...prev, isPT
-          ? `✓ Semana ${data.week} (dias 1-3)${data._confirmedByPoll ? ' — confirmada na base de dados' : noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}. A continuar para os dias 4-7...`
-          : `✓ Week ${data.week} (days 1-3)${data._confirmedByPoll ? ' — confirmed against the database' : noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}. Continuing to days 4-7...`])
-        continue
-      }
-      return data
-    }
-    return data
-  }
-
   const simulate = async () => {
-    const n = Math.max(1, weekCount)
+    const n = Math.max(1, blockCount)
     if (!confirm(n === 1
-      ? (isPT ? 'Simular a próxima semana agora?' : 'Simulate next week now?')
-      : (isPT ? `Simular as próximas ${n} semanas agora? Isto pode demorar vários minutos.` : `Simulate the next ${n} weeks now? This may take several minutes.`))) return
+      ? (isPT ? 'Simular o próximo bloco (3-4 dias) agora?' : 'Simulate the next block (3-4 days) now?')
+      : (isPT ? `Simular os próximos ${n} blocos (3-4 dias cada) agora? Isto pode demorar vários minutos.` : `Simulate the next ${n} blocks (3-4 days each) now? This may take several minutes.`))) return
 
     setLoading(true)
     setResult(null)
 
     try {
       for (let i = 1; i <= n; i++) {
-        if (n > 1) setLog(prev => [...prev, isPT ? `— Semana ${i} de ${n} —` : `— Week ${i} of ${n} —`])
-        setLog(prev => [...prev, isPT ? '⚙️ A gerar ordens automáticas para equipas sem GM...' : '⚙️ Generating auto orders for teams without GM...'])
+        const before = await getSeasonState()
+        if (n > 1) setLog(prev => [...prev, isPT ? `— Bloco ${i} de ${n} —` : `— Block ${i} of ${n} —`])
 
-        const ordRes = await fetch('/api/admin/auto-orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ secret: 'nba-admin-2025' }),
-        })
-        const ordData = await ordRes.json()
-        if (ordData.generated !== undefined) {
-          setLog(prev => [...prev, isPT
-            ? `✓ Ordens automáticas geradas para ${ordData.generated} equipas${ordData.carriedForward ? `, ${ordData.carriedForward} equipa(s) com GM mantiveram a última ordem real` : ''}`
-            : `✓ Auto orders generated for ${ordData.generated} teams${ordData.carriedForward ? `, ${ordData.carriedForward} GM team(s) kept their last real order` : ''}`])
+        // Orders are submitted once per week and read for both its blocks —
+        // only regenerate auto-orders when this block is about to START a
+        // new week (half 1), not when continuing the same week's 2nd block.
+        if (before.half === 1) {
+          setLog(prev => [...prev, isPT ? '⚙️ A gerar ordens automáticas para equipas sem GM...' : '⚙️ Generating auto orders for teams without GM...'])
+          const ordRes = await fetch('/api/admin/auto-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: 'nba-admin-2025' }),
+          })
+          const ordData = await ordRes.json()
+          if (ordData.generated !== undefined) {
+            setLog(prev => [...prev, isPT
+              ? `✓ Ordens automáticas geradas para ${ordData.generated} equipas${ordData.carriedForward ? `, ${ordData.carriedForward} equipa(s) com GM mantiveram a última ordem real` : ''}`
+              : `✓ Auto orders generated for ${ordData.generated} teams${ordData.carriedForward ? `, ${ordData.carriedForward} GM team(s) kept their last real order` : ''}`])
+          }
         }
 
-        const data = await simulateOneWeek()
+        setLog(prev => [...prev, isPT ? '⏳ A simular...' : '⏳ Simulating...'])
+        const data = await callSimulateStep(before)
+        const halfLabel = before.half === 1 ? (isPT ? 'dias 1-3' : 'days 1-3') : (isPT ? 'dias 4-7' : 'days 4-7')
+        const noGames = !data.games_simulated && !data.friendlies_simulated
         const msg = data._confirmedByPoll
-          ? (isPT ? `✅ Semana ${data.week} simulada (confirmado na base de dados).` : `✅ Week ${data.week} simulated (confirmed against the database).`)
-          : (isPT ? `✅ Semana ${data.week} simulada! ${data.games_simulated} jogos.` : `✅ Week ${data.week} simulated! ${data.games_simulated} games.`)
+          ? (isPT ? `✅ Semana ${data.week} (${halfLabel}) — confirmado na base de dados.` : `✅ Week ${data.week} (${halfLabel}) — confirmed against the database.`)
+          : (isPT
+              ? `✅ Semana ${data.week} (${halfLabel})${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}.`
+              : `✅ Week ${data.week} (${halfLabel})${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}.`)
         setLog(prev => [...prev, msg])
-        if (data.friendlies_simulated > 0) {
-          setLog(prev => [...prev, isPT
-            ? `⚡ ${data.friendlies_simulated} jogo(s) amigável(is) resolvido(s)`
-            : `⚡ ${data.friendlies_simulated} friendly game(s) resolved`])
-        }
         setResult(data)
       }
     } catch (e: any) {
@@ -152,8 +135,8 @@ export default function AdminSimulatePage() {
       </h1>
       <p className="text-sm mb-6" style={{color:'#5c554e'}}>
         {isPT
-          ? 'Simula a próxima semana da época agora, sem esperar pelo cron automático. Usa durante testes para avançar rapidamente.'
-          : 'Simulate the next week immediately, without waiting for the automatic cron. Use during testing to advance quickly.'}
+          ? 'Simula o próximo bloco de 3-4 dias da época agora, sem esperar pelo cron automático — cada bloco avança sempre esse ritmo, haja jogos ou não. Usa durante testes para avançar rapidamente.'
+          : 'Simulate the next 3-4 day block immediately, without waiting for the automatic cron — every block always advances at that same pace, whether or not it has games. Use during testing to advance quickly.'}
       </p>
 
       {/* Status */}
@@ -192,15 +175,15 @@ export default function AdminSimulatePage() {
 
       <div className="flex items-center gap-2 mb-3">
         <span className="text-xs font-semibold" style={{color:'#5c554e'}}>
-          {isPT ? 'Nº de semanas a simular:' : 'Weeks to simulate:'}
+          {isPT ? 'Nº de blocos (3-4 dias) a simular:' : 'Blocks (3-4 days) to simulate:'}
         </span>
         <input
           type="number"
           min={1}
-          max={20}
-          value={weekCount}
+          max={40}
+          value={blockCount}
           disabled={loading}
-          onChange={e => setWeekCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+          onChange={e => setBlockCount(Math.min(40, Math.max(1, parseInt(e.target.value) || 1)))}
           className="w-16 px-2 py-1 rounded-lg text-sm text-center font-bold disabled:opacity-40"
           style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}
         />
@@ -213,9 +196,9 @@ export default function AdminSimulatePage() {
         style={{background:'#c8102e', color:'#fff'}}>
         {loading
           ? (isPT ? '⏳ A simular...' : '⏳ Simulating...')
-          : weekCount === 1
-            ? `⚡ ${isPT ? 'Simular Próxima Semana' : 'Simulate Next Week'}`
-            : `⚡ ${isPT ? `Simular Próximas ${weekCount} Semanas` : `Simulate Next ${weekCount} Weeks`}`}
+          : blockCount === 1
+            ? `⚡ ${isPT ? 'Simular Próximo Bloco (3-4 dias)' : 'Simulate Next Block (3-4 days)'}`
+            : `⚡ ${isPT ? `Simular Próximos ${blockCount} Blocos` : `Simulate Next ${blockCount} Blocks`}`}
       </button>
 
       {/* Log */}
