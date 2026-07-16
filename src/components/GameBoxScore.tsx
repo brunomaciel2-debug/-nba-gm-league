@@ -502,12 +502,12 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
         </div>
         </div>
 
-        {/* RESULTS STRIP — line score + MVP, docked side by side inside the
-            same panel with nothing distinguishing the MVP half as its own
-            box (no border, no separate background, no accent line) — it
-            should read as the same surface continuing, not a card glued on
-            top of another one. */}
-        {((periodScores && periodScores.length > 0) || (mvpEntry && mvpTeam)) && (
+        {/* RESULTS STRIP — line score on the left, MVP in the middle, referee
+            on the right, all three docked in the same row inside the same
+            panel. No section here gets its own background/border/accent
+            line — it should read as the same surface continuing across all
+            three, not separate cards glued next to each other. */}
+        {((periodScores && periodScores.length > 0) || (mvpEntry && mvpTeam) || refereeName) && (
           <div className="flex flex-col sm:flex-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
             {/* LINE SCORE — Q1-Q4 plus OT1/OT2/... if the game went to overtime */}
             {periodScores && periodScores.length > 0 && (
@@ -579,50 +579,48 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* REFEREE STRIP — stands alone now, not paired next to the
-            attendance ring (which moved up under the arena name, where it
-            actually belongs) with no reason for the two to sit side by side. */}
-        {refereeName && (
-          <div
-            className="flex items-center justify-center p-3"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.15)' }}
-          >
-            <div className="flex items-center gap-3 rounded-2xl pl-2 pr-3 py-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <div
-                className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
-              >
-                {refereePhotoUrl
-                  ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
-                  : <span className="text-xl font-black" style={{ color: '#b9b2d0' }}>
-                      {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                    </span>}
-              </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro Principal' : 'Lead Official'}</div>
-                {refereeHref ? (
-                  <Link href={refereeHref} className="text-sm font-bold no-underline block" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
-                ) : (
-                  <span className="text-sm font-bold block" style={{ color: '#f5f2fa' }}>{refereeName}</span>
-                )}
-                {status === 'final' && refereeRating != null && (
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span
-                      className="text-xs font-black px-1.5 py-0.5 rounded-full"
-                      style={{ color: '#1a1512', background: refRatingColor(refereeRating), boxShadow: `0 0 8px ${refRatingColor(refereeRating)}88` }}
-                    >
-                      {refereeRating.toFixed(1)}
-                    </span>
-                    <span className="text-[10px] font-bold" style={{ color: refRatingColor(refereeRating) }}>
-                      {refRatingLabel(refereeRating, isPT)}
-                    </span>
+            {/* REFEREE — third column, right side of the same row (not a
+                separate bar underneath, and not paired with attendance,
+                which moved up under the arena name where it actually
+                belongs). */}
+            {refereeName && (
+              <div className="flex-shrink-0 p-3 flex items-center justify-center">
+                <div className="flex items-center gap-3 rounded-2xl pl-2 pr-3 py-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div
+                    className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                    style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
+                  >
+                    {refereePhotoUrl
+                      ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
+                      : <span className="text-xl font-black" style={{ color: '#b9b2d0' }}>
+                          {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </span>}
                   </div>
-                )}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro Principal' : 'Lead Official'}</div>
+                    {refereeHref ? (
+                      <Link href={refereeHref} className="text-sm font-bold no-underline block" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
+                    ) : (
+                      <span className="text-sm font-bold block" style={{ color: '#f5f2fa' }}>{refereeName}</span>
+                    )}
+                    {status === 'final' && refereeRating != null && (
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span
+                          className="text-xs font-black px-1.5 py-0.5 rounded-full"
+                          style={{ color: '#1a1512', background: refRatingColor(refereeRating), boxShadow: `0 0 8px ${refRatingColor(refereeRating)}88` }}
+                        >
+                          {refereeRating.toFixed(1)}
+                        </span>
+                        <span className="text-[10px] font-bold" style={{ color: refRatingColor(refereeRating) }}>
+                          {refRatingLabel(refereeRating, isPT)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
