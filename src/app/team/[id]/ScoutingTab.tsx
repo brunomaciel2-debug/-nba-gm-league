@@ -14,7 +14,7 @@ const POSITIONS = ['All','PG','SG','SF','PF','C']
 
 const ATTR_LABELS: Record<string,string> = {
   three:'3PT', layup:'Layup', dunk:'Dunk', mid:'Mid-Range', ft:'Free Throw',
-  siq:'Shot IQ', draw_foul:'Draw Foul', usage:'Usage', blk:'Block', stl:'Steal',
+  siq:'Shot IQ', draw_foul:'Draw Foul', blk:'Block', stl:'Steal',
   idef:'Interior Def', pdef:'Perimeter Def', def_reb:'Def Rebound', off_reb:'Off Rebound',
   stamina:'Stamina', durability:'Durability', speed:'Speed', agility:'Agility', strength:'Strength',
   ball_hdl:'Ball Handle', pass_vis:'Pass Vision', pass_iq:'Pass IQ', assist_role:'Assist Role',

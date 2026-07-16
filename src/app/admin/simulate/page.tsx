@@ -10,47 +10,63 @@ export default function AdminSimulatePage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult]   = useState<any>(null)
   const [log, setLog]         = useState<string[]>([])
+  const [weekCount, setWeekCount] = useState(1)
 
-  const simulate = async () => {
-    if (!confirm(isPT
-      ? 'Simular a próxima semana agora?'
-      : 'Simulate next week now?')) return
-
-    setLoading(true)
-    setResult(null)
-    setLog(prev => [...prev, isPT ? '⚙️ A gerar ordens automáticas para equipas sem GM...' : '⚙️ Generating auto orders for teams without GM...'])
-
-    try {
-      // Step 1: Generate auto orders for teams without GM
-      const ordRes = await fetch('/api/admin/auto-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret: 'nba-admin-2025' }),
-      })
-      const ordData = await ordRes.json()
-      if (ordData.generated !== undefined) {
-        setLog(prev => [...prev, isPT
-          ? `✓ Ordens automáticas geradas para ${ordData.generated} equipas${ordData.carriedForward ? `, ${ordData.carriedForward} equipa(s) com GM mantiveram a última ordem real` : ''}`
-          : `✓ Auto orders generated for ${ordData.generated} teams${ordData.carriedForward ? `, ${ordData.carriedForward} GM team(s) kept their last real order` : ''}`])
-      }
-
-      // Step 2: Simulate
-      setLog(prev => [...prev, isPT ? '⏳ A simular...' : '⏳ Simulating...'])
+  // Runs ONE full week (a week can come back split in two "halves" — days
+  // 1-3 then days 4-7 — when there are too many games to fit the route's
+  // own maxDuration in a single call, so this keeps calling /api/admin/simulate
+  // until that same week reports back without half===1 pending).
+  const simulateOneWeek = async (): Promise<any> => {
+    setLog(prev => [...prev, isPT ? '⏳ A simular...' : '⏳ Simulating...'])
+    let data: any = null
+    for (let part = 0; part < 2; part++) {
       const res = await fetch('/api/admin/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ secret: 'nba-admin-2025' }),
       })
-      const data = await res.json()
+      data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || (isPT ? 'Erro desconhecido' : 'Unknown error'))
 
-      if (res.ok && data.success && data.half === 1) {
+      if (data.half === 1) {
         const noGames = !data.games_simulated && !data.friendlies_simulated
-        const msg = isPT
-          ? `✅ Semana ${data.week} (dias 1-3)${noGames ? ' — sem jogos nesta fase' : ` simulada! ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}. Clica outra vez para simular os dias 4-7.`
-          : `✅ Week ${data.week} (days 1-3)${noGames ? ' — no games this phase' : ` simulated! ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}. Click again to simulate days 4-7.`
-        setLog(prev => [...prev, msg])
-        setResult(data)
-      } else if (res.ok && data.success) {
+        setLog(prev => [...prev, isPT
+          ? `✓ Semana ${data.week} (dias 1-3)${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}. A continuar para os dias 4-7...`
+          : `✓ Week ${data.week} (days 1-3)${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}. Continuing to days 4-7...`])
+        continue
+      }
+      return data
+    }
+    return data
+  }
+
+  const simulate = async () => {
+    const n = Math.max(1, weekCount)
+    if (!confirm(n === 1
+      ? (isPT ? 'Simular a próxima semana agora?' : 'Simulate next week now?')
+      : (isPT ? `Simular as próximas ${n} semanas agora? Isto pode demorar vários minutos.` : `Simulate the next ${n} weeks now? This may take several minutes.`))) return
+
+    setLoading(true)
+    setResult(null)
+
+    try {
+      for (let i = 1; i <= n; i++) {
+        if (n > 1) setLog(prev => [...prev, isPT ? `— Semana ${i} de ${n} —` : `— Week ${i} of ${n} —`])
+        setLog(prev => [...prev, isPT ? '⚙️ A gerar ordens automáticas para equipas sem GM...' : '⚙️ Generating auto orders for teams without GM...'])
+
+        const ordRes = await fetch('/api/admin/auto-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ secret: 'nba-admin-2025' }),
+        })
+        const ordData = await ordRes.json()
+        if (ordData.generated !== undefined) {
+          setLog(prev => [...prev, isPT
+            ? `✓ Ordens automáticas geradas para ${ordData.generated} equipas${ordData.carriedForward ? `, ${ordData.carriedForward} equipa(s) com GM mantiveram a última ordem real` : ''}`
+            : `✓ Auto orders generated for ${ordData.generated} teams${ordData.carriedForward ? `, ${ordData.carriedForward} GM team(s) kept their last real order` : ''}`])
+        }
+
+        const data = await simulateOneWeek()
         const msg = isPT
           ? `✅ Semana ${data.week} simulada! ${data.games_simulated} jogos.`
           : `✅ Week ${data.week} simulated! ${data.games_simulated} games.`
@@ -61,14 +77,11 @@ export default function AdminSimulatePage() {
             : `⚡ ${data.friendlies_simulated} friendly game(s) resolved`])
         }
         setResult(data)
-      } else {
-        const msg = `❌ ${data.error || (isPT ? 'Erro desconhecido' : 'Unknown error')}`
-        setLog(prev => [...prev, msg])
-        setResult({ error: data.error })
       }
     } catch (e: any) {
       const msg = `❌ ${e.message}`
       setLog(prev => [...prev, msg])
+      setResult({ error: e.message })
     }
     setLoading(false)
   }
@@ -122,6 +135,22 @@ export default function AdminSimulatePage() {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-semibold" style={{color:'#5c554e'}}>
+          {isPT ? 'Nº de semanas a simular:' : 'Weeks to simulate:'}
+        </span>
+        <input
+          type="number"
+          min={1}
+          max={20}
+          value={weekCount}
+          disabled={loading}
+          onChange={e => setWeekCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
+          className="w-16 px-2 py-1 rounded-lg text-sm text-center font-bold disabled:opacity-40"
+          style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}
+        />
+      </div>
+
       <button
         onClick={simulate}
         disabled={loading}
@@ -129,7 +158,9 @@ export default function AdminSimulatePage() {
         style={{background:'#c8102e', color:'#fff'}}>
         {loading
           ? (isPT ? '⏳ A simular...' : '⏳ Simulating...')
-          : `⚡ ${isPT ? 'Simular Próxima Semana' : 'Simulate Next Week'}`}
+          : weekCount === 1
+            ? `⚡ ${isPT ? 'Simular Próxima Semana' : 'Simulate Next Week'}`
+            : `⚡ ${isPT ? `Simular Próximas ${weekCount} Semanas` : `Simulate Next ${weekCount} Weeks`}`}
       </button>
 
       {/* Log */}

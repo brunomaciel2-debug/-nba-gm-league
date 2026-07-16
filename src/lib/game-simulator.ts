@@ -293,9 +293,16 @@ function foulTaper(pfSoFar:number):number{return pfSoFar<=1?1:Math.max(.12,1-(pf
 // 36-minute reference as rebTaper/astTaper above (the level "18" was
 // originally tuned against), so a bench player's own shot volume gets
 // reined in much earlier, proportional to how little he's actually playing.
+// Decay steepened .07->.14 and floor dropped .30->.15 — a real incident
+// (two teammates both scoring 47 in ~31 minutes each, 94 combined points on
+// one team; real NBA history has ZERO games with two teammates BOTH at 47+,
+// and only 10 games ever with both at 40+, topping out at 91 combined)
+// showed the old rate let a hot shooter's weight stay high enough, long
+// enough, to keep out-competing bench weights all game even while
+// "tapering". Same idea as astTaper's .11->.20 steepening earlier.
 function scoreTaper(fgaSoFar:number,mins:number):number{
 const threshold=Math.max(4,(mins/36)*18)
-return fgaSoFar<=threshold?1:Math.max(.30,1-(fgaSoFar-threshold)*.07)
+return fgaSoFar<=threshold?1:Math.max(.13,1-(fgaSoFar-threshold)*.17)
 }
 // scoreTaper above only throttles raw shot COUNT — and-1s, made 3s, and free
 // throws all add points without necessarily adding to FGA, so a hot enough
@@ -307,10 +314,15 @@ return fgaSoFar<=threshold?1:Math.max(.30,1-(fgaSoFar-threshold)*.07)
 // allocation should realistically produce (via the same ppg36() curve that
 // sets his baseline volume) — the direct fix for the actual symptom
 // (points per minute), not just a proxy for it via shot count.
+// Decay steepened .6->2.0 and floor dropped .20->.12, same real incident as
+// scoreTaper above — dividing by "expected" diluted the decay too much for
+// a genuine star (a big expected baseline meant the same raw point excess
+// barely moved his weight), letting him keep climbing well past a real
+// monster game instead of leveling off around one.
 function pointsTaper(ptsSoFar:number,mins:number,scoring?:number):number{
 const expected=Math.max(6,ppg36(scoring)*(mins/36))
 const threshold=expected*1.5
-return ptsSoFar<=threshold?1:Math.max(.20,1-(ptsSoFar-threshold)/expected*.6)
+return ptsSoFar<=threshold?1:Math.max(.10,1-(ptsSoFar-threshold)/expected*2.4)
 }
 // Real NBA "usage curve": a player who's carrying a much bigger share of
 // the offense than normal doesn't just take more shots (scoreTaper above
@@ -940,7 +952,14 @@ w*=pointsTaper(st?.[p.id]?.pts||0,p.mins||0,p.scoring)
 // this game becomes less likely to also be the shooter, the same shared-
 // usage-budget idea real basketball roles already impose.
 w*=astTaper(st?.[p.id]?.ast||0,p.mins||0)
-return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
+// Coefficient cut from .15 to .08 — a maxed-out streaky=100 player sitting
+// at mom=3 was getting a flat +45% shot-selection weight on top of an
+// already-legit star's higher base weight AND his top-3-usage priority
+// bump, compounding into a real shot monopoly on possession-picking, not
+// just a hot-hand flavor bump. At .08 the same maxed case tops out at +24%
+// (an average streaky=50 player, +12%) — still rewards a real streak,
+// no longer able to crowd out the rest of the lineup's touches.
+return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.08)*(.5+f*.5))}
 })
 return wtCapped(weighted)
 }

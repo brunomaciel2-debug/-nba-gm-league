@@ -9,28 +9,28 @@ import { useTranslation } from '@/components/I18nProvider'
 import FriendlyButton from './FriendlyButton'
 
 const ATTR_GROUPS_EN = [
-  {label:'Scoring',    color:'#b45309', attrs:['usage','three','layup','dunk','mid','ft','siq','draw_foul']},
+  {label:'Scoring',    color:'#b45309', attrs:['three','layup','dunk','mid','ft','siq','draw_foul']},
   {label:'Defense',    color:'#15803d', attrs:['blk','stl','idef','pdef']},
   {label:'Playmaking', color:'#1d4ed8', attrs:['ball_hdl','pass_vis','pass_iq','assist_role']},
   {label:'Physical',   color:'#6d28d9', attrs:['stamina','durability','def_reb','off_reb']},
   {label:'Mental',     color:'#c2410c', attrs:['pressure','consistency','crowd_effect']},
 ]
 const ATTR_GROUPS_PT = [
-  {label:'Ataque',        color:'#b45309', attrs:['usage','three','layup','dunk','mid','ft','siq','draw_foul']},
+  {label:'Ataque',        color:'#b45309', attrs:['three','layup','dunk','mid','ft','siq','draw_foul']},
   {label:'Defesa',        color:'#15803d', attrs:['blk','stl','idef','pdef']},
   {label:'Criação de Jogo',color:'#1d4ed8', attrs:['ball_hdl','pass_vis','pass_iq','assist_role']},
   {label:'Físico',        color:'#6d28d9', attrs:['stamina','durability','def_reb','off_reb']},
   {label:'Mental',        color:'#c2410c', attrs:['pressure','consistency','crowd_effect']},
 ]
 const ATTR_LABEL: Record<string,string> = {
-  usage:'USG',three:'3PT',layup:'LAY',dunk:'DNK',mid:'MID',ft:'FT',siq:'SIQ',draw_foul:'DF',
+  three:'3PT',layup:'LAY',dunk:'DNK',mid:'MID',ft:'FT',siq:'SIQ',draw_foul:'DF',
   blk:'BLK',stl:'STL',idef:'IDEF',pdef:'PDEF',
   ball_hdl:'BH',pass_vis:'PV',pass_iq:'PIQ',assist_role:'AR',
   stamina:'STA',durability:'DUR',def_reb:'DREB',off_reb:'OREB',
   pressure:'CLU',consistency:'CON',crowd_effect:'CE',
 }
 const ATTR_TIP_EN: Record<string,string> = {
-  USG:'Usage Rate (0-100)', '3PT':'Three-Point Shooting (0-100)',
+  '3PT':'Three-Point Shooting (0-100)',
   LAY:'Layup — rim finishing (0-100)', DNK:'Dunk (0-100)',
   MID:'Mid-Range (0-100)', FT:'Free Throw (0-100)',
   SIQ:'Shot IQ — shot selection (0-100)', DF:'Draw Foul (0-100)',
@@ -44,7 +44,7 @@ const ATTR_TIP_EN: Record<string,string> = {
   OVR:'Overall rating', AGE:'Player age',
 }
 const ATTR_TIP_PT: Record<string,string> = {
-  USG:'Taxa de Utilização (0-100)', '3PT':'Lançamento de 3 Pontos (0-100)',
+  '3PT':'Lançamento de 3 Pontos (0-100)',
   LAY:'Layup — finalização perto do cesto (0-100)', DNK:'Afundanço (0-100)',
   MID:'Meia Distância (0-100)', FT:'Lance Livre (0-100)',
   SIQ:'Shot IQ — escolha de lançamento (0-100)', DF:'Provoca Falta (0-100)',

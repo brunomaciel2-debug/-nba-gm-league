@@ -38,7 +38,7 @@ const TOOLTIPS_EN: Record<string,string> = {
   BH:'Ball Handle (0-100)',PV:'Pass Vision (0-100)',PIQ:'Pass IQ (0-100)',AR:'Assist Role (0-100)',
   CLU:'Clutch (0-100)',CON:'Consistency (0-100)',CE:'Crowd Effect (0-100)',STR:'Streaky (0-100)',
   SPD:'Speed (0-100)',AGI:'Agility (0-100)',STR2:'Strength (0-100)',CS:'Close Shot (0-100)',
-  SDNK:'Afundanço Estático (0-100)',TT:'Trash Talk (0-100)',USG:'Usage Rate (0-100)',
+  SDNK:'Afundanço Estático (0-100)',TT:'Trash Talk (0-100)',
   OVR:'Overall rating (Commissioner only)',AGE:'Player age',
 }
 const TOOLTIPS_PT: Record<string,string> = {
@@ -49,12 +49,12 @@ const TOOLTIPS_PT: Record<string,string> = {
   BH:'Drible (0-100)',PV:'Visão de Jogo (0-100)',PIQ:'Pass IQ (0-100)',AR:'Perfil de Assistência (0-100)',
   CLU:'Clutch/Pressão (0-100)',CON:'Consistência (0-100)',CE:'Influência do Público (0-100)',STR:'Irregular (0-100)',
   SPD:'Velocidade (0-100)',AGI:'Agilidade (0-100)',STR2:'Força (0-100)',CS:'Finalização no Cesto (0-100)',
-  SDNK:'Afundanço Estático (0-100)',TT:'Trash Talk (0-100)',USG:'Taxa de Utilização (0-100)',
+  SDNK:'Afundanço Estático (0-100)',TT:'Trash Talk (0-100)',
   OVR:'Avaliação global (só Comissário)',AGE:'Idade do jogador',
 }
 const ATTR_COLS = [
   {key:'three',label:'3PT'},{key:'layup',label:'LAY'},{key:'dunk',label:'DNK'},{key:'mid',label:'MID'},
-  {key:'ft',label:'FT'},{key:'siq',label:'SIQ'},{key:'draw_foul',label:'DF'},{key:'usage',label:'USG'},
+  {key:'ft',label:'FT'},{key:'siq',label:'SIQ'},{key:'draw_foul',label:'DF'},
   {key:'blk',label:'BLK'},{key:'stl',label:'STL'},{key:'idef',label:'IDEF'},{key:'pdef',label:'PDEF'},
   {key:'def_reb',label:'DREB'},{key:'off_reb',label:'OREB'},{key:'stamina',label:'STA'},{key:'durability',label:'DUR'},
   {key:'speed',label:'SPD'},{key:'agility',label:'AGI'},{key:'strength',label:'STR2'},{key:'close_shot',label:'CS'},

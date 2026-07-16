@@ -9,25 +9,25 @@ import { useTranslation } from '@/components/I18nProvider'
 type Tab = 'roster'|'schedule'
 
 const ATTR_GROUPS = [
-  {label:'Scoring',   color:'#b45309',attrs:['usage','three','layup','dunk','mid','ft','siq','draw_foul']},
+  {label:'Scoring',   color:'#b45309',attrs:['three','layup','dunk','mid','ft','siq','draw_foul']},
   {label:'Defense',   color:'#15803d',attrs:['blk','stl','idef','pdef']},
   {label:'Playmaking',color:'#1d4ed8',attrs:['ball_hdl','pass_vis','pass_iq','assist_role']},
   {label:'Physical',  color:'#6d28d9',attrs:['stamina','durability','def_reb','off_reb']},
   {label:'Mental',    color:'#c2410c',attrs:['pressure','consistency','crowd_effect']},
 ]
 const ATTR_LABEL: Record<string,string> = {
-  usage:'USG',three:'3PT',layup:'LAY',dunk:'DNK',mid:'MID',ft:'FT',siq:'SIQ',draw_foul:'DF',
+  three:'3PT',layup:'LAY',dunk:'DNK',mid:'MID',ft:'FT',siq:'SIQ',draw_foul:'DF',
   blk:'BLK',stl:'STL',idef:'IDEF',pdef:'PDEF',
   ball_hdl:'BH',pass_vis:'PV',pass_iq:'PIQ',assist_role:'AR',
   stamina:'STA',durability:'DUR',def_reb:'DREB',off_reb:'OREB',
   pressure:'CLU',consistency:'CON',crowd_effect:'CE',
 }
 const ATTR_TIP_EN: Record<string,string> = {
-  USG:'Usage Rate',OVR:'Overall rating',AGE:'Player age',EXP:'NBA seasons played',
+  OVR:'Overall rating',AGE:'Player age',EXP:'NBA seasons played',
   PPG:'Points Per Game (G-League)',RPG:'Rebounds Per Game (G-League)',APG:'Assists Per Game (G-League)',
 }
 const ATTR_TIP_PT: Record<string,string> = {
-  USG:'Taxa de Uso',OVR:'Avaliação global',AGE:'Idade do jogador',EXP:'Épocas NBA jogadas',
+  OVR:'Avaliação global',AGE:'Idade do jogador',EXP:'Épocas NBA jogadas',
   PPG:'Pontos Por Jogo (G-League)',RPG:'Ressaltos Por Jogo (G-League)',APG:'Assistências Por Jogo (G-League)',
 }
 

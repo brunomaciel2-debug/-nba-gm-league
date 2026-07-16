@@ -5,7 +5,7 @@ import ProspectPhotoUpload from './ProspectPhotoUpload'
 import { useTranslation } from '@/components/I18nProvider'
 
 const ATTR_GROUPS_EN = [
-  { label:'Scoring',       color:'#b45309', attrs:[{key:'three',label:'Three Point'},{key:'layup',label:'Layup'},{key:'dunk',label:'Afundanço'},{key:'mid',label:'Mid-Range'},{key:'ft',label:'Free Throws'},{key:'siq',label:'Shot IQ'},{key:'draw_foul',label:'Draw Foul'},{key:'usage',label:'Usage Rate'},{key:'close_shot',label:'Close Shot'},{key:'standing_dunk',label:'Afundanço Estático'}]},
+  { label:'Scoring',       color:'#b45309', attrs:[{key:'three',label:'Three Point'},{key:'layup',label:'Layup'},{key:'dunk',label:'Afundanço'},{key:'mid',label:'Mid-Range'},{key:'ft',label:'Free Throws'},{key:'siq',label:'Shot IQ'},{key:'draw_foul',label:'Draw Foul'},{key:'close_shot',label:'Close Shot'},{key:'standing_dunk',label:'Afundanço Estático'}]},
   { label:'Defense',       color:'#15803d', attrs:[{key:'blk',label:'Block'},{key:'stl',label:'Steal'},{key:'idef',label:'Interior Defense'},{key:'pdef',label:'Perimeter Defense'}]},
   { label:'Rebounding',    color:'#1d4ed8', attrs:[{key:'def_reb',label:'Def. Rebound'},{key:'off_reb',label:'Off. Rebound'}]},
   { label:'Athleticism',   color:'#6d28d9', attrs:[{key:'stamina',label:'Stamina'},{key:'durability',label:'Durability'},{key:'speed',label:'Speed'},{key:'agility',label:'Agility'},{key:'strength',label:'Strength'}]},
@@ -13,7 +13,7 @@ const ATTR_GROUPS_EN = [
   { label:'Psychological', color:'#b45309', attrs:[{key:'pressure',label:'Clutch/Pressure'},{key:'consistency',label:'Consistency'},{key:'crowd_effect',label:'Crowd Effect'},{key:'streaky',label:'Streaky'},{key:'trash_talk',label:'Trash Talk'}]},
 ]
 const ATTR_GROUPS_PT = [
-  { label:'Ataque',           color:'#b45309', attrs:[{key:'three',label:'3 Pontos'},{key:'layup',label:'Layup'},{key:'dunk',label:'Afundanço'},{key:'mid',label:'Meia Distância'},{key:'ft',label:'Lances Livres'},{key:'siq',label:'Shot IQ'},{key:'draw_foul',label:'Provoca Falta'},{key:'usage',label:'Taxa de Utilização'},{key:'close_shot',label:'Finalização no Cesto'},{key:'standing_dunk',label:'Afundanço Estático'}]},
+  { label:'Ataque',           color:'#b45309', attrs:[{key:'three',label:'3 Pontos'},{key:'layup',label:'Layup'},{key:'dunk',label:'Afundanço'},{key:'mid',label:'Meia Distância'},{key:'ft',label:'Lances Livres'},{key:'siq',label:'Shot IQ'},{key:'draw_foul',label:'Provoca Falta'},{key:'close_shot',label:'Finalização no Cesto'},{key:'standing_dunk',label:'Afundanço Estático'}]},
   { label:'Defesa',           color:'#15803d', attrs:[{key:'blk',label:'Desarme de Lançamento'},{key:'stl',label:'Roubo de Bola'},{key:'idef',label:'Def. Interior'},{key:'pdef',label:'Def. Perímetro'}]},
   { label:'Ressaltos',        color:'#1d4ed8', attrs:[{key:'def_reb',label:'Ressalto Def.'},{key:'off_reb',label:'Ressalto Ofens.'}]},
   { label:'Atletismo',        color:'#6d28d9', attrs:[{key:'stamina',label:'Resistência'},{key:'durability',label:'Durabilidade'},{key:'speed',label:'Velocidade'},{key:'agility',label:'Agilidade'},{key:'strength',label:'Força'}]},

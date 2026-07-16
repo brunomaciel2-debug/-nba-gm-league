@@ -110,7 +110,6 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
 
   const ATTR_GROUPS = [
     { label: isPT?'Ataque':'Scoring', color:'#b45309', attrs:[
-      {key:'usage',    label: isPT?'Taxa de Utilização':'Usage Rate',      tip: isPT?'Taxa de Utilização — com que frequência este jogador está envolvido nas jogadas de ataque.':'Usage Rate — how often this player is involved in offensive plays.'},
       {key:'three',    label: isPT?'3 Pontos':'Three Point',         tip: isPT?'3 Pontos — capacidade de lançamento além da linha.':'Three Point — shooting ability from beyond the arc.'},
       {key:'layup',    label: 'Layup',                               tip: isPT?'Layup — capacidade de finalizar perto do cesto.':'Layup — finishing ability at the rim.'},
       {key:'dunk',     label: isPT?'Afundanço':'Dunk',               tip: isPT?'Afundanço — capacidade de finalizar com potência acima do cesto.':'Dunk — ability to finish with power above the rim.'},

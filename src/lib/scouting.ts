@@ -39,10 +39,10 @@ export const SCOUT_TIERS = {
   },
 }
 
-export const TOTAL_ATTRIBUTES = 30
+export const TOTAL_ATTRIBUTES = 29
 
 export const SCOUTABLE_ATTRIBUTES = [
-  'three','layup','dunk','mid','ft','siq','draw_foul','usage',
+  'three','layup','dunk','mid','ft','siq','draw_foul',
   'blk','stl','idef','pdef',
   'def_reb','off_reb',
   'stamina','durability','speed','agility','strength',
