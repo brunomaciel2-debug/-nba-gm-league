@@ -155,13 +155,13 @@ const ArenaBowl = ({ attendance, capacity, color, isPT }: { attendance: number, 
   })
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox="0 0 200 200" className="w-20 h-20">
+      <svg viewBox="0 0 200 200" className="w-32 h-32">
         {seats}
         <circle cx={cx} cy={cy} r={rInner - 16} fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.1)" />
         <text x={cx} y={cy - 3} textAnchor="middle" fontSize="24" fontWeight="900" fill="#fff">{Math.round(fillPct * 100)}%</text>
         <text x={cx} y={cy + 17} textAnchor="middle" fontSize="9" fontWeight="700" letterSpacing="1" fill="#b9b2d0">{isPT ? 'LOTAÇÃO' : 'CAPACITY'}</text>
       </svg>
-      <div className="text-[11px] font-semibold mt-0.5" style={{ color: '#d6d0e8' }}>
+      <div className="text-sm font-semibold mt-0.5" style={{ color: '#d6d0e8' }}>
         {attendance.toLocaleString()} <span style={{ color: '#8a83a3' }}>/ {capacity.toLocaleString()}</span>
       </div>
     </div>
