@@ -547,7 +547,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             {/* GAME MVP — highest Game Score (GmSc), the same formula NBA.com/
                 ESPN use to summarize a single-game performance in one number. */}
             {mvpEntry && mvpTeam && (
-              <div className="flex-1 p-3 flex items-center gap-3 min-w-0">
+              <div className="flex-1 p-3 flex items-center justify-center gap-3 min-w-0">
                 {mvpEntry.b.photo_url ? (
                   <img src={mvpEntry.b.photo_url} alt="" className="w-20 h-20 rounded-full object-cover flex-shrink-0"
                     style={{ border: `3px solid ${mvpColorOnDark}`, boxShadow: `0 0 0 4px ${mvpColorOnDark}1a` }} />
@@ -585,39 +585,37 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 which moved up under the arena name where it actually
                 belongs). */}
             {refereeName && (
-              <div className="flex-shrink-0 p-3 flex items-center justify-center">
-                <div className="flex items-center gap-3 rounded-2xl pl-2 pr-3 py-1.5" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <div
-                    className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
-                  >
-                    {refereePhotoUrl
-                      ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-xl font-black" style={{ color: '#b9b2d0' }}>
-                          {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                        </span>}
-                  </div>
-                  <div>
-                    <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro Principal' : 'Lead Official'}</div>
-                    {refereeHref ? (
-                      <Link href={refereeHref} className="text-sm font-bold no-underline block" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
-                    ) : (
-                      <span className="text-sm font-bold block" style={{ color: '#f5f2fa' }}>{refereeName}</span>
-                    )}
-                    {status === 'final' && refereeRating != null && (
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span
-                          className="text-xs font-black px-1.5 py-0.5 rounded-full"
-                          style={{ color: '#1a1512', background: refRatingColor(refereeRating), boxShadow: `0 0 8px ${refRatingColor(refereeRating)}88` }}
-                        >
-                          {refereeRating.toFixed(1)}
-                        </span>
-                        <span className="text-[10px] font-bold" style={{ color: refRatingColor(refereeRating) }}>
-                          {refRatingLabel(refereeRating, isPT)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+              <div className="flex-1 p-3 flex items-center justify-center gap-3 min-w-0">
+                <div
+                  className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
+                >
+                  {refereePhotoUrl
+                    ? <img src={refereePhotoUrl} alt="" className="w-full h-full object-cover" />
+                    : <span className="text-xl font-black" style={{ color: '#b9b2d0' }}>
+                        {refereeName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </span>}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-widest mb-0.5" style={{ color: '#b9b2d0' }}>{isPT ? 'Árbitro Principal' : 'Lead Official'}</div>
+                  {refereeHref ? (
+                    <Link href={refereeHref} className="text-sm font-bold no-underline block" style={{ color: '#f5f2fa' }}>{refereeName}</Link>
+                  ) : (
+                    <span className="text-sm font-bold block" style={{ color: '#f5f2fa' }}>{refereeName}</span>
+                  )}
+                  {status === 'final' && refereeRating != null && (
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span
+                        className="text-xs font-black px-1.5 py-0.5 rounded-full"
+                        style={{ color: '#1a1512', background: refRatingColor(refereeRating), boxShadow: `0 0 8px ${refRatingColor(refereeRating)}88` }}
+                      >
+                        {refereeRating.toFixed(1)}
+                      </span>
+                      <span className="text-[10px] font-bold" style={{ color: refRatingColor(refereeRating) }}>
+                        {refRatingLabel(refereeRating, isPT)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
