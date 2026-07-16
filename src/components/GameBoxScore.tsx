@@ -506,12 +506,18 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             on the right, all three docked in the same row inside the same
             panel. No section here gets its own background/border/accent
             line — it should read as the same surface continuing across all
-            three, not separate cards glued next to each other. */}
+            three, not separate cards glued next to each other. A 3-column
+            grid (auto/1fr/auto) instead of two flex-1 halves — with flex-1
+            on both MVP and referee, MVP only centered within its own half
+            of the space left of the line score, not in the true middle of
+            the row, so it read as shifted left. Explicit column numbers
+            keep each section in its column even if one of the three is
+            missing for a given game. */}
         {((periodScores && periodScores.length > 0) || (mvpEntry && mvpTeam) || refereeName) && (
-          <div className="flex flex-col sm:flex-row" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
             {/* LINE SCORE — Q1-Q4 plus OT1/OT2/... if the game went to overtime */}
             {periodScores && periodScores.length > 0 && (
-              <div className="flex-shrink-0 overflow-x-auto flex items-center">
+              <div className="sm:col-start-1 overflow-x-auto flex items-center">
                 <table className="text-xs" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
                   <thead>
                     <tr>
@@ -547,7 +553,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             {/* GAME MVP — highest Game Score (GmSc), the same formula NBA.com/
                 ESPN use to summarize a single-game performance in one number. */}
             {mvpEntry && mvpTeam && (
-              <div className="flex-1 p-3 flex items-center justify-center gap-3 min-w-0">
+              <div className="sm:col-start-2 p-3 flex items-center justify-center gap-3 min-w-0">
                 {mvpEntry.b.photo_url ? (
                   <img src={mvpEntry.b.photo_url} alt="" className="w-20 h-20 rounded-full object-cover flex-shrink-0"
                     style={{ border: `3px solid ${mvpColorOnDark}`, boxShadow: `0 0 0 4px ${mvpColorOnDark}1a` }} />
@@ -585,7 +591,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 which moved up under the arena name where it actually
                 belongs). */}
             {refereeName && (
-              <div className="flex-1 p-3 flex items-center justify-center gap-3 min-w-0">
+              <div className="sm:col-start-3 p-3 flex items-center justify-center gap-3 min-w-0">
                 <div
                   className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
                   style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
