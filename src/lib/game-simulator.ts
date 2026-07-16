@@ -239,14 +239,29 @@ const REB_BREAKPOINTS:[number,number][]=[
 // redistributes his lost share to the same pool of teammates/opponents
 // already competing for that exact rebound, so it never touches either
 // team's total rebound count, only who ends up with them.
-function rebTaper(rebSoFar:number):number{return rebSoFar<=10?1:Math.max(.25,1-(rebSoFar-10)*.10)}
+// The taper threshold itself has to scale with the player's OWN minutes —
+// a flat "10 boards" trigger for everyone let a bench player logging 20
+// minutes climb just as high before tapering as a 40-minute starter, since
+// nothing else in this draw caps raw counting-stat volume by playing time
+// (the mins-weight only shapes PROBABILITY per rebound, not how many total
+// rebounds are up for grabs across the whole game). Scaled off a 36-minute
+// reference (the level the flat "10" was originally tuned against).
+function rebTaper(rebSoFar:number,mins:number):number{
+const threshold=Math.max(3,(mins/36)*10)
+return rebSoFar<=threshold?1:Math.max(.25,1-(rebSoFar-threshold)*.10)
+}
 // Same idea as rebTaper() above, applied to the assist weighted-draw: an
 // elite passer's own assist total this game tapers his own draw weight down
 // once it climbs past a normal-great-game level, so the extreme tail (16+
 // assists) comes down toward the real NBA's ~1.4% rate without touching the
 // team-wide assist total (it only redistributes the lost share to the same
-// pool of teammates already on the floor).
-function astTaper(astSoFar:number):number{return astSoFar<=7?1:Math.max(.22,1-(astSoFar-7)*.11)}
+// pool of teammates already on the floor). Same mins-scaled threshold as
+// rebTaper above, for the same reason — a 20-minute player and a 40-minute
+// starter can't fairly share one flat assist ceiling.
+function astTaper(astSoFar:number,mins:number):number{
+const threshold=Math.max(2,(mins/36)*7)
+return astSoFar<=threshold?1:Math.max(.22,1-(astSoFar-threshold)*.11)
+}
 // Real "foul trouble" caution — a coach genuinely plays a player more
 // carefully (or shifts defensive matchups away from him) once he's already
 // picked up a few fouls, rather than letting the same heavy-minutes
@@ -261,7 +276,34 @@ function foulTaper(pfSoFar:number):number{return pfSoFar<=1?1:Math.max(.12,1-(pf
 // weight down once it passes a normal monster-game volume, so the runaway
 // hot-hand feedback loop (momentum boosts both weight and accuracy at once)
 // can't push one player's FGA to unrealistic totals in a single game.
-function scoreTaper(fgaSoFar:number):number{return fgaSoFar<=18?1:Math.max(.30,1-(fgaSoFar-18)*.07)}
+// Real incident that surfaced this: a flat "18 FGA" threshold applied
+// equally to a 40-minute starter AND a 20-minute bench piece let low-minute
+// players rack up starter-level shot counts (and, combined with hot-hand
+// momentum, starter-level POINTS) inside a fraction of a starter's playing
+// time — box scores showing 40+ points in the low 20s of minutes, an
+// impossible scoring rate no real NBA game produces. Scaled off the same
+// 36-minute reference as rebTaper/astTaper above (the level "18" was
+// originally tuned against), so a bench player's own shot volume gets
+// reined in much earlier, proportional to how little he's actually playing.
+function scoreTaper(fgaSoFar:number,mins:number):number{
+const threshold=Math.max(4,(mins/36)*18)
+return fgaSoFar<=threshold?1:Math.max(.30,1-(fgaSoFar-threshold)*.07)
+}
+// scoreTaper above only throttles raw shot COUNT — and-1s, made 3s, and free
+// throws all add points without necessarily adding to FGA, so a hot enough
+// shooter could still keep his attempts under the taper threshold while his
+// point total quietly runs away (a real incident: 45+ points inside 27
+// minutes, an over-2x-real-NBA scoring rate no amount of FGA-capping alone
+// stopped). This tapers a player's own shot-selection weight directly
+// against his OWN points scored so far, relative to what his own mins
+// allocation should realistically produce (via the same ppg36() curve that
+// sets his baseline volume) — the direct fix for the actual symptom
+// (points per minute), not just a proxy for it via shot count.
+function pointsTaper(ptsSoFar:number,mins:number,scoring?:number):number{
+const expected=Math.max(6,ppg36(scoring)*(mins/36))
+const threshold=expected*1.5
+return ptsSoFar<=threshold?1:Math.max(.20,1-(ptsSoFar-threshold)/expected*.6)
+}
 // Real NBA "usage curve": a player who's carrying a much bigger share of
 // the offense than normal doesn't just take more shots (scoreTaper above
 // already tempers that within one game) — the shots themselves are tougher
@@ -449,7 +491,15 @@ return five
 // and the final box score — no separate possession-pool hack needed.
 function applyGarbageTimeSubs(players:any[],remainingMin:number){
 if(remainingMin<=0)return
-const active=[...players].filter(p=>p.mins>0).sort((a,b)=>b.mins-a.mins)
+// A player who already fouled out has a correct, final p.mins (his real
+// elapsed time, set once by foulOutCheck) — he must never be touched again
+// here in either direction. Without this guard, a foul-out early in the
+// game leaves him with a low p.mins, which then makes him look like an
+// unused bench player to the "who's played the least" deepBench pick below,
+// handing him a chunk of garbage-time minutes on top of his already-correct
+// total — the exact bug behind a "FOULED OUT" box score line still showing
+// 45+ total minutes.
+const active=[...players].filter(p=>p.mins>0&&!p.ejected).sort((a,b)=>b.mins-a.mins)
 const stars=active.slice(0,5)
 if(!stars.length)return
 // The 5 who get pulled would all have played this exact same closing
@@ -458,7 +508,7 @@ if(!stars.length)return
 // bench replacements (the 5 least-used players on the roster, including
 // anyone originally at 0) each pick up that same real minutes swing.
 const starIds=new Set(stars.map(p=>p.id))
-const deepBench=[...players].filter(p=>!starIds.has(p.id)).sort((a,b)=>(a.mins||0)-(b.mins||0)).slice(0,stars.length)
+const deepBench=[...players].filter(p=>!starIds.has(p.id)&&!p.ejected).sort((a,b)=>(a.mins||0)-(b.mins||0)).slice(0,stars.length)
 stars.forEach((p,i)=>{
 const taken=Math.min(remainingMin,p.mins*0.85)
 p.mins=Math.round(Math.max(2,p.mins-taken))
@@ -841,7 +891,8 @@ w*=Math.max(.04,(p.mins||0)/48)
 // defense keys on a red-hot scorer harder as the game goes on. Only
 // redistributes shots to the same on-court pool, never touches the team's
 // total FGA.
-w*=scoreTaper(st?.[p.id]?.fga||0)
+w*=scoreTaper(st?.[p.id]?.fga||0,p.mins||0)
+w*=pointsTaper(st?.[p.id]?.pts||0,p.mins||0,p.scoring)
 return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.15)*(.5+f*.5))}
 })
 return wtCapped(weighted)
@@ -976,8 +1027,8 @@ if(!u3&&Math.random()<bpg36(def.blk)*.145*(doo.def_style==='zone23'?.5:1)*refFou
 // (mostly the defense, sometimes the shooting team recovers the carom).
 // This used to just vanish (possession ends, nobody gets a rebound stat),
 // quietly undercounting team REB by exactly the number of blocks in the game.
-if(Math.random()<.27){const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})),.45);st[rb.id].or++;st[rb.id].reb++}
-else{const rb=wtCapped(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})),.45);st[rb.id].dr++;st[rb.id].reb++}
+if(Math.random()<.27){const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0)})),.45);st[rb.id].or++;st[rb.id].reb++}
+else{const rb=wtCapped(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0)})),.45);st[rb.id].dr++;st[rb.id].reb++}
 pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away})
 };return}
 ss.fga++;if(u3)ss.tpa++
@@ -1011,13 +1062,13 @@ const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
 // exactly how a single game produced 18 FTA in 32 minutes). Capped at
 // SHOOTING_FOUL_CAP now, after every multiplier has already applied.
 const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult)
-if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.40+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0)})),.45);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
-if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.78+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0)})),.45);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
+if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.40+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)})),.45);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.78+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)})),.45);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
 // a skill (off_reb) roll — a secondary, smaller weight so off_reb still
 // decides most of the time.
-const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})),.45);st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st);if(re){st[re.id].fga++;
+const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0)})),.45);st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st);if(re){st[re.id].fga++;
 // Putback chance: whoever ends up with the loose ball finishes it better
 // the more of a standing-dunk finisher they are — real range around the
 // old flat 50%, not a fixed coin flip regardless of who's shooting.
@@ -1025,5 +1076,5 @@ if(Math.random()<.35+((re.standing_dunk??50)/100)*.30){st[re.id].fgm++;sc[os]+=2
 // Lockdown Defender's real cost: locked onto one man all game, he crashes
 // the defensive glass worse — the "unavailable for help and rebounds"
 // tradeoff the rules page already promises.
-const rb=wtCapped(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0)})),.45);st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
+const rb=wtCapped(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0)})),.45);st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
 }
