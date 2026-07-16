@@ -32,6 +32,7 @@ export interface BoxRow {
   tech_fouls: number
   plus_minus: number
   is_starter?: boolean
+  foul_trouble?: boolean
 }
 
 export interface TeamInfo {
@@ -241,7 +242,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 ⛔ {isPT ? 'DESQUALIFICADO' : 'FOULED OUT'}
               </span>
             )}
-            {(b.pf || 0) >= 4 && (b.pf || 0) < 6 && (
+            {b.foul_trouble && (
               <span className="ml-1.5 text-xs" title={isPT ? 'Em apuros de faltas' : 'Foul trouble'}>⚠️</span>
             )}
           </td>
@@ -252,7 +253,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                   : c.key === 'pts' && (b as any)[c.key] >= 20 ? color
                   : c.key === 'tech_fouls' && (b as any)[c.key] > 0 ? '#dc2626'
                   : c.key === 'pf' && (b.pf || 0) >= 6 ? '#dc2626'
-                  : c.key === 'pf' && (b.pf || 0) >= 4 ? '#f59e0b'
+                  : c.key === 'pf' && b.foul_trouble ? '#f59e0b'
                   : '#1a1512',
               }}>
               {cellValue(b, c.key)}
@@ -669,9 +670,9 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             </div>
             <BoxTable players={awayBox} color={awayColor} totals={awayTotals} mvpPlayerId={mvpEntry?.b.player_id} />
           </div>
-          {[...homeBox, ...awayBox].some(b => (b.pf || 0) >= 4 && (b.pf || 0) < 6) && (
+          {[...homeBox, ...awayBox].some(b => b.foul_trouble) && (
             <div className="text-xs px-1" style={{ color: '#8a8279' }}>
-              ⚠️ {isPT ? '= em apuros de faltas (4 ou 5 faltas pessoais)' : '= in foul trouble (4 or 5 personal fouls)'}
+              ⚠️ {isPT ? '= esteve em apuros de faltas (3ª falta no 1º período, ou 4ª/5ª no 2º)' : '= was in foul trouble (3rd foul in the 1st quarter, or 4th/5th in the 2nd)'}
             </div>
           )}
         </div>

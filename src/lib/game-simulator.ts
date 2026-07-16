@@ -460,6 +460,11 @@ pts: s.pts||0, ast: s.ast||0, stl: s.stl||0, blk: s.blk||0,
 fga: s.fga||0, fgm: s.fgm||0, tpa: s.tpa||0, tpm: s.tpm||0, fta: s.fta||0, ftm: s.ftm||0,
 pf: s.pf||0, tech_fouls: s.tf||0, off_reb: s.or||0, def_reb: s.dr||0, reb: (s.or||0)+(s.dr||0),
 turnovers: s.to||0, plus_minus: s.plus_minus||0,
+// Whether the real foul-trouble protection actually fired for this player
+// this game (see foulTroubleCheck) — NOT just "did he end up with 4 or 5
+// personal fouls", which stayed true in every quarter and no longer
+// matches the real mechanic (first-half only).
+foul_trouble: !!p._foulTroubleApplied,
 }
 }
 

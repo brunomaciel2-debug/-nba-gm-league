@@ -56,6 +56,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
     ftm: b.ftm || 0, fta: b.fta || 0, reb: b.reb || 0, ast: b.ast || 0, turnovers: b.turnovers || 0,
     stl: b.stl || 0, blk: b.blk || 0, off_reb: b.off_reb || 0, def_reb: b.def_reb || 0, pf: b.pf || 0,
     tech_fouls: b.tech_fouls || 0, plus_minus: b.plus_minus || 0, is_starter: !!b.is_starter,
+    foul_trouble: !!b.foul_trouble,
   })
 
   const homeBox = boxScores.filter((b: any) => b.team_id === game.home_team).map(toBoxRow)
