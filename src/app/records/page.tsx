@@ -8,7 +8,6 @@ import { useTranslation } from '@/components/I18nProvider'
 type GameHigh = { pid:string, name:string, pos:string, team:string, teamColor?:string, photo?:string, value:number, gameId:string, opp:string, dateLabel:string }
 type SeasonBest = { pid:string, name:string, pos:string, team:string, teamColor?:string, photo?:string, value:number, season:string }
 type TeamGameRecord = { teamId:string, teamName:string, teamColor?:string, logo?:string, value:number, gameId:string, opp:string, oppScore?:number, dateLabel:string }
-type TeamSeasonRecord = { teamId:string, teamName:string, teamColor?:string, logo?:string, wins:number, losses:number }
 
 const GAME_STAT_KEYS = ['pts','reb','ast','stl','blk','tpm','ftm','plus_minus'] as const
 const SEASON_TOTAL_ONLY_KEYS = ['tpm','double_doubles','triple_doubles'] as const
@@ -24,7 +23,6 @@ export default function RecordsPage() {
   const [teamGameFewestAllowed,setTeamGameFewestAllowed] = useState<TeamGameRecord[]>([])
   const [teamGameCombined,setTeamGameCombined] = useState<TeamGameRecord[]>([])
   const [teamGame3pm,setTeamGame3pm] = useState<TeamGameRecord[]>([])
-  const [teamSeasons,setTeamSeasons] = useState<TeamSeasonRecord[]>([])
   const [longestStreak,setLongestStreak] = useState<{teamId:string,teamName:string,teamColor?:string,logo?:string,streak:number}[]>([])
 
   useEffect(()=>{
@@ -157,12 +155,6 @@ export default function RecordsPage() {
         teamId, teamName:teamMap[teamId]?.name||teamId, teamColor:teamMap[teamId]?.color, logo:teamMap[teamId]?.logo_url, streak,
       }))
       setLongestStreak(streakList)
-
-      // ── Best team season (by win%) ──
-      const seasonTeams = (teamsData||[]).map((tm:any)=>({
-        teamId:tm.id, teamName:tm.name, teamColor:tm.color, logo:tm.logo_url, wins:tm.wins||0, losses:tm.losses||0,
-      })).filter((tm:any)=>tm.wins+tm.losses>0).sort((a:any,b:any)=> (b.wins/(b.wins+b.losses)) - (a.wins/(a.wins+a.losses))).slice(0,1)
-      setTeamSeasons(seasonTeams)
 
       // ── Individual season bests (raw totals — pts/reb/ast/stl/blk plus
       // tpm/double_doubles/triple_doubles, no per-game average) ──
@@ -345,31 +337,6 @@ export default function RecordsPage() {
         </Card>
       </div>
 
-      <SectionTitle icon="👑">{isPT?'Melhor Registo de Época':'Best Season Record'}</SectionTitle>
-      <div className="grid md:grid-cols-2 gap-6 mb-10">
-        <Card title={isPT?'Melhor % de Vitórias':'Best Win %'} color="#0e7490">
-          {teamSeasons.length===0
-            ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-            : teamSeasons.map((r)=>{
-              const tc = readableTeamColor(r.teamColor||'555')
-              const pct = r.wins+r.losses>0 ? (r.wins/(r.wins+r.losses)).toFixed(3).replace(/^0/,'') : '.000'
-              return (
-                <Link key={r.teamId} href={`/team/${r.teamId}`} className="no-underline">
-                  <div className="flex items-center gap-3 px-4 py-3 hover:brightness-110 transition-all">
-                    <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{background:tc+'22'}}>
-                      {r.logo?<img src={r.logo} alt="" className="w-full h-full object-contain p-1.5"/>:<span className="text-sm font-black" style={{color:tc}}>{r.teamId}</span>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold truncate" style={{color:'#1a1512'}}>{r.teamName}</div>
-                      <div className="text-xs" style={{color:'#6b5f4e'}}>{r.wins}-{r.losses}</div>
-                    </div>
-                    <span className="text-lg font-black flex-shrink-0" style={{color:'#1a1512'}}>{pct}</span>
-                  </div>
-                </Link>
-              )
-            })}
-        </Card>
-      </div>
     </div>
   )
 }
