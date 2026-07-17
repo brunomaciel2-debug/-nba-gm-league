@@ -65,9 +65,19 @@ return Math.min(40,p1+slope*(s-s1))
 // simP()), same volume/quality split as Scoring vs three/layup/dunk above.
 // Same piecewise shape as SCORING_BREAKPOINTS/ppg36(), this time for the
 // commissioner's own 3PA table.
+// Scaled ×1.575 (every breakpoint, plus the extrapolation cap) — Bruno
+// reported real 2025-26 NBA per-team-per-game targets of 13.3 3PM / 37.0
+// 3PA / 36.0% 3P%. The old curve's accuracy already matched real 3P%
+// (35.4%, from the "three" attribute, untouched here), but volume was the
+// real gap: the league's own three_attempt_rate average (47.9) only
+// produced ~23.5 team 3PA/game against a real target of 37 — the curve was
+// never actually calibrated against a real per-team-game table the way
+// SCORING_BREAKPOINTS/FT_RATE_K were, just shaped plausibly. 1.575 is the
+// exact ratio needed to bring the average case up to the real target;
+// verified against real DB rosters afterward.
 const THREE_RATE_BREAKPOINTS:[number,number][]=[
-[0,0],[10,.5],[20,1],[28,1.5],[35,2],[42,2.5],[48,3],[54,3.5],[60,4],
-[66,4.5],[72,5],[78,5.5],[83,6],[87,6.5],[90,7],[92,7.5],[93,8],[94,8.5],[95,10.8],
+[0,0],[10,.8],[20,1.6],[28,2.4],[35,3.2],[42,3.9],[48,4.7],[54,5.5],[60,6.3],
+[66,7.1],[72,7.9],[78,8.7],[83,9.5],[87,10.2],[90,11.0],[92,11.8],[93,12.6],[94,13.4],[95,17.0],
 ]
 function tpa36(threeAttemptRate?:number):number{
 const s=Math.max(0,Math.min(99,threeAttemptRate??50))
@@ -81,7 +91,7 @@ return p0+(p1-p0)*(s-s0)/(s1-s0)
 }
 const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
 const slope=(p1-p0)/(s1-s0)
-return Math.min(12,p1+slope*(s-s1))
+return Math.min(19,p1+slope*(s-s1))
 }
 
 // Steal Rate (hidden) is the SOLE driver of how many steals a player
@@ -416,7 +426,6 @@ if(maxW/totalW>cap&&others>0)pool[maxIdx].w=(cap/(1-cap))*others
 }
 return wt(pool)
 }
-function r3p(v:number){return(20+(v/100)*22)/100}
 function fmt(tl:number){return Math.floor(tl/60)+":"+String(tl%60).padStart(2,"0")}
 
 // Real rock-paper-scissors matchups: every attacking style has exactly one
@@ -692,7 +701,7 @@ pbp.push({quarter:q+1,time_left:fmt(tlSeconds),team_id:team.id,event_type:"foul_
 }
 
 export function simulateGame(ht:any,at:any,hp:any[],ap:any[],hOrd?:any,aOrd?:any){
-const defOrd=(ps:any[])=>{const s=[...ps].sort((a,b)=>b.usage-a.usage);return{pris:[s[0]?.name,s[1]?.name,s[2]?.name],clutch:s[0]?.name,pace:70,three_rate:38,atk_style:"motion",def_style:"man"}}
+const defOrd=(ps:any[])=>{const s=[...ps].sort((a,b)=>b.usage-a.usage);return{pris:[s[0]?.name,s[1]?.name,s[2]?.name],clutch:s[0]?.name,pace:70,three_rate:47,atk_style:"motion",def_style:"man"}}
 // Merged, not all-or-nothing: game-context fields (attRate/isRivalry/decisive)
 // must apply even to a team that never submitted Weekly Orders, so a partial
 // hOrd/aOrd (just those fields) still gets real pace/style defaults underneath.
@@ -1000,7 +1009,15 @@ function simFT(p:any,n:number,fat:Record<string,number>){let m=0;for(let i=0;i<n
 
 function simP(ot:any,dt:any,ops:any[],dps:any[],oo:any,doo:any,sc:any,st:any,fat:any,mom:any,ls:any,part:any,isC:boolean,os:"home"|"away",ds:"home"|"away",q:number,tl:number,pbp:any[],teamFouls:{home:number,away:number}){
 if(!ops.length||!dps.length)return
-const u3=Math.random()<r3p(oo.three_rate||oo.threeRate||38)
+// The GM-facing Three-Point Rate slider (0-80, gm/orders page) is labeled
+// "% of possessions ending in a 3PT attempt" — but this used to run the
+// value through r3p(v)=(20+v*0.22)/100 first, silently reinterpreting it
+// (the default 38 became 28.4%, not 38%). Real incident: Bruno's real NBA
+// reference (37 3PA / ~87 FGA = 42.6% of shots from three) vs. our
+// simulated league's actual 27.1% — the accuracy (3P%) was already right,
+// this frequency mismatch was the real gap. Now uses the slider value
+// directly, matching what the UI already promises the GM.
+const u3=Math.random()<(oo.three_rate||oo.threeRate||47)/100
 const shotProfile=SHOT_PROFILE_BY_ATK_STYLE[oo.atk_style]||SHOT_PROFILE_BY_ATK_STYLE.motion
 const isMid=!u3&&Math.random()<shotProfile.mid,isPost=!u3&&!isMid&&Math.random()<shotProfile.post
 const sc2=pS(ops,oo,u3,isC,fat,mom,st)
