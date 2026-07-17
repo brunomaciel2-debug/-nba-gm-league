@@ -1075,14 +1075,17 @@ await supabaseAdmin.from('training_slots').update({ fill_pct: newFill, credits_a
 } catch(trainSlotErr) { console.warn('Training slot fill step failed:', trainSlotErr) }
 
 // ── WEEKLY HIGHLIGHTS ─────────────────────────
-// Only runs on half 2 (the week is actually complete by then) — this used
-// to run on BOTH halves, scoped to gamesCreated (only THIS call's ~half of
-// the week's games), so the half-2 upsert always overwrote half-1's row
-// with only half the week's real results, silently dropping any Player/
-// Upset of the Week candidate that happened to fall in the other half. Now
-// scoped to the whole week's games (queried by week_number, not
-// gamesCreated) and computed exactly once, after the week is done.
-if (!isPreseason && half === 2) {
+// Runs on EVERY call (both halves), per Bruno's request for the homepage
+// cards to feel more alive rather than only refreshing once a full week is
+// done. Safe to do now because the query below is scoped by week_number +
+// status='final' (every one of the week's games completed SO FAR), not by
+// gamesCreated (only THIS call's newly-created games) — the bug that
+// originally forced this to half-2-only was gamesCreated-scoping silently
+// dropping a Player/Upset of the Week candidate that fell in the other
+// half. With the week_number scoping, half 1 just sees a partial week (its
+// own days 1-3) and half 2 re-scans the now-complete week — never a loss
+// of data, just an earlier, provisional look mid-week.
+if (!isPreseason) {
 try {
 const { data: weekGameRows } = await supabaseAdmin.from('games').select('id').eq('week_number',week).eq('status','final')
 const weekGameIds = (weekGameRows||[]).map((g:any)=>g.id)
