@@ -3,7 +3,7 @@ import Link from 'next/link'
 import type { Article, Game, Team, Transaction } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
 import LeagueLeadersMini from './LeagueLeadersMini'
-import { WeeklyHighlightsHeader, HighlightCardTitle, HighlightEmpty, ViewBoxScore, WinStreakLabel, FeaturedHeader, FeaturedLabel, UnderdogLabel, UotwWinLoss, WinBadge, SeasonBadge, ArticleDate } from './HomePageClient'
+import { WeeklyHighlightsHeader, HighlightCardTitle, HighlightEmpty, ViewBoxScore, ViewTeamLink, WinStreakLabel, FeaturedHeader, FeaturedLabel, UnderdogLabel, UotwWinLoss, WinBadge, SeasonBadge, ArticleDate } from './HomePageClient'
 export const revalidate = 60
 
 function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#1d4ed8' }
@@ -22,11 +22,22 @@ export default async function HomePage() {
       .eq('status', 'final').order('played_at', { ascending: false }).limit(6),
     supabase.from('site_config').select('*').eq('id', 1).single(),
     supabase.from('weekly_highlights')
-      .select('*, potw:players!weekly_highlights_potw_player_id_fkey(id,name,pos,photo_url,team_id), uotw_winner:teams!weekly_highlights_uotw_winner_id_fkey(id,name,color,logo_url), uotw_loser:teams!weekly_highlights_uotw_loser_id_fkey(id,name,color,logo_url), hstreak_team:teams!weekly_highlights_hstreak_team_id_fkey(id,name,color,logo_url), uotw_game:games!weekly_highlights_uotw_game_id_fkey(id,home_score,away_score), potw_game:games!weekly_highlights_potw_game_id_fkey(id,home_team,away_team)')
+      .select('*, potw:players!weekly_highlights_potw_player_id_fkey(id,name,pos,photo_url,team_id), uotw_winner:teams!weekly_highlights_uotw_winner_id_fkey(id,name,color,logo_url), uotw_loser:teams!weekly_highlights_uotw_loser_id_fkey(id,name,color,logo_url), hstreak_team:teams!weekly_highlights_hstreak_team_id_fkey(id,name,color,logo_url,wins,losses), uotw_game:games!weekly_highlights_uotw_game_id_fkey(id,home_score,away_score), potw_game:games!weekly_highlights_potw_game_id_fkey(id,home_team,away_team)')
       .order('week_number', { ascending: false }).limit(1).single(),
   ])
 
   const teamMap = Object.fromEntries((teams||[]).map((t:Team) => [t.id, t]))
+  // hl.hstreak_games references specific game IDs from the streak team's own
+  // history — the generic `recentGames` fetch above is just "last 6 games
+  // site-wide" (whichever teams happened to play most recently), so it
+  // almost never actually contains this team's games once more than a
+  // handful of teams have played. That's why the streak card's mini
+  // game-by-game list rendered as empty even though the data existed —
+  // fetched separately here, by the exact IDs the streak actually needs.
+  const hstreakGameIds: string[] = (highlight as any)?.hstreak_games || []
+  const { data: hstreakGames } = hstreakGameIds.length
+    ? await supabase.from('games').select('*, home:teams!games_home_team_fkey(id,name,color,logo_url), away:teams!games_away_team_fkey(id,name,color,logo_url)').in('id', hstreakGameIds)
+    : { data: [] as any[] }
   const hero      = articles?.find((a:any) => a.position === 'hero')
   const featured1 = articles?.find((a:any) => a.position === 'featured_1')
   const featured2 = articles?.find((a:any) => a.position === 'featured_2')
@@ -184,15 +195,22 @@ export default async function HomePage() {
                           style={{color:teamColor(hl.hstreak_team)}}>{hl.hstreak_team.id}</div>}
                 </div>
                 <div>
-                  <div className="font-black text-lg" style={{color:'#1a1612'}}>{hl.hstreak_team.name}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-black text-lg" style={{color:'#1a1612'}}>{hl.hstreak_team.name}</div>
+                    {hl.hstreak_team.wins != null && (
+                      <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{background:'#fed7aa',color:'#9a3412'}}>
+                        {hl.hstreak_team.wins}-{hl.hstreak_team.losses}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5 mt-1">
-                    <i className="ti ti-flame" style={{fontSize:16,color:'#c2410c'}}></i>
+                    {'🔥'.repeat(Math.min(3, Math.max(1, Math.ceil(hl.hstreak_wins/4))))}
                     <WinStreakLabel wins={hl.hstreak_wins} />
                   </div>
                 </div>
               </div>
               {(hl.hstreak_games||[]).slice(0,4).map((gid:string) => {
-                const g = (recentGames||[]).find((x:any)=>x.id===gid) as any
+                const g = (hstreakGames||[]).find((x:any)=>x.id===gid) as any
                 if (!g) return null
                 const isHome = g.home_team === hl.hstreak_team_id
                 const us = isHome?g.home_score:g.away_score
@@ -200,15 +218,19 @@ export default async function HomePage() {
                 const opp = isHome?g.away:g.home
                 return (
                   <Link key={gid} href={`/game/${gid}`} className="no-underline">
-                    <div className="flex items-center gap-2 py-1.5 text-xs"
+                    <div className="flex items-center gap-2 py-1.5 text-xs group hover:brightness-110"
                          style={{borderBottom:'1px solid #d4cec3'}}>
                       <WinBadge />
+                      <div className="w-4 h-4 rounded overflow-hidden flex-shrink-0" style={{background:teamColor(opp)+'22'}}>
+                        {opp?.logo_url && <img src={opp.logo_url} alt="" className="w-full h-full object-contain"/>}
+                      </div>
                       <span style={{color:'#6b5f4e'}}>{isHome?'vs':'@'} {opp?.name}</span>
                       <span className="ml-auto font-bold" style={{color:'#166534'}}>{us}-{them}</span>
                     </div>
                   </Link>
                 )
               })}
+              <ViewTeamLink teamId={hl.hstreak_team.id} />
             </>
           ) : (
             <HighlightEmpty icon='🔥' textEN='Available after first simulation' textPT='Disponível após a primeira simulação' />

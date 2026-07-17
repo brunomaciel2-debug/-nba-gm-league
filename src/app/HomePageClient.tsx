@@ -51,6 +51,18 @@ export function ViewBoxScore({ gameId, red }: { gameId:string, red?:boolean }) {
   )
 }
 
+export function ViewTeamLink({ teamId }: { teamId:string }) {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
+  return (
+    <Link href={`/team/${teamId}`}
+      className="block text-center text-xs no-underline py-2 mt-3 rounded-lg font-semibold"
+      style={{background:'#fed7aa',color:'#9a3412'}}>
+      {isPT ? 'Ver Equipa →' : 'View Team →'}
+    </Link>
+  )
+}
+
 export function WinStreakLabel({ wins }: { wins:number }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
