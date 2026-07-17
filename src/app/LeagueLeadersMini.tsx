@@ -118,10 +118,10 @@ export default function LeagueLeadersMini() {
                         <div className="flex items-center gap-3 px-5 py-2.5 transition-all group-hover:brightness-125"
                           style={{borderBottom: i < 3 ? '1px solid #1e1a14' : 'none'}}>
                           <span className="text-sm font-bold w-4 flex-shrink-0" style={{color:'#b8ae9e'}}>{i+2}</span>
-                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{background:ptc+'22'}}>
+                          <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0" style={{background:ptc+'22'}}>
                             {p.photo_url
                               ? <img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
-                              : <div className="w-full h-full flex items-center justify-center text-sm font-black" style={{color:ptc}}>
+                              : <div className="w-full h-full flex items-center justify-center text-base font-black" style={{color:ptc}}>
                                   {p.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                                 </div>}
                           </div>
