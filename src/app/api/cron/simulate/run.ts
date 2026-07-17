@@ -5,7 +5,7 @@ import { generatePowerRankings } from '@/lib/generate-power-rankings'
 import { runPostSimNotifications } from '@/lib/notifications'
 import { generateWeeklyScoutPoints } from '@/lib/scouting'
 import { homeWinProb, updateElo } from '@/lib/elo-helper'
-import { getStatusForWeek, getHalfWeekDates, getWeekDates } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates } from '@/lib/season-week-helper'
 import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
@@ -1298,14 +1298,19 @@ gameResultMap[g.id] = { winner: hw ? g.home_team : g.away_team, loser: hw ? g.aw
 // fall through to the 'Eastern' default below regardless of their real
 // conference. Naming the FK explicitly (players_team_id_fkey) fixes it.
 const { data: allPlayersAw } = await supabaseAdmin
-.from('players').select('id,name,team_id,teams!players_team_id_fkey!inner(conference)')
+.from('players').select('id,name,team_id,nba_experience,teams!players_team_id_fkey!inner(conference)')
 .in('id', (weekBoxesAw||[]).map((b:any)=>b.player_id).filter(Boolean))
 
 const playerConf: Record<string,string> = {}
 const playerTeam: Record<string,string> = {}
+// Same nba_experience===0 definition already used for the season-long ROY
+// award below and for the "Rookie" badge on the player page — no separate
+// "is_rookie" column exists.
+const playerExp: Record<string,number> = {}
 for (const p of (allPlayersAw||[])) {
 playerConf[p.id] = (p.teams as any)?.conference || 'Eastern'
 playerTeam[p.id] = p.team_id
+playerExp[p.id] = p.nba_experience ?? 1
 }
 
 const playerWeekStats: Record<string,{pts:number,reb:number,ast:number,stl:number,blk:number,games:number,wins:number,teamId:string}> = {}
@@ -1343,25 +1348,58 @@ notes: `Week ${week} ${conf} Player of the Week`
 }
 }
 
+// Rookie of the Week — same candidate pool/scoring as Player of the Week,
+// restricted to rookies, single league-wide winner (no conference split),
+// matching how the season-long ROY award works below.
+const rotwWinner = potwCandidates.filter(c=>playerExp[c.id]===0).sort((a,b)=>b.score-a.score)[0]
+if (rotwWinner) {
+await supabaseAdmin.from('awards').upsert({
+season:'2025-26', award_type:'rotw',
+period:`week_${week}`,
+player_id: rotwWinner.id, team_id: playerTeam[rotwWinner.id],
+score: rotwWinner.score, stats_context: rotwWinner.stats,
+notes: `Week ${week} Rookie of the Week`
+}, {onConflict:'season,award_type,period'})
+}
+
 // Player of the Month used to fire every 4 weeks (isEndOfMonth = week % 4
 // === 0) and scope its box-score window the same way — neither lines up
 // with a real calendar month (a "4-week block" starting at week 17 spans
 // Oct24-Nov20, so "October's" award was really a mix of late October and
 // half of November, and wouldn't fire again for 4 more weeks regardless of
-// whether a real month had actually ended). Now keyed off the real date
-// each week falls on (getWeekDates, the same calendar the Commissioner
-// already sees on /schedule): fires exactly once, the first time
-// simulation crosses into a new real month, scoped by each game's own
+// whether a real month had actually ended). Scoped by each game's own
 // scheduled_date instead of a week-number range — a week that straddles
-// two months (like Oct31-Nov6) now correctly splits its games between
+// two months (like Oct31-Nov6) correctly splits its games between
 // October's and November's awards instead of one 4-week bucket.
-const curMonthStart = getWeekDates(week).start
-const prevMonthStart = getWeekDates(week-1).start
-const crossedRealMonth = week > 1 && (curMonthStart.getFullYear() !== prevMonthStart.getFullYear() || curMonthStart.getMonth() !== prevMonthStart.getMonth())
-if (crossedRealMonth) {
+// A month is "complete" the moment the half being simulated right now
+// covers that month's very last calendar day — not "whenever the
+// following week's start date happens to roll into a new month", which
+// used to lag by up to a whole extra half-week: a half straddles the
+// month boundary mid-block far more often than not (halves are fixed
+// 3-4 real-day chunks with no regard for month length), so e.g. the
+// half that plays Nov 28-30 actually finishes November, but the old
+// week-start check wouldn't notice until week 23 started on Dec 5 —
+// after a further half of December games had already been simulated.
+// Halves are short (3-4 days) and never overlap, so at most one
+// month-end can fall inside any single half.
+const monthsCompletedThisHalf: {year:number,month:number}[] = []
+{
+// halfStart/halfEnd from earlier (line ~245) are out of scope here — that
+// declaration lives inside the `if (!isPreseason)` block simulating this
+// half's games, which has already closed by this point. Cheap to
+// recompute: pure date math, same (week, half) already in scope.
+const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
+let probe = new Date(halfStart)
+while (probe <= halfEnd) {
+const lastDayOfProbeMonth = new Date(probe.getFullYear(), probe.getMonth()+1, 0)
+if (lastDayOfProbeMonth >= halfStart && lastDayOfProbeMonth <= halfEnd) {
+monthsCompletedThisHalf.push({year: lastDayOfProbeMonth.getFullYear(), month: lastDayOfProbeMonth.getMonth()})
+}
+probe = new Date(probe.getFullYear(), probe.getMonth()+1, 1)
+}
+}
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
-const completedYear = prevMonthStart.getFullYear()
-const completedMonth = prevMonthStart.getMonth()
+for (const {year: completedYear, month: completedMonth} of monthsCompletedThisHalf) {
 const monthKey = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}`
 const monthLabel = `${MONTH_NAMES[completedMonth]} ${completedYear}`
 const firstOfMonth = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}-01`
@@ -1396,13 +1434,15 @@ if(monthGameResultMap[b.game_id]?.winner===b.team_id) s.wins++
 // Spurs player (Western) won and got listed under Eastern. Looked up fresh
 // here, scoped to everyone who actually appears in the month's box scores.
 const { data: monthPlayers } = await supabaseAdmin
-.from('players').select('id,team_id,teams!players_team_id_fkey!inner(conference)')
+.from('players').select('id,team_id,nba_experience,teams!players_team_id_fkey!inner(conference)')
 .in('id', Object.keys(monthStats))
 const monthPlayerConf: Record<string,string> = {}
 const monthPlayerTeam: Record<string,string> = {}
+const monthPlayerExp: Record<string,number> = {}
 for (const p of (monthPlayers||[])) {
 monthPlayerConf[p.id] = (p.teams as any)?.conference || 'Eastern'
 monthPlayerTeam[p.id] = p.team_id
+monthPlayerExp[p.id] = p.nba_experience ?? 1
 }
 
 const potmCandidates = Object.entries(monthStats)
@@ -1426,6 +1466,19 @@ score:winner.score, stats_context:winner.stats,
 notes:`${monthLabel} ${conf} Player of the Month`
 },{onConflict:'season,award_type,period'})
 }
+}
+
+// Rookie of the Month — same candidate pool/scoring as Player of the
+// Month, restricted to rookies, single league-wide winner.
+const rotmWinner = potmCandidates.filter(c=>monthPlayerExp[c.id]===0).sort((a,b)=>b.score-a.score)[0]
+if (rotmWinner) {
+await supabaseAdmin.from('awards').upsert({
+season:'2025-26', award_type:'rotm',
+period:`month_${monthKey}`,
+player_id:rotmWinner.id, team_id:monthPlayerTeam[rotmWinner.id],
+score:rotmWinner.score, stats_context:rotmWinner.stats,
+notes:`${monthLabel} Rookie of the Month`
+},{onConflict:'season,award_type,period'})
 }
 }
 

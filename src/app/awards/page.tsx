@@ -11,6 +11,8 @@ const AWARD_META_EN: Record<string,{label:string,icon:string,color:string,desc:s
   potw_western:{label:'Player of the Week',  icon:'ti-star',         color:'#1d4ed8',desc:'Western Conference'},
   potm_eastern:{label:'Player of the Month', icon:'ti-calendar-star',color:'#b45309',desc:'Eastern Conference'},
   potm_western:{label:'Player of the Month', icon:'ti-calendar-star',color:'#1d4ed8',desc:'Western Conference'},
+  rotw:        {label:'Rookie of the Week',  icon:'ti-star',         color:'#6d28d9',desc:'League-Wide'},
+  rotm:        {label:'Rookie of the Month', icon:'ti-calendar-star',color:'#6d28d9',desc:'League-Wide'},
   mvp:         {label:'MVP',                 icon:'ti-trophy',       color:'#c8102e',desc:'Most Valuable Player'},
   dpoy:        {label:'DPOY',                icon:'ti-shield',       color:'#15803d',desc:'Defensive Player of the Year'},
   roy:         {label:'Rookie of the Year',  icon:'ti-bolt',         color:'#6d28d9',desc:'Best First-Year Player'},
@@ -28,6 +30,8 @@ const AWARD_META_PT: Record<string,{label:string,icon:string,color:string,desc:s
   potw_western:{label:'Jogador da Semana',   icon:'ti-star',         color:'#1d4ed8',desc:'Conferência Oeste'},
   potm_eastern:{label:'Jogador do Mês',      icon:'ti-calendar-star',color:'#b45309',desc:'Conferência Este'},
   potm_western:{label:'Jogador do Mês',      icon:'ti-calendar-star',color:'#1d4ed8',desc:'Conferência Oeste'},
+  rotw:        {label:'Rookie da Semana',    icon:'ti-star',         color:'#6d28d9',desc:'Toda a Liga'},
+  rotm:        {label:'Rookie do Mês',       icon:'ti-calendar-star',color:'#6d28d9',desc:'Toda a Liga'},
   mvp:         {label:'MVP',                 icon:'ti-trophy',       color:'#c8102e',desc:'Jogador Mais Valioso'},
   dpoy:        {label:'DPOY',                icon:'ti-shield',       color:'#15803d',desc:'Melhor Defensor do Ano'},
   roy:         {label:'Caloiro do Ano',      icon:'ti-bolt',         color:'#6d28d9',desc:'Melhor Jogador de 1º Ano'},
@@ -185,11 +189,11 @@ export default function AwardsPage() {
     return awards.filter(a=>['mvp','dpoy','roy','coy','mip','finals_mvp','all_nba_1','all_nba_2','all_nba_3','all_rookie_1','all_rookie_2'].includes(a.award_type))
   }
 
-  const weeklyPeriods=Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potw')).map((a:any)=>a.period))).sort((a:any,b:any)=>parseInt(b.split('_')[1]||'0')-parseInt(a.split('_')[1]||'0'))
+  const weeklyPeriods=Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potw')||a.award_type==='rotw').map((a:any)=>a.period))).sort((a:any,b:any)=>parseInt(b.split('_')[1]||'0')-parseInt(a.split('_')[1]||'0'))
   // "month_YYYY-MM" sorts correctly as a plain string (2025-11 > 2025-10),
   // unlike parseInt(b.split('_')[1]) which stops at the first hyphen and
   // collapses every month in the same year to an identical sort key.
-  const monthlyPeriods=Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potm')).map((a:any)=>a.period))).sort((a:any,b:any)=>b.localeCompare(a))
+  const monthlyPeriods=Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potm')||a.award_type==='rotm').map((a:any)=>a.period))).sort((a:any,b:any)=>b.localeCompare(a))
 
   // Group weekly periods by real calendar month so the page can show one
   // month at a time via a dropdown instead of an ever-growing list of every
@@ -254,8 +258,8 @@ export default function AwardsPage() {
                     <h3 className="text-sm font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1px'}}>
                       {period.replace('week_',isPT?'Semana ':'Week ')}
                     </h3>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {['potw_eastern','potw_western'].map(type=>{
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {['potw_eastern','potw_western','rotw'].map(type=>{
                         const a=awards.find((aw:any)=>aw.award_type===type&&aw.period===period)
                         return a?<AwardCard key={type} award={a} meta={AWARD_META[type]} isPT={isPT}/>:null
                       })}
@@ -278,8 +282,8 @@ export default function AwardsPage() {
                 <h3 className="text-sm font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1px'}}>
                   {formatMonthPeriod(period, isPT)}
                 </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {['potm_eastern','potm_western'].map(type=>{
+                <div className="grid md:grid-cols-3 gap-4">
+                  {['potm_eastern','potm_western','rotm'].map(type=>{
                     const a=awards.find((aw:any)=>aw.award_type===type&&aw.period===period)
                     return a?<AwardCard key={type} award={a} meta={AWARD_META[type]} isPT={isPT}/>:null
                   })}

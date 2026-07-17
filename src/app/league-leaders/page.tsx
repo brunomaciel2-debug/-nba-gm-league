@@ -11,6 +11,7 @@ export default function LeagueLeadersPage() {
   const [rows,setRows] = useState<any[]>([])
   const [teamGames,setTeamGames] = useState<Record<string,number>>({})
   const [loading,setLoading] = useState(true)
+  const [rookiesOnly,setRookiesOnly] = useState(false)
 
   useEffect(()=>{
     Promise.all([
@@ -19,7 +20,7 @@ export default function LeagueLeadersPage() {
       // limit of 300 silently excluded low-scoring specialists (an elite
       // rebounder or 3-point shooter who doesn't score much) from ranking in
       // their own category. ~500 comfortably covers every player with games>0.
-      supabase.from('player_stats').select('*, players(id,name,pos,team_id,photo_url,teams:teams!players_team_id_fkey(color,logo_url))').eq('season','2025-26').gt('games',0).order('pts',{ascending:false}).limit(500),
+      supabase.from('player_stats').select('*, players(id,name,pos,team_id,photo_url,nba_experience,teams:teams!players_team_id_fkey(color,logo_url))').eq('season','2025-26').gt('games',0).order('pts',{ascending:false}).limit(500),
       // Real NBA qualification rule (nba.com/stats/help/statminimums) scales
       // its games/makes minimums with how many games each player's OWN team
       // has played so far, not a flat season-end number — teams.wins+losses
@@ -32,6 +33,10 @@ export default function LeagueLeadersPage() {
       setRows((stats||[]).map((s:any)=>({
         ...s, pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—',
         team:s.players?.team_id||'—', photo:s.players?.photo_url, teamColor:s.players?.teams?.color,
+        // Same nba_experience===0 definition used everywhere else in the app
+        // (season-long ROY, the "Rookie" badge on the player page) — no
+        // separate "is_rookie" column exists.
+        isRookie:(s.players?.nba_experience ?? 1)===0,
         ppg:s.games>0?(s.pts/s.games).toFixed(1):'—', rpg:s.games>0?(s.reb/s.games).toFixed(1):'—',
         apg:s.games>0?(s.ast/s.games).toFixed(1):'—', spg:s.games>0?(s.stl/s.games).toFixed(1):'—',
         bpg:s.games>0?(s.blk/s.games).toFixed(1):'—',
@@ -80,7 +85,19 @@ export default function LeagueLeadersPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-2" style={{color:'#1a1512'}}>📊 {isPT?'Líderes da Liga':'League Leaders'} — 2025-26</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-2">
+        <h1 className="text-2xl font-bold" style={{color:'#1a1512'}}>📊 {isPT?'Líderes da Liga':'League Leaders'} — 2025-26</h1>
+        <div className="flex rounded-lg overflow-hidden" style={{border:'1px solid #d4cec3'}}>
+          <button onClick={()=>setRookiesOnly(false)} className="text-xs font-semibold px-3 py-1.5"
+                  style={{background:!rookiesOnly?'#c2410c':'#e8e2d6',color:!rookiesOnly?'#fff':'#6b5f4e',border:'none',cursor:'pointer'}}>
+            {isPT?'Todos':'All Players'}
+          </button>
+          <button onClick={()=>setRookiesOnly(true)} className="text-xs font-semibold px-3 py-1.5"
+                  style={{background:rookiesOnly?'#c2410c':'#e8e2d6',color:rookiesOnly?'#fff':'#6b5f4e',border:'none',cursor:'pointer'}}>
+            {isPT?'Só Rookies':'Rookies Only'}
+          </button>
+        </div>
+      </div>
       <p className="text-xs mb-6" style={{color:'#8a8279'}}>
         {isPT
           ? 'Regra oficial da NBA: jogador tem de ter jogado 70% dos jogos da sua equipa (categorias por jogo) ou atingir o mínimo de conversões da época — 300 FG, 125 FT, 82 triplos — escalado à mesma percentagem de jogos já realizados.'
@@ -93,7 +110,7 @@ export default function LeagueLeadersPage() {
       ):(
         <div className="grid md:grid-cols-2 gap-6">
           {cats.map(cat=>{
-            const sorted=rows.filter((p:any)=>qualifies(p,cat.key)).sort((a:any,b:any)=>(parseFloat(b[cat.key])||0)-(parseFloat(a[cat.key])||0)).slice(0,30)
+            const sorted=rows.filter((p:any)=>qualifies(p,cat.key)&&(!rookiesOnly||p.isRookie)).sort((a:any,b:any)=>(parseFloat(b[cat.key])||0)-(parseFloat(a[cat.key])||0)).slice(0,30)
             return(
               <div key={cat.key} className="rounded-xl overflow-hidden" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="px-4 py-3" style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
