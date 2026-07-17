@@ -42,13 +42,29 @@ const AWARD_META_PT: Record<string,{label:string,icon:string,color:string,desc:s
 
 type Tab = 'weekly'|'monthly'|'yearly'
 
+const MONTH_NAMES_EN = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTH_NAMES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+// Player of the Month periods are stored as "month_YYYY-MM" (e.g.
+// "month_2025-11") since the engine switched from an arbitrary 4-week
+// block to real calendar months — this turns that into "November 2025" /
+// "Novembro 2025" instead of showing the raw key. Falls back to the raw
+// suffix for any leftover pre-fix "month_N" rows rather than crashing.
+function formatMonthPeriod(period: string, isPT: boolean): string {
+  const m = period.match(/^month_(\d{4})-(\d{2})$/)
+  if (!m) return period.replace('month_', isPT?'Mês ':'Month ')
+  const names = isPT ? MONTH_NAMES_PT : MONTH_NAMES_EN
+  return `${names[parseInt(m[2],10)-1]} ${m[1]}`
+}
+
 function AwardCard({award,meta,isPT}:{award:any,meta:any,isPT:boolean}) {
   const isCoach=award.award_type==='coy'
   const entity=isCoach?award.coaches:award.players
   const team=entity?.teams
   const tc=team?readableTeamColor(team.color):'#5c554e'
   const stats=award.stats_context
-  const period = award.period?.replace('week_',isPT?'Semana ':'Week ').replace('month_',isPT?'Mês ':'Month ').replace('season','2025-26')
+  const period = award.period?.startsWith('month_')
+    ? formatMonthPeriod(award.period, isPT)
+    : award.period?.replace('week_',isPT?'Semana ':'Week ').replace('season','2025-26')
   return (
     <div className="rounded-2xl overflow-hidden" style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`3px solid ${meta.color}`}}>
       <div className="px-5 py-3 flex items-center justify-between" style={{background:'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
@@ -158,7 +174,10 @@ export default function AwardsPage() {
   }
 
   const weeklyPeriods=Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potw')).map((a:any)=>a.period))).sort((a:any,b:any)=>parseInt(b.split('_')[1]||'0')-parseInt(a.split('_')[1]||'0'))
-  const monthlyPeriods=Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potm')).map((a:any)=>a.period))).sort((a:any,b:any)=>parseInt(b.split('_')[1]||'0')-parseInt(a.split('_')[1]||'0'))
+  // "month_YYYY-MM" sorts correctly as a plain string (2025-11 > 2025-10),
+  // unlike parseInt(b.split('_')[1]) which stops at the first hyphen and
+  // collapses every month in the same year to an identical sort key.
+  const monthlyPeriods=Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potm')).map((a:any)=>a.period))).sort((a:any,b:any)=>b.localeCompare(a))
 
   const TABS_EN = [['weekly','Weekly'],['monthly','Monthly'],['yearly','Season Awards']] as const
   const TABS_PT = [['weekly','Semanais'],['monthly','Mensais'],['yearly','Prémios da Época']] as const
@@ -214,12 +233,12 @@ export default function AwardsPage() {
               <div className="text-center py-16">
                 <i className="ti ti-calendar-star" style={{fontSize:48,color:'#d4cdc5'}}></i>
                 <p className="text-base mt-4 font-semibold" style={{color:'#5c554e'}}>{isPT?'Ainda sem prémios mensais':'No monthly awards yet'}</p>
-                <p className="text-sm mt-1" style={{color:'#8a8279'}}>{isPT?'Os prémios mensais são calculados a cada 4 semanas de simulação.':'Monthly awards are calculated every 4 simulation weeks.'}</p>
+                <p className="text-sm mt-1" style={{color:'#8a8279'}}>{isPT?'Os prémios mensais são calculados no final de cada mês real do calendário.':'Monthly awards are calculated at the end of each real calendar month.'}</p>
               </div>
             ):monthlyPeriods.map((period:any)=>(
               <div key={period} className="mb-8">
                 <h3 className="text-sm font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1px'}}>
-                  {period.replace('month_',isPT?'Mês ':'Month ')}
+                  {formatMonthPeriod(period, isPT)}
                 </h3>
                 <div className="grid md:grid-cols-2 gap-4">
                   {['potm_eastern','potm_western'].map(type=>{

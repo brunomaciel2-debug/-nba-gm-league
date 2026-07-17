@@ -1378,13 +1378,31 @@ s.pts+=b.pts||0;s.reb+=b.reb||0;s.ast+=b.ast||0;s.stl+=b.stl||0;s.blk+=b.blk||0;
 if(monthGameResultMap[b.game_id]?.winner===b.team_id) s.wins++
 }
 
+// playerConf/playerTeam above were only ever looked up for players who
+// appeared in THIS WEEK's box scores (weekBoxesAw) — fine for POTW, but
+// Player of the Month draws from a whole month of games, so a player who
+// sat out this specific week (very possible) fell through the `||'Eastern'`
+// default and got silently mis-bucketed into the wrong conference no
+// matter which one he actually plays in. A real incident: a San Antonio
+// Spurs player (Western) won and got listed under Eastern. Looked up fresh
+// here, scoped to everyone who actually appears in the month's box scores.
+const { data: monthPlayers } = await supabaseAdmin
+.from('players').select('id,team_id,teams!players_team_id_fkey!inner(conference)')
+.in('id', Object.keys(monthStats))
+const monthPlayerConf: Record<string,string> = {}
+const monthPlayerTeam: Record<string,string> = {}
+for (const p of (monthPlayers||[])) {
+monthPlayerConf[p.id] = (p.teams as any)?.conference || 'Eastern'
+monthPlayerTeam[p.id] = p.team_id
+}
+
 const potmCandidates = Object.entries(monthStats)
 .filter(([,s])=>s.games>=6)
 .map(([pid,s])=>{
 const g=s.games
 const score=(s.pts/g)*1.0+(s.reb/g)*1.2+(s.ast/g)*1.5+(s.stl/g)*3+(s.blk/g)*3
 const winBonus=(s.wins/g)>=0.5?1.2:1.0
-return {id:pid,score:score*winBonus,conf:playerConf[pid]||'Eastern',
+return {id:pid,score:score*winBonus,conf:monthPlayerConf[pid]||'Eastern',
 stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g}}
 })
 
@@ -1394,7 +1412,7 @@ if (winner) {
 await supabaseAdmin.from('awards').upsert({
 season:'2025-26', award_type:`potm_${conf.toLowerCase()}`,
 period:`month_${monthKey}`, conference:conf,
-player_id:winner.id, team_id:playerTeam[winner.id],
+player_id:winner.id, team_id:monthPlayerTeam[winner.id],
 score:winner.score, stats_context:winner.stats,
 notes:`${monthLabel} ${conf} Player of the Month`
 },{onConflict:'season,award_type,period'})
