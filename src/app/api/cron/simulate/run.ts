@@ -1069,11 +1069,20 @@ await supabaseAdmin.from('training_slots').update({ fill_pct: newFill, credits_a
 } catch(trainSlotErr) { console.warn('Training slot fill step failed:', trainSlotErr) }
 
 // ── WEEKLY HIGHLIGHTS ─────────────────────────
-if (!isPreseason) {
+// Only runs on half 2 (the week is actually complete by then) — this used
+// to run on BOTH halves, scoped to gamesCreated (only THIS call's ~half of
+// the week's games), so the half-2 upsert always overwrote half-1's row
+// with only half the week's real results, silently dropping any Player/
+// Upset of the Week candidate that happened to fall in the other half. Now
+// scoped to the whole week's games (queried by week_number, not
+// gamesCreated) and computed exactly once, after the week is done.
+if (!isPreseason && half === 2) {
 try {
+const { data: weekGameRows } = await supabaseAdmin.from('games').select('id').eq('week_number',week).eq('status','final')
+const weekGameIds = (weekGameRows||[]).map((g:any)=>g.id)
 const weekBoxes2 = await fetchAllRows<any>((from,to) => supabaseAdmin
 .from('box_scores').select('player_id,game_id,team_id,mins,pts,reb,ast,stl,blk')
-.in('game_id', gamesCreated).range(from,to))
+.in('game_id', weekGameIds).range(from,to))
 
 let potwScore = 0, potwBox: any = null
 for (const box of (weekBoxes2||[])) {
@@ -1082,7 +1091,7 @@ if (score > potwScore && box.mins >= 15) { potwScore = score; potwBox = box }
 }
 
 let uotwGame: any = null, uotwOdds = 0.5
-const { data: weekGames2 } = await supabaseAdmin.from('games').select('*').in('id',gamesCreated)
+const { data: weekGames2 } = await supabaseAdmin.from('games').select('*').in('id',weekGameIds)
 const { data: eloSnap } = await supabaseAdmin.from('teams').select('id,elo')
 const eloMap: Record<string,number> = Object.fromEntries((eloSnap||[]).map((t:any)=>[t.id, t.elo||1500]))
 for (const g of (weekGames2||[])) {
@@ -1096,7 +1105,14 @@ if (winnerProb < uotwOdds) { uotwOdds = winnerProb; uotwGame = g }
 // from preseason results mixed in with real games (preseason doesn't even
 // count toward their record), producing a streak that has nothing to do
 // with their actual current form.
-const { data: allRecentGames } = await supabaseAdmin.from('games').select('*').eq('status','final').eq('game_type','regular').order('played_at',{ascending:false}).limit(100)
+// limit was 100 — with 30 teams playing 4 games/week (60 games/week
+// league-wide), that's barely 1.5 weeks of games shared across the WHOLE
+// league, not per team. A real incident: a team with a genuine 10-game win
+// streak only had 6 of those games survive inside the window, so it lost
+// to a team whose shorter, more recent streak fit entirely inside it.
+// 600 covers a full 10 weeks league-wide, comfortably enough for any
+// realistic streak length per team.
+const { data: allRecentGames } = await supabaseAdmin.from('games').select('*').eq('status','final').eq('game_type','regular').order('played_at',{ascending:false}).limit(600)
 const streaks: Record<string,{count:number,games:string[]}> = {}
 // Process oldest -> newest (the query above fetches newest-first, so
 // reverse it here) so each team's counter reflects their CURRENT streak —
