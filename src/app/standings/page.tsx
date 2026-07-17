@@ -38,12 +38,20 @@ export default function StandingsPage() {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const [teams, setTeams] = useState<any[]>([])
+  const [games, setGames] = useState<any[]>([])
   const [view, setView] = useState<View>('conference')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)').then(({ data }) => {
-      if (data) setTeams(data.sort((a:any,b:any) => b.wins-a.wins || (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against)))
+    Promise.all([
+      supabase.from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)'),
+      // Same real-games-only scope as teams.wins/losses (see calcTeamStrength
+      // and the team page header) — regular season only, no preseason.
+      supabase.from('games').select('home_team,away_team,home_score,away_score,played_at')
+        .eq('status','final').eq('game_type','regular').order('played_at',{ascending:false}),
+    ]).then(([{ data: teamsData }, { data: gamesData }]) => {
+      if (teamsData) setTeams(teamsData.sort((a:any,b:any) => b.wins-a.wins || (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against)))
+      if (gamesData) setGames(gamesData)
       setLoading(false)
     })
   }, [])
@@ -52,6 +60,20 @@ export default function StandingsPage() {
 
   const byConf = (conf: string) => teams.filter(t => t.conference === conf)
     .sort((a:any,b:any) => b.wins-a.wins || (b.pts_for-b.pts_against)-(a.pts_for-a.pts_against))
+
+  // games is already sorted newest-first, so the first 10 for this team are
+  // exactly its last 10 played.
+  const getL10 = (teamId: string) => {
+    let w = 0, l = 0
+    for (const g of games) {
+      if (g.home_team !== teamId && g.away_team !== teamId) continue
+      if (w + l >= 10) break
+      const teamScore = g.home_team === teamId ? g.home_score : g.away_score
+      const oppScore = g.home_team === teamId ? g.away_score : g.home_score
+      if (teamScore > oppScore) w++; else l++
+    }
+    return { w, l }
+  }
 
   const TeamLogo = ({ t: team }: { t: any }) => {
     const tc = readableTeamColor(team.color)
@@ -66,6 +88,7 @@ export default function StandingsPage() {
       <span style={{ width:24,textAlign:'center' }}>L</span>
       <span style={{ width:48,textAlign:'center' }}>PCT</span>
       <span style={{ width:40,textAlign:'center' }}>GB</span>
+      <span style={{ width:44,textAlign:'center' }}>L10</span>
     </div>
   )
 
@@ -97,6 +120,7 @@ export default function StandingsPage() {
           const pct = gp > 0 ? (team.wins/gp).toFixed(3).replace(/^0/,'') : '.000'
           const gb = calcGB(leader, team)
           const ss = seedStyle(rank)
+          const l10 = getL10(team.id)
           return (
             <Link key={team.id} href={`/team/${team.id}`} style={{ textDecoration:'none' }}>
               <div style={{
@@ -121,6 +145,7 @@ export default function StandingsPage() {
                   <span style={{ width:24,textAlign:'center',fontSize:14,fontWeight:700,color:'#dc2626' }}>{team.losses}</span>
                   <span style={{ width:48,textAlign:'center',fontSize:14,fontWeight:600,color:'#1a1512' }}>{pct}</span>
                   <span style={{ width:40,textAlign:'center',fontSize:14,color:'#5c554e' }}>{gb}</span>
+                  <span style={{ width:44,textAlign:'center',fontSize:14,color:'#5c554e' }}>{l10.w}-{l10.l}</span>
                 </div>
               </div>
             </Link>
@@ -173,6 +198,7 @@ export default function StandingsPage() {
             const gp = team.wins+team.losses
             const pct = gp>0?(team.wins/gp).toFixed(3).replace(/^0/,''):'.000'
             const gb = calcGB(leagueLeader,team)
+            const l10 = getL10(team.id)
             return (
               <Link key={team.id} href={`/team/${team.id}`} style={{ textDecoration:'none' }}>
                 <div style={{
@@ -191,6 +217,7 @@ export default function StandingsPage() {
                     <span style={{ width:24,textAlign:'center',fontSize:14,fontWeight:700,color:'#dc2626' }}>{team.losses}</span>
                     <span style={{ width:48,textAlign:'center',fontSize:14,fontWeight:600,color:'#1a1512' }}>{pct}</span>
                     <span style={{ width:40,textAlign:'center',fontSize:14,color:'#5c554e' }}>{gb}</span>
+                    <span style={{ width:44,textAlign:'center',fontSize:14,color:'#5c554e' }}>{l10.w}-{l10.l}</span>
                   </div>
                 </div>
               </Link>
