@@ -12,14 +12,12 @@ type TeamSeasonRecord = { teamId:string, teamName:string, teamColor?:string, log
 
 const GAME_STAT_KEYS = ['pts','reb','ast','stl','blk','tpm','ftm','plus_minus'] as const
 const SEASON_TOTAL_ONLY_KEYS = ['tpm','double_doubles','triple_doubles'] as const
-const SEASON_PCT_KEYS = ['fgpct','tppct','ftpct'] as const
 
 export default function RecordsPage() {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const [loading,setLoading] = useState(true)
   const [gameHighs,setGameHighs] = useState<Record<string,GameHigh[]>>({})
-  const [seasonBestsAvg,setSeasonBestsAvg] = useState<Record<string,SeasonBest[]>>({})
   const [seasonBestsTotal,setSeasonBestsTotal] = useState<Record<string,SeasonBest[]>>({})
   const [teamGamePts,setTeamGamePts] = useState<TeamGameRecord[]>([])
   const [teamGameMargin,setTeamGameMargin] = useState<TeamGameRecord[]>([])
@@ -27,7 +25,6 @@ export default function RecordsPage() {
   const [teamGameCombined,setTeamGameCombined] = useState<TeamGameRecord[]>([])
   const [teamGame3pm,setTeamGame3pm] = useState<TeamGameRecord[]>([])
   const [teamSeasons,setTeamSeasons] = useState<TeamSeasonRecord[]>([])
-  const [seasonBestsPct,setSeasonBestsPct] = useState<Record<string,SeasonBest[]>>({})
   const [longestStreak,setLongestStreak] = useState<{teamId:string,teamName:string,teamColor?:string,logo?:string,streak:number}[]>([])
 
   useEffect(()=>{
@@ -141,65 +138,20 @@ export default function RecordsPage() {
       })).filter((tm:any)=>tm.wins+tm.losses>0).sort((a:any,b:any)=> (b.wins/(b.wins+b.losses)) - (a.wins/(a.wins+a.losses))).slice(0,1)
       setTeamSeasons(seasonTeams)
 
-      // ── Individual season bests (averages, qualified; and raw totals) ──
+      // ── Individual season bests (raw totals — pts/reb/ast/stl/blk plus
+      // tpm/double_doubles/triple_doubles, no per-game average) ──
       const { data: statsRows } = await supabase.from('player_stats')
         .select('player_id,team_id,season,games,pts,reb,ast,stl,blk,tpm,tpa,fgm,fga,ftm,fta,double_doubles,triple_doubles,players(id,name,pos,photo_url,teams:teams!players_team_id_fkey(color))')
         .gt('games',0)
-      const SEASON_GAMES = 82
-      const teamGamesPlayed: Record<string,number> = {}
-      for (const tm of (teamsData||[])) teamGamesPlayed[tm.id] = (tm.wins||0)+(tm.losses||0)
       const AVG_KEYS = ['pts','reb','ast','stl','blk'] as const
-      const avgResult: Record<string,SeasonBest[]> = {}
       const totalResult: Record<string,SeasonBest[]> = {}
-      for (const key of AVG_KEYS) {
-        const qualified = (statsRows||[]).filter((s:any) => {
-          const played = teamGamesPlayed[s.team_id] ?? SEASON_GAMES
-          return s.games >= Math.ceil(0.70*played)
-        })
-        avgResult[key] = [...qualified].sort((a:any,b:any)=>(b[key]/b.games)-(a[key]/a.games)).slice(0,1).map((s:any)=>({
-          pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
-          teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s[key]/s.games, season:s.season,
-        }))
-        totalResult[key] = [...(statsRows||[])].sort((a:any,b:any)=>b[key]-a[key]).slice(0,1).map((s:any)=>({
-          pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
-          teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s[key], season:s.season,
-        }))
-      }
-      // tpm/double_doubles/triple_doubles are season TOTALS only (no natural
-      // "per game" version people track for these) — same sort, no averaging.
-      for (const key of SEASON_TOTAL_ONLY_KEYS) {
+      for (const key of [...AVG_KEYS, ...SEASON_TOTAL_ONLY_KEYS]) {
         totalResult[key] = [...(statsRows||[])].sort((a:any,b:any)=>(b[key]||0)-(a[key]||0)).slice(0,1).map((s:any)=>({
           pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
           teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s[key]||0, season:s.season,
         }))
       }
-      setSeasonBestsAvg(avgResult)
       setSeasonBestsTotal(totalResult)
-
-      // ── Best shooting percentage in a season (qualified — reuses the same
-      // real NBA makes-minimum rule already applied on League Leaders: 300
-      // FG / 125 FT / 82 3PT for a full season, scaled to games played).
-      const pctResult: Record<string,SeasonBest[]> = {}
-      const pctQualified = (s:any, made:number, makeMin:number) => {
-        const played = teamGamesPlayed[s.team_id] ?? SEASON_GAMES
-        return made >= Math.ceil(makeMin*played/SEASON_GAMES)
-      }
-      pctResult.fgpct = (statsRows||[]).filter((s:any)=>s.fga>0 && pctQualified(s,s.fgm,300))
-        .sort((a:any,b:any)=>(b.fgm/b.fga)-(a.fgm/a.fga)).slice(0,1).map((s:any)=>({
-          pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
-          teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s.fgm/s.fga*100, season:s.season,
-        }))
-      pctResult.tppct = (statsRows||[]).filter((s:any)=>s.tpa>0 && pctQualified(s,s.tpm,82))
-        .sort((a:any,b:any)=>(b.tpm/b.tpa)-(a.tpm/a.tpa)).slice(0,1).map((s:any)=>({
-          pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
-          teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s.tpm/s.tpa*100, season:s.season,
-        }))
-      pctResult.ftpct = (statsRows||[]).filter((s:any)=>s.fta>0 && pctQualified(s,s.ftm,125))
-        .sort((a:any,b:any)=>(b.ftm/b.fta)-(a.ftm/a.fta)).slice(0,1).map((s:any)=>({
-          pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
-          teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s.ftm/s.fta*100, season:s.season,
-        }))
-      setSeasonBestsPct(pctResult)
 
       setLoading(false)
     })()
@@ -215,13 +167,6 @@ export default function RecordsPage() {
     ftm: {en:'Most Free Throws Made', pt:'Mais Lances Livres Convertidos', color:'#0e7490'},
     plus_minus: {en:'Best +/-', pt:'Melhor +/-', color:'#15803d'},
   }
-  const AVG_LABELS: Record<string,{en:string,pt:string,color:string,unit:string}> = {
-    pts: {en:'Highest PPG (season)', pt:'Melhor PPG (época)', color:'#c2410c', unit:'PPG'},
-    reb: {en:'Highest RPG (season)', pt:'Melhor RPG (época)', color:'#166534', unit:'RPG'},
-    ast: {en:'Highest APG (season)', pt:'Melhor APG (época)', color:'#1e40af', unit:'APG'},
-    stl: {en:'Highest SPG (season)', pt:'Melhor SPG (época)', color:'#7c3aed', unit:'SPG'},
-    blk: {en:'Highest BPG (season)', pt:'Melhor BPG (época)', color:'#ff6040', unit:'BPG'},
-  }
   const TOTAL_LABELS: Record<string,{en:string,pt:string,color:string}> = {
     pts: {en:'Most Points (season)',      pt:'Mais Pontos (época)',        color:'#c2410c'},
     reb: {en:'Most Rebounds (season)',    pt:'Mais Ressaltos (época)',     color:'#166534'},
@@ -232,11 +177,6 @@ export default function RecordsPage() {
     double_doubles: {en:'Most Double-Doubles (season)', pt:'Mais Duplos-Duplos (época)', color:'#6d28d9'},
     triple_doubles: {en:'Most Triple-Doubles (season)', pt:'Mais Triplos-Duplos (época)', color:'#c8102e'},
   }
-  const PCT_LABELS: Record<string,{en:string,pt:string,color:string}> = {
-    fgpct: {en:'Best FG% (season)', pt:'Melhor FG% (época)', color:'#0e7490'},
-    tppct: {en:'Best 3P% (season)', pt:'Melhor 3P% (época)', color:'#b45309'},
-    ftpct: {en:'Best FT% (season)', pt:'Melhor FT% (época)', color:'#166534'},
-  }
 
   const SectionTitle = ({icon,children}:{icon:string,children:React.ReactNode}) => (
     <h2 className="text-lg font-bold mb-3 flex items-center gap-2" style={{color:'#1a1512'}}>
@@ -244,11 +184,10 @@ export default function RecordsPage() {
     </h2>
   )
 
-  const PlayerRow = ({r,unit,decimals,signed,pctSuffix}:{r:GameHigh|SeasonBest,unit?:string,decimals?:number,signed?:boolean,pctSuffix?:boolean}) => {
+  const PlayerRow = ({r,signed}:{r:GameHigh|SeasonBest,signed?:boolean}) => {
     const tc = readableTeamColor(r.teamColor||'555')
     const g = r as GameHigh
-    const num = decimals?r.value.toFixed(decimals):String(r.value)
-    const display = signed && r.value>0 ? `+${num}` : num
+    const display = signed && r.value>0 ? `+${r.value}` : String(r.value)
     return (
       <Link href={`/player/${r.pid}`} className="no-underline">
         <div className="flex items-center gap-3 px-4 py-3 hover:brightness-110 transition-all">
@@ -262,7 +201,7 @@ export default function RecordsPage() {
               {r.team} · {r.pos}{g.opp ? ` · ${isPT?'vs':'vs'} ${g.opp}${g.dateLabel?` · ${g.dateLabel}`:''}` : ''}
             </div>
           </div>
-          <span className="text-lg font-black flex-shrink-0" style={{color:'#1a1512'}}>{display}{pctSuffix?'%':unit?` ${unit}`:''}</span>
+          <span className="text-lg font-black flex-shrink-0" style={{color:'#1a1512'}}>{display}</span>
         </div>
       </Link>
     )
@@ -320,17 +259,6 @@ export default function RecordsPage() {
         ))}
       </div>
 
-      <SectionTitle icon="📈">{isPT?'Recordes Individuais — Uma Época (Médias)':'Individual Records — Single Season (Averages)'}</SectionTitle>
-      <div className="grid md:grid-cols-2 gap-6 mb-10">
-        {Object.keys(AVG_LABELS).map(key=>(
-          <Card key={key} title={isPT?AVG_LABELS[key].pt:AVG_LABELS[key].en} color={AVG_LABELS[key].color}>
-            {(seasonBestsAvg[key]||[]).length===0
-              ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-              : seasonBestsAvg[key].map((r,i)=><PlayerRow key={i} r={r} unit={AVG_LABELS[key].unit} decimals={1} />)}
-          </Card>
-        ))}
-      </div>
-
       <SectionTitle icon="📦">{isPT?'Recordes Individuais — Uma Época (Totais)':'Individual Records — Single Season (Totals)'}</SectionTitle>
       <div className="grid md:grid-cols-2 gap-6 mb-10">
         {Object.keys(TOTAL_LABELS).map(key=>(
@@ -338,17 +266,6 @@ export default function RecordsPage() {
             {(seasonBestsTotal[key]||[]).length===0
               ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
               : seasonBestsTotal[key].map((r,i)=><PlayerRow key={i} r={r} />)}
-          </Card>
-        ))}
-      </div>
-
-      <SectionTitle icon="🎯">{isPT?'Recordes Individuais — Uma Época (Percentagens)':'Individual Records — Single Season (Percentages)'}</SectionTitle>
-      <div className="grid md:grid-cols-2 gap-6 mb-10">
-        {Object.keys(PCT_LABELS).map(key=>(
-          <Card key={key} title={isPT?PCT_LABELS[key].pt:PCT_LABELS[key].en} color={PCT_LABELS[key].color}>
-            {(seasonBestsPct[key]||[]).length===0
-              ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-              : seasonBestsPct[key].map((r,i)=><PlayerRow key={i} r={r} decimals={1} pctSuffix />)}
           </Card>
         ))}
       </div>
