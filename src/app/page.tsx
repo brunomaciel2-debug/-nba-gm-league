@@ -95,12 +95,12 @@ export default async function HomePage() {
           {hl?.potw ? (
             <>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0"
+                <div className="w-24 h-24 rounded-full overflow-hidden flex-shrink-0"
                      style={{background:teamColor(teamMap[hl.potw.team_id])+'22',
                              border:'2px solid '+teamColor(teamMap[hl.potw.team_id])+'44'}}>
                   {hl.potw.photo_url
                     ?<img src={hl.potw.photo_url} alt="" className="w-full h-full object-cover"/>
-                    :<div className="w-full h-full flex items-center justify-center font-black"
+                    :<div className="w-full h-full flex items-center justify-center font-black text-2xl"
                           style={{color:teamColor(teamMap[hl.potw.team_id])}}>
                        {hl.potw.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
                      </div>}
