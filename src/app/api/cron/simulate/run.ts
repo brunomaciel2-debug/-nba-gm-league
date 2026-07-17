@@ -5,7 +5,7 @@ import { generatePowerRankings } from '@/lib/generate-power-rankings'
 import { runPostSimNotifications } from '@/lib/notifications'
 import { generateWeeklyScoutPoints } from '@/lib/scouting'
 import { homeWinProb, updateElo } from '@/lib/elo-helper'
-import { getStatusForWeek, getHalfWeekDates } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates, getWeekDates } from '@/lib/season-week-helper'
 import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
@@ -1334,19 +1334,40 @@ notes: `Week ${week} ${conf} Player of the Week`
 }
 }
 
-if (isEndOfMonth) {
-const monthNum = Math.floor(week/4)
-// `games` has no `season` column (single-season table) — the .eq('season',...)
-// filter here silently matched zero rows every time, so Player of the
-// Month never actually had any month-box data to work with. Found live
-// while testing the merchandising month-end resolver, which copied this
-// exact (broken) query shape.
-const { data: monthGameIds } = await supabaseAdmin.from('games').select('id')
-.gte('week_number', (monthNum-1)*4+1)
-.lte('week_number', monthNum*4)
+// Player of the Month used to fire every 4 weeks (isEndOfMonth = week % 4
+// === 0) and scope its box-score window the same way — neither lines up
+// with a real calendar month (a "4-week block" starting at week 17 spans
+// Oct24-Nov20, so "October's" award was really a mix of late October and
+// half of November, and wouldn't fire again for 4 more weeks regardless of
+// whether a real month had actually ended). Now keyed off the real date
+// each week falls on (getWeekDates, the same calendar the Commissioner
+// already sees on /schedule): fires exactly once, the first time
+// simulation crosses into a new real month, scoped by each game's own
+// scheduled_date instead of a week-number range — a week that straddles
+// two months (like Oct31-Nov6) now correctly splits its games between
+// October's and November's awards instead of one 4-week bucket.
+const curMonthStart = getWeekDates(week).start
+const prevMonthStart = getWeekDates(week-1).start
+const crossedRealMonth = week > 1 && (curMonthStart.getFullYear() !== prevMonthStart.getFullYear() || curMonthStart.getMonth() !== prevMonthStart.getMonth())
+if (crossedRealMonth) {
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const completedYear = prevMonthStart.getFullYear()
+const completedMonth = prevMonthStart.getMonth()
+const monthKey = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}`
+const monthLabel = `${MONTH_NAMES[completedMonth]} ${completedYear}`
+const firstOfMonth = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}-01`
+const lastDay = new Date(completedYear, completedMonth+1, 0).getDate()
+const lastOfMonth = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
+const { data: monthGames } = await supabaseAdmin.from('games').select('id,home_team,away_team,home_score,away_score')
+.eq('status','final').eq('game_type','regular')
+.gte('scheduled_date', firstOfMonth).lte('scheduled_date', lastOfMonth)
+const monthGameResultMap: Record<string,{winner:string}> = {}
+for (const g of (monthGames||[])) {
+monthGameResultMap[g.id] = { winner: (g.home_score||0) > (g.away_score||0) ? g.home_team : g.away_team }
+}
 const monthBoxes = await fetchAllRows<any>((from,to) => supabaseAdmin
 .from('box_scores').select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
-.in('game_id', (monthGameIds||[]).map((g:any)=>g.id)).range(from,to))
+.in('game_id', (monthGames||[]).map((g:any)=>g.id)).range(from,to))
 
 const monthStats: Record<string,{pts:number,reb:number,ast:number,stl:number,blk:number,games:number,wins:number,teamId:string}> = {}
 for (const b of (monthBoxes||[])) {
@@ -1354,7 +1375,7 @@ if (!b.player_id||(b.mins||0)<10) continue
 if (!monthStats[b.player_id]) monthStats[b.player_id]={pts:0,reb:0,ast:0,stl:0,blk:0,games:0,wins:0,teamId:b.team_id}
 const s=monthStats[b.player_id]
 s.pts+=b.pts||0;s.reb+=b.reb||0;s.ast+=b.ast||0;s.stl+=b.stl||0;s.blk+=b.blk||0;s.games++
-if(gameResultMap[b.game_id]?.winner===b.team_id) s.wins++
+if(monthGameResultMap[b.game_id]?.winner===b.team_id) s.wins++
 }
 
 const potmCandidates = Object.entries(monthStats)
@@ -1372,14 +1393,22 @@ const winner = potmCandidates.filter(c=>c.conf===conf).sort((a,b)=>b.score-a.sco
 if (winner) {
 await supabaseAdmin.from('awards').upsert({
 season:'2025-26', award_type:`potm_${conf.toLowerCase()}`,
-period:`month_${monthNum}`, conference:conf,
+period:`month_${monthKey}`, conference:conf,
 player_id:winner.id, team_id:playerTeam[winner.id],
 score:winner.score, stats_context:winner.stats,
-notes:`Month ${monthNum} ${conf} Player of the Month`
+notes:`${monthLabel} ${conf} Player of the Month`
 },{onConflict:'season,award_type,period'})
 }
 }
+}
 
+// Facility/concession maintenance billing and merchandising keep the
+// original 4-week cadence (unchanged, separate from the real-calendar-month
+// fix above) — only Player of the Month was reported as wrong, so only its
+// window moved to real months rather than silently also changing how often
+// rent/jersey-revenue post.
+if (isEndOfMonth) {
+const monthNum = Math.floor(week/4)
 // ── FIXED FACILITY/CONCESSION MAINTENANCE (utilities) ────────────────
 // practice_facilities.monthly_cost and arena_concessions.monthly_maintenance
 // were real, editable numbers (rising every time a GM built something) but
@@ -1413,16 +1442,20 @@ try {
 const merchResult = await resolveMonthlyMerchandising(week)
 console.log(`Merchandising resolved: ${merchResult.players} players, ${merchResult.teams} teams with revenue`)
 } catch (merchErr) { console.warn('Merchandising resolution failed:', merchErr) }
+}
 
 // ── ALL-STAR WEEKEND ─────────────────────────────────
 // Self-guarded (checks current week + allstar_config.roster_announced
 // internally) — safe to call every week, only actually resolves once, right
 // after voting closes. See src/lib/allstar-resolver.ts.
+// Was incorrectly nested inside the monthly block above (only actually
+// got called once every 4 weeks despite this very comment saying it needs
+// to run every week) — moved out here, unconditional, to match its own
+// documented contract.
 try {
 const asResult = await resolveAllStarWeekend()
 if (!asResult.skipped) console.log(`All-Star Weekend resolved: ${asResult.total} roster spots, ${asResult.auto_votes} auto-votes`)
 } catch (asErr) { console.warn('All-Star Weekend resolution failed:', asErr) }
-}
 
 if (isEndOfSeason) {
 const MIN_GAMES = 65
