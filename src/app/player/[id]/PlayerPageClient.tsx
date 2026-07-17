@@ -327,7 +327,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                   const avg=(v:number)=>gp>0?(v/gp).toFixed(1):'—'
                   const avgM=(v:number)=>gp>0?(v/gp).toFixed(0):'—'
                   const pctS=(m:number,a:number)=>a>0?(m/a*100).toFixed(1)+'%':'—'
-                  const oreb=s.oreb||0
+                  const oreb=s.off_reb||0
                   const dreb=s.reb?(s.reb-oreb):0
                   const pm=s.plus_minus||0
                   const st=teamMap?.[s.team_id]
@@ -354,7 +354,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{pctS(s.tpm,s.tpa)}</td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{pctS(s.ftm,s.fta)}</td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#dc2626'}}>{avg(s.turnovers)}</td>
-                      <td className="px-2.5 py-2.5 text-right" style={{color:'#8a8279'}}>{avg(s.pf||0)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#8a8279'}}>{avg(s.fouls||0)}</td>
                       <td className="px-2.5 py-2.5 text-right font-bold" style={{color:s.double_doubles>0?'#1d4ed8':'#8a8279'}}>{s.double_doubles||0}</td>
                       <td className="px-2.5 py-2.5 text-right font-bold" style={{color:s.triple_doubles>0?'#6d28d9':'#8a8279'}}>{s.triple_doubles||0}</td>
                       <td className="px-2.5 py-2.5 text-right font-semibold"

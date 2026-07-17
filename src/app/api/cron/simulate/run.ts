@@ -503,6 +503,11 @@ tpm: ex.tpm+box.tpm, tpa: ex.tpa+box.tpa,
 ftm: ex.ftm+box.ftm, fta: ex.fta+box.fta,
 turnovers: ex.turnovers+box.turnovers,
 fouls: (ex.fouls||0)+(box.pf||0), tech_fouls: (ex.tech_fouls||0)+(box.tech_fouls||0),
+// mins/plus_minus were never accumulated here at all (both columns just
+// sat at their insert default of 0 forever) — the Season Statistics table
+// reads them directly (avgM(s.mins) for MIN, s.plus_minus for the season
+// +/- total), so both showed a permanent 0 regardless of real box scores.
+mins: (ex.mins||0)+(box.mins||0), plus_minus: (ex.plus_minus||0)+(box.plus_minus||0),
 triple_doubles: (ex.triple_doubles||0)+(isTD?1:0),
 double_doubles: (ex.double_doubles||0)+(isDD?1:0),
 }).eq('id', ex.id)
@@ -513,6 +518,7 @@ games: 1, pts: box.pts||0, reb: box.reb||0, ast: box.ast||0, stl: box.stl||0, bl
 off_reb: box.off_reb||0, def_reb: box.def_reb||0,
 fgm: box.fgm||0, fga: box.fga||0, tpm: box.tpm||0, tpa: box.tpa||0, ftm: box.ftm||0, fta: box.fta||0,
 turnovers: box.turnovers||0, fouls: box.pf||0, tech_fouls: box.tech_fouls||0,
+mins: box.mins||0, plus_minus: box.plus_minus||0,
 triple_doubles: isTD?1:0,
 double_doubles: isDD?1:0,
 })
