@@ -1148,7 +1148,13 @@ potw_score: potwScore,
 uotw_game_id: uotwGame?.id || null,
 uotw_winner_id: uotwGame ? ((uotwGame.home_score||0)>(uotwGame.away_score||0)?uotwGame.home_team:uotwGame.away_team) : null,
 uotw_loser_id: uotwGame ? ((uotwGame.home_score||0)>(uotwGame.away_score||0)?uotwGame.away_team:uotwGame.home_team) : null,
-uotw_score: uotwGame ? `${uotwGame.home_score}-${uotwGame.away_score}` : null,
+// Was always "home_score-away_score", but the homepage card shows the
+// WINNER on the left and loser on the right — whenever the away team was
+// actually the winner (like a real incident: away team wins 131-122, but
+// the card showed home-first "122-131" next to a winner it didn't match),
+// the two numbers read backwards from the labels right beside them.
+// Winner-first always matches the card's own left-to-right layout.
+uotw_score: uotwGame ? `${Math.max(uotwGame.home_score,uotwGame.away_score)}-${Math.min(uotwGame.home_score,uotwGame.away_score)}` : null,
 uotw_odds: uotwOdds,
 hstreak_team_id: hotTeam?.[0] || null,
 hstreak_wins: hotTeam?.[1].count || 0,
