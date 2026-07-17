@@ -1391,26 +1391,39 @@ notes: `Week ${week} Rookie of the Week`
 // week-start check wouldn't notice until week 23 started on Dec 5 —
 // after a further half of December games had already been simulated.
 // Halves are short (3-4 days) and never overlap, so at most one
-// month-end can fall inside any single half.
-const monthsCompletedThisHalf: {year:number,month:number}[] = []
-{
-// halfStart/halfEnd from earlier (line ~245) are out of scope here — that
-// declaration lives inside the `if (!isPreseason)` block simulating this
-// half's games, which has already closed by this point. Cheap to
-// recompute: pure date math, same (week, half) already in scope.
+// month-end can fall inside any single half — but only checking THAT one
+// exact month left the whole system with no second chance: a real
+// incident had November's award never get written even though the half
+// that finishes November (Nov 28-30) ran clean through Player/Rookie of
+// the Week right before hitting this section — something inside the
+// monthly block itself failed silently (caught by this section's outer
+// try/catch) that one time, and because only the exact triggering half
+// ever looked at that month, it stayed permanently missing no matter how
+// many further weeks got simulated afterward.
+// Self-heals instead: sweep every real month from the season's first
+// regular-season month (October 2025) through the one this half just
+// completed, and (re-)compute any that's still missing its award row.
+// Cheap for a month that already has one (a single existence check);
+// only re-runs the full games/box-scores query for a month that's
+// actually missing it.
 const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
-let probe = new Date(halfStart)
-while (probe <= halfEnd) {
-const lastDayOfProbeMonth = new Date(probe.getFullYear(), probe.getMonth()+1, 0)
-if (lastDayOfProbeMonth >= halfStart && lastDayOfProbeMonth <= halfEnd) {
-monthsCompletedThisHalf.push({year: lastDayOfProbeMonth.getFullYear(), month: lastDayOfProbeMonth.getMonth()})
-}
-probe = new Date(probe.getFullYear(), probe.getMonth()+1, 1)
+const seasonMonthsToCheck: {year:number,month:number}[] = []
+{
+let cursor = new Date(2025, 9, 1) // October 2025
+const limit = new Date(halfEnd.getFullYear(), halfEnd.getMonth(), 1)
+while (cursor <= limit) {
+const lastDayOfCursorMonth = new Date(cursor.getFullYear(), cursor.getMonth()+1, 0)
+if (lastDayOfCursorMonth <= halfEnd) seasonMonthsToCheck.push({year: cursor.getFullYear(), month: cursor.getMonth()})
+cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1)
 }
 }
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
-for (const {year: completedYear, month: completedMonth} of monthsCompletedThisHalf) {
-const monthKey = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}`
+for (const {year: completedYear, month: completedMonth} of seasonMonthsToCheck) {
+const monthKeyCheck = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}`
+const { data: existingMonthAward } = await supabaseAdmin.from('awards').select('id')
+.eq('award_type','potm_eastern').eq('period',`month_${monthKeyCheck}`).maybeSingle()
+if (existingMonthAward) continue
+const monthKey = monthKeyCheck
 const monthLabel = `${MONTH_NAMES[completedMonth]} ${completedYear}`
 const firstOfMonth = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}-01`
 const lastDay = new Date(completedYear, completedMonth+1, 0).getDate()
