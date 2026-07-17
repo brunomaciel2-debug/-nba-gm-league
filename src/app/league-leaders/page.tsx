@@ -12,7 +12,12 @@ export default function LeagueLeadersPage() {
   const [loading,setLoading] = useState(true)
 
   useEffect(()=>{
-    supabase.from('player_stats').select('*, players(id,name,pos,team_id,photo_url,teams:teams!players_team_id_fkey(color,logo_url))').eq('season','2025-26').gt('games',0).order('pts',{ascending:false}).limit(300)
+    // Fetched sorted/capped by points, but every OTHER category (rebounds,
+    // assists, FG%, etc.) also draws its top 30 from this same set — a
+    // limit of 300 silently excluded low-scoring specialists (an elite
+    // rebounder or 3-point shooter who doesn't score much) from ranking in
+    // their own category. ~500 comfortably covers every player with games>0.
+    supabase.from('player_stats').select('*, players(id,name,pos,team_id,photo_url,teams:teams!players_team_id_fkey(color,logo_url))').eq('season','2025-26').gt('games',0).order('pts',{ascending:false}).limit(500)
       .then(({data:stats})=>{
         setRows((stats||[]).map((s:any)=>({
           ...s, pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—',
@@ -57,13 +62,13 @@ export default function LeagueLeadersPage() {
       ):(
         <div className="grid md:grid-cols-2 gap-6">
           {cats.map(cat=>{
-            const sorted=[...rows].sort((a:any,b:any)=>(parseFloat(b[cat.key])||0)-(parseFloat(a[cat.key])||0)).slice(0,10)
+            const sorted=[...rows].sort((a:any,b:any)=>(parseFloat(b[cat.key])||0)-(parseFloat(a[cat.key])||0)).slice(0,30)
             return(
               <div key={cat.key} className="rounded-xl overflow-hidden" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="px-4 py-3" style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
                   <h3 className="font-bold text-sm" style={{color:cat.color}}>{cat.label}</h3>
                 </div>
-                <div>
+                <div className="overflow-y-auto" style={{maxHeight:440}}>
                   {sorted.map((p:any,i:number)=>{
                     const tc=readableTeamColor(p.teamColor||'555')
                     return(
