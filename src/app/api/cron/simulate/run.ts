@@ -1302,7 +1302,8 @@ home_score: homeScore, away_score: awayScore, status: 'final'
 }).eq('id', game.id)
 
 if (homeBox.length>0 || awayBox.length>0) {
-await supabaseAdmin.from('gleague_box_scores').insert([...homeBox, ...awayBox])
+const { error: boxInsertErr } = await supabaseAdmin.from('gleague_box_scores').insert([...homeBox, ...awayBox])
+if (boxInsertErr) console.warn(`gleague_box_scores insert failed for game ${game.id}:`, boxInsertErr.message)
 }
 
 const homeRec = ensureTeamRecord(game.home)
