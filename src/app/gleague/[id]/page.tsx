@@ -200,12 +200,12 @@ export default function GLeagueTeamPage({params}:{params:{id:string}}) {
                   const isHome=g.home_team===params.id; const myScore=isHome?g.home_score:g.away_score; const opScore=isHome?g.away_score:g.home_score
                   const opp=isHome?g.away:g.home; const won=myScore>opScore; const otc=readableTeamColor(opp?.color||'#5c554e')
                   return(
-                    <div key={g.id} style={{display:'flex',alignItems:'center',gap:16,padding:'10px 16px',background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                    <Link key={g.id} href={`/gleague/game/${g.id}`} style={{display:'flex',alignItems:'center',gap:16,padding:'10px 16px',background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5',textDecoration:'none'}}>
                       <span style={{fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:4,background:won?'#15803d':'#dc2626',color:'#fff',flexShrink:0}}>{won?(isPT?'V':'W'):(isPT?'D':'L')}</span>
                       <span style={{fontSize:11,color:'#8a8279',minWidth:48,flexShrink:0}}>{g.played_at?new Date(g.played_at).toLocaleDateString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric'}):'—'}</span>
-                      <Link href={`/gleague/${opp?.id}`} style={{flex:1,fontWeight:600,fontSize:13,color:otc,textDecoration:'none'}}>{isHome?'vs':'@'} {opp?.name||'—'}</Link>
+                      <span style={{flex:1,fontWeight:600,fontSize:13,color:otc}}>{isHome?'vs':'@'} {opp?.name||'—'}</span>
                       <span style={{fontWeight:900,fontSize:14,color:won?'#15803d':'#dc2626',flexShrink:0}}>{myScore}–{opScore}</span>
-                    </div>
+                    </Link>
                   )
                 })}
               </div>

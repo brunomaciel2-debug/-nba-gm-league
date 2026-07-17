@@ -1194,61 +1194,134 @@ hstreak_games: hotTeam?.[1].games.slice(-5).reverse() || [],
 
 // ── G-LEAGUE SIMULATION ────────────────────────────────
 try {
+// Was matching G-League's own week_number directly against the NBA's
+// week counter — but the two are completely unrelated numbering schemes
+// (G-League's season starts Dec 27 with its own week 1; the NBA's week 1
+// is July 4). Real incident: the two numbers coincidentally matched once
+// (both "13"), which resolved 45 G-League games dated Mar 21-26 while the
+// NBA calendar was still in early January — and because the two
+// schedules only ever coincide at that single shared number, every other
+// G-League week (1-12, every one of them already due by now) never got
+// touched at all. Matches by real calendar date instead — anything due
+// (played_at up through this half's end) gets resolved, catching up any
+// backlog in the same pass rather than depending on a numeric coincidence.
+const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
+const halfEndInclusive = new Date(halfEnd)
+halfEndInclusive.setDate(halfEndInclusive.getDate()+1)
 const { data: glGames } = await supabaseAdmin
 .from('gleague_games')
 .select('*, home:gleague_teams!gleague_games_home_team_fkey(*), away:gleague_teams!gleague_games_away_team_fkey(*)')
-.eq('week_number', week)
+.lt('played_at', halfEndInclusive.toISOString())
 .eq('status', 'scheduled')
 .eq('season', '2025-26')
 
+// Win/loss totals tracked in-memory across this whole batch instead of
+// writing from each game's own game.home/game.away snapshot — those were
+// fetched ONCE up front for the whole batch, so a team playing several
+// games in the same catch-up pass (routine now that a backlog exists) had
+// every update after the first overwrite the same "+1" instead of
+// accumulating, since none of them ever saw the batch's own earlier
+// writes. A real incident: a team that won 3 games in one batch ended up
+// recorded at 1-0, not 3-0.
+const teamRecords: Record<string,{wins:number,losses:number}> = {}
+const ensureTeamRecord = (t:any) => {
+if (!teamRecords[t.id]) teamRecords[t.id] = { wins: t.wins||0, losses: t.losses||0 }
+return teamRecords[t.id]
+}
+
+// Builds one team's box score for this game — same shape of formula as
+// the NBA per-36 curves (volume scaled by minutes and Usage, quality
+// scaled by the shooting attributes), just far simpler since the G-League
+// doesn't need play-by-play, matchups, or fatigue. Real full-roster box
+// scores instead of a random team total plus stray bonus lines for
+// whichever handful of players happened to be on_gleague_assignment —
+// every rostered player who's actually active now gets a real line, and
+// the two teams' own point totals become the game's final score (instead
+// of being generated completely independently of any player's stats).
+const buildTeamBox = (roster: any[], teamId: string) => {
+const active = roster.filter((p:any) => p.status !== 'injured')
+if (!active.length) return []
+const ranked = [...active].sort((a,b) => (b.usage||50) - (a.usage||50))
+// Rough starters/rotation/bench minutes tiers, then normalized so the
+// whole roster's minutes sum to a real team-game total (240 = 5 x 48).
+const tierMins = ranked.map((_,i) => i<5 ? 26+Math.random()*8 : i<9 ? 10+Math.random()*10 : 2+Math.random()*6)
+const totalTier = tierMins.reduce((s,v)=>s+v,0)
+const scale = totalTier>0 ? 240/totalTier : 0
+return ranked.map((p:any,i:number) => {
+const mins = Math.round(tierMins[i]*scale)
+if (mins<=0) return null
+const three=p.three??50, layup=p.layup??50, mid=p.mid??50, ft=p.ft??50, usage=p.usage??50
+const fga = Math.max(1, Math.round((mins/36)*(10+usage/100*10)*(0.85+Math.random()*0.3)))
+const threeShare = Math.min(0.65, Math.max(0.05, 0.2+(three-50)/100*0.3))
+const tpa = Math.round(fga*threeShare)
+const twoAtt = fga-tpa
+const twoPct = Math.min(0.68, Math.max(0.30, 0.46+((layup+mid)/2-50)/100*0.15))
+const threePct = Math.min(0.55, Math.max(0.15, 0.32+(three-50)/100*0.15))
+const twoM = Math.min(twoAtt, Math.round(twoAtt*twoPct*(0.85+Math.random()*0.3)))
+const threeM = Math.min(tpa, Math.round(tpa*threePct*(0.85+Math.random()*0.3)))
+const fgm = twoM+threeM
+const fta = Math.round(fga*(0.15+Math.random()*0.25))
+const ftPct = Math.min(0.92, Math.max(0.55, 0.68+(ft-50)/100*0.2))
+const ftm = Math.min(fta, Math.round(fta*ftPct*(0.85+Math.random()*0.3)))
+const pts = twoM*2+threeM*3+ftm
+const reb = Math.round((mins/36)*(4+Math.random()*6))
+const offReb = Math.round(reb*0.28)
+return {
+player_id: p.id, gleague_team_id: teamId, mins, pts, fgm, fga, tpm: threeM, tpa,
+ftm, fta, reb, ast: Math.round((mins/36)*(2+Math.random()*5)),
+turnovers: Math.round((mins/36)*(1+Math.random()*2.5)),
+stl: Math.round((mins/36)*(0.5+Math.random()*1.5)), blk: Math.round((mins/36)*(0.3+Math.random()*1.2)),
+off_reb: offReb, def_reb: reb-offReb, pf: Math.round(Math.random()*4), is_starter: i<5,
+}
+}).filter(Boolean) as any[]
+}
+
 for (const game of (glGames || [])) {
-const homeAdv = 3
-const base = 105 + Math.round(Math.random() * 20)
-const homeScore = base + homeAdv + Math.round(Math.random() * 15)
-const awayScore = base - homeAdv + Math.round(Math.random() * 15)
+const { data: roster } = await supabaseAdmin
+.from('players').select('*')
+.in('gleague_team_id', [game.home_team, game.away_team])
+
+const homeBox = buildTeamBox((roster||[]).filter((p:any)=>p.gleague_team_id===game.home_team), game.home_team)
+const awayBox = buildTeamBox((roster||[]).filter((p:any)=>p.gleague_team_id===game.away_team), game.away_team)
+const homeScore = homeBox.reduce((s,b)=>s+b.pts,0)
+const awayScore = awayBox.reduce((s,b)=>s+b.pts,0)
 const hWon = homeScore > awayScore
 
 await supabaseAdmin.from('gleague_games').update({
 home_score: homeScore, away_score: awayScore, status: 'final'
 }).eq('id', game.id)
 
-await supabaseAdmin.from('gleague_teams').update({
-wins: (game.home?.wins||0) + (hWon?1:0),
-losses: (game.home?.losses||0) + (hWon?0:1),
-}).eq('id', game.home_team)
+if (homeBox.length>0 || awayBox.length>0) {
+await supabaseAdmin.from('gleague_box_scores').insert([...homeBox, ...awayBox])
+}
 
-await supabaseAdmin.from('gleague_teams').update({
-wins: (game.away?.wins||0) + (hWon?0:1),
-losses: (game.away?.losses||0) + (hWon?1:0),
-}).eq('id', game.away_team)
+const homeRec = ensureTeamRecord(game.home)
+if (hWon) homeRec.wins++; else homeRec.losses++
+await supabaseAdmin.from('gleague_teams').update({ wins: homeRec.wins, losses: homeRec.losses }).eq('id', game.home_team)
 
-const { data: assignedPlayers } = await supabaseAdmin
-.from('players').select('*')
-.eq('on_gleague_assignment', true)
-.in('gleague_team_id', [game.home_team, game.away_team])
+const awayRec = ensureTeamRecord(game.away)
+if (hWon) awayRec.losses++; else awayRec.wins++
+await supabaseAdmin.from('gleague_teams').update({ wins: awayRec.wins, losses: awayRec.losses }).eq('id', game.away_team)
 
-for (const p of (assignedPlayers || [])) {
-const pts = Math.round(12 + Math.random() * 20 + (p.usage||50)/10)
-const reb = Math.round(3 + Math.random() * 8)
-const ast = Math.round(1 + Math.random() * 6)
-const stl = Math.round(Math.random() * 3)
-const blk = Math.round(Math.random() * 2)
-
+for (const b of [...homeBox, ...awayBox]) {
 const { data: existStat } = await supabaseAdmin
 .from('gleague_player_stats').select('*')
-.eq('player_id', p.id).eq('season','2025-26').single()
+.eq('player_id', b.player_id).eq('season','2025-26').maybeSingle()
 
 if (existStat) {
 await supabaseAdmin.from('gleague_player_stats').update({
-games: existStat.games + 1,
-pts: existStat.pts + pts, reb: existStat.reb + reb,
-ast: existStat.ast + ast, stl: existStat.stl + stl, blk: existStat.blk + blk,
+games: existStat.games + 1, mins: existStat.mins+b.mins,
+pts: existStat.pts + b.pts, reb: existStat.reb + b.reb,
+ast: existStat.ast + b.ast, stl: existStat.stl + b.stl, blk: existStat.blk + b.blk,
+fgm: existStat.fgm+b.fgm, fga: existStat.fga+b.fga, tpm: existStat.tpm+b.tpm, tpa: existStat.tpa+b.tpa,
+ftm: existStat.ftm+b.ftm, fta: existStat.fta+b.fta,
 }).eq('id', existStat.id)
 } else {
 await supabaseAdmin.from('gleague_player_stats').insert({
-player_id: p.id, gleague_team_id: p.gleague_team_id,
-season: '2025-26', games: 1,
-pts, reb, ast, stl, blk
+player_id: b.player_id, gleague_team_id: b.gleague_team_id,
+season: '2025-26', games: 1, mins: b.mins,
+pts: b.pts, reb: b.reb, ast: b.ast, stl: b.stl, blk: b.blk,
+fgm: b.fgm, fga: b.fga, tpm: b.tpm, tpa: b.tpa, ftm: b.ftm, fta: b.fta,
 })
 }
 
@@ -1256,9 +1329,10 @@ const devBoost = Math.random() < 0.15
 if (devBoost) {
 const attrs = ['three','layup','mid','ft','siq','ball_hdl','pass_vis','stamina','durability']
 const attr = attrs[Math.floor(Math.random() * attrs.length)]
-const cur = (p as any)[attr] || 60
+const p = (roster||[]).find((rp:any)=>rp.id===b.player_id)
+const cur = (p as any)?.[attr] || 60
 if (cur < 90) {
-await supabaseAdmin.from('players').update({ [attr]: cur + 1 }).eq('id', p.id)
+await supabaseAdmin.from('players').update({ [attr]: cur + 1 }).eq('id', b.player_id)
 }
 }
 }
