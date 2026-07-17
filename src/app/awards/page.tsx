@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
+import { getWeekDates } from '@/lib/season-week-helper'
 
 const AWARD_META_EN: Record<string,{label:string,icon:string,color:string,desc:string}> = {
   potw_eastern:{label:'Player of the Week',  icon:'ti-star',         color:'#b45309',desc:'Eastern Conference'},
@@ -54,6 +55,17 @@ function formatMonthPeriod(period: string, isPT: boolean): string {
   if (!m) return period.replace('month_', isPT?'Mês ':'Month ')
   const names = isPT ? MONTH_NAMES_PT : MONTH_NAMES_EN
   return `${names[parseInt(m[2],10)-1]} ${m[1]}`
+}
+
+// Weekly awards only store "week_N" — the real calendar month a given week
+// falls into has to be derived from getWeekDates(N).start, same source the
+// engine itself uses to decide when a real month has crossed for Player of
+// the Month. Used to group Weekly awards under a month dropdown instead of
+// one long list that just keeps growing as the season progresses.
+function weekMonthKey(period: string): string {
+  const w = parseInt(period.replace('week_',''), 10)
+  const start = getWeekDates(w).start
+  return `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}`
 }
 
 function AwardCard({award,meta,isPT}:{award:any,meta:any,isPT:boolean}) {
@@ -179,6 +191,16 @@ export default function AwardsPage() {
   // collapses every month in the same year to an identical sort key.
   const monthlyPeriods=Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potm')).map((a:any)=>a.period))).sort((a:any,b:any)=>b.localeCompare(a))
 
+  // Group weekly periods by real calendar month so the page can show one
+  // month at a time via a dropdown instead of an ever-growing list of every
+  // week since the season started.
+  const weeklyMonthKeys=Array.from(new Set(weeklyPeriods.map(weekMonthKey))).sort((a,b)=>b.localeCompare(a))
+  const [selectedWeeklyMonth,setSelectedWeeklyMonth]=useState<string>('')
+  useEffect(()=>{
+    if(!selectedWeeklyMonth && weeklyMonthKeys.length>0) setSelectedWeeklyMonth(weeklyMonthKeys[0])
+  },[weeklyMonthKeys.join(','),selectedWeeklyMonth])
+  const weeklyPeriodsInMonth=weeklyPeriods.filter(p=>weekMonthKey(p)===selectedWeeklyMonth)
+
   const TABS_EN = [['weekly','Weekly'],['monthly','Monthly'],['yearly','Season Awards']] as const
   const TABS_PT = [['weekly','Semanais'],['monthly','Mensais'],['yearly','Prémios da Época']] as const
   const TABS = isPT ? TABS_PT : TABS_EN
@@ -213,19 +235,35 @@ export default function AwardsPage() {
                 <p className="text-base mt-4 font-semibold" style={{color:'#5c554e'}}>{isPT?'Ainda sem prémios semanais':'No weekly awards yet'}</p>
                 <p className="text-sm mt-1" style={{color:'#8a8279'}}>{isPT?'Os prémios são calculados após cada ciclo de simulação.':'Awards are calculated after each simulation run.'}</p>
               </div>
-            ):weeklyPeriods.map((period:any)=>(
-              <div key={period} className="mb-8">
-                <h3 className="text-sm font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1px'}}>
-                  {period.replace('week_',isPT?'Semana ':'Week ')}
-                </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {['potw_eastern','potw_western'].map(type=>{
-                    const a=awards.find((aw:any)=>aw.award_type===type&&aw.period===period)
-                    return a?<AwardCard key={type} award={a} meta={AWARD_META[type]} isPT={isPT}/>:null
-                  })}
+            ):(
+              <>
+                <div className="flex items-center gap-2 mb-6">
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#5c554e',letterSpacing:'1px'}}>{isPT?'Mês:':'Month:'}</span>
+                  <select
+                    value={selectedWeeklyMonth}
+                    onChange={e=>setSelectedWeeklyMonth(e.target.value)}
+                    className="text-sm font-semibold px-3 py-2 rounded-lg"
+                    style={{background:'#faf8f5',border:'1px solid #d4cdc5',color:'#1a1512'}}>
+                    {weeklyMonthKeys.map(mk=>(
+                      <option key={mk} value={mk}>{formatMonthPeriod(`month_${mk}`,isPT)}</option>
+                    ))}
+                  </select>
                 </div>
-              </div>
-            ))
+                {weeklyPeriodsInMonth.map((period:any)=>(
+                  <div key={period} className="mb-8">
+                    <h3 className="text-sm font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1px'}}>
+                      {period.replace('week_',isPT?'Semana ':'Week ')}
+                    </h3>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {['potw_eastern','potw_western'].map(type=>{
+                        const a=awards.find((aw:any)=>aw.award_type===type&&aw.period===period)
+                        return a?<AwardCard key={type} award={a} meta={AWARD_META[type]} isPT={isPT}/>:null
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )
           )}
 
           {tab==='monthly'&&(
