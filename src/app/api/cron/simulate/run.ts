@@ -1277,14 +1277,24 @@ const isEndOfMonth = week % 4 === 0
 // aging/rookie-option blocks below share this exact bug fixed the same way.
 const isEndOfSeason = week === 40 // last week of the Regular Season (see season-week-helper.ts)
 
-const weekBoxesAw = await fetchAllRows<any>((from,to) => supabaseAdmin
-.from('box_scores')
-.select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
-.in('game_id', gamesCreated).range(from,to))
-
+// Scoped by week_number+status='final' (every one of this week's games
+// completed SO FAR), not gamesCreated (only THIS call's newly-created
+// games) — same fix already applied to the Weekly Highlights section below.
+// A real incident: a block that partially fails partway through (e.g. a
+// platform execution-time limit kills the function after 23 of 60 games)
+// leaves week_number's games split between 'final' and 'scheduled'; a
+// retry only creates the remaining games, so gamesCreated-scoping would
+// compute Player/Rookie of the Week from an incomplete slice of the week
+// missing the first attempt's box scores entirely.
 const { data: weekGamesData } = await supabaseAdmin
 .from('games').select('id,home_team,away_team,home_score,away_score')
-.in('id', gamesCreated)
+.eq('week_number', week).eq('status','final')
+const weekGameIdsAw = (weekGamesData||[]).map((g:any)=>g.id)
+
+const weekBoxesAw = weekGameIdsAw.length > 0 ? await fetchAllRows<any>((from,to) => supabaseAdmin
+.from('box_scores')
+.select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
+.in('game_id', weekGameIdsAw).range(from,to)) : []
 
 const gameResultMap: Record<string,{winner:string,loser:string}> = {}
 for (const g of (weekGamesData||[])) {
