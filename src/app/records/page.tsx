@@ -42,12 +42,12 @@ export default function RecordsPage() {
       const teamMap: Record<string,any> = {}
       for (const tm of (teamsData||[])) teamMap[tm.id] = tm
 
-      // ── Individual single-game highs (top 5 per stat) ──
+      // ── Individual single-game highs (record holder per stat) ──
       const highsResult: Record<string,GameHigh[]> = {}
       for (const key of GAME_STAT_KEYS) {
         const { data } = await supabase.from('box_scores')
           .select(`player_id,game_id,team_id,${key},players(id,name,pos,photo_url,teams:teams!players_team_id_fkey(color))`)
-          .in('game_id', gameIds).order(key,{ascending:false}).limit(5)
+          .in('game_id', gameIds).order(key,{ascending:false}).limit(1)
         highsResult[key] = (data||[]).map((b:any) => {
           const g = gameById[b.game_id]
           const isHome = g?.home_team === b.team_id
@@ -68,17 +68,17 @@ export default function RecordsPage() {
         teamGameRows.push({teamId:g.home_team, score:g.home_score, oppScore:g.away_score, gameId:g.id, opp:teamMap[g.away_team]?.name||g.away_team, dateLabel:g.scheduled_date})
         teamGameRows.push({teamId:g.away_team, score:g.away_score, oppScore:g.home_score, gameId:g.id, opp:teamMap[g.home_team]?.name||g.home_team, dateLabel:g.scheduled_date})
       }
-      const topScores = [...teamGameRows].sort((a,b)=>b.score-a.score).slice(0,5).map(r=>({
+      const topScores = [...teamGameRows].sort((a,b)=>b.score-a.score).slice(0,1).map(r=>({
         teamId:r.teamId, teamName:teamMap[r.teamId]?.name||r.teamId, teamColor:teamMap[r.teamId]?.color, logo:teamMap[r.teamId]?.logo_url,
         value:r.score, gameId:r.gameId, opp:r.opp, oppScore:r.oppScore, dateLabel:r.dateLabel,
       }))
       setTeamGamePts(topScores)
-      const topMargins = [...teamGameRows].filter(r=>r.score>r.oppScore).sort((a,b)=>(b.score-b.oppScore)-(a.score-a.oppScore)).slice(0,5).map(r=>({
+      const topMargins = [...teamGameRows].filter(r=>r.score>r.oppScore).sort((a,b)=>(b.score-b.oppScore)-(a.score-a.oppScore)).slice(0,1).map(r=>({
         teamId:r.teamId, teamName:teamMap[r.teamId]?.name||r.teamId, teamColor:teamMap[r.teamId]?.color, logo:teamMap[r.teamId]?.logo_url,
         value:r.score-r.oppScore, gameId:r.gameId, opp:r.opp, oppScore:r.oppScore, dateLabel:r.dateLabel,
       }))
       setTeamGameMargin(topMargins)
-      const fewestAllowed = [...teamGameRows].sort((a,b)=>a.oppScore-b.oppScore).slice(0,5).map(r=>({
+      const fewestAllowed = [...teamGameRows].sort((a,b)=>a.oppScore-b.oppScore).slice(0,1).map(r=>({
         teamId:r.teamId, teamName:teamMap[r.teamId]?.name||r.teamId, teamColor:teamMap[r.teamId]?.color, logo:teamMap[r.teamId]?.logo_url,
         value:r.oppScore, gameId:r.gameId, opp:r.opp, oppScore:r.score, dateLabel:r.dateLabel,
       }))
@@ -86,7 +86,7 @@ export default function RecordsPage() {
       const combinedRows = (regGames||[]).map((g:any)=>({
         teamId:g.home_team, score:g.home_score+g.away_score, gameId:g.id, opp:teamMap[g.away_team]?.name||g.away_team, dateLabel:g.scheduled_date,
       }))
-      const topCombined = [...combinedRows].sort((a,b)=>b.score-a.score).slice(0,5).map(r=>({
+      const topCombined = [...combinedRows].sort((a,b)=>b.score-a.score).slice(0,1).map(r=>({
         teamId:r.teamId, teamName:teamMap[r.teamId]?.name||r.teamId, teamColor:teamMap[r.teamId]?.color, logo:teamMap[r.teamId]?.logo_url,
         value:r.score, gameId:r.gameId, opp:r.opp, dateLabel:r.dateLabel,
       }))
@@ -108,7 +108,7 @@ export default function RecordsPage() {
         const oppId = g ? (isHome?g.away_team:g.home_team) : '—'
         return { teamId, value, gameId, opp: teamMap[oppId]?.name||oppId, dateLabel: g?.scheduled_date||'' }
       })
-      const top3pmTeam = [...team3pmRows].sort((a,b)=>b.value-a.value).slice(0,5).map(r=>({
+      const top3pmTeam = [...team3pmRows].sort((a,b)=>b.value-a.value).slice(0,1).map(r=>({
         teamId:r.teamId, teamName:teamMap[r.teamId]?.name||r.teamId, teamColor:teamMap[r.teamId]?.color, logo:teamMap[r.teamId]?.logo_url,
         value:r.value, gameId:r.gameId, opp:r.opp, dateLabel:r.dateLabel,
       }))
@@ -130,7 +130,7 @@ export default function RecordsPage() {
         curStreak[lt] = 0
         bestStreak[wt] = Math.max(bestStreak[wt]||0, curStreak[wt])
       }
-      const streakList = Object.entries(bestStreak).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([teamId,streak])=>({
+      const streakList = Object.entries(bestStreak).sort((a,b)=>b[1]-a[1]).slice(0,1).map(([teamId,streak])=>({
         teamId, teamName:teamMap[teamId]?.name||teamId, teamColor:teamMap[teamId]?.color, logo:teamMap[teamId]?.logo_url, streak,
       }))
       setLongestStreak(streakList)
@@ -138,7 +138,7 @@ export default function RecordsPage() {
       // ── Best team season (by win%) ──
       const seasonTeams = (teamsData||[]).map((tm:any)=>({
         teamId:tm.id, teamName:tm.name, teamColor:tm.color, logo:tm.logo_url, wins:tm.wins||0, losses:tm.losses||0,
-      })).filter((tm:any)=>tm.wins+tm.losses>0).sort((a:any,b:any)=> (b.wins/(b.wins+b.losses)) - (a.wins/(a.wins+a.losses))).slice(0,5)
+      })).filter((tm:any)=>tm.wins+tm.losses>0).sort((a:any,b:any)=> (b.wins/(b.wins+b.losses)) - (a.wins/(a.wins+a.losses))).slice(0,1)
       setTeamSeasons(seasonTeams)
 
       // ── Individual season bests (averages, qualified; and raw totals) ──
@@ -156,11 +156,11 @@ export default function RecordsPage() {
           const played = teamGamesPlayed[s.team_id] ?? SEASON_GAMES
           return s.games >= Math.ceil(0.70*played)
         })
-        avgResult[key] = [...qualified].sort((a:any,b:any)=>(b[key]/b.games)-(a[key]/a.games)).slice(0,5).map((s:any)=>({
+        avgResult[key] = [...qualified].sort((a:any,b:any)=>(b[key]/b.games)-(a[key]/a.games)).slice(0,1).map((s:any)=>({
           pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
           teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s[key]/s.games, season:s.season,
         }))
-        totalResult[key] = [...(statsRows||[])].sort((a:any,b:any)=>b[key]-a[key]).slice(0,5).map((s:any)=>({
+        totalResult[key] = [...(statsRows||[])].sort((a:any,b:any)=>b[key]-a[key]).slice(0,1).map((s:any)=>({
           pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
           teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s[key], season:s.season,
         }))
@@ -168,7 +168,7 @@ export default function RecordsPage() {
       // tpm/double_doubles/triple_doubles are season TOTALS only (no natural
       // "per game" version people track for these) — same sort, no averaging.
       for (const key of SEASON_TOTAL_ONLY_KEYS) {
-        totalResult[key] = [...(statsRows||[])].sort((a:any,b:any)=>(b[key]||0)-(a[key]||0)).slice(0,5).map((s:any)=>({
+        totalResult[key] = [...(statsRows||[])].sort((a:any,b:any)=>(b[key]||0)-(a[key]||0)).slice(0,1).map((s:any)=>({
           pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
           teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s[key]||0, season:s.season,
         }))
@@ -185,17 +185,17 @@ export default function RecordsPage() {
         return made >= Math.ceil(makeMin*played/SEASON_GAMES)
       }
       pctResult.fgpct = (statsRows||[]).filter((s:any)=>s.fga>0 && pctQualified(s,s.fgm,300))
-        .sort((a:any,b:any)=>(b.fgm/b.fga)-(a.fgm/a.fga)).slice(0,5).map((s:any)=>({
+        .sort((a:any,b:any)=>(b.fgm/b.fga)-(a.fgm/a.fga)).slice(0,1).map((s:any)=>({
           pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
           teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s.fgm/s.fga*100, season:s.season,
         }))
       pctResult.tppct = (statsRows||[]).filter((s:any)=>s.tpa>0 && pctQualified(s,s.tpm,82))
-        .sort((a:any,b:any)=>(b.tpm/b.tpa)-(a.tpm/a.tpa)).slice(0,5).map((s:any)=>({
+        .sort((a:any,b:any)=>(b.tpm/b.tpa)-(a.tpm/a.tpa)).slice(0,1).map((s:any)=>({
           pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
           teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s.tpm/s.tpa*100, season:s.season,
         }))
       pctResult.ftpct = (statsRows||[]).filter((s:any)=>s.fta>0 && pctQualified(s,s.ftm,125))
-        .sort((a:any,b:any)=>(b.ftm/b.fta)-(a.ftm/a.fta)).slice(0,5).map((s:any)=>({
+        .sort((a:any,b:any)=>(b.ftm/b.fta)-(a.ftm/a.fta)).slice(0,1).map((s:any)=>({
           pid:s.players?.id, name:s.players?.name||'—', pos:s.players?.pos||'—', team:s.team_id,
           teamColor:s.players?.teams?.color, photo:s.players?.photo_url, value:s.ftm/s.fta*100, season:s.season,
         }))
@@ -244,48 +244,46 @@ export default function RecordsPage() {
     </h2>
   )
 
-  const PlayerRow = ({r,i,unit,decimals,signed,pctSuffix}:{r:GameHigh|SeasonBest,i:number,unit?:string,decimals?:number,signed?:boolean,pctSuffix?:boolean}) => {
+  const PlayerRow = ({r,unit,decimals,signed,pctSuffix}:{r:GameHigh|SeasonBest,unit?:string,decimals?:number,signed?:boolean,pctSuffix?:boolean}) => {
     const tc = readableTeamColor(r.teamColor||'555')
     const g = r as GameHigh
     const num = decimals?r.value.toFixed(decimals):String(r.value)
     const display = signed && r.value>0 ? `+${num}` : num
     return (
       <Link href={`/player/${r.pid}`} className="no-underline">
-        <div className="flex items-center gap-3 px-3 py-2.5 hover:brightness-110 transition-all" style={{borderBottom:'1px solid #16120d', background: i%2===0?'#ece7dd':'#e8e2d6'}}>
-          <span className="text-xs font-bold w-4 text-right flex-shrink-0" style={{color:i===0?'#c2410c':'#9c8e7a'}}>{i+1}</span>
-          <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0" style={{background:tc+'22'}}>
+        <div className="flex items-center gap-3 px-4 py-3 hover:brightness-110 transition-all">
+          <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0" style={{background:tc+'22',border:'2px solid '+tc+'44'}}>
             {r.photo?<img src={r.photo} alt="" className="w-full h-full object-cover"/>
-              :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>{r.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>}
+              :<div className="w-full h-full flex items-center justify-center text-sm font-black" style={{color:tc}}>{r.name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold truncate" style={{color:'#1a1512'}}>{r.name}</div>
+            <div className="text-sm font-bold truncate" style={{color:'#1a1512'}}>{r.name}</div>
             <div className="text-xs truncate" style={{color:'#6b5f4e'}}>
               {r.team} · {r.pos}{g.opp ? ` · ${isPT?'vs':'vs'} ${g.opp}${g.dateLabel?` · ${g.dateLabel}`:''}` : ''}
             </div>
           </div>
-          <span className="text-sm font-black flex-shrink-0" style={{color:'#1a1512'}}>{display}{pctSuffix?'%':unit?` ${unit}`:''}</span>
+          <span className="text-lg font-black flex-shrink-0" style={{color:'#1a1512'}}>{display}{pctSuffix?'%':unit?` ${unit}`:''}</span>
         </div>
       </Link>
     )
   }
 
-  const TeamRow = ({r,i,marginMode}:{r:TeamGameRecord,i:number,marginMode?:boolean}) => {
+  const TeamRow = ({r,marginMode}:{r:TeamGameRecord,marginMode?:boolean}) => {
     const tc = readableTeamColor(r.teamColor||'555')
     return (
       <Link href={`/game/${r.gameId}`} className="no-underline">
-        <div className="flex items-center gap-3 px-3 py-2.5 hover:brightness-110 transition-all" style={{borderBottom:'1px solid #16120d', background: i%2===0?'#ece7dd':'#e8e2d6'}}>
-          <span className="text-xs font-bold w-4 text-right flex-shrink-0" style={{color:i===0?'#c2410c':'#9c8e7a'}}>{i+1}</span>
-          <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{background:tc+'22'}}>
-            {r.logo?<img src={r.logo} alt="" className="w-full h-full object-contain p-1"/>
-              :<span className="text-xs font-black" style={{color:tc}}>{r.teamId}</span>}
+        <div className="flex items-center gap-3 px-4 py-3 hover:brightness-110 transition-all">
+          <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{background:tc+'22'}}>
+            {r.logo?<img src={r.logo} alt="" className="w-full h-full object-contain p-1.5"/>
+              :<span className="text-sm font-black" style={{color:tc}}>{r.teamId}</span>}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold truncate" style={{color:'#1a1512'}}>{r.teamName}</div>
+            <div className="text-sm font-bold truncate" style={{color:'#1a1512'}}>{r.teamName}</div>
             <div className="text-xs truncate" style={{color:'#6b5f4e'}}>
               {isPT?'vs':'vs'} {r.opp}{r.dateLabel?` · ${r.dateLabel}`:''}{r.oppScore!=null && !marginMode ? ` · ${r.value}-${r.oppScore}` : ''}
             </div>
           </div>
-          <span className="text-sm font-black flex-shrink-0" style={{color:'#1a1512'}}>{marginMode?`+${r.value}`:r.value}</span>
+          <span className="text-lg font-black flex-shrink-0" style={{color:'#1a1512'}}>{marginMode?`+${r.value}`:r.value}</span>
         </div>
       </Link>
     )
@@ -317,7 +315,7 @@ export default function RecordsPage() {
           <Card key={key} title={isPT?GAME_STAT_LABELS[key].pt:GAME_STAT_LABELS[key].en} color={GAME_STAT_LABELS[key].color}>
             {(gameHighs[key]||[]).length===0
               ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-              : gameHighs[key].map((r,i)=><PlayerRow key={i} r={r} i={i} signed={key==='plus_minus'} />)}
+              : gameHighs[key].map((r,i)=><PlayerRow key={i} r={r} signed={key==='plus_minus'} />)}
           </Card>
         ))}
       </div>
@@ -328,7 +326,7 @@ export default function RecordsPage() {
           <Card key={key} title={isPT?AVG_LABELS[key].pt:AVG_LABELS[key].en} color={AVG_LABELS[key].color}>
             {(seasonBestsAvg[key]||[]).length===0
               ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-              : seasonBestsAvg[key].map((r,i)=><PlayerRow key={i} r={r} i={i} unit={AVG_LABELS[key].unit} decimals={1} />)}
+              : seasonBestsAvg[key].map((r,i)=><PlayerRow key={i} r={r} unit={AVG_LABELS[key].unit} decimals={1} />)}
           </Card>
         ))}
       </div>
@@ -339,7 +337,7 @@ export default function RecordsPage() {
           <Card key={key} title={isPT?TOTAL_LABELS[key].pt:TOTAL_LABELS[key].en} color={TOTAL_LABELS[key].color}>
             {(seasonBestsTotal[key]||[]).length===0
               ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-              : seasonBestsTotal[key].map((r,i)=><PlayerRow key={i} r={r} i={i} />)}
+              : seasonBestsTotal[key].map((r,i)=><PlayerRow key={i} r={r} />)}
           </Card>
         ))}
       </div>
@@ -350,7 +348,7 @@ export default function RecordsPage() {
           <Card key={key} title={isPT?PCT_LABELS[key].pt:PCT_LABELS[key].en} color={PCT_LABELS[key].color}>
             {(seasonBestsPct[key]||[]).length===0
               ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-              : seasonBestsPct[key].map((r,i)=><PlayerRow key={i} r={r} i={i} decimals={1} pctSuffix />)}
+              : seasonBestsPct[key].map((r,i)=><PlayerRow key={i} r={r} decimals={1} pctSuffix />)}
           </Card>
         ))}
       </div>
@@ -360,44 +358,43 @@ export default function RecordsPage() {
         <Card title={isPT?'Mais Pontos Numa Equipa (jogo)':'Most Points By a Team (game)'} color="#c2410c">
           {teamGamePts.length===0
             ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-            : teamGamePts.map((r,i)=><TeamRow key={i} r={r} i={i} />)}
+            : teamGamePts.map((r,i)=><TeamRow key={i} r={r} />)}
         </Card>
         <Card title={isPT?'Maior Margem de Vitória':'Biggest Winning Margin'} color="#166534">
           {teamGameMargin.length===0
             ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-            : teamGameMargin.map((r,i)=><TeamRow key={i} r={r} i={i} marginMode />)}
+            : teamGameMargin.map((r,i)=><TeamRow key={i} r={r} marginMode />)}
         </Card>
         <Card title={isPT?'Menos Pontos Sofridos (melhor defesa)':'Fewest Points Allowed (best defense)'} color="#0e7490">
           {teamGameFewestAllowed.length===0
             ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-            : teamGameFewestAllowed.map((r,i)=><TeamRow key={i} r={r} i={i} />)}
+            : teamGameFewestAllowed.map((r,i)=><TeamRow key={i} r={r} />)}
         </Card>
         <Card title={isPT?'Maior Pontuação Combinada (jogo)':'Highest Combined Score (game)'} color="#c8102e">
           {teamGameCombined.length===0
             ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-            : teamGameCombined.map((r,i)=><TeamRow key={i} r={r} i={i} marginMode />)}
+            : teamGameCombined.map((r,i)=><TeamRow key={i} r={r} marginMode />)}
         </Card>
         <Card title={isPT?'Mais Triplos Convertidos Numa Equipa (jogo)':'Most 3-Pointers Made By a Team (game)'} color="#b45309">
           {teamGame3pm.length===0
             ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-            : teamGame3pm.map((r,i)=><TeamRow key={i} r={r} i={i} />)}
+            : teamGame3pm.map((r,i)=><TeamRow key={i} r={r} />)}
         </Card>
         <Card title={isPT?'Maior Sequência de Vitórias (all-time)':'Longest Win Streak (all-time)'} color="#6d28d9">
           {longestStreak.length===0
             ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-            : longestStreak.map((r,i)=>{
+            : longestStreak.map((r)=>{
               const tc = readableTeamColor(r.teamColor||'555')
               return (
                 <Link key={r.teamId} href={`/team/${r.teamId}`} className="no-underline">
-                  <div className="flex items-center gap-3 px-3 py-2.5 hover:brightness-110 transition-all" style={{borderBottom:'1px solid #16120d', background: i%2===0?'#ece7dd':'#e8e2d6'}}>
-                    <span className="text-xs font-bold w-4 text-right flex-shrink-0" style={{color:i===0?'#c2410c':'#9c8e7a'}}>{i+1}</span>
-                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{background:tc+'22'}}>
-                      {r.logo?<img src={r.logo} alt="" className="w-full h-full object-contain p-1"/>:<span className="text-xs font-black" style={{color:tc}}>{r.teamId}</span>}
+                  <div className="flex items-center gap-3 px-4 py-3 hover:brightness-110 transition-all">
+                    <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{background:tc+'22'}}>
+                      {r.logo?<img src={r.logo} alt="" className="w-full h-full object-contain p-1.5"/>:<span className="text-sm font-black" style={{color:tc}}>{r.teamId}</span>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold truncate" style={{color:'#1a1512'}}>{r.teamName}</div>
+                      <div className="text-sm font-bold truncate" style={{color:'#1a1512'}}>{r.teamName}</div>
                     </div>
-                    <span className="text-sm font-black flex-shrink-0" style={{color:'#1a1512'}}>{r.streak} {isPT?'jogos':'games'}</span>
+                    <span className="text-lg font-black flex-shrink-0" style={{color:'#1a1512'}}>{r.streak} {isPT?'jogos':'games'}</span>
                   </div>
                 </Link>
               )
@@ -410,21 +407,20 @@ export default function RecordsPage() {
         <Card title={isPT?'Melhor % de Vitórias':'Best Win %'} color="#0e7490">
           {teamSeasons.length===0
             ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Sem dados ainda':'No data yet'}</div>
-            : teamSeasons.map((r,i)=>{
+            : teamSeasons.map((r)=>{
               const tc = readableTeamColor(r.teamColor||'555')
               const pct = r.wins+r.losses>0 ? (r.wins/(r.wins+r.losses)).toFixed(3).replace(/^0/,'') : '.000'
               return (
                 <Link key={r.teamId} href={`/team/${r.teamId}`} className="no-underline">
-                  <div className="flex items-center gap-3 px-3 py-2.5 hover:brightness-110 transition-all" style={{borderBottom:'1px solid #16120d', background: i%2===0?'#ece7dd':'#e8e2d6'}}>
-                    <span className="text-xs font-bold w-4 text-right flex-shrink-0" style={{color:i===0?'#c2410c':'#9c8e7a'}}>{i+1}</span>
-                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{background:tc+'22'}}>
-                      {r.logo?<img src={r.logo} alt="" className="w-full h-full object-contain p-1"/>:<span className="text-xs font-black" style={{color:tc}}>{r.teamId}</span>}
+                  <div className="flex items-center gap-3 px-4 py-3 hover:brightness-110 transition-all">
+                    <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center" style={{background:tc+'22'}}>
+                      {r.logo?<img src={r.logo} alt="" className="w-full h-full object-contain p-1.5"/>:<span className="text-sm font-black" style={{color:tc}}>{r.teamId}</span>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-semibold truncate" style={{color:'#1a1512'}}>{r.teamName}</div>
+                      <div className="text-sm font-bold truncate" style={{color:'#1a1512'}}>{r.teamName}</div>
                       <div className="text-xs" style={{color:'#6b5f4e'}}>{r.wins}-{r.losses}</div>
                     </div>
-                    <span className="text-sm font-black flex-shrink-0" style={{color:'#1a1512'}}>{pct}</span>
+                    <span className="text-lg font-black flex-shrink-0" style={{color:'#1a1512'}}>{pct}</span>
                   </div>
                 </Link>
               )
