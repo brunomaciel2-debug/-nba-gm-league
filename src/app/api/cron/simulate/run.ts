@@ -1214,6 +1214,16 @@ const { data: glGames } = await supabaseAdmin
 .lt('played_at', halfEndInclusive.toISOString())
 .eq('status', 'scheduled')
 .eq('season', '2025-26')
+// Capped per call — a backlog can genuinely reach 500+ games (this one
+// did, from sitting unsimulated for two months of real-world sessions
+// before this date-based fix existed), and generating a full roster's
+// box score for every one of them in a single invocation risks the exact
+// same hosting execution-time-limit failure already seen on the NBA side
+// with a big batch of games. Oldest-first so the catch-up clears the
+// backlog in order over a few calls instead of processing an arbitrary
+// slice of it.
+.order('played_at', { ascending: true })
+.limit(120)
 
 // Win/loss totals tracked in-memory across this whole batch instead of
 // writing from each game's own game.home/game.away snapshot — those were

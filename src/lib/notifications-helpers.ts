@@ -440,6 +440,15 @@ export function notifSeasonEnd(lang: 'en'|'pt', weeksLeft: number) {
   }
 }
 
+export function notifGLeagueStart(lang: 'en'|'pt') {
+  return {
+    subject: lang === 'pt' ? `🏀 A G-League está prestes a começar` : `🏀 The G-League is about to start`,
+    body: lang === 'pt'
+      ? `A época da G-League arranca a 27 de Dezembro. Se ainda não o fizeste, considera atribuir jogadores da tua equipa à tua afiliada da G-League antes do início — dá-lhes minutos e desenvolvimento que não teriam no plantel principal.`
+      : `The G-League season tips off on December 27. If you haven't already, consider assigning players from your roster down to your G-League affiliate before it starts — it gives them minutes and development they wouldn't get on the main roster.`,
+  }
+}
+
 export function notifGMInactivity(lang: 'en'|'pt', name: string, days: number) {
   return {
     subject: lang === 'pt' ? `⚠️ Não estás ativo há ${days} dias` : `⚠️ You haven't been active for ${days} days`,

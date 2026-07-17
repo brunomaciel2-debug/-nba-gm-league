@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import { getStatusForWeek } from './season-week-helper'
-import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk } from './notifications-helpers'
+import { getStatusForWeek, getWeekDates } from './season-week-helper'
+import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart } from './notifications-helpers'
 import { MEDICAL_COST_BY_SEVERITY, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
 
 const supabase = createClient(
@@ -367,6 +367,28 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       const lang = await getTeamLang(team.id)
       const notif = notifSeasonEnd(lang, 4)
       await notify(team.id, 'reminder', notif.subject, notif.body, { weeks_left: 4 })
+    }
+  }
+
+  // ── 12b. G-LEAGUE STARTING SOON ────────────────────────
+  // The G-League has its own real-calendar schedule (season starts Dec 27),
+  // completely separate from the NBA week counter — same date-based
+  // approach as the G-League game simulation itself, rather than trying to
+  // pin this to one exact NBA week number. Fires once, ~2 weeks ahead of
+  // the G-League's actual tip-off, guarded by checking whether it's already
+  // gone out this season so a date range that stays true across several
+  // calls doesn't resend it.
+  const gleagueStart = new Date('2025-12-27T00:00:00Z')
+  const noticeWindowStart = new Date(gleagueStart)
+  noticeWindowStart.setDate(noticeWindowStart.getDate() - 14)
+  if (getWeekDates(week).start >= noticeWindowStart) {
+    const { data: alreadySent } = await supabase.from('inbox_messages').select('id').eq('type','gleague_start').limit(1).maybeSingle()
+    if (!alreadySent) {
+      for (const team of (teams||[])) {
+        const lang = await getTeamLang(team.id)
+        const notif = notifGLeagueStart(lang)
+        await notify(team.id, 'gleague_start', notif.subject, notif.body, {})
+      }
     }
   }
 
