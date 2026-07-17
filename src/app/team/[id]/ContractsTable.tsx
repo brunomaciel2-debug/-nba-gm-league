@@ -22,7 +22,11 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
 
   useEffect(() => {
     Promise.all([
-      supabase.from('players').select('id,name,pos,salary,contract_years').eq('team_id', teamId).eq('status','active').order('salary',{ascending:false}),
+      // Injured players are still under contract and still count against the
+      // cap — excluding them here made their salary silently vanish from the
+      // payroll the moment they got hurt, understating the team's real cap
+      // commitment.
+      supabase.from('players').select('id,name,pos,salary,contract_years').eq('team_id', teamId).in('status',['active','injured']).order('salary',{ascending:false}),
       // Cut players still count against THIS team's cap as dead money until
       // another team signs them (see /api/players/cut) — the roster query
       // above can't see them since team_id is already null.

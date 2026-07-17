@@ -128,7 +128,7 @@ export default function TeamPageTabs({
       <div style={{flex:1, minWidth:0}}>
         {tab === 'roster' && (
           <>
-            <RosterTable players={players} teamColor={teamColor} />
+            <RosterTable players={[...players, ...(injuredPlayers||[])]} teamColor={teamColor} />
             <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
               <CoachingStaff staff={coaches} socialMediaFollowers={socialMediaFollowers} />
             </div>

@@ -1000,7 +1000,21 @@ w*=astTaper(st?.[p.id]?.ast||0,p.mins||0)
 // just a hot-hand flavor bump. At .08 the same maxed case tops out at +24%
 // (an average streaky=50 player, +12%) — still rewards a real streak,
 // no longer able to crowd out the rest of the lineup's touches.
-return{p,w:Math.max(.5,w*(1+mom[p.id]*(p.streaky/100)*.08)*(.5+f*.5))}
+// This final Math.max floor used to be .5 — a flat number left over from
+// before scoreTaper/pointsTaper/astTaper existed above. Once those tapers
+// were added, a genuinely red-hot scorer's own weight legitimately gets
+// driven down into the 0.05-0.2 range by design (that's the whole point —
+// keep piling on points and the defense keys on you harder) — but the old
+// .5 floor silently clamped it straight back up, 3-10x higher than the
+// tapers intended, undoing them exactly when they mattered most. Real
+// incident: Shai Gilgeous-Alexander went 29/44 FGA for 74 points in 34
+// minutes — his own taper math worked out to a weight near 0.17, which the
+// .5 floor overrode. Lowered to .02, below every internal taper's own floor
+// (scoreTaper .06, pointsTaper .05), so a heavily-tapered player's weight
+// actually reflects the taper instead of being rescued by this floor —
+// still nonzero so a genuine cold/tapered player always keeps some small
+// chance of a look, never a hard zero.
+return{p,w:Math.max(.02,w*(1+mom[p.id]*(p.streaky/100)*.08)*(.5+f*.5))}
 })
 return wtCapped(weighted)
 }

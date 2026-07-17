@@ -151,10 +151,23 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                     <div className="text-sm font-bold" style={{color:'#c2410c'}}>~{inj.games_out} {isPT?'jogos':'games'}</div>
                   </div>
                   <div>
-                    <div className="text-xs mb-1" style={{color:'#6b5f4e'}}>{isPT?'Regresso Est.':'Est. Return'}</div>
-                    <div className="text-sm font-semibold" style={{color:'#1a1612'}}>
-                      {inj.return_week ? `${isPT?'Semana':'Week'} ${inj.return_week}` : 'TBD'}
+                    <div className="text-xs mb-1" style={{color:'#6b5f4e'}}>{isPT?'Regresso':'Return'}</div>
+                    {/* return_week is only a rough estimate computed once at
+                        the moment of injury from the injury type's typical
+                        duration — the actual trigger is health reaching 50%,
+                        which depends on the player's own recovery pace
+                        (durability, medical staff, specialist visits) and
+                        can run well past that original guess. Real health
+                        progress is the honest number; the original estimate
+                        is kept below only as context, not a promise. */}
+                    <div className="text-sm font-bold" style={{color: health>=50?'#15803d':'#1a1612'}}>
+                      {Math.min(health,50)}/50 {isPT?'saúde':'health'}
                     </div>
+                    {inj.return_week && (
+                      <div className="text-xs mt-0.5" style={{color:'#9c8e7a'}}>
+                        {isPT?'Previsão inicial: Semana':'Original est.: Week'} {inj.return_week}
+                      </div>
+                    )}
                   </div>
                 </div>
                 {health < 100 && (

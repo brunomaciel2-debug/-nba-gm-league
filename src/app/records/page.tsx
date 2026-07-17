@@ -29,9 +29,26 @@ export default function RecordsPage() {
 
   useEffect(()=>{
     (async () => {
-      const { data: regGames } = await supabase.from('games').select('id,home_team,away_team,home_score,away_score,scheduled_date')
-        .eq('status','final').eq('game_type','regular')
-      const gameIds = (regGames||[]).map((g:any)=>g.id)
+      // Supabase caps a single request at 1000 rows — this season already
+      // has 655 final regular-season games and a full 82-game season would
+      // exceed 1000 games total, so a plain unpaginated select would start
+      // silently truncating results (missing games, not an error) right
+      // around when the season is furthest along and records matter most.
+      const fetchAllRows = async (table: string, selectStr: string, filters: (q:any)=>any) => {
+        let all: any[] = [], from = 0
+        const pageSize = 1000
+        while (true) {
+          const { data } = await filters(supabase.from(table).select(selectStr)).range(from, from+pageSize-1)
+          if (!data || data.length === 0) break
+          all = all.concat(data)
+          if (data.length < pageSize) break
+          from += pageSize
+        }
+        return all
+      }
+
+      const regGames = await fetchAllRows('games', 'id,home_team,away_team,home_score,away_score,scheduled_date',
+        q=>q.eq('status','final').eq('game_type','regular'))
       const gameById: Record<string,any> = {}
       for (const g of (regGames||[])) gameById[g.id] = g
 
@@ -40,11 +57,18 @@ export default function RecordsPage() {
       for (const tm of (teamsData||[])) teamMap[tm.id] = tm
 
       // ── Individual single-game highs (record holder per stat) ──
+      // Filtered via a join on games (status/game_type) instead of
+      // .in('game_id', gameIds) — with 655+ games this season, passing every
+      // id as a URL filter blew past PostgREST's request-size limit and
+      // silently 400'd, which is exactly why every card here read "No data
+      // yet" despite the season being well underway. The join scales
+      // regardless of how many games have been played.
       const highsResult: Record<string,GameHigh[]> = {}
       for (const key of GAME_STAT_KEYS) {
         const { data } = await supabase.from('box_scores')
-          .select(`player_id,game_id,team_id,${key},players(id,name,pos,photo_url,teams:teams!players_team_id_fkey(color))`)
-          .in('game_id', gameIds).order(key,{ascending:false}).limit(1)
+          .select(`player_id,game_id,team_id,${key},players(id,name,pos,photo_url,teams:teams!players_team_id_fkey(color)),games!inner(status,game_type)`)
+          .eq('games.status','final').eq('games.game_type','regular')
+          .order(key,{ascending:false}).limit(1)
         highsResult[key] = (data||[]).map((b:any) => {
           const g = gameById[b.game_id]
           const isHome = g?.home_team === b.team_id
@@ -91,8 +115,10 @@ export default function RecordsPage() {
 
       // ── Most 3-pointers made BY A TEAM in a single game — box_scores has
       // no per-team-per-game total, so this sums each player's tpm grouped
-      // by (game_id, team_id) client-side.
-      const { data: allTpmBoxes } = await supabase.from('box_scores').select('game_id,team_id,tpm').in('game_id', gameIds)
+      // by (game_id, team_id) client-side. Needs every row (17,900+ already
+      // this season), hence fetchAllRows rather than a single request.
+      const allTpmBoxes = await fetchAllRows('box_scores', 'game_id,team_id,tpm,games!inner(status,game_type)',
+        q=>q.eq('games.status','final').eq('games.game_type','regular'))
       const teamGame3pmMap: Record<string, number> = {}
       for (const b of (allTpmBoxes||[])) {
         const key = `${b.game_id}|${b.team_id}`

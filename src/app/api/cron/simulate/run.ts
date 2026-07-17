@@ -1917,14 +1917,21 @@ await Promise.all(chunk.map(u => supabaseAdmin.from('players').update(u.fields).
 
 const recoveredIds = recoveryUpdates.filter(u => u.recovered).map(u => u.id)
 if (recoveredIds.length > 0) {
-const { data: openInjs } = await supabaseAdmin.from('injury_log').select('id,player_id,created_at')
-.in('player_id', recoveredIds).eq('status','active').order('created_at',{ascending:false})
-const latestOpenInjByPlayer: Record<string,string> = {}
-;(openInjs||[]).forEach((inj:any) => { if (!latestOpenInjByPlayer[inj.player_id]) latestOpenInjByPlayer[inj.player_id] = inj.id })
-const injIds = Object.values(latestOpenInjByPlayer)
+// A player's `status` is single-valued — he can only be "injured" from one
+// thing at a time — so once he's back to 'active', every injury_log row
+// still marked 'active' for him is stale, not just the most recent one.
+// Closing only the latest (the old behavior) left older rows stuck
+// 'active' forever whenever a player had picked up a second injury before
+// the first one's row got closed, or a stale row survived an earlier
+// buggy pass — this is what silently piled up to 170 permanently-'active'
+// rows league-wide after a season of recoveries, crowding out real,
+// currently-injured players from any query capped with a .limit().
+const { data: openInjs } = await supabaseAdmin.from('injury_log').select('id')
+.in('player_id', recoveredIds).eq('status','active')
+const injIds: string[] = (openInjs||[]).map((inj:any) => inj.id)
 for (let i = 0; i < injIds.length; i += 50) {
 const chunk = injIds.slice(i, i + 50)
-await Promise.all(chunk.map(id => supabaseAdmin.from('injury_log').update({ status:'resolved', healed_at:new Date().toISOString(), healed_week:week }).eq('id', id)))
+await Promise.all(chunk.map((id:string) => supabaseAdmin.from('injury_log').update({ status:'resolved', healed_at:new Date().toISOString(), healed_week:week }).eq('id', id)))
 }
 }
 } catch(e) { console.warn('Recovery step failed',e) }

@@ -109,7 +109,14 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
         .order('week_number').order('game_number'),
       supabase.from('teams').select('id,name,color,logo_url,arena,elo,wins,losses'),
-      supabase.from('injury_log').select('*').eq('status','active').limit(100),
+      // Was fetching every team's active injuries league-wide capped at 100
+      // rows with no ordering, then filtering down to this team client-side —
+      // once the league total passed 100 (it reached 170), which rows
+      // survived the cut was arbitrary, so this team's own injured players
+      // could easily be excluded entirely. Scoped directly to this team via
+      // the player_id join instead, so every one of its injuries comes back
+      // regardless of the league-wide total.
+      supabase.from('injury_log').select('*, players!inner(team_id)').eq('status','active').eq('players.team_id', teamId),
       supabase.from('coaches').select('*').eq('team_id', teamId),
       supabase.from('preseason_games').select('*')
         .eq('season','2025-26')
@@ -160,8 +167,6 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   }
 
   const allGames = [...normalizedPreseason, ...(games||[])]
-  const teamPlayerIds = new Set([...(players||[]), ...(injuredPlayers||[])].map((p:any) => p.id))
-  const teamInjuries = (injuries||[]).filter((i:any) => teamPlayerIds.has(i.player_id))
 
   // Regular-season only — matches exactly what teams.wins/losses (the
   // stored column standings reads) actually counts: run.ts only updates it
@@ -244,7 +249,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         teamColor={color}
         teamsMap={teamsMap}
         coaches={coaches||[]}
-        injuries={teamInjuries}
+        injuries={injuries||[]}
         arenaName={t.arena}
         arenaCapacity={t.arena_capacity}
         socialMediaFollowers={t.social_media_followers}
