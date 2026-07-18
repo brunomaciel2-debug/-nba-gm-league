@@ -1074,6 +1074,160 @@ await supabaseAdmin.from('training_slots').update({ fill_pct: newFill, credits_a
 }
 } catch(trainSlotErr) { console.warn('Training slot fill step failed:', trainSlotErr) }
 
+// ── PLAYER/ROOKIE OF THE MONTH ────────────────────────
+// Given its own top-level try/catch, positioned before everything else
+// in this function (Weekly Highlights, G-League simulation, the rest of
+// Awards) instead of living inside the big AWARDS block after G-League.
+// A real, repeated incident: G-League simulation now generates a full
+// per-player box score for every game in its catch-up batch (previously
+// just one random team score), which meaningfully lengthened that
+// section — and since Player/Rookie of the Month originally ran AFTER
+// G-League in the same function, it kept losing its shot at running at
+// all on exactly the calls where a month boundary also happened to need
+// checking, with no visible error (the whole call still completed
+// "successfully" for everything before whatever cut it off). Running
+// this first, in complete isolation, means it can no longer be silently
+// starved by heavier work later in the same invocation.
+if (!isPreseason) {
+try {
+// Player of the Month used to fire every 4 weeks (isEndOfMonth = week % 4
+// === 0) and scope its box-score window the same way — neither lines up
+// with a real calendar month (a "4-week block" starting at week 17 spans
+// Oct24-Nov20, so "October's" award was really a mix of late October and
+// half of November, and wouldn't fire again for 4 more weeks regardless of
+// whether a real month had actually ended). Scoped by each game's own
+// scheduled_date instead of a week-number range — a week that straddles
+// two months (like Oct31-Nov6) correctly splits its games between
+// October's and November's awards instead of one 4-week bucket.
+// A month is "complete" the moment the half being simulated right now
+// covers that month's very last calendar day — not "whenever the
+// following week's start date happens to roll into a new month", which
+// used to lag by up to a whole extra half-week: a half straddles the
+// month boundary mid-block far more often than not (halves are fixed
+// 3-4 real-day chunks with no regard for month length), so e.g. the
+// half that plays Nov 28-30 actually finishes November, but the old
+// week-start check wouldn't notice until week 23 started on Dec 5 —
+// after a further half of December games had already been simulated.
+// Halves are short (3-4 days) and never overlap, so at most one
+// month-end can fall inside any single half — but only checking THAT one
+// exact month left the whole system with no second chance: a real
+// incident had November's award never get written even though the half
+// that finishes November (Nov 28-30) ran clean through Player/Rookie of
+// the Week right before hitting this section — something inside the
+// monthly block itself failed silently (caught by this section's outer
+// try/catch) that one time, and because only the exact triggering half
+// ever looked at that month, it stayed permanently missing no matter how
+// many further weeks got simulated afterward.
+// Self-heals instead: sweep every real month from the season's first
+// regular-season month (October 2025) through the one this half just
+// completed, and (re-)compute any that's still missing its award row.
+// Cheap for a month that already has one (a single existence check);
+// only re-runs the full games/box-scores query for a month that's
+// actually missing it.
+const { end: halfEnd } = getHalfWeekDates(week, half)
+const seasonMonthsToCheck: {year:number,month:number}[] = []
+{
+let cursor = new Date(2025, 9, 1) // October 2025
+const limit = new Date(halfEnd.getFullYear(), halfEnd.getMonth(), 1)
+while (cursor <= limit) {
+const lastDayOfCursorMonth = new Date(cursor.getFullYear(), cursor.getMonth()+1, 0)
+if (lastDayOfCursorMonth <= halfEnd) seasonMonthsToCheck.push({year: cursor.getFullYear(), month: cursor.getMonth()})
+cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1)
+}
+}
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
+for (const {year: completedYear, month: completedMonth} of seasonMonthsToCheck) {
+const monthKeyCheck = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}`
+const { data: existingMonthAward } = await supabaseAdmin.from('awards').select('id')
+.eq('award_type','potm_eastern').eq('period',`month_${monthKeyCheck}`).maybeSingle()
+if (existingMonthAward) continue
+const monthKey = monthKeyCheck
+const monthLabel = `${MONTH_NAMES[completedMonth]} ${completedYear}`
+const firstOfMonth = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}-01`
+const lastDay = new Date(completedYear, completedMonth+1, 0).getDate()
+const lastOfMonth = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
+try {
+const { data: monthGames } = await supabaseAdmin.from('games').select('id,home_team,away_team,home_score,away_score')
+.eq('status','final').eq('game_type','regular')
+.gte('scheduled_date', firstOfMonth).lte('scheduled_date', lastOfMonth)
+const monthGameResultMap: Record<string,{winner:string}> = {}
+for (const g of (monthGames||[])) {
+monthGameResultMap[g.id] = { winner: (g.home_score||0) > (g.away_score||0) ? g.home_team : g.away_team }
+}
+const monthBoxes = await fetchAllRows<any>((from,to) => supabaseAdmin
+.from('box_scores').select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
+.in('game_id', (monthGames||[]).map((g:any)=>g.id)).range(from,to))
+
+const monthStats: Record<string,{pts:number,reb:number,ast:number,stl:number,blk:number,games:number,wins:number,teamId:string}> = {}
+for (const b of (monthBoxes||[])) {
+if (!b.player_id||(b.mins||0)<10) continue
+if (!monthStats[b.player_id]) monthStats[b.player_id]={pts:0,reb:0,ast:0,stl:0,blk:0,games:0,wins:0,teamId:b.team_id}
+const s=monthStats[b.player_id]
+s.pts+=b.pts||0;s.reb+=b.reb||0;s.ast+=b.ast||0;s.stl+=b.stl||0;s.blk+=b.blk||0;s.games++
+if(monthGameResultMap[b.game_id]?.winner===b.team_id) s.wins++
+}
+
+// A player's conference is looked up fresh here, scoped to everyone who
+// actually appears in the month's box scores — a real incident: a San
+// Antonio Spurs player (Western) once got mis-bucketed under Eastern
+// because a stale/incomplete lookup fell back to a hardcoded default.
+const { data: monthPlayers } = await supabaseAdmin
+.from('players').select('id,team_id,nba_experience,teams!players_team_id_fkey!inner(conference)')
+.in('id', Object.keys(monthStats))
+const monthPlayerConf: Record<string,string> = {}
+const monthPlayerTeam: Record<string,string> = {}
+const monthPlayerExp: Record<string,number> = {}
+for (const p of (monthPlayers||[])) {
+monthPlayerConf[p.id] = (p.teams as any)?.conference || 'Eastern'
+monthPlayerTeam[p.id] = p.team_id
+monthPlayerExp[p.id] = p.nba_experience ?? 1
+}
+
+const potmCandidates = Object.entries(monthStats)
+.filter(([,s])=>s.games>=6)
+.map(([pid,s])=>{
+const g=s.games
+const score=(s.pts/g)*1.0+(s.reb/g)*1.2+(s.ast/g)*1.5+(s.stl/g)*3+(s.blk/g)*3
+const winBonus=(s.wins/g)>=0.5?1.2:1.0
+return {id:pid,score:score*winBonus,conf:monthPlayerConf[pid]||'Eastern',
+stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g}}
+})
+
+for (const conf of ['Eastern','Western']) {
+const winner = potmCandidates.filter(c=>c.conf===conf).sort((a,b)=>b.score-a.score)[0]
+if (winner) {
+await supabaseAdmin.from('awards').upsert({
+season:'2025-26', award_type:`potm_${conf.toLowerCase()}`,
+period:`month_${monthKey}`, conference:conf,
+player_id:winner.id, team_id:monthPlayerTeam[winner.id],
+score:winner.score, stats_context:winner.stats,
+notes:`${monthLabel} ${conf} Player of the Month`
+},{onConflict:'season,award_type,period'})
+}
+}
+
+// Rookie of the Month — same candidate pool/scoring as Player of the
+// Month, restricted to rookies, single league-wide winner.
+const rotmWinner = potmCandidates.filter(c=>monthPlayerExp[c.id]===0).sort((a,b)=>b.score-a.score)[0]
+if (rotmWinner) {
+await supabaseAdmin.from('awards').upsert({
+season:'2025-26', award_type:'rotm',
+period:`month_${monthKey}`,
+player_id:rotmWinner.id, team_id:monthPlayerTeam[rotmWinner.id],
+score:rotmWinner.score, stats_context:rotmWinner.stats,
+notes:`${monthLabel} Rookie of the Month`
+},{onConflict:'season,award_type,period'})
+}
+} catch (oneMonthErr) {
+// Isolated per month — a failure computing one month (a transient
+// error, bad data for that specific window) no longer blocks any
+// other month in the same sweep from still getting computed.
+console.warn(`Player/Rookie of the Month failed for ${monthKey}:`, oneMonthErr)
+}
+}
+} catch(potmErr) { console.warn('Player/Rookie of the Month step failed:', potmErr) }
+}
+
 // ── WEEKLY HIGHLIGHTS ─────────────────────────
 // Runs on EVERY call (both halves), per Bruno's request for the homepage
 // cards to feel more alive rather than only refreshing once a full week is
@@ -1522,138 +1676,11 @@ notes: `Week ${week} Rookie of the Week`
 }, {onConflict:'season,award_type,period'})
 }
 
-// Player of the Month used to fire every 4 weeks (isEndOfMonth = week % 4
-// === 0) and scope its box-score window the same way — neither lines up
-// with a real calendar month (a "4-week block" starting at week 17 spans
-// Oct24-Nov20, so "October's" award was really a mix of late October and
-// half of November, and wouldn't fire again for 4 more weeks regardless of
-// whether a real month had actually ended). Scoped by each game's own
-// scheduled_date instead of a week-number range — a week that straddles
-// two months (like Oct31-Nov6) correctly splits its games between
-// October's and November's awards instead of one 4-week bucket.
-// A month is "complete" the moment the half being simulated right now
-// covers that month's very last calendar day — not "whenever the
-// following week's start date happens to roll into a new month", which
-// used to lag by up to a whole extra half-week: a half straddles the
-// month boundary mid-block far more often than not (halves are fixed
-// 3-4 real-day chunks with no regard for month length), so e.g. the
-// half that plays Nov 28-30 actually finishes November, but the old
-// week-start check wouldn't notice until week 23 started on Dec 5 —
-// after a further half of December games had already been simulated.
-// Halves are short (3-4 days) and never overlap, so at most one
-// month-end can fall inside any single half — but only checking THAT one
-// exact month left the whole system with no second chance: a real
-// incident had November's award never get written even though the half
-// that finishes November (Nov 28-30) ran clean through Player/Rookie of
-// the Week right before hitting this section — something inside the
-// monthly block itself failed silently (caught by this section's outer
-// try/catch) that one time, and because only the exact triggering half
-// ever looked at that month, it stayed permanently missing no matter how
-// many further weeks got simulated afterward.
-// Self-heals instead: sweep every real month from the season's first
-// regular-season month (October 2025) through the one this half just
-// completed, and (re-)compute any that's still missing its award row.
-// Cheap for a month that already has one (a single existence check);
-// only re-runs the full games/box-scores query for a month that's
-// actually missing it.
-const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
-const seasonMonthsToCheck: {year:number,month:number}[] = []
-{
-let cursor = new Date(2025, 9, 1) // October 2025
-const limit = new Date(halfEnd.getFullYear(), halfEnd.getMonth(), 1)
-while (cursor <= limit) {
-const lastDayOfCursorMonth = new Date(cursor.getFullYear(), cursor.getMonth()+1, 0)
-if (lastDayOfCursorMonth <= halfEnd) seasonMonthsToCheck.push({year: cursor.getFullYear(), month: cursor.getMonth()})
-cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1)
-}
-}
-const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
-for (const {year: completedYear, month: completedMonth} of seasonMonthsToCheck) {
-const monthKeyCheck = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}`
-const { data: existingMonthAward } = await supabaseAdmin.from('awards').select('id')
-.eq('award_type','potm_eastern').eq('period',`month_${monthKeyCheck}`).maybeSingle()
-if (existingMonthAward) continue
-const monthKey = monthKeyCheck
-const monthLabel = `${MONTH_NAMES[completedMonth]} ${completedYear}`
-const firstOfMonth = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}-01`
-const lastDay = new Date(completedYear, completedMonth+1, 0).getDate()
-const lastOfMonth = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
-const { data: monthGames } = await supabaseAdmin.from('games').select('id,home_team,away_team,home_score,away_score')
-.eq('status','final').eq('game_type','regular')
-.gte('scheduled_date', firstOfMonth).lte('scheduled_date', lastOfMonth)
-const monthGameResultMap: Record<string,{winner:string}> = {}
-for (const g of (monthGames||[])) {
-monthGameResultMap[g.id] = { winner: (g.home_score||0) > (g.away_score||0) ? g.home_team : g.away_team }
-}
-const monthBoxes = await fetchAllRows<any>((from,to) => supabaseAdmin
-.from('box_scores').select('player_id,game_id,pts,reb,ast,stl,blk,mins,team_id')
-.in('game_id', (monthGames||[]).map((g:any)=>g.id)).range(from,to))
-
-const monthStats: Record<string,{pts:number,reb:number,ast:number,stl:number,blk:number,games:number,wins:number,teamId:string}> = {}
-for (const b of (monthBoxes||[])) {
-if (!b.player_id||(b.mins||0)<10) continue
-if (!monthStats[b.player_id]) monthStats[b.player_id]={pts:0,reb:0,ast:0,stl:0,blk:0,games:0,wins:0,teamId:b.team_id}
-const s=monthStats[b.player_id]
-s.pts+=b.pts||0;s.reb+=b.reb||0;s.ast+=b.ast||0;s.stl+=b.stl||0;s.blk+=b.blk||0;s.games++
-if(monthGameResultMap[b.game_id]?.winner===b.team_id) s.wins++
-}
-
-// playerConf/playerTeam above were only ever looked up for players who
-// appeared in THIS WEEK's box scores (weekBoxesAw) — fine for POTW, but
-// Player of the Month draws from a whole month of games, so a player who
-// sat out this specific week (very possible) fell through the `||'Eastern'`
-// default and got silently mis-bucketed into the wrong conference no
-// matter which one he actually plays in. A real incident: a San Antonio
-// Spurs player (Western) won and got listed under Eastern. Looked up fresh
-// here, scoped to everyone who actually appears in the month's box scores.
-const { data: monthPlayers } = await supabaseAdmin
-.from('players').select('id,team_id,nba_experience,teams!players_team_id_fkey!inner(conference)')
-.in('id', Object.keys(monthStats))
-const monthPlayerConf: Record<string,string> = {}
-const monthPlayerTeam: Record<string,string> = {}
-const monthPlayerExp: Record<string,number> = {}
-for (const p of (monthPlayers||[])) {
-monthPlayerConf[p.id] = (p.teams as any)?.conference || 'Eastern'
-monthPlayerTeam[p.id] = p.team_id
-monthPlayerExp[p.id] = p.nba_experience ?? 1
-}
-
-const potmCandidates = Object.entries(monthStats)
-.filter(([,s])=>s.games>=6)
-.map(([pid,s])=>{
-const g=s.games
-const score=(s.pts/g)*1.0+(s.reb/g)*1.2+(s.ast/g)*1.5+(s.stl/g)*3+(s.blk/g)*3
-const winBonus=(s.wins/g)>=0.5?1.2:1.0
-return {id:pid,score:score*winBonus,conf:monthPlayerConf[pid]||'Eastern',
-stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g}}
-})
-
-for (const conf of ['Eastern','Western']) {
-const winner = potmCandidates.filter(c=>c.conf===conf).sort((a,b)=>b.score-a.score)[0]
-if (winner) {
-await supabaseAdmin.from('awards').upsert({
-season:'2025-26', award_type:`potm_${conf.toLowerCase()}`,
-period:`month_${monthKey}`, conference:conf,
-player_id:winner.id, team_id:monthPlayerTeam[winner.id],
-score:winner.score, stats_context:winner.stats,
-notes:`${monthLabel} ${conf} Player of the Month`
-},{onConflict:'season,award_type,period'})
-}
-}
-
-// Rookie of the Month — same candidate pool/scoring as Player of the
-// Month, restricted to rookies, single league-wide winner.
-const rotmWinner = potmCandidates.filter(c=>monthPlayerExp[c.id]===0).sort((a,b)=>b.score-a.score)[0]
-if (rotmWinner) {
-await supabaseAdmin.from('awards').upsert({
-season:'2025-26', award_type:'rotm',
-period:`month_${monthKey}`,
-player_id:rotmWinner.id, team_id:monthPlayerTeam[rotmWinner.id],
-score:rotmWinner.score, stats_context:rotmWinner.stats,
-notes:`${monthLabel} Rookie of the Month`
-},{onConflict:'season,award_type,period'})
-}
-}
+// Player of the Month/Rookie of the Month moved to its own top-level
+// section (before Weekly Highlights) so it gets a guaranteed early slot
+// instead of running after G-League simulation's now much heavier
+// per-player box score generation — see that section for the full
+// history of why this needed to self-heal in the first place.
 
 // Facility/concession maintenance billing and merchandising keep the
 // original 4-week cadence (unchanged, separate from the real-calendar-month
