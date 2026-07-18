@@ -1193,6 +1193,24 @@ hstreak_games: hotTeam?.[1].games.slice(-5).reverse() || [],
 }
 
 // ── G-LEAGUE SIMULATION ────────────────────────────────
+// A brief retry for a transient failure (a real incident: box score
+// inserts silently failed on some calls with no error surfaced, most
+// likely the kind of momentary connection/pooler hiccup a tight loop of
+// hundreds of sequential requests can hit under real load — something a
+// short isolated local script never reproduces). Not a fix for a
+// persistent problem (schema mismatch, bad data) — those still fail after
+// 3 tries and get logged same as before.
+const withRetry = async <T,>(fn: () => Promise<{data:T,error:any}>, label: string, attempts = 3): Promise<{data:T,error:any}> => {
+let last: {data:T,error:any} = {data: null as any, error: null}
+for (let i = 0; i < attempts; i++) {
+last = await fn()
+if (!last.error) return last
+if (i < attempts-1) await new Promise(r => setTimeout(r, 300*(i+1)))
+}
+console.warn(`${label} failed after ${attempts} attempts:`, last.error?.message)
+return last
+}
+
 try {
 // Was matching G-League's own week_number directly against the NBA's
 // week counter — but the two are completely unrelated numbering schemes
@@ -1302,8 +1320,15 @@ home_score: homeScore, away_score: awayScore, status: 'final'
 }).eq('id', game.id)
 
 if (homeBox.length>0 || awayBox.length>0) {
-const { error: boxInsertErr } = await supabaseAdmin.from('gleague_box_scores').insert([...homeBox, ...awayBox])
-if (boxInsertErr) console.warn(`gleague_box_scores insert failed for game ${game.id}:`, boxInsertErr.message)
+// game_id is NOT NULL on gleague_box_scores — buildTeamBox has no way to
+// know it (it only builds one team's box), so it has to be stamped on
+// here. This was missing entirely before: every single insert violated
+// the not-null constraint and failed, which is the actual reason no
+// G-League box score ever saved, in every environment — a schema-cache
+// reload and a retry couldn't have fixed this, since the request itself
+// was always malformed.
+const withGameId = [...homeBox, ...awayBox].map(b => ({ ...b, game_id: game.id }))
+await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId), `gleague_box_scores insert for game ${game.id}`)
 }
 
 const homeRec = ensureTeamRecord(game.home)
@@ -1345,6 +1370,46 @@ const cur = (p as any)?.[attr] || 60
 if (cur < 90) {
 await supabaseAdmin.from('players').update({ [attr]: cur + 1 }).eq('id', b.player_id)
 }
+}
+}
+}
+
+// Self-heal: any already-'final' G-League game still missing its box
+// score (every game resolved before the game_id fix above, plus any
+// future one-off insert failure the retry didn't recover from) gets one
+// regenerated here. Scaled to match the score already locked into the
+// game record — since it's already final, the score itself is the one
+// unchangeable fact, so the box has to fit it, not the other way round.
+// Bounded to the 200 most recently-played final games so an old gap
+// doesn't turn every future call into a full-season scan.
+const { data: recentFinals } = await supabaseAdmin
+.from('gleague_games').select('id,home_team,away_team,home_score,away_score')
+.eq('status','final').eq('season','2025-26')
+.order('played_at',{ascending:false}).limit(200)
+if (recentFinals && recentFinals.length>0) {
+const { data: existingBoxGameIds } = await supabaseAdmin
+.from('gleague_box_scores').select('game_id').in('game_id', recentFinals.map((g:any)=>g.id))
+const covered = new Set((existingBoxGameIds||[]).map((r:any)=>r.game_id))
+const missing = recentFinals.filter((g:any)=>!covered.has(g.id))
+const scaleToScore = (box:any[], target:number) => {
+const total = box.reduce((s,b)=>s+b.pts,0)
+if (total<=0 || target<=0) return box
+const k = target/total
+const out = box.map(b=>({...b, pts: Math.max(0,Math.round(b.pts*k)), fgm: Math.max(0,Math.round(b.fgm*k)), tpm: Math.max(0,Math.round(b.tpm*k)), ftm: Math.max(0,Math.round(b.ftm*k))}))
+const diff = target - out.reduce((s,b)=>s+b.pts,0)
+if (diff!==0 && out.length>0) {
+const topIdx = out.reduce((best,b,i)=>b.pts>out[best].pts?i:best,0)
+out[topIdx] = {...out[topIdx], pts: Math.max(0,out[topIdx].pts+diff)}
+}
+return out
+}
+for (const g of missing) {
+const { data: roster2 } = await supabaseAdmin.from('players').select('*').in('gleague_team_id',[g.home_team,g.away_team])
+const homeBox2 = scaleToScore(buildTeamBox((roster2||[]).filter((p:any)=>p.gleague_team_id===g.home_team), g.home_team), g.home_score||0)
+const awayBox2 = scaleToScore(buildTeamBox((roster2||[]).filter((p:any)=>p.gleague_team_id===g.away_team), g.away_team), g.away_score||0)
+if (homeBox2.length>0 || awayBox2.length>0) {
+const withGameId2 = [...homeBox2, ...awayBox2].map(b=>({...b, game_id: g.id}))
+await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId2), `gleague_box_scores backfill for game ${g.id}`)
 }
 }
 }
