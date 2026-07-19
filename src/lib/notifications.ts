@@ -364,6 +364,14 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   // ── 11. SPONSOR MONTHLY PAYMENT ───────────────────────
   if (week % 4 === 0) {
     for (const contract of (sponsorContracts||[])) {
+      const description = `Monthly sponsor payment — ${(contract.template as any)?.company_name}`
+      // Idempotency guard — this same week gets processed twice in practice
+      // (once per half, both halves share the same `week` number), which
+      // was silently double-paying every sponsor contract every 4 weeks.
+      const { data: existing } = await supabase.from('franchise_transactions').select('id')
+        .eq('team_id', contract.team_id).eq('category', 'sponsor').eq('week_number', week).eq('description', description).maybeSingle()
+      if (existing) continue
+
       const lang = await getTeamLang(contract.team_id)
       const notif = notifSponsorPayment(lang, contract.fixed_monthly)
       await notify(contract.team_id, 'sponsor', notif.subject, notif.body, { amount: contract.fixed_monthly, company: (contract.template as any)?.company_name })
@@ -371,7 +379,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       await supabase.from('franchise_transactions').insert({
         team_id: contract.team_id, type: 'revenue', category: 'sponsor',
         amount: contract.fixed_monthly,
-        description: `Monthly sponsor payment — ${(contract.template as any)?.company_name}`,
+        description,
         season: '2025-26', week_number: week,
       })
     }
