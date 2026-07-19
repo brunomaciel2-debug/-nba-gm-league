@@ -493,6 +493,28 @@ export function notifRosterMinimumRisk(lang: 'en'|'pt', rosterSize: number, spot
   }
 }
 
+const TACTICAL_SYSTEM_LABELS: Record<string, { en: string, pt: string }> = {
+  motion:     { en: 'Motion Offense', pt: 'Motion Offense' },
+  pickroll:   { en: 'Pick & Roll',    pt: 'Pick & Roll' },
+  transition: { en: 'Fast Break',     pt: 'Contra-ataque' },
+  iso:        { en: 'Isolation',      pt: 'Isolamento' },
+  post:       { en: 'Post-Up',        pt: 'Poste' },
+}
+
+// Fires every sim while the team's active offensive system has no valid
+// focus tech chosen — per design, that system's Tactical Familiarity makes
+// literally zero progress until the GM actively picks one (no auto-pick
+// fallback), so this keeps nagging instead of leaving it silently stalled.
+export function notifTacticalFocusNeeded(lang: 'en'|'pt', system: string) {
+  const label = TACTICAL_SYSTEM_LABELS[system]?.[lang] || system
+  return {
+    subject: lang === 'pt' ? `🧠 Escolhe a próxima tech a desenvolver` : `🧠 Choose your next tech to develop`,
+    body: lang === 'pt'
+      ? `A tua equipa está a jogar ${label} mas ainda não escolheste qual a próxima tech a desenvolver — sem essa escolha, a Familiaridade Tática deste sistema não avança nenhuma semana. Vai ao separador Sistemas Táticos e escolhe uma tech desbloqueada.`
+      : `Your team is running ${label} but you haven't picked which tech to develop next — without that choice, this system's Tactical Familiarity won't progress at all this week. Head to the Tactical Systems tab and pick an unlocked tech.`,
+  }
+}
+
 export function notifJerseySalesReport(lang: 'en'|'pt', monthNum: number, topPlayerName: string, topPlayerRevenue: number, totalRevenue: number) {
   const fmt = (n: number) => '$' + (n >= 1000000 ? (n/1000000).toFixed(1)+'M' : (n/1000).toFixed(0)+'K')
   return {

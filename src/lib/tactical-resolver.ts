@@ -1,27 +1,25 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import {
-  OFF_SYSTEMS, OffSystem, TechNode, nodesForSystem, isNodeUnlocked, masteredCountByLevel,
+  OFF_SYSTEMS, OffSystem, nodesForSystem, isNodeUnlocked, masteredCountByLevel,
 } from '@/lib/tactical-constants'
 
 const SEASON = '2025-26'
 
-// Same fill-rate shape as the existing "playmaking" training slot (which
-// already uses this exact tactical_dev blend) — 3-12 points/week depending
-// on coaching quality, neutral baseline 60.
+// Full mastery of a system (15 nodes x 100 points = 1500) should be
+// reachable within 75% of a 24-week regular season (18 weeks) of
+// continuous, uninterrupted focus at neutral (60) coaching quality — that's
+// 1500/18 ≈ 83/week. Old rate (3-12/week) made a single node take 9-20
+// weeks and the full tree 100+ weeks (several seasons), which made the
+// "the more you use it, the more you master it" pitch never actually
+// deliver within a real season, even to a team that never switched systems.
 function fillRate(tacticalDevQuality: number): number {
-  return Math.max(3, Math.min(12, 5 + (tacticalDevQuality - 60) * 0.25))
+  return Math.max(55, Math.min(125, 85 + (tacticalDevQuality - 60) * 1))
 }
-const DECAY_RATE = 6
-
-function pickFocusNode(system: OffSystem, progressByNodeId: Record<string, number>): TechNode | null {
-  const counts = masteredCountByLevel(progressByNodeId, system)
-  // Lowest level first, first unlocked+unmastered node in tree-definition order.
-  const candidates = nodesForSystem(system).filter(node =>
-    (progressByNodeId[node.id] || 0) < 100 && isNodeUnlocked(node, counts)
-  )
-  candidates.sort((a, b) => a.level - b.level)
-  return candidates[0] || null
-}
+// Scaled to roughly match the new fill rate (a system left idle should
+// erode about as fast as a diligent one gets built) rather than the old
+// DECAY_RATE=6, which barely registered against the old 3-12/week gain and
+// would be nearly invisible against the new, much larger gain.
+const DECAY_RATE = 100
 
 // Weekly tick — safe to call every sim week (not month-gated like
 // merchandising/All-Star, this needs to move every single week). For each
@@ -29,9 +27,9 @@ function pickFocusNode(system: OffSystem, progressByNodeId: Record<string, numbe
 // focus node progressed; the other 4 systems decay from the top down (the
 // highest level with any mastered node loses progress first — lower levels
 // stay frozen as long as a level above them is still mastered).
-export async function resolveWeeklyTacticalDevelopment(week: number): Promise<{ teams: number }> {
+export async function resolveWeeklyTacticalDevelopment(week: number): Promise<{ teams: number, needsFocusReminder: { team_id: string, system: OffSystem }[] }> {
   const { data: teams } = await supabaseAdmin.from('teams').select('id').not('id', 'in', '(ALL,RVS,ROO,SOP)')
-  if (!teams?.length) return { teams: 0 }
+  if (!teams?.length) return { teams: 0, needsFocusReminder: [] }
   const teamIds = teams.map((t: any) => t.id)
 
   const { data: orders } = await supabaseAdmin.from('gm_orders').select('team_id,atk_style').eq('week_number', week)
@@ -56,7 +54,7 @@ export async function resolveWeeklyTacticalDevelopment(week: number): Promise<{ 
   })
 
   const progressUpdates: { team_id: string, system: string, node_id: string, progress: number }[] = []
-  const focusUpserts: { team_id: string, system: string, node_id: string | null }[] = []
+  const needsFocusReminder: { team_id: string, system: OffSystem }[] = []
 
   for (const teamId of teamIds) {
     const activeSystem = atkStyleByTeam[teamId] || 'motion'
@@ -69,23 +67,24 @@ export async function resolveWeeklyTacticalDevelopment(week: number): Promise<{ 
       const progressByNodeId = { ...(progressByTeamSystem[key] || {}) }
 
       if (system === activeSystem) {
-        let focusNodeId = focusByTeamSystem[key]
-        let focusNode = focusNodeId ? nodesForSystem(system).find(n => n.id === focusNodeId) : null
-        // Re-validate: if the saved focus is already mastered or somehow
-        // locked (e.g. a prerequisite decayed away since it was chosen),
-        // auto-pick the next sensible one instead.
+        const focusNodeId = focusByTeamSystem[key]
+        const focusNode = focusNodeId ? nodesForSystem(system).find(n => n.id === focusNodeId) : null
+        // No auto-pick: if the GM never chose a tech, or the one they chose
+        // just got mastered (or its prerequisite decayed away since), NO
+        // progress happens this week — the GM has to actively pick the next
+        // one themselves (see /api/tactical/set-focus). Flagged here so a
+        // reminder notification goes out instead of silently stalling.
         const counts = masteredCountByLevel(progressByNodeId, system)
-        if (!focusNode || (progressByNodeId[focusNode.id] || 0) >= 100 || !isNodeUnlocked(focusNode, counts)) {
-          focusNode = pickFocusNode(system, progressByNodeId)
-          if (focusNode) focusUpserts.push({ team_id: teamId, system, node_id: focusNode.id })
-        }
-        if (focusNode) {
-          const before = progressByNodeId[focusNode.id] || 0
+        const focusValid = focusNode && (progressByNodeId[focusNode.id] || 0) < 100 && isNodeUnlocked(focusNode, counts)
+        if (focusValid) {
+          const before = progressByNodeId[focusNode!.id] || 0
           const after = Math.min(100, before + fillRate(tacticalDevQuality))
           if (after !== before) {
-            progressByNodeId[focusNode.id] = after
-            progressUpdates.push({ team_id: teamId, system, node_id: focusNode.id, progress: after })
+            progressByNodeId[focusNode!.id] = after
+            progressUpdates.push({ team_id: teamId, system, node_id: focusNode!.id, progress: after })
           }
+        } else {
+          needsFocusReminder.push({ team_id: teamId, system })
         }
       } else {
         // Decay from the top: find the HIGHEST level with any progress at
@@ -118,14 +117,8 @@ export async function resolveWeeklyTacticalDevelopment(week: number): Promise<{ 
       { onConflict: 'team_id,system,node_id' }
     )
   }
-  for (const f of focusUpserts) {
-    await supabaseAdmin.from('tactical_focus').upsert(
-      { team_id: f.team_id, system: f.system, node_id: f.node_id },
-      { onConflict: 'team_id,system' }
-    )
-  }
 
-  return { teams: teamIds.length }
+  return { teams: teamIds.length, needsFocusReminder }
 }
 
 // Read-only helper for cron/simulate/route.ts and the UI: current progress

@@ -32,6 +32,7 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
   const [activeSystem, setActiveSystem] = useState<OffSystem>('motion')
   const [viewSystem, setViewSystem] = useState<OffSystem>('motion')
   const [progressByNodeId, setProgressByNodeId] = useState<Record<string, number>>({})
+  const [focusByNodeKey, setFocusByNodeKey] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -46,6 +47,14 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
     const byId: Record<string, number> = {}
     ;(rows || []).forEach((r: any) => { byId[`${r.system}|${r.node_id}`] = r.progress })
     setProgressByNodeId(byId)
+    // No auto-pick on the backend anymore — a system with nothing chosen
+    // here makes zero progress, so the UI needs to know exactly which node
+    // (if any) is the current focus to highlight it and to prompt the GM
+    // when nothing has been picked yet.
+    const { data: focusRows } = await supabase.from('tactical_focus').select('system,node_id').eq('team_id', teamId)
+    const focusById: Record<string, string> = {}
+    ;(focusRows || []).forEach((f: any) => { focusById[f.system] = f.node_id })
+    setFocusByNodeKey(focusById)
     setLoading(false)
   }
   useEffect(() => { load() }, [teamId])
@@ -77,6 +86,17 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
   for (let lvl = 5; lvl >= 1; lvl--) { if (counts[lvl] > 0) { peakLevel = lvl; break } }
   const erodingNode = peakLevel > 0 ? nodesForSystem(viewSystem).find(n => n.level === peakLevel && viewProgress(n.id) >= 100) : null
 
+  // The chosen focus tech for the viewed system, re-validated the same way
+  // the backend does — a saved focus that's since been mastered or locked
+  // no longer counts as "chosen" (matches resolveWeeklyTacticalDevelopment).
+  const viewFocusNodeId = focusByNodeKey[viewSystem]
+  const viewFocusNode = viewFocusNodeId ? nodesForSystem(viewSystem).find(n => n.id === viewFocusNodeId) : null
+  const focusValid = !!viewFocusNode && viewProgress(viewFocusNode.id) < 100 && isNodeUnlocked(viewFocusNode, counts)
+  const activeCounts = masteredCountByLevel(activeProgressMap, activeSystem)
+  const activeFocusNodeId = focusByNodeKey[activeSystem]
+  const activeFocusNode = activeFocusNodeId ? nodesForSystem(activeSystem).find(n => n.id === activeFocusNodeId) : null
+  const activeFocusValid = !!activeFocusNode && (progressByNodeId[`${activeSystem}|${activeFocusNode.id}`] || 0) < 100 && isNodeUnlocked(activeFocusNode, activeCounts)
+
   const setFocus = async (node: TechNode) => {
     setSaving(true); setMsg('')
     const { data: { session } } = await supabase.auth.getSession()
@@ -87,6 +107,7 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
     })
     const json = await res.json()
     if (!res.ok) setMsg(json.error || (isPT ? 'Erro' : 'Error'))
+    else await load()
     setSaving(false)
   }
 
@@ -94,8 +115,8 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
     <div>
       <div className="mb-4 p-3 rounded-lg text-xs" style={{ background: '#faf8f5', border: '1px solid #d4cdc5', color: '#5c554e', lineHeight: 1.6 }}>
         🔥 {isPT
-          ? 'Quanto mais usas o mesmo sistema ofensivo nas ordens semanais, mais a equipa domina as suas techs — o que dá um boost real à performance, mesmo contra um counter. Sistemas não usados perdem domínio devagar, de cima para baixo.'
-          : 'The more you use the same offensive system in weekly orders, the more the team masters its techs — a real performance boost, even against a counter. Unused systems slowly lose mastery, top-down.'}
+          ? 'Quanto mais usas o mesmo sistema ofensivo nas ordens semanais, mais a equipa domina as suas techs — o que dá um boost real à performance, mesmo contra um counter. Sistemas não usados perdem domínio devagar, de cima para baixo. Tens sempre de escolher tu qual a tech a desenvolver a seguir — sem escolha, não há progresso nenhum, mesmo com o sistema ativo.'
+          : "The more you use the same offensive system in weekly orders, the more the team masters its techs — a real performance boost, even against a counter. Unused systems slowly lose mastery, top-down. You always have to pick which tech develops next yourself — with nothing chosen, there's zero progress, even with the system active."}
       </div>
 
       {/* Active system heat bar */}
@@ -135,6 +156,13 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
             : `This system isn't active this week — no progress is being made.${erodingNode ? ` "${erodingNode.nameEn}" is currently eroding.` : ''}`}
         </div>
       )}
+      {viewSystem === activeSystem && !activeFocusValid && (
+        <div className="mb-5 p-3 rounded-lg text-xs font-semibold" style={{ background: '#2a1f00', border: '1px solid #7a5a00', color: '#f5d896' }}>
+          🎯 {isPT
+            ? 'Ainda não escolheste nenhuma tech para desenvolver neste sistema — sem escolha, a Familiaridade Tática não avança nenhuma semana. Clica numa tech desbloqueada abaixo.'
+            : "You haven't picked a tech to develop in this system yet — without a choice, Tactical Familiarity won't progress at all. Click an unlocked tech below."}
+        </div>
+      )}
       {msg && <div className="mb-3 text-xs font-semibold" style={{ color: '#dc2626' }}>{msg}</div>}
 
       {/* Pyramid */}
@@ -145,6 +173,7 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
               const progress = viewProgress(node.id)
               const mastered = progress >= 100
               const unlocked = isNodeUnlocked(node, counts)
+              const isFocus = focusValid && node.id === viewFocusNodeId
               const name = isPT ? node.namePt : node.nameEn
               const desc = isPT ? node.descPt : node.descEn
               return (
@@ -155,9 +184,15 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
                   style={{
                     width: 108, minHeight: 66,
                     background: mastered ? '#2a2000' : unlocked ? '#faf8f5' : '#e2dcd5',
-                    border: `2px solid ${mastered ? '#b45309' : unlocked ? '#d4cdc5' : '#c8c0b4'}`,
+                    border: `2px solid ${mastered ? '#b45309' : isFocus ? teamColor : unlocked ? '#d4cdc5' : '#c8c0b4'}`,
+                    boxShadow: isFocus ? `0 0 0 2px ${teamColor}44` : 'none',
                     opacity: unlocked ? 1 : 0.5,
                   }}>
+                  {isFocus && (
+                    <div className="text-xs font-black mb-0.5" style={{ color: teamColor }}>
+                      🎯 {isPT ? 'Em Foco' : 'In Focus'}
+                    </div>
+                  )}
                   <div className="text-xs font-bold leading-tight" style={{ color: mastered ? '#b45309' : unlocked ? '#1a1512' : '#8a8279' }}>
                     {unlocked ? name : '🔒'}
                   </div>

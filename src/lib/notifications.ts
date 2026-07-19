@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek, getWeekDates } from './season-week-helper'
-import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart } from './notifications-helpers'
+import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded } from './notifications-helpers'
 import { MEDICAL_COST_BY_SEVERITY, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
+import { OffSystem, nodesForSystem, isNodeUnlocked, masteredCountByLevel } from './tactical-constants'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -503,6 +504,41 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       if (capSpace < spotsNeeded * 1_000_000) {
         const notif = notifRosterMinimumRisk(lang, rosterCount ?? 0, spotsNeeded, capSpace, MIN_ROSTER)
         await notify(team.id, 'contract', notif.subject, notif.body, { roster_size: rosterCount, cap_space: capSpace })
+      }
+    }
+  }
+
+  // ── 16b. TACTICAL FOCUS NOT SET ────────────────────────
+  // No auto-pick fallback in tactical-resolver.ts anymore — an active
+  // system with no valid focus tech makes zero progress until the GM
+  // actively picks one, so this checks live state every sim and keeps
+  // nagging instead of leaving it silently stalled.
+  {
+    const { data: activeOrders } = await supabase.from('gm_orders').select('team_id,atk_style').eq('week_number', week)
+    const activeSystemByTeam: Record<string, OffSystem> = {}
+    ;(activeOrders||[]).forEach((o:any) => { activeSystemByTeam[o.team_id] = (o.atk_style as OffSystem) || 'motion' })
+
+    const teamIds = (teams||[]).map((t:any)=>t.id)
+    const { data: focusRows } = await supabase.from('tactical_focus').select('*').in('team_id', teamIds)
+    const focusByKey: Record<string,string> = {}
+    ;(focusRows||[]).forEach((f:any) => { focusByKey[`${f.team_id}|${f.system}`] = f.node_id })
+
+    const { data: tacticalProgressRows } = await supabase.from('tactical_familiarity').select('*').in('team_id', teamIds)
+    const progressByKey: Record<string, Record<string,number>> = {}
+    ;(tacticalProgressRows||[]).forEach((r:any) => { (progressByKey[`${r.team_id}|${r.system}`] ||= {})[r.node_id] = r.progress })
+
+    for (const team of (teams||[])) {
+      const activeSystem = activeSystemByTeam[team.id] || 'motion'
+      const key = `${team.id}|${activeSystem}`
+      const focusNodeId = focusByKey[key]
+      const progressByNodeId = progressByKey[key] || {}
+      const focusNode = focusNodeId ? nodesForSystem(activeSystem).find(n=>n.id===focusNodeId) : null
+      const counts = masteredCountByLevel(progressByNodeId, activeSystem)
+      const focusValid = focusNode && (progressByNodeId[focusNode.id]||0) < 100 && isNodeUnlocked(focusNode, counts)
+      if (!focusValid) {
+        const lang = await getTeamLang(team.id)
+        const notif = notifTacticalFocusNeeded(lang, activeSystem)
+        await notify(team.id, 'reminder', notif.subject, notif.body, { system: activeSystem })
       }
     }
   }
