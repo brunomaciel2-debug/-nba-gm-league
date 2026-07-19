@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
-import { NBA_SUBSIDY_MONTHLY, UTILITIES_MONTHLY, INSURANCE_MONTHLY } from '@/lib/finance-constants'
 
 type Transaction = {
   id: string; type: 'revenue' | 'expense'; category: string
@@ -15,18 +14,21 @@ const CATEGORY_LABELS_EN: Record<string, string> = {
   tickets:'Ticket Sales', concessions:'Concessions', supplies:'Concession Supplies', suites:'Premium & Suites', sponsor:'Sponsors',
   nba_subsidy:'NBA Subsidy', staff:'Coaching Staff', travel:'Away Travel', maintenance:'Facility Maintenance',
   operational:'Arena Staff', utilities:'Utilities', insurance:'Insurance', construction:'Construction',
-  merchandise:'Jersey Sales', marketing:'Marketing Campaign', medical:'Medical Bill', other:'Other',
+  merchandise:'Jersey Sales', marketing:'Marketing Campaign', medical:'Medical Bill',
+  scouting_maintenance:'Scouting Overhead', specialist:'Specialist Consultations', other:'Other',
 }
 const CATEGORY_LABELS_PT: Record<string, string> = {
   tickets:'Venda de Bilhetes', concessions:'Concessões', supplies:'Reposição de Stock', suites:'Camarotes Premium', sponsor:'Patrocínios',
   nba_subsidy:'Subsídio NBA', staff:'Staff Técnico', travel:'Viagens Fora', maintenance:'Manutenção',
   operational:'Staff do Pavilhão', utilities:'Utilidades', insurance:'Seguros', construction:'Construção',
-  merchandise:'Venda de Jerseys', marketing:'Campanha de Marketing', medical:'Despesas Médicas', other:'Outros',
+  merchandise:'Venda de Jerseys', marketing:'Campanha de Marketing', medical:'Despesas Médicas',
+  scouting_maintenance:'Custos de Scouting', specialist:'Consultas a Especialistas', other:'Outros',
 }
 const CATEGORY_ICONS: Record<string, string> = {
   tickets:'🎟️', concessions:'🍔', supplies:'📦', suites:'⭐', sponsor:'🤝', nba_subsidy:'🏀',
   staff:'👔', travel:'✈️', maintenance:'🔧', operational:'🏟️', utilities:'⚡',
-  insurance:'🛡️', construction:'🏗️', merchandise:'👕', marketing:'📣', medical:'🏥', other:'📋',
+  insurance:'🛡️', construction:'🏗️', merchandise:'👕', marketing:'📣', medical:'🏥',
+  scouting_maintenance:'🔍', specialist:'🩺', other:'📋',
 }
 
 function fmt(n: number) {
@@ -52,6 +54,61 @@ function Tip({ text, children }: TooltipProps) {
   )
 }
 
+type ProjRow = { key:string, label:string, icon:string, tip:string, value:number, active:boolean }
+function StatementTable({ title, subtitle, revRows, expRows, netColor, isPT }: {
+  title:string, subtitle:string, revRows:ProjRow[], expRows:ProjRow[], netColor:(v:number)=>string, isPT:boolean,
+}) {
+  const revTotal = revRows.reduce((s,r)=>s+r.value,0)
+  const expTotal = expRows.reduce((s,r)=>s+r.value,0)
+  const net = revTotal - expTotal
+  return (
+    <div style={{borderRadius:10,overflow:'hidden',border:'1px solid #d4cdc5',marginBottom:16}}>
+      <div style={{padding:'10px 14px',background:'#f0ece5',borderBottom:'1px solid #d4cdc5'}}>
+        <div style={{fontSize:13,fontWeight:800,color:'#1a1512'}}>{title}</div>
+        <div style={{fontSize:10,color:'#8a8279'}}>{subtitle}</div>
+      </div>
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+        <tbody>
+          <tr><td colSpan={2} style={{padding:'6px 14px',fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'1px',color:'#15803d',background:'#f5f9f5'}}>{isPT?'Receitas':'Income'}</td></tr>
+          {revRows.map(r=>(
+            <tr key={r.key} style={{borderBottom:'1px solid #f0ece5'}}>
+              <td style={{padding:'6px 14px'}}>
+                <Tip text={r.tip}>
+                  <span style={{cursor:'help',color:r.active?'#1a1512':'#b0a89e'}}>{r.icon} {r.label}</span>
+                </Tip>
+              </td>
+              <td style={{padding:'6px 14px',textAlign:'right',fontWeight:600,color:r.active?'#15803d':'#b0a89e'}}>{r.value!==0?fmt(r.value):'—'}</td>
+            </tr>
+          ))}
+          <tr style={{borderTop:'2px solid #d4cdc5'}}>
+            <td style={{padding:'6px 14px',fontWeight:700,color:'#5c554e'}}>{isPT?'Total Receitas':'Total Income'}</td>
+            <td style={{padding:'6px 14px',textAlign:'right',fontWeight:800,color:'#15803d'}}>{fmt(revTotal)}</td>
+          </tr>
+          <tr><td colSpan={2} style={{padding:'6px 14px',fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'1px',color:'#dc2626',background:'#fbf5f5'}}>{isPT?'Despesas':'Expenses'}</td></tr>
+          {expRows.map(r=>(
+            <tr key={r.key} style={{borderBottom:'1px solid #f0ece5'}}>
+              <td style={{padding:'6px 14px'}}>
+                <Tip text={r.tip}>
+                  <span style={{cursor:'help',color:r.active?'#1a1512':'#b0a89e'}}>{r.icon} {r.label}</span>
+                </Tip>
+              </td>
+              <td style={{padding:'6px 14px',textAlign:'right',fontWeight:600,color:r.active?'#dc2626':'#b0a89e'}}>{r.value!==0?fmt(r.value):'—'}</td>
+            </tr>
+          ))}
+          <tr style={{borderTop:'2px solid #d4cdc5'}}>
+            <td style={{padding:'6px 14px',fontWeight:700,color:'#5c554e'}}>{isPT?'Total Despesas':'Total Expenses'}</td>
+            <td style={{padding:'6px 14px',textAlign:'right',fontWeight:800,color:'#dc2626'}}>{fmt(expTotal)}</td>
+          </tr>
+          <tr style={{borderTop:'2px solid #1a1512'}}>
+            <td style={{padding:'8px 14px',fontWeight:800,color:'#1a1512'}}>{isPT?'Resultado Líquido':'Net Result'}</td>
+            <td style={{padding:'8px 14px',textAlign:'right',fontWeight:800,fontSize:13,color:netColor(net)}}>{net>=0?'+':''}{fmt(net)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function NetBadge({ value }: { value: number }) {
   const pos=value>=0
   return (
@@ -70,9 +127,6 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
 
   const [franchise, setFranchise] = useState<Franchise|null>(null)
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [gymCost, setGymCost] = useState(50000)
-  const [arenaCost, setArenaCost] = useState(0)
-  const [coachingSalary, setCoachingSalary] = useState(500000)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'actual'|'projections'>('actual')
 
@@ -80,13 +134,8 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
     Promise.all([
       supabase.from('franchise_finances').select('*').eq('team_id', teamId).single(),
       supabase.from('franchise_transactions').select('*').eq('team_id', teamId).eq('season','2025-26').order('created_at',{ascending:false}),
-      supabase.from('practice_facilities').select('monthly_cost').eq('team_id', teamId).single(),
-      supabase.from('arena_concessions').select('monthly_maintenance').eq('team_id', teamId).single(),
-      supabase.from('coaches').select('salary').eq('team_id', teamId),
-    ]).then(([{data:ff},{data:tx},{data:gym},{data:arena},{data:coaches}])=>{
+    ]).then(([{data:ff},{data:tx}])=>{
       setFranchise(ff); setTransactions(tx||[])
-      setGymCost(gym?.monthly_cost||50000); setArenaCost(arena?.monthly_maintenance||0)
-      setCoachingSalary(Math.round((coaches||[]).reduce((t:number,c:any)=>t+(c.salary||0)/12,0))||500000)
       setLoading(false)
     })
   }, [teamId])
@@ -104,42 +153,100 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
   const totalExpenses = transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0)
   const netResult = totalRevenue - totalExpenses
 
-  const projMonthlyRev = NBA_SUBSIDY_MONTHLY + 450000
-  const projMonthlyExp = coachingSalary + gymCost + arenaCost + 100000 + UTILITIES_MONTHLY + INSURANCE_MONTHLY + 200000
-  const projNet = projMonthlyRev - projMonthlyExp
-  const projAnnual = projNet * 9
+  // Every projection row is now derived from this team's OWN real
+  // transaction history — a trailing $/week rate per category, extrapolated
+  // to a full regular season (24 weeks, see season-week-helper.ts) or to one
+  // month (~4.33 weeks). Previously most of these were flat guesses,
+  // identical for every team and completely disconnected from what the
+  // simulation actually charged/paid — this is what caused the Balance
+  // Sheet and Projections tabs to contradict each other outright.
+  const SEASON_WEEKS = 24
+  const WEEKS_PER_MONTH = 4.33
+  const weekNumbers = transactions.map(t=>t.week_number).filter((w):w is number => w!=null)
+  const weeksElapsed = weekNumbers.length ? Math.max(1, Math.max(...weekNumbers) - Math.min(...weekNumbers) + 1) : 0
 
-  const PROJ_REV = isPT ? [
-    {label:'Subsídio NBA',     val:NBA_SUBSIDY_MONTHLY,  tip:'500K$ fixos/mês, cobrados de verdade a cada 4 semanas — vê no Extrato'},
-    {label:'Venda Bilhetes',   val:450000,  tip:'~20 jogos em casa · 65% ocupação'},
-    {label:'Concessões',       val:0,       tip:'Sem concessões construídas — vai ao separador Pavilhão'},
-    {label:'Patrocínios (fixo)',val:0,      tip:'Sem contratos de patrocínio ativos'},
-    {label:'Patrocínios (bónus)',val:0,     tip:'Desbloqueado ao atingir objetivos de desempenho'},
-  ] : [
-    {label:'NBA Subsidy',      val:NBA_SUBSIDY_MONTHLY,  tip:'Fixed $500K/month, actually paid every 4 weeks — see the Balance Sheet'},
-    {label:'Ticket Sales',     val:450000,  tip:'~20 home games · 65% attendance · base pricing'},
-    {label:'Concessions',      val:0,       tip:'No concessions built yet — build in Arena tab'},
-    {label:'Sponsors (fixed)', val:0,       tip:'No active sponsor contracts yet'},
-    {label:'Sponsors (bonus)', val:0,       tip:'Unlocked by reaching performance targets'},
+  const REVENUE_KEYS: {key:string, tipEn:string, tipPt:string}[] = [
+    {key:'nba_subsidy',  tipEn:'Fixed $500K, actually paid every 4 weeks',            tipPt:'500K$ fixos, pagos de verdade a cada 4 semanas'},
+    {key:'tickets',      tipEn:'Real revenue from home game attendance',              tipPt:'Receita real da assistência nos jogos em casa'},
+    {key:'concessions',  tipEn:'Real revenue from built concessions — Arena tab',      tipPt:'Receita real das concessões construídas — separador Pavilhão'},
+    {key:'sponsor',      tipEn:'Real fixed + bonus sponsor payments — Sponsors tab',   tipPt:'Pagamentos reais de patrocínio, fixos + bónus — separador Patrocinadores'},
+    {key:'merchandise',  tipEn:'Real jersey sales revenue',                           tipPt:'Receita real da venda de jerseys'},
   ]
+  const EXPENSE_KEYS: {key:string, tipEn:string, tipPt:string}[] = [
+    {key:'staff',        tipEn:'Real coaching staff salaries, charged every 4 weeks', tipPt:'Salários reais do staff técnico, cobrados a cada 4 semanas'},
+    {key:'operational',  tipEn:'Real game-day arena staff cost',                      tipPt:'Custo real de staff do pavilhão em dias de jogo'},
+    {key:'travel',       tipEn:'Real away-game travel cost',                          tipPt:'Custo real de viagens em jogos fora'},
+    {key:'maintenance',  tipEn:'Real gym + concessions monthly maintenance',          tipPt:'Manutenção mensal real do ginásio + concessões'},
+    {key:'utilities',    tipEn:'Fixed $80K, charged every 4 weeks',                   tipPt:'80K$ fixos, cobrados a cada 4 semanas'},
+    {key:'insurance',    tipEn:'Fixed $40K, charged every 4 weeks',                   tipPt:'40K$ fixos, cobrados a cada 4 semanas'},
+    {key:'supplies',     tipEn:'Real concession restock cost',                        tipPt:'Custo real de reposição das concessões'},
+    {key:'medical',      tipEn:'Real medical bills from injuries',                    tipPt:'Despesas médicas reais de lesões'},
+    {key:'marketing',    tipEn:'Real marketing campaign spend',                       tipPt:'Gasto real em campanhas de marketing'},
+    {key:'construction', tipEn:'Real one-off construction cost',                      tipPt:'Custo real de construção (pontual)'},
+    {key:'scouting_maintenance', tipEn:'Real weekly scouting operation overhead',      tipPt:'Custo semanal real da operação de scouting'},
+    {key:'specialist',   tipEn:'Real cost of sending injured players to a specialist', tipPt:'Custo real de levar jogadores lesionados a um especialista'},
+  ]
+  const EMPTY_TIP_EN = 'No data yet this season'
+  const EMPTY_TIP_PT = 'Ainda sem dados esta época'
 
-  const PROJ_EXP = isPT ? [
-    {label:'Staff Técnico',    val:coachingSalary, tip:'Salários anuais ÷ 12, cobrados de verdade a cada 4 semanas'},
-    {label:'Ginásio',          val:gymCost,        tip:'Custo mensal do ginásio'},
-    {label:'Concessões',       val:arenaCost,      tip:'Manutenção mensal das concessões'},
-    {label:'Staff Pavilhão',   val:100000,         tip:'Segurança, limpeza, staff de eventos · fixo'},
-    {label:'Utilidades',       val:UTILITIES_MONTHLY, tip:'Energia, água, aquecimento/arrefecimento — cobrado de verdade a cada 4 semanas'},
-    {label:'Seguros',          val:INSURANCE_MONTHLY, tip:'Seguro de responsabilidade civil e acidentes — cobrado de verdade a cada 4 semanas'},
-    {label:'Viagens Fora',     val:200000,         tip:'~20 jogos fora/mês · voos, hotel, refeições'},
-  ] : [
-    {label:'Coaching Staff',   val:coachingSalary, tip:'Annual salaries ÷ 12 · actually charged every 4 weeks'},
-    {label:'Practice Facility',val:gymCost,        tip:'Monthly gym maintenance — upgrade in Facilities tab'},
-    {label:'Arena Concessions',val:arenaCost,      tip:'Monthly maintenance of built concessions'},
-    {label:'Arena Staff',      val:100000,         tip:'Security, cleaning, event staff · fixed'},
-    {label:'Utilities',        val:UTILITIES_MONTHLY, tip:'Energy, water, heating/cooling — actually charged every 4 weeks'},
-    {label:'Insurance',        val:INSURANCE_MONTHLY, tip:'Liability, property and accident insurance — actually charged every 4 weeks'},
-    {label:'Away Travel',      val:200000,         tip:'~20 away games/month · flights, hotel, meals'},
-  ]
+  const sumByCategory = (txs: Transaction[], type:'revenue'|'expense') => {
+    const m: Record<string, number> = {}
+    txs.filter(t=>t.type===type).forEach(t => { m[t.category] = (m[t.category]||0) + t.amount })
+    return m
+  }
+  const revSums = sumByCategory(transactions, 'revenue')
+  const expSums = sumByCategory(transactions, 'expense')
+
+  // Projections tab: an ESTIMATE, extrapolated forward from the trailing
+  // $/week rate — see comment above.
+  const buildProjectedRows = (defs: {key:string,tipEn:string,tipPt:string}[], sums: Record<string,number>, windowWeeks: number): ProjRow[] =>
+    defs.map(d => {
+      const total = sums[d.key] || 0
+      const active = total > 0
+      const value = weeksElapsed > 0 ? Math.round((total / weeksElapsed) * windowWeeks) : 0
+      return {
+        key: d.key, label: CATEGORY_LABELS[d.key] || d.key, icon: CATEGORY_ICONS[d.key] || '📋',
+        tip: active ? (isPT ? d.tipPt : d.tipEn) : (isPT ? EMPTY_TIP_PT : EMPTY_TIP_EN),
+        value, active,
+      }
+    })
+
+  const annualRev = buildProjectedRows(REVENUE_KEYS, revSums, SEASON_WEEKS)
+  const annualExp = buildProjectedRows(EXPENSE_KEYS, expSums, SEASON_WEEKS)
+  const monthlyRev = buildProjectedRows(REVENUE_KEYS, revSums, WEEKS_PER_MONTH)
+  const monthlyExp = buildProjectedRows(EXPENSE_KEYS, expSums, WEEKS_PER_MONTH)
+
+  const sumVal = (rows: ProjRow[]) => rows.reduce((s,r)=>s+r.value,0)
+  const monthlyNet = sumVal(monthlyRev) - sumVal(monthlyExp)
+
+  // Balance Sheet tab: the REAL ledger, no extrapolation — every dollar
+  // shown here actually happened. "Annual" is the plain season-to-date sum;
+  // "Current Month" buckets by the transaction's real created_at calendar
+  // month, so categories with no week_number (scouting overhead, specialist
+  // visits) still land in the right bucket.
+  const now = new Date()
+  const currentMonthTx = transactions.filter(t => {
+    const d = new Date(t.created_at)
+    return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth()
+  })
+  const monthActualRevSums = sumByCategory(currentMonthTx, 'revenue')
+  const monthActualExpSums = sumByCategory(currentMonthTx, 'expense')
+
+  const buildActualRows = (defs: {key:string,tipEn:string,tipPt:string}[], sums: Record<string,number>): ProjRow[] =>
+    defs.map(d => {
+      const total = sums[d.key] || 0
+      const active = total > 0
+      return {
+        key: d.key, label: CATEGORY_LABELS[d.key] || d.key, icon: CATEGORY_ICONS[d.key] || '📋',
+        tip: active ? (isPT ? d.tipPt : d.tipEn) : (isPT ? EMPTY_TIP_PT : EMPTY_TIP_EN),
+        value: total, active,
+      }
+    })
+
+  const annualActualRev = buildActualRows(REVENUE_KEYS, revSums)
+  const annualActualExp = buildActualRows(EXPENSE_KEYS, expSums)
+  const monthActualRev = buildActualRows(REVENUE_KEYS, monthActualRevSums)
+  const monthActualExp = buildActualRows(EXPENSE_KEYS, monthActualExpSums)
 
   return (
     <div>
@@ -198,6 +305,17 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
                 </Tip>
               ))}
             </div>
+            <StatementTable
+              title={isPT?'📅 Época Completa (Real)':'📅 Full Season (Actual)'}
+              subtitle={isPT?'Soma real de tudo o que já entrou/saiu esta época':'Real sum of everything in/out so far this season'}
+              revRows={annualActualRev} expRows={annualActualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
+            />
+            <StatementTable
+              title={isPT?'🗓️ Mês Corrente (Real)':'🗓️ Current Month (Actual)'}
+              subtitle={isPT?'Soma real deste mês do calendário':'Real sum for this calendar month'}
+              revRows={monthActualRev} expRows={monthActualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
+            />
+            <div style={{fontSize:12,fontWeight:700,color:'#5c554e',margin:'4px 0 8px'}}>{isPT?'Todos os Lançamentos':'All Transactions'}</div>
             <div style={{borderRadius:10,overflow:'hidden',border:'1px solid #d4cdc5'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
                 <thead>
@@ -234,67 +352,41 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
       )}
 
       {view==='projections' && (
+        weeksElapsed===0 ? (
+          <div style={{padding:48,textAlign:'center',background:'#faf8f5',border:'1px dashed #d4cdc5',borderRadius:12}}>
+            <div style={{fontSize:32,marginBottom:12}}>📊</div>
+            <div style={{fontSize:14,fontWeight:700,color:'#1a1512',marginBottom:6}}>{isPT?'Ainda sem dados suficientes':'Not enough data yet'}</div>
+            <div style={{fontSize:12,color:'#8a8279',lineHeight:1.6,maxWidth:360,margin:'0 auto'}}>
+              {isPT?'As projeções são calculadas a partir dos teus lançamentos financeiros reais desta época — aparecem aqui assim que a simulação gerar os primeiros.':'Projections are calculated from your own real financial transactions this season — they appear here as soon as the simulation generates the first ones.'}
+            </div>
+          </div>
+        ) : (
         <div>
           <div style={{marginBottom:14,padding:'8px 12px',borderRadius:8,background:'#fef9c3',border:'1px solid #d97706',fontSize:11,color:'#92400e',lineHeight:1.5}}>
-            ⚠️ {isPT?'Estimativas com base na tua configuração atual. Os valores reais dependem do desempenho da equipa, assistência e contratos de patrocínio.':'These are estimates based on your current setup. Actual values depend on team performance, attendance and sponsor deals.'}
+            ⚠️ {isPT
+              ?`Cada linha é calculada a partir do que esta equipa já cobrou/pagou de verdade esta época (${weeksElapsed} semana${weeksElapsed!==1?'s':''} de dados), projetado para um mês (~4.3 semanas) ou para a época toda (24 semanas). Não é um número igual para todas as equipas — muda com o teu desempenho real.`
+              :`Every row is calculated from what this team has actually charged/paid so far this season (${weeksElapsed} week${weeksElapsed!==1?'s':''} of data), projected to one month (~4.3 weeks) or to the full season (24 weeks). Not the same number for every team — it moves with your real performance.`}
           </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:16}}>
-            {[
-              {label:isPT?'Receita mensal est.':'Est. monthly revenue',  val:projMonthlyRev, color:'#15803d'},
-              {label:isPT?'Despesas mensais est.':'Est. monthly expenses',val:projMonthlyExp, color:'#dc2626'},
-              {label:isPT?'Resultado mensal est.':'Est. monthly result',  val:projNet, color:projNet>=0?'#15803d':'#dc2626'},
-            ].map(item=>(
-              <div key={item.label} style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`3px solid ${item.color}`,borderRadius:10,padding:14}}>
-                <div style={{fontSize:10,color:'#8a8279',marginBottom:4}}>{item.label}</div>
-                <div style={{fontSize:18,fontWeight:800,color:item.color}}>{fmt(item.val)}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-            <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:'3px solid #15803d',borderRadius:10,padding:14}}>
-              <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#15803d',marginBottom:10}}>
-                {isPT?'Fontes de Receita':'Revenue streams'}
-              </div>
-              {PROJ_REV.map(row=>(
-                <div key={row.label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid #f0ece5'}}>
-                  <Tip text={row.tip}><span style={{fontSize:11,color:row.val>0?'#1a1512':'#b0a89e',cursor:'help'}}>{row.label}</span></Tip>
-                  <span style={{fontSize:11,fontWeight:600,color:row.val>0?'#15803d':'#b0a89e'}}>{row.val>0?fmt(row.val):'—'}</span>
-                </div>
-              ))}
-              <div style={{display:'flex',justifyContent:'space-between',paddingTop:8,marginTop:4,borderTop:'2px solid #d4cdc5'}}>
-                <span style={{fontSize:11,fontWeight:700,color:'#5c554e'}}>{isPT?'Total':'Total'}</span>
-                <span style={{fontSize:12,fontWeight:800,color:'#15803d'}}>{fmt(projMonthlyRev)}</span>
-              </div>
-            </div>
-            <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:'3px solid #dc2626',borderRadius:10,padding:14}}>
-              <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:'1px',color:'#dc2626',marginBottom:10}}>
-                {isPT?'Custos Mensais':'Monthly costs'}
-              </div>
-              {PROJ_EXP.map(row=>(
-                <div key={row.label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid #f0ece5'}}>
-                  <Tip text={row.tip}><span style={{fontSize:11,color:row.val>0?'#1a1512':'#b0a89e',cursor:'help'}}>{row.label}</span></Tip>
-                  <span style={{fontSize:11,fontWeight:600,color:row.val>0?'#dc2626':'#b0a89e'}}>{row.val>0?fmt(row.val):'—'}</span>
-                </div>
-              ))}
-              <div style={{display:'flex',justifyContent:'space-between',paddingTop:8,marginTop:4,borderTop:'2px solid #d4cdc5'}}>
-                <span style={{fontSize:11,fontWeight:700,color:'#5c554e'}}>{isPT?'Total':'Total'}</span>
-                <span style={{fontSize:12,fontWeight:800,color:'#dc2626'}}>{fmt(projMonthlyExp)}</span>
-              </div>
-            </div>
-          </div>
-          <div style={{padding:'12px 16px',borderRadius:8,background:projAnnual>=0?'#f0fdf4':'#fef2f2',border:`1px solid ${projAnnual>=0?'#bbf7d0':'#fecaca'}`,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <span style={{fontSize:12,fontWeight:600,color:'#5c554e'}}>{isPT?'Projeção da época completa (~9 meses)':'Full season projection (~9 months)'}</span>
-            <span style={{fontSize:15,fontWeight:800,color:projAnnual>=0?'#15803d':'#dc2626'}}>{projAnnual>=0?'+':''}{fmt(projAnnual)}</span>
-          </div>
-          {projNet < 100000 && (
-            <div style={{marginTop:12,padding:'10px 14px',background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:8,fontSize:11,color:'#5c554e',lineHeight:1.7}}>
-              <strong style={{color:'#1a1512'}}>{isPT?'Como melhorar a tua projeção:':'How to improve your projection:'}</strong><br/>
+          <StatementTable
+            title={isPT?'📅 Época Completa (Anual)':'📅 Full Season (Annual)'}
+            subtitle={isPT?`Projeção a partir de ${weeksElapsed} semana${weeksElapsed!==1?'s':''} de dados reais, escalada para 24 semanas`:`Projected from ${weeksElapsed} week${weeksElapsed!==1?'s':''} of real data, scaled to 24 weeks`}
+            revRows={annualRev} expRows={annualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
+          />
+          <StatementTable
+            title={isPT?'🗓️ Mês Corrente':'🗓️ Current Month'}
+            subtitle={isPT?'Projeção escalada para ~4.3 semanas':'Projected, scaled to ~4.3 weeks'}
+            revRows={monthlyRev} expRows={monthlyExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
+          />
+          {monthlyNet < 100000 && (
+            <div style={{marginTop:4,padding:'10px 14px',background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:8,fontSize:11,color:'#5c554e',lineHeight:1.7}}>
+              <strong style={{color:'#1a1512'}}>{isPT?'Como melhorar o teu resultado:':'How to improve your result:'}</strong><br/>
               {isPT?'🍔 Constrói concessões no separador Pavilhão para aumentar a receita por jogo':'🍔 Build concessions in the Arena tab to increase per-game revenue'}<br/>
               {isPT?'🤝 Assina patrocinadores no separador Patrocinadores para receita mensal fixa':'🤝 Sign sponsors in the Sponsors tab for monthly fixed income'}<br/>
               {isPT?'🎟️ Otimiza os preços dos bilhetes — encontra o equilíbrio entre preço e assistência':'🎟️ Optimise ticket pricing — find the sweet spot between price and attendance'}
             </div>
           )}
         </div>
+        )
       )}
     </div>
   )
