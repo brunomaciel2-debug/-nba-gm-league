@@ -515,6 +515,16 @@ export function notifTacticalFocusNeeded(lang: 'en'|'pt', system: string) {
   }
 }
 
+export function notifMonthlySettlement(lang: 'en'|'pt', subsidy: number, coaching: number, utilities: number, insurance: number, net: number) {
+  const fmt = (n: number) => '$' + (n/1000).toFixed(0) + 'K'
+  return {
+    subject: lang === 'pt' ? `💵 Acerto Financeiro Mensal` : `💵 Monthly Financial Settlement`,
+    body: lang === 'pt'
+      ? `Acerto mensal processado:\n\n💰 Subsídio NBA: +${fmt(subsidy)}\n👔 Staff Técnico: -${fmt(coaching)}\n⚡ Utilidades: -${fmt(utilities)}\n🛡️ Seguros: -${fmt(insurance)}\n\nResultado líquido: ${net>=0?'+':''}${fmt(net)}\n\nVê o Extrato no separador Finanças para o detalhe completo.`
+      : `Monthly settlement processed:\n\n💰 NBA Subsidy: +${fmt(subsidy)}\n👔 Coaching Staff: -${fmt(coaching)}\n⚡ Utilities: -${fmt(utilities)}\n🛡️ Insurance: -${fmt(insurance)}\n\nNet result: ${net>=0?'+':''}${fmt(net)}\n\nCheck the Balance Sheet in the Finances tab for the full detail.`,
+  }
+}
+
 export function notifJerseySalesReport(lang: 'en'|'pt', monthNum: number, topPlayerName: string, topPlayerRevenue: number, totalRevenue: number) {
   const fmt = (n: number) => '$' + (n >= 1000000 ? (n/1000000).toFixed(1)+'M' : (n/1000).toFixed(0)+'K')
   return {

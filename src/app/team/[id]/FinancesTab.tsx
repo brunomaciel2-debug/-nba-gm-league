@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
+import { NBA_SUBSIDY_MONTHLY, UTILITIES_MONTHLY, INSURANCE_MONTHLY } from '@/lib/finance-constants'
 
 type Transaction = {
   id: string; type: 'revenue' | 'expense'; category: string
@@ -103,19 +104,19 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
   const totalExpenses = transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0)
   const netResult = totalRevenue - totalExpenses
 
-  const projMonthlyRev = 500000 + 450000
-  const projMonthlyExp = coachingSalary + gymCost + arenaCost + 100000 + 80000 + 40000 + 200000
+  const projMonthlyRev = NBA_SUBSIDY_MONTHLY + 450000
+  const projMonthlyExp = coachingSalary + gymCost + arenaCost + 100000 + UTILITIES_MONTHLY + INSURANCE_MONTHLY + 200000
   const projNet = projMonthlyRev - projMonthlyExp
   const projAnnual = projNet * 9
 
   const PROJ_REV = isPT ? [
-    {label:'Subsídio NBA',     val:500000,  tip:'500K$ fixos/mês do programa NBA'},
+    {label:'Subsídio NBA',     val:NBA_SUBSIDY_MONTHLY,  tip:'500K$ fixos/mês, cobrados de verdade a cada 4 semanas — vê no Extrato'},
     {label:'Venda Bilhetes',   val:450000,  tip:'~20 jogos em casa · 65% ocupação'},
     {label:'Concessões',       val:0,       tip:'Sem concessões construídas — vai ao separador Pavilhão'},
     {label:'Patrocínios (fixo)',val:0,      tip:'Sem contratos de patrocínio ativos'},
     {label:'Patrocínios (bónus)',val:0,     tip:'Desbloqueado ao atingir objetivos de desempenho'},
   ] : [
-    {label:'NBA Subsidy',      val:500000,  tip:'Fixed $500K/month from NBA programme'},
+    {label:'NBA Subsidy',      val:NBA_SUBSIDY_MONTHLY,  tip:'Fixed $500K/month, actually paid every 4 weeks — see the Balance Sheet'},
     {label:'Ticket Sales',     val:450000,  tip:'~20 home games · 65% attendance · base pricing'},
     {label:'Concessions',      val:0,       tip:'No concessions built yet — build in Arena tab'},
     {label:'Sponsors (fixed)', val:0,       tip:'No active sponsor contracts yet'},
@@ -123,20 +124,20 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
   ]
 
   const PROJ_EXP = isPT ? [
-    {label:'Staff Técnico',    val:coachingSalary, tip:'Salários anuais ÷ 12'},
+    {label:'Staff Técnico',    val:coachingSalary, tip:'Salários anuais ÷ 12, cobrados de verdade a cada 4 semanas'},
     {label:'Ginásio',          val:gymCost,        tip:'Custo mensal do ginásio'},
     {label:'Concessões',       val:arenaCost,      tip:'Manutenção mensal das concessões'},
     {label:'Staff Pavilhão',   val:100000,         tip:'Segurança, limpeza, staff de eventos · fixo'},
-    {label:'Utilidades',       val:80000,          tip:'Energia, água, aquecimento/arrefecimento'},
-    {label:'Seguros',          val:40000,          tip:'Seguro de responsabilidade civil e acidentes'},
+    {label:'Utilidades',       val:UTILITIES_MONTHLY, tip:'Energia, água, aquecimento/arrefecimento — cobrado de verdade a cada 4 semanas'},
+    {label:'Seguros',          val:INSURANCE_MONTHLY, tip:'Seguro de responsabilidade civil e acidentes — cobrado de verdade a cada 4 semanas'},
     {label:'Viagens Fora',     val:200000,         tip:'~20 jogos fora/mês · voos, hotel, refeições'},
   ] : [
-    {label:'Coaching Staff',   val:coachingSalary, tip:'Annual salaries ÷ 12 · coaches, trainers, physios'},
+    {label:'Coaching Staff',   val:coachingSalary, tip:'Annual salaries ÷ 12 · actually charged every 4 weeks'},
     {label:'Practice Facility',val:gymCost,        tip:'Monthly gym maintenance — upgrade in Facilities tab'},
     {label:'Arena Concessions',val:arenaCost,      tip:'Monthly maintenance of built concessions'},
     {label:'Arena Staff',      val:100000,         tip:'Security, cleaning, event staff · fixed'},
-    {label:'Utilities',        val:80000,          tip:'Energy, water, heating/cooling'},
-    {label:'Insurance',        val:40000,          tip:'Liability, property and accident insurance'},
+    {label:'Utilities',        val:UTILITIES_MONTHLY, tip:'Energy, water, heating/cooling — actually charged every 4 weeks'},
+    {label:'Insurance',        val:INSURANCE_MONTHLY, tip:'Liability, property and accident insurance — actually charged every 4 weeks'},
     {label:'Away Travel',      val:200000,         tip:'~20 away games/month · flights, hotel, meals'},
   ]
 

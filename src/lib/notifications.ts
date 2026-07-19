@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek, getWeekDates } from './season-week-helper'
-import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded } from './notifications-helpers'
+import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded, notifMonthlySettlement } from './notifications-helpers'
 import { MEDICAL_COST_BY_SEVERITY, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
 import { OffSystem, nodesForSystem, isNodeUnlocked, masteredCountByLevel } from './tactical-constants'
+import { NBA_SUBSIDY_MONTHLY, UTILITIES_MONTHLY, INSURANCE_MONTHLY } from './finance-constants'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -373,6 +374,47 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
         description: `Monthly sponsor payment — ${(contract.template as any)?.company_name}`,
         season: '2025-26', week_number: week,
       })
+    }
+  }
+
+  // ── 11b. MONTHLY FINANCIAL SETTLEMENT ─────────────────
+  // NBA Subsidy, Coaching Staff salaries, Utilities and Insurance used to
+  // only exist as guessed numbers in Finances > Projections — nothing in
+  // the real simulation ever actually paid or charged them, which is why
+  // the real Balance Sheet and the Projections estimate could show wildly
+  // contradictory results. Same real-transaction treatment already given to
+  // ticket revenue/concessions/travel/game-ops above.
+  if (week % 4 === 0) {
+    const { data: allCoaches } = await supabase.from('coaches').select('team_id,salary').not('team_id', 'is', null)
+    const coachSalaryByTeam: Record<string, number> = {}
+    ;(allCoaches || []).forEach((c: any) => { coachSalaryByTeam[c.team_id] = (coachSalaryByTeam[c.team_id] || 0) + (c.salary || 0) })
+
+    for (const team of (teams || [])) {
+      // Idempotency guard — this same week gets processed twice in practice
+      // (once per half, both halves share the same `week` number), and this
+      // check keeps a team from being charged/paid twice for one real month.
+      const { data: existing } = await supabase.from('franchise_transactions').select('id')
+        .eq('team_id', team.id).eq('category', 'nba_subsidy').eq('week_number', week).maybeSingle()
+      if (existing) continue
+
+      const coachingMonthly = Math.round((coachSalaryByTeam[team.id] || 0) / 12)
+      const netMonthly = NBA_SUBSIDY_MONTHLY - coachingMonthly - UTILITIES_MONTHLY - INSURANCE_MONTHLY
+
+      const { data: fin } = await supabase.from('franchise_finances').select('balance').eq('team_id', team.id).single()
+      if (!fin) continue
+      await supabase.from('franchise_finances').update({ balance: (fin.balance || 0) + netMonthly }).eq('team_id', team.id)
+
+      const rows: any[] = [
+        { team_id: team.id, type: 'revenue', category: 'nba_subsidy', amount: NBA_SUBSIDY_MONTHLY, description: 'Monthly NBA revenue-sharing subsidy', season: '2025-26', week_number: week },
+        { team_id: team.id, type: 'expense', category: 'utilities', amount: UTILITIES_MONTHLY, description: 'Monthly arena utilities (power, water, HVAC)', season: '2025-26', week_number: week },
+        { team_id: team.id, type: 'expense', category: 'insurance', amount: INSURANCE_MONTHLY, description: 'Monthly liability & property insurance', season: '2025-26', week_number: week },
+      ]
+      if (coachingMonthly > 0) rows.push({ team_id: team.id, type: 'expense', category: 'staff', amount: coachingMonthly, description: 'Monthly coaching staff salaries', season: '2025-26', week_number: week })
+      await supabase.from('franchise_transactions').insert(rows)
+
+      const lang = await getTeamLang(team.id)
+      const notif = notifMonthlySettlement(lang, NBA_SUBSIDY_MONTHLY, coachingMonthly, UTILITIES_MONTHLY, INSURANCE_MONTHLY, netMonthly)
+      await notify(team.id, 'finance', notif.subject, notif.body, { net: netMonthly })
     }
   }
 
