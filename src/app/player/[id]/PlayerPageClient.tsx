@@ -335,7 +335,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
             <table className="w-full text-xs" style={{minWidth:700}}>
               <thead>
                 <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                  {[isPT?'Época':'Season',isPT?'Equipa':'Team','GP','MIN','PPG','RPG','APG','SPG','BPG','OREB','DREB','FG%','3P%','FT%','TO','PF','DD','TD','+/-'].map(h=>(
+                  {[isPT?'Época':'Season',isPT?'Equipa':'Team','GP','MPG','PPG','RPG','APG','SPG','BPG','OREB','DREB','FG%','3P%','FT%','TO','PF','DD','TD','+/-'].map(h=>(
                     <th key={h} className="px-2.5 py-2.5 font-bold text-right first:text-left"
                         style={{color:'#5c554e',whiteSpace:'nowrap',fontSize:10}}>{h}</th>
                   ))}
@@ -472,7 +472,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
             <table className="w-full text-xs" style={{minWidth:500}}>
               <thead>
                 <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                  {[isPT?'Época':'Season',isPT?'Equipa':'Team','GP','MIN','PPG','RPG','APG','SPG','BPG','FG%','3P%','FT%'].map(h=>(
+                  {[isPT?'Época':'Season',isPT?'Equipa':'Team','GP','MPG','PPG','RPG','APG','SPG','BPG','FG%','3P%','FT%'].map(h=>(
                     <th key={h} className="px-2.5 py-2.5 font-bold text-right first:text-left"
                         style={{color:'#5c554e',whiteSpace:'nowrap',fontSize:10}}>{h}</th>
                   ))}
