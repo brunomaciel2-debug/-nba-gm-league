@@ -6,12 +6,15 @@ import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MUL
 
 function fmtCost(n: number) { return '$' + (n>=1000 ? (n/1000).toFixed(n%1000===0?0:1)+'K' : n) }
 
+// bg is a light tint of the severity color, matching the rest of the page's
+// light theme — these used to be near-black, which made the dark header
+// text (player name/position) almost invisible against it.
 const SEVERITY_STYLE: Record<string,{color:string,bg:string,labelEN:string,labelPT:string}> = {
-  minor:              { color:'#b45309', bg:'#2a2000', labelEN:'Minor',       labelPT:'Ligeira' },
-  moderate:           { color:'#c2410c', bg:'#2a1500', labelEN:'Moderate',    labelPT:'Moderada' },
-  serious:            { color:'#ff6040', bg:'#2a0a00', labelEN:'Serious',     labelPT:'Séria' },
-  severe:             { color:'#dc2626', bg:'#2a0000', labelEN:'Severe',      labelPT:'Severa' },
-  career_threatening: { color:'#ff2040', bg:'#3a0000', labelEN:'Career Risk', labelPT:'Risco de Carreira' },
+  minor:              { color:'#b45309', bg:'#fdf1e0', labelEN:'Minor',       labelPT:'Ligeira' },
+  moderate:           { color:'#c2410c', bg:'#fde7db', labelEN:'Moderate',    labelPT:'Moderada' },
+  serious:            { color:'#ff6040', bg:'#ffe3da', labelEN:'Serious',     labelPT:'Séria' },
+  severe:             { color:'#dc2626', bg:'#fee2e2', labelEN:'Severe',      labelPT:'Severa' },
+  career_threatening: { color:'#ff2040', bg:'#ffd9df', labelEN:'Career Risk', labelPT:'Risco de Carreira' },
 }
 
 const HEALTH_STYLE = (h: number, isPT: boolean) => {
