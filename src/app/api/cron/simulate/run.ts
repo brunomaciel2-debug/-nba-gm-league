@@ -1538,6 +1538,14 @@ if (hWon) awayRec.losses++; else awayRec.wins++
 await supabaseAdmin.from('gleague_teams').update({ wins: awayRec.wins, losses: awayRec.losses }).eq('id', game.away_team)
 
 for (const b of [...homeBox, ...awayBox]) {
+// Double-double/triple-double — same 2-of-5 / 3-of-5 categories>=10
+// definition as the NBA side, computed per game from this box row (no
+// separate flag exists on gleague_box_scores, unlike box_scores'
+// is_double_double/is_triple_double, since G-League games are built as
+// a single final box rather than possession-by-possession).
+const catsAtLeast10 = [b.pts,b.reb,b.ast,b.stl,b.blk].filter((v:number)=>v>=10).length
+const isDD = catsAtLeast10>=2, isTD = catsAtLeast10>=3
+
 const { data: existStat } = await supabaseAdmin
 .from('gleague_player_stats').select('*')
 .eq('player_id', b.player_id).eq('season','2025-26').maybeSingle()
@@ -1549,6 +1557,9 @@ pts: existStat.pts + b.pts, reb: existStat.reb + b.reb,
 ast: existStat.ast + b.ast, stl: existStat.stl + b.stl, blk: existStat.blk + b.blk,
 fgm: existStat.fgm+b.fgm, fga: existStat.fga+b.fga, tpm: existStat.tpm+b.tpm, tpa: existStat.tpa+b.tpa,
 ftm: existStat.ftm+b.ftm, fta: existStat.fta+b.fta,
+off_reb: (existStat.off_reb||0)+(b.off_reb||0), def_reb: (existStat.def_reb||0)+(b.def_reb||0),
+turnovers: (existStat.turnovers||0)+(b.turnovers||0), fouls: (existStat.fouls||0)+(b.pf||0),
+double_doubles: (existStat.double_doubles||0)+(isDD?1:0), triple_doubles: (existStat.triple_doubles||0)+(isTD?1:0),
 }).eq('id', existStat.id)
 } else {
 await supabaseAdmin.from('gleague_player_stats').insert({
@@ -1556,6 +1567,8 @@ player_id: b.player_id, gleague_team_id: b.gleague_team_id,
 season: '2025-26', games: 1, mins: b.mins,
 pts: b.pts, reb: b.reb, ast: b.ast, stl: b.stl, blk: b.blk,
 fgm: b.fgm, fga: b.fga, tpm: b.tpm, tpa: b.tpa, ftm: b.ftm, fta: b.fta,
+off_reb: b.off_reb||0, def_reb: b.def_reb||0, turnovers: b.turnovers||0, fouls: b.pf||0,
+double_doubles: isDD?1:0, triple_doubles: isTD?1:0,
 })
 }
 

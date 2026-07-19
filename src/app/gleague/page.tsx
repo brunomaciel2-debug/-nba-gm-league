@@ -246,13 +246,22 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
       {tab==='leaders'&&(
         <div className="grid sm:grid-cols-3 gap-6">
           {[
-            {labelEN:'Points',  labelPT:'Pontos',    key:'pts',color:'#b45309',unit:'PPG'},
-            {labelEN:'Rebounds',labelPT:'Ressaltos', key:'reb',color:'#15803d',unit:'RPG'},
-            {labelEN:'Assists', labelPT:'Assistências',key:'ast',color:'#1d4ed8',unit:'APG'},
-            {labelEN:'Steals',  labelPT:'Roubos',    key:'stl',color:'#6d28d9',unit:'SPG'},
-            {labelEN:'Blocks',  labelPT:'Bloqueios', key:'blk',color:'#c2410c',unit:'BPG'},
+            {labelEN:'Points',  labelPT:'Pontos',    key:'pts',color:'#b45309',unit:'PPG',type:'avg' as const},
+            {labelEN:'Rebounds',labelPT:'Ressaltos', key:'reb',color:'#15803d',unit:'RPG',type:'avg' as const},
+            {labelEN:'Assists', labelPT:'Assistências',key:'ast',color:'#1d4ed8',unit:'APG',type:'avg' as const},
+            {labelEN:'Steals',  labelPT:'Roubos',    key:'stl',color:'#6d28d9',unit:'SPG',type:'avg' as const},
+            {labelEN:'Blocks',  labelPT:'Bloqueios', key:'blk',color:'#c2410c',unit:'BPG',type:'avg' as const},
+            {labelEN:'Turnovers',labelPT:'Perdas de Bola',key:'turnovers',color:'#dc2626',unit:'TOPG',type:'avg' as const},
+            // Field goal/3PT % — same NBA convention of needing real volume
+            // (not per-game average, and not just "1-for-1"), a fixed makes
+            // minimum rather than the NBA's full games-played-scaled rule
+            // since a G-League season is much shorter and simpler.
+            {labelEN:'FG%',     labelPT:'FG%',       key:'fg', m:'fgm',a:'fga',color:'#0e7490',unit:'FG%',type:'pct' as const},
+            {labelEN:'3-Point %',labelPT:'% 3 Pontos',key:'tp',m:'tpm',a:'tpa',color:'#b45309',unit:'3P%',type:'pct' as const},
           ].map(cat=>{
-            const sorted=[...leaders].filter((l:any)=>(l[cat.key]||0)>0&&l.games>=2).sort((a:any,b:any)=>(b[cat.key]/b.games)-(a[cat.key]/a.games)).slice(0,10)
+            const sorted = cat.type==='pct'
+              ? [...leaders].filter((l:any)=>(l[cat.a!]||0)>=10).sort((a:any,b:any)=>(b[cat.m!]/b[cat.a!])-(a[cat.m!]/a[cat.a!])).slice(0,10)
+              : [...leaders].filter((l:any)=>(l[cat.key]||0)>0&&l.games>=2).sort((a:any,b:any)=>(b[cat.key]/b.games)-(a[cat.key]/a.games)).slice(0,10)
             return(
               <div key={cat.key} className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5',borderTop:`3px solid ${cat.color}`}}>
                 <div className="px-4 py-3 flex items-center justify-between" style={{background:'#f5f1eb',borderBottom:'1px solid #d4cdc5'}}>
@@ -261,7 +270,8 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
                 </div>
                 {sorted.length===0?<div className="px-4 py-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Disponível após jogos serem realizados':'Available after games are played'}</div>
                   :sorted.map((l:any,i:number)=>{
-                    const avg=(l[cat.key]/l.games).toFixed(1); const tc=l.team?readableTeamColor(l.team.color):'#5c554e'
+                    const avg = cat.type==='pct' ? (l[cat.m!]/l[cat.a!]*100).toFixed(1)+'%' : (l[cat.key]/l.games).toFixed(1)
+                    const tc=l.team?readableTeamColor(l.team.color):'#5c554e'
                     return(
                       <Link key={l.id} href={`/player/${l.player?.id}`} className="no-underline flex items-center gap-3 px-4 py-2.5 hover:brightness-110 transition-all" style={{borderBottom:'1px solid #e2dcd5',background:i%2===0?'#faf8f5':'#f5f1eb'}}>
                         <span className="text-xs font-black w-4 flex-shrink-0" style={{color:cat.color}}>{i+1}</span>

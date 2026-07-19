@@ -472,7 +472,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
             <table className="w-full text-xs" style={{minWidth:500}}>
               <thead>
                 <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
-                  {[isPT?'Época':'Season',isPT?'Equipa':'Team','GP','MPG','PPG','RPG','APG','SPG','BPG','FG%','3P%','FT%'].map(h=>(
+                  {[isPT?'Época':'Season',isPT?'Equipa':'Team','GP','MPG','PPG','RPG','APG','SPG','BPG','OREB','DREB','FG%','3P%','FT%','TO','PF','DD','TD'].map(h=>(
                     <th key={h} className="px-2.5 py-2.5 font-bold text-right first:text-left"
                         style={{color:'#5c554e',whiteSpace:'nowrap',fontSize:10}}>{h}</th>
                   ))}
@@ -502,9 +502,15 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#1d4ed8'}}>{avg(s.ast)}</td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#6d28d9'}}>{avg(s.stl)}</td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#c2410c'}}>{avg(s.blk)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{avg(s.off_reb||0)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{avg(s.def_reb||0)}</td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{pctS(s.fgm,s.fga)}</td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{pctS(s.tpm,s.tpa)}</td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{pctS(s.ftm,s.fta)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#dc2626'}}>{avg(s.turnovers||0)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#8a8279'}}>{avg(s.fouls||0)}</td>
+                      <td className="px-2.5 py-2.5 text-right font-bold" style={{color:(s.double_doubles||0)>0?'#1d4ed8':'#8a8279'}}>{s.double_doubles||0}</td>
+                      <td className="px-2.5 py-2.5 text-right font-bold" style={{color:(s.triple_doubles||0)>0?'#6d28d9':'#8a8279'}}>{s.triple_doubles||0}</td>
                     </tr>
                   )
                 })}
@@ -512,7 +518,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
             </table>
           </div>
           <div className="px-4 py-2 text-xs" style={{color:'#a89f97',borderTop:'1px solid #e2dcd5',background:'#f5f1eb'}}>
-            {isPT ? 'Médias por jogo' : 'Per game averages'}
+            {isPT ? 'Médias por jogo · DD = Duplos-Duplos · TD = Triplos-Duplos · sem +/- — a G-League não simula quem está em campo em cada jogada.' : 'Per game averages · DD = Double-Doubles · TD = Triple-Doubles · no +/- — the G-League doesn\'t simulate who\'s on the floor for each play.'}
           </div>
         </div>
       ) : (
