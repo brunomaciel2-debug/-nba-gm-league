@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getGymGradeBonus } from '@/lib/facility-constants'
-import { MEDICAL_COST_BY_SEVERITY, InjurySeverity, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost } from '@/lib/injury-constants'
+import { medicalCostAfterInsurance, InjurySeverity, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost } from '@/lib/injury-constants'
 
 // Same severity weighting used by the real-game injury generator in
 // cron/simulate/run.ts — one source of truth for "how common is each
@@ -112,14 +112,16 @@ export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
     })
     if (injErr) console.warn('injury_log insert (practice/off-court) failed:', injErr.message)
 
-    const medicalCost = MEDICAL_COST_BY_SEVERITY[chosen.severity as InjurySeverity] || 0
+    // Team only pays its share after Insurance's 75% coverage — see
+    // medicalCostAfterInsurance in injury-constants.ts.
+    const medicalCost = medicalCostAfterInsurance(chosen.severity as InjurySeverity)
     if (medicalCost > 0 && p.team_id) {
       const { data: fin } = await supabaseAdmin.from('franchise_finances').select('balance').eq('team_id', p.team_id).single()
       if (fin) {
         await supabaseAdmin.from('franchise_finances').update({ balance: (fin.balance || 0) - medicalCost }).eq('team_id', p.team_id)
         await supabaseAdmin.from('franchise_transactions').insert({
           team_id: p.team_id, type: 'expense', category: 'medical', amount: medicalCost,
-          description: `Medical bill — ${p.name}: ${chosen.name}`,
+          description: `Medical bill — ${p.name}: ${chosen.name} (after 75% insurance coverage)`,
           season: '2025-26', week_number: week,
         })
       }

@@ -10,7 +10,7 @@ import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
 import { rookieOptionSalary } from '@/lib/draft-constants'
-import { MEDICAL_COST_BY_SEVERITY, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
+import { medicalCostAfterInsurance, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
 import { resolveSummerLeague } from '@/lib/summer-league'
 import { resolvePlayoffSeries } from '@/lib/playoff-resolver'
@@ -742,8 +742,11 @@ play_risk:newHealth<65?75:newHealth<75?40:15, status:'active'
 })
 if (injErr) console.warn('injury_log insert (game) failed:', injErr.message)
 
-// Medical bill — every injury costs the team money, scaled by severity
-const medicalCost = MEDICAL_COST_BY_SEVERITY[chosen.severity as InjurySeverity] || 0
+// Medical bill — team only pays its share after Insurance's 75% coverage
+// (see medicalCostAfterInsurance/INSURANCE_COVERAGE_RATE in
+// injury-constants.ts) — the whole point of the mandatory monthly Insurance
+// premium is that it actually covers most of this cost.
+const medicalCost = medicalCostAfterInsurance(chosen.severity as InjurySeverity)
 if (medicalCost > 0 && p.team_id) {
 const { data: fin } = await supabaseAdmin.from('franchise_finances')
 .select('balance').eq('team_id',p.team_id).single()
@@ -751,7 +754,7 @@ if (fin) {
 await supabaseAdmin.from('franchise_finances').update({ balance:(fin.balance||0)-medicalCost }).eq('team_id',p.team_id)
 await supabaseAdmin.from('franchise_transactions').insert({
 team_id:p.team_id, type:'expense', category:'medical', amount:medicalCost,
-description:`Medical bill — ${p.name}: ${chosen.name}`,
+description:`Medical bill — ${p.name}: ${chosen.name} (after 75% insurance coverage)`,
 season:'2025-26', week_number:week,
 })
 }

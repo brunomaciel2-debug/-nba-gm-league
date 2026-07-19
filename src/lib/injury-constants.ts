@@ -5,13 +5,26 @@
 
 export type InjurySeverity = 'minor' | 'moderate' | 'serious' | 'severe' | 'career_threatening'
 
-// Charged automatically to the team's balance every time a player gets hurt.
+// Full cost of the injury before insurance — never charged directly to the
+// team's balance (see medicalCostAfterInsurance below). Kept as the
+// reference full price for display/context.
 export const MEDICAL_COST_BY_SEVERITY: Record<InjurySeverity, number> = {
   minor: 8_000,
   moderate: 20_000,
   serious: 45_000,
   severe: 90_000,
   career_threatening: 180_000,
+}
+
+// Every team pays a real, mandatory monthly Insurance premium (see
+// finance-constants.ts) — this is what it actually buys: covering 75% of
+// every medical bill. Without this, Insurance was a flat cost with zero
+// effect on anything, while Medical Bill charged the full amount regardless
+// — paying for coverage that never actually covered anything.
+export const INSURANCE_COVERAGE_RATE = 0.75
+
+export function medicalCostAfterInsurance(severity: InjurySeverity): number {
+  return Math.round((MEDICAL_COST_BY_SEVERITY[severity] || 0) * (1 - INSURANCE_COVERAGE_RATE))
 }
 
 // Only serious/severe/career_threatening injuries are worth flying in a specialist for.

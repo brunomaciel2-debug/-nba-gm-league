@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek, getWeekDates } from './season-week-helper'
 import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded, notifMonthlySettlement } from './notifications-helpers'
-import { MEDICAL_COST_BY_SEVERITY, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
+import { medicalCostAfterInsurance, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
 import { OffSystem, nodesForSystem, isNodeUnlocked, masteredCountByLevel } from './tactical-constants'
 import { NBA_SUBSIDY_MONTHLY, UTILITIES_MONTHLY, INSURANCE_MONTHLY } from './finance-constants'
 
@@ -151,8 +151,8 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       }
       const notif = notifInjury(lang, inj.players?.name, inj.injury_type, inj.games_out, inj.occurred_in, gameContext)
       const recurring = inj.is_recurring ? (lang === 'pt' ? '\n⚠️ Esta é uma lesão recorrente.' : '\n⚠️ This is a recurring injury.') : ''
-      const medCost = MEDICAL_COST_BY_SEVERITY[severity as InjurySeverity] || 0
-      const medLine = lang === 'pt' ? `\n💵 Despesas médicas: $${(medCost/1000).toFixed(0)}K (já debitadas)` : `\n💵 Medical bill: $${(medCost/1000).toFixed(0)}K (already charged)`
+      const medCost = medicalCostAfterInsurance(severity as InjurySeverity)
+      const medLine = lang === 'pt' ? `\n💵 Despesas médicas: $${(medCost/1000).toFixed(0)}K após seguro (já debitadas)` : `\n💵 Medical bill: $${(medCost/1000).toFixed(0)}K after insurance (already charged)`
       const eligible = isSpecialistEligible(severity)
       const specialistCost = eligible ? SPECIALIST_COST_BY_SEVERITY[severity as InjurySeverity] || 0 : 0
       const specialistBoostPct = eligible ? Math.round(((SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY[severity as InjurySeverity] || 1) - 1) * 100) : 0
