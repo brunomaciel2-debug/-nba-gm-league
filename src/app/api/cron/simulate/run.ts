@@ -1040,12 +1040,18 @@ else if (slotType === 'mental') quality = 0.6*g(hc?.mental_dev) + 0.4*g(ac?.ment
 else if (slotType === 'analytics') quality = 0.6*g(hc?.analytics) + 0.4*g(ac?.analytics)
 else quality = 60
 
-const coachDrivenGain = Math.max(2, Math.min(15, 5 + (quality-60)*0.3))
+// Recalibrated — the old formula (base 5, clamp 2-15) took 9-15 real weeks
+// just to earn a slot's first 10 credits even with above-average coaches,
+// which made Training feel like it was never worth checking. Target: a
+// slot fills in ~2 weeks at neutral (60) coach quality and a Grade F gym —
+// close to weekly with a good staff, still finishes inside a handful of
+// weeks even with a poor one.
+const coachDrivenGain = Math.max(15, Math.min(75, 45 + (quality-60)*0.75))
 // Practice Facility grade adds a real, secondary boost on top of the
 // coach-driven gain — the coaching staff is still the primary lever, the
 // gym grade (previously a purely decorative "+5% to +19%/wk" UI number)
 // now contributes a real fraction of it.
-const facilityBonus = getGymGradeBonus(facilityByTeam[teamId]?.gym_grade).speed * 0.3
+const facilityBonus = getGymGradeBonus(facilityByTeam[teamId]?.gym_grade).speed
 return coachDrivenGain + facilityBonus
 }
 
