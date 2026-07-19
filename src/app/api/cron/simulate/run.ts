@@ -1456,7 +1456,17 @@ return teamRecords[t.id]
 const buildTeamBox = (roster: any[], teamId: string) => {
 const active = roster.filter((p:any) => p.status !== 'injured')
 if (!active.length) return []
-const ranked = [...active].sort((a,b) => (b.usage||50) - (a.usage||50))
+// An NBA player sent down on assignment (on_gleague_assignment) is
+// Bruno's explicit first option for as long as he's down there — sorted
+// ahead of the whole rest of the roster regardless of his own usage
+// attribute, so he lands in the starter/top-minutes tier below. Several
+// assigned players all rank above every non-assigned one, ordered by
+// usage among themselves same as before.
+const ranked = [...active].sort((a,b) => {
+const assignDiff = (b.on_gleague_assignment?1:0) - (a.on_gleague_assignment?1:0)
+if (assignDiff !== 0) return assignDiff
+return (b.usage||50) - (a.usage||50)
+})
 // Rough starters/rotation/bench minutes tiers, then normalized so the
 // whole roster's minutes sum to a real team-game total (240 = 5 x 48).
 const tierMins = ranked.map((_,i) => i<5 ? 26+Math.random()*8 : i<9 ? 10+Math.random()*10 : 2+Math.random()*6)
