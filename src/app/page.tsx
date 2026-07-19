@@ -22,7 +22,7 @@ export default async function HomePage() {
       .eq('status', 'final').order('played_at', { ascending: false }).limit(6),
     supabase.from('site_config').select('*').eq('id', 1).single(),
     supabase.from('weekly_highlights')
-      .select('*, potw:players!weekly_highlights_potw_player_id_fkey(id,name,pos,photo_url,team_id), uotw_winner:teams!weekly_highlights_uotw_winner_id_fkey(id,name,color,logo_url), uotw_loser:teams!weekly_highlights_uotw_loser_id_fkey(id,name,color,logo_url), hstreak_team:teams!weekly_highlights_hstreak_team_id_fkey(id,name,color,logo_url,wins,losses), uotw_game:games!weekly_highlights_uotw_game_id_fkey(id,home_score,away_score), potw_game:games!weekly_highlights_potw_game_id_fkey(id,home_team,away_team)')
+      .select('*, potw:players!weekly_highlights_potw_player_id_fkey(id,name,pos,photo_url,team_id), uotw_winner:teams!weekly_highlights_uotw_winner_id_fkey(id,name,color,logo_url), uotw_loser:teams!weekly_highlights_uotw_loser_id_fkey(id,name,color,logo_url), hstreak_team:teams!weekly_highlights_hstreak_team_id_fkey(id,name,color,logo_url,wins,losses), uotw_game:games!weekly_highlights_uotw_game_id_fkey(id,home_score,away_score), potw_game:games!weekly_highlights_potw_game_id_fkey(id,home_team,away_team,home_score,away_score)')
       .order('week_number', { ascending: false }).limit(1).single(),
   ])
 
@@ -131,6 +131,18 @@ export default async function HomePage() {
                   </div>
                 ))}
               </div>
+              {hl.potw_game && hl.potw_game.home_score != null && (() => {
+                const isHome = hl.potw_game.home_team === hl.potw.team_id
+                const oppId = isHome ? hl.potw_game.away_team : hl.potw_game.home_team
+                const myScore = isHome ? hl.potw_game.home_score : hl.potw_game.away_score
+                const oppScore = isHome ? hl.potw_game.away_score : hl.potw_game.home_score
+                const opp = teamMap[oppId]
+                return (
+                  <p className="text-sm mb-3" style={{color:'#6b5f4e'}}>
+                    vs {opp?.name || oppId} · <span className="font-bold" style={{color:'#1a1612'}}>{myScore}-{oppScore}</span>
+                  </p>
+                )
+              })()}
               {hl.potw_game && <ViewBoxScore gameId={hl.potw_game.id} />}
             </>
           ) : (
