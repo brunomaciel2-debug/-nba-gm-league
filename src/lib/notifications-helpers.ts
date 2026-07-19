@@ -236,14 +236,16 @@ export function notifWeeklyResults(lang: 'en'|'pt', teamName: string, wins: numb
 // (real-game generator), plus 'practice' and 'off_court' (see
 // src/lib/practice-injuries.ts). Left optional so any unrecognized value
 // degrades to the generic "in a game" phrasing instead of breaking.
-export function notifInjury(lang: 'en'|'pt', player: string, injuryType: string, gamesOut: number, occurredIn?: string) {
+// gameContext (e.g. "vs Miami Heat, 99-96") only applies to occurredIn==='game'
+// or 'preseason_game' — practice/off-court injuries have no opponent or score.
+export function notifInjury(lang: 'en'|'pt', player: string, injuryType: string, gamesOut: number, occurredIn?: string, gameContext?: string) {
   const where = occurredIn === 'preseason_game'
-    ? (lang === 'pt' ? ' num jogo amigável' : ' in a friendly game')
+    ? (lang === 'pt' ? ` num jogo amigável${gameContext ? ' '+gameContext : ''}` : ` in a friendly game${gameContext ? ' '+gameContext : ''}`)
     : occurredIn === 'practice'
     ? (lang === 'pt' ? ' num treino' : ' in practice')
     : occurredIn === 'off_court'
     ? (lang === 'pt' ? ' fora do ambiente profissional' : ' off the court')
-    : (lang === 'pt' ? ' num jogo' : ' in a game')
+    : (lang === 'pt' ? ` num jogo${gameContext ? ' '+gameContext : ''}` : ` in a game${gameContext ? ' '+gameContext : ''}`)
   return {
     subject: lang === 'pt' ? `🏥 Lesão — ${player}` : `🏥 Injury — ${player}`,
     body: lang === 'pt'

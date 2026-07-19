@@ -81,6 +81,8 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
 
   const teamMap: Record<string,any> = {}
   ;(teams||[]).forEach((t:any) => teamMap[t.id] = t)
+  const gameById: Record<string,any> = {}
+  ;(games||[]).forEach((g:any) => gameById[g.id] = g)
 
   // Clear language cache at start of each simulation run
   clearLangCache()
@@ -133,7 +135,19 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     for (const inj of teamInjuries) {
       const severity = inj.severity
       const emoji = severity === 'career_threatening' ? '🚨' : severity === 'severe' ? '🔴' : severity === 'serious' ? '🟠' : '🟡'
-      const notif = notifInjury(lang, inj.players?.name, inj.injury_type, inj.games_out, inj.occurred_in)
+      // Opponent + final score for the specific game the injury happened in —
+      // previously the notification just said "in a game" with no way to
+      // tell which one without opening the Injury Report separately.
+      const injGame = inj.game_id ? gameById[inj.game_id] : null
+      let gameContext: string | undefined
+      if (injGame) {
+        const isHome = injGame.home_team === teamId
+        const opp = isHome ? injGame.away?.name : injGame.home?.name
+        const ts = isHome ? injGame.home_score : injGame.away_score
+        const os = isHome ? injGame.away_score : injGame.home_score
+        gameContext = `${isHome ? 'vs' : '@'} ${opp}, ${ts}-${os}`
+      }
+      const notif = notifInjury(lang, inj.players?.name, inj.injury_type, inj.games_out, inj.occurred_in, gameContext)
       const recurring = inj.is_recurring ? (lang === 'pt' ? '\n⚠️ Esta é uma lesão recorrente.' : '\n⚠️ This is a recurring injury.') : ''
       const medCost = MEDICAL_COST_BY_SEVERITY[severity as InjurySeverity] || 0
       const medLine = lang === 'pt' ? `\n💵 Despesas médicas: $${(medCost/1000).toFixed(0)}K (já debitadas)` : `\n💵 Medical bill: $${(medCost/1000).toFixed(0)}K (already charged)`
