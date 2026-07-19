@@ -392,37 +392,53 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   // the real Balance Sheet and the Projections estimate could show wildly
   // contradictory results. Same real-transaction treatment already given to
   // ticket revenue/concessions/travel/game-ops above.
-  if (week % 4 === 0) {
-    const { data: allCoaches } = await supabase.from('coaches').select('team_id,salary').not('team_id', 'is', null)
-    const coachSalaryByTeam: Record<string, number> = {}
-    ;(allCoaches || []).forEach((c: any) => { coachSalaryByTeam[c.team_id] = (coachSalaryByTeam[c.team_id] || 0) + (c.salary || 0) })
+  // Self-heals like Player/Rookie of the Month elsewhere: sweeps every
+  // 4-week checkpoint up through the most recent one, not just the exact
+  // `week` passed in — a checkpoint that already passed before this feature
+  // existed (week 28 did, the week this was built) stayed permanently
+  // missing under a plain `week % 4 === 0` check on just the current call.
+  {
+    const lastCheckpoint = Math.floor(week / 4) * 4
+    if (lastCheckpoint >= 4) {
+      const { data: allCoaches } = await supabase.from('coaches').select('team_id,salary').not('team_id', 'is', null)
+      const coachSalaryByTeam: Record<string, number> = {}
+      ;(allCoaches || []).forEach((c: any) => { coachSalaryByTeam[c.team_id] = (coachSalaryByTeam[c.team_id] || 0) + (c.salary || 0) })
 
-    for (const team of (teams || [])) {
-      // Idempotency guard — this same week gets processed twice in practice
-      // (once per half, both halves share the same `week` number), and this
-      // check keeps a team from being charged/paid twice for one real month.
-      const { data: existing } = await supabase.from('franchise_transactions').select('id')
-        .eq('team_id', team.id).eq('category', 'nba_subsidy').eq('week_number', week).maybeSingle()
-      if (existing) continue
+      for (const team of (teams || [])) {
+        for (let cp = 4; cp <= lastCheckpoint; cp += 4) {
+          // Idempotency guard — same checkpoint can be swept again on a
+          // later call (both halves of a week, or a future week's sweep
+          // re-checking it), and this keeps it from being paid twice.
+          const { data: existing } = await supabase.from('franchise_transactions').select('id')
+            .eq('team_id', team.id).eq('category', 'nba_subsidy').eq('week_number', cp).maybeSingle()
+          if (existing) continue
 
-      const coachingMonthly = Math.round((coachSalaryByTeam[team.id] || 0) / 12)
-      const netMonthly = NBA_SUBSIDY_MONTHLY - coachingMonthly - UTILITIES_MONTHLY - INSURANCE_MONTHLY
+          const coachingMonthly = Math.round((coachSalaryByTeam[team.id] || 0) / 12)
+          const netMonthly = NBA_SUBSIDY_MONTHLY - coachingMonthly - UTILITIES_MONTHLY - INSURANCE_MONTHLY
 
-      const { data: fin } = await supabase.from('franchise_finances').select('balance').eq('team_id', team.id).single()
-      if (!fin) continue
-      await supabase.from('franchise_finances').update({ balance: (fin.balance || 0) + netMonthly }).eq('team_id', team.id)
+          const { data: fin } = await supabase.from('franchise_finances').select('balance').eq('team_id', team.id).single()
+          if (!fin) continue
+          await supabase.from('franchise_finances').update({ balance: (fin.balance || 0) + netMonthly }).eq('team_id', team.id)
 
-      const rows: any[] = [
-        { team_id: team.id, type: 'revenue', category: 'nba_subsidy', amount: NBA_SUBSIDY_MONTHLY, description: 'Monthly NBA revenue-sharing subsidy', season: '2025-26', week_number: week },
-        { team_id: team.id, type: 'expense', category: 'utilities', amount: UTILITIES_MONTHLY, description: 'Monthly arena utilities (power, water, HVAC)', season: '2025-26', week_number: week },
-        { team_id: team.id, type: 'expense', category: 'insurance', amount: INSURANCE_MONTHLY, description: 'Monthly liability & property insurance', season: '2025-26', week_number: week },
-      ]
-      if (coachingMonthly > 0) rows.push({ team_id: team.id, type: 'expense', category: 'staff', amount: coachingMonthly, description: 'Monthly coaching staff salaries', season: '2025-26', week_number: week })
-      await supabase.from('franchise_transactions').insert(rows)
+          const rows: any[] = [
+            { team_id: team.id, type: 'revenue', category: 'nba_subsidy', amount: NBA_SUBSIDY_MONTHLY, description: 'Monthly NBA revenue-sharing subsidy', season: '2025-26', week_number: cp },
+            { team_id: team.id, type: 'expense', category: 'utilities', amount: UTILITIES_MONTHLY, description: 'Monthly arena utilities (power, water, HVAC)', season: '2025-26', week_number: cp },
+            { team_id: team.id, type: 'expense', category: 'insurance', amount: INSURANCE_MONTHLY, description: 'Monthly liability & property insurance', season: '2025-26', week_number: cp },
+          ]
+          if (coachingMonthly > 0) rows.push({ team_id: team.id, type: 'expense', category: 'staff', amount: coachingMonthly, description: 'Monthly coaching staff salaries', season: '2025-26', week_number: cp })
+          await supabase.from('franchise_transactions').insert(rows)
 
-      const lang = await getTeamLang(team.id)
-      const notif = notifMonthlySettlement(lang, NBA_SUBSIDY_MONTHLY, coachingMonthly, UTILITIES_MONTHLY, INSURANCE_MONTHLY, netMonthly)
-      await notify(team.id, 'finance', notif.subject, notif.body, { net: netMonthly })
+          // Only notify for the checkpoint matching this call's real,
+          // current period — older backfilled checkpoints settle silently,
+          // the same way a bank catches up a missed statement without
+          // re-notifying separately for each past month.
+          if (cp === lastCheckpoint) {
+            const lang = await getTeamLang(team.id)
+            const notif = notifMonthlySettlement(lang, NBA_SUBSIDY_MONTHLY, coachingMonthly, UTILITIES_MONTHLY, INSURANCE_MONTHLY, netMonthly)
+            await notify(team.id, 'finance', notif.subject, notif.body, { net: netMonthly })
+          }
+        }
+      }
     }
   }
 
