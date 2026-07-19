@@ -33,6 +33,17 @@ export async function POST(req: NextRequest) {
   const counts = masteredCountByLevel(progressByNodeId, system as OffSystem)
   if (!isNodeUnlocked(node, counts)) return NextResponse.json({ error: 'This tech is still locked' }, { status: 400 })
 
+  // Only one tech develops at a time — a valid, still-in-progress focus
+  // must be fully mastered before switching to a different one. Mirrors the
+  // UI's blocked/blurred nodes so this can't be bypassed by calling the API
+  // directly.
+  const { data: currentFocus } = await admin.from('tactical_focus').select('node_id').eq('team_id', teamId).eq('system', system).maybeSingle()
+  if (currentFocus && currentFocus.node_id !== nodeId) {
+    const currentNode = nodesForSystem(system as OffSystem).find(n => n.id === currentFocus.node_id)
+    const currentValid = currentNode && (progressByNodeId[currentFocus.node_id] || 0) < 100 && isNodeUnlocked(currentNode, counts)
+    if (currentValid) return NextResponse.json({ error: 'Finish the in-focus tech before picking a different one' }, { status: 400 })
+  }
+
   const { error } = await admin.from('tactical_focus').upsert(
     { team_id: teamId, system, node_id: nodeId },
     { onConflict: 'team_id,system' }

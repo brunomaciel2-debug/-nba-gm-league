@@ -174,26 +174,33 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
               const mastered = progress >= 100
               const unlocked = isNodeUnlocked(node, counts)
               const isFocus = focusValid && node.id === viewFocusNodeId
+              // Only one tech develops at a time — once a valid focus is
+              // set, every OTHER unlocked-but-not-mastered node is blocked
+              // until that one is fully mastered (blurred here rather than
+              // looking identically pickable, so it reads as "not yet",
+              // not "broken").
+              const blockedByOtherFocus = focusValid && !isFocus && !mastered && unlocked
               const name = isPT ? node.namePt : node.nameEn
               const desc = isPT ? node.descPt : node.descEn
               return (
-                <button key={node.id} disabled={!unlocked || mastered || saving || viewSystem !== activeSystem}
+                <button key={node.id} disabled={!unlocked || mastered || saving || viewSystem !== activeSystem || blockedByOtherFocus}
                   onClick={() => setFocus(node)}
-                  title={desc}
+                  title={blockedByOtherFocus ? (isPT ? 'Termina a tech em foco antes de escolheres esta' : 'Finish the in-focus tech before picking this one') : desc}
                   className="rounded-lg p-2 text-center transition-all disabled:cursor-not-allowed"
                   style={{
                     width: 108, minHeight: 66,
-                    background: mastered ? '#2a2000' : unlocked ? '#faf8f5' : '#e2dcd5',
-                    border: `2px solid ${mastered ? '#b45309' : isFocus ? teamColor : unlocked ? '#d4cdc5' : '#c8c0b4'}`,
+                    background: mastered ? '#dcfce7' : unlocked ? '#faf8f5' : '#e2dcd5',
+                    border: `2px solid ${mastered ? '#15803d' : isFocus ? teamColor : unlocked ? '#d4cdc5' : '#c8c0b4'}`,
                     boxShadow: isFocus ? `0 0 0 2px ${teamColor}44` : 'none',
-                    opacity: unlocked ? 1 : 0.5,
+                    opacity: !unlocked ? 0.5 : blockedByOtherFocus ? 0.55 : 1,
+                    filter: blockedByOtherFocus ? 'blur(1px)' : 'none',
                   }}>
                   {isFocus && (
                     <div className="text-xs font-black mb-0.5" style={{ color: teamColor }}>
                       🎯 {isPT ? 'Em Foco' : 'In Focus'}
                     </div>
                   )}
-                  <div className="text-xs font-bold leading-tight" style={{ color: mastered ? '#b45309' : unlocked ? '#1a1512' : '#8a8279' }}>
+                  <div className="text-xs font-bold leading-tight" style={{ color: mastered ? '#15803d' : unlocked ? '#1a1512' : '#8a8279' }}>
                     {unlocked ? name : '🔒'}
                   </div>
                   {unlocked && !mastered && (
@@ -209,7 +216,9 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
         ))}
       </div>
       <p className="text-xs mt-4 text-center" style={{ color: '#8a8279' }}>
-        {isPT ? 'Clica numa tech desbloqueada do sistema ativo para a desenvolveres.' : 'Click an unlocked tech in the active system to develop it.'}
+        {isPT
+          ? 'Só desenvolves uma tech de cada vez — clica numa tech desbloqueada do sistema ativo para começares, ou espera que a tech em foco fique dominada para escolheres a próxima.'
+          : "You develop one tech at a time — click an unlocked tech in the active system to start, or wait for the in-focus one to be mastered before picking the next."}
       </p>
     </div>
   )
