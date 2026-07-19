@@ -275,7 +275,7 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
                     return(
                       <Link key={l.id} href={`/player/${l.player?.id}`} className="no-underline flex items-center gap-3 px-4 py-2.5 hover:brightness-110 transition-all" style={{borderBottom:'1px solid #e2dcd5',background:i%2===0?'#faf8f5':'#f5f1eb'}}>
                         <span className="text-xs font-black w-4 flex-shrink-0" style={{color:cat.color}}>{i+1}</span>
-                        <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0" style={{background:tc+'22',border:`2px solid ${tc}44`}}>
+                        <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0" style={{background:tc+'22',border:`2px solid ${tc}44`}}>
                           {l.player?.photo_url
                             ?<img src={l.player.photo_url} alt="" className="w-full h-full object-cover"/>
                             :<div className="w-full h-full flex items-center justify-center text-sm font-black" style={{color:tc}}>

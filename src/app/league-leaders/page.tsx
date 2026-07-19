@@ -123,9 +123,9 @@ export default function LeagueLeadersPage() {
                       <Link key={p.id} href={`/player/${p.pid}`} className="no-underline">
                         <div className="flex items-center gap-3 px-3 py-2.5 hover:brightness-110 transition-all" style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:'1px solid #16120d'}}>
                           <span className="text-xs font-bold w-5 text-right flex-shrink-0" style={{color:i===0?cat.color:'#9c8e7a'}}>{i+1}</span>
-                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0" style={{background:tc+'22'}}>
+                          <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0" style={{background:tc+'22'}}>
                             {p.photo?<img src={p.photo} alt="" className="w-full h-full object-cover"/>
-                              :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                              :<div className="w-full h-full flex items-center justify-center text-sm font-black" style={{color:tc}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-xs font-semibold truncate" style={{color:'#1a1512'}}>{p.name}</div>
