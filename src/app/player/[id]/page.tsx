@@ -11,7 +11,7 @@ import PlayerPageClient from './PlayerPageClient'
 export const dynamic = "force-dynamic"
 
 export default async function PlayerPage({ params }: { params: { id: string } }) {
-  const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }, { data: lastGames }, { data: cfg }, { data: allTeams }, { data: transactions }] =
+  const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }, { data: lastGames }, { data: cfg }, { data: allTeams }, { data: transactions }, { data: gleagueStats }, { data: gleagueLastGames }] =
     await Promise.all([
       supabase.from('players').select('*, nba_experience, nba_recruitable, world_team_id, world_teams:world_team_id(id,name,country), teams:teams!players_team_id_fkey(name,color,id,logo_url)').eq('id', params.id).single(),
       supabase.from('player_stats').select('*,triple_doubles').eq('player_id', params.id).order('season', { ascending: false }),
@@ -22,6 +22,13 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       supabase.from('season_config').select('current_week').eq('id', 1).single(),
       supabase.from('teams').select('id,name,color,logo_url'),
       supabase.from('player_transactions').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
+      // G-League stats live in their own tables (gleague_player_stats /
+      // gleague_box_scores) — a player with even one G-League game never
+      // showed up anywhere on his own page before, since this query never
+      // existed. Only ever non-empty for a player who's actually been
+      // assigned to a G-League team at some point.
+      supabase.from('gleague_player_stats').select('*, team:gleague_teams(id,name,color,logo_url)').eq('player_id', params.id).order('season', { ascending: false }),
+      supabase.from('gleague_box_scores').select('*,game:gleague_games(id,home_team,away_team,home_score,away_score,played_at,home:gleague_teams!gleague_games_home_team_fkey(name,color),away:gleague_teams!gleague_games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0).order('created_at', { ascending: false }).limit(5),
     ])
   const teamMap: Record<string, any> = {}
   for (const t of (allTeams || [])) teamMap[t.id] = t
@@ -61,6 +68,8 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         contracts={contracts||[]}
         playerAwards={playerAwards||[]}
         lastGames={lastGames||[]}
+        gleagueStats={gleagueStats||[]}
+        gleagueLastGames={gleagueLastGames||[]}
         teamColor={tc}
         ovr={ovr}
         currentContract={currentContract}

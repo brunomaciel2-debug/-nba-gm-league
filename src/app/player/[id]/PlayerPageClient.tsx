@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { useTranslation } from '@/components/I18nProvider'
 import { countryName } from '@/lib/country-pt'
 import { countryFlag } from '@/lib/country-flags'
@@ -95,15 +96,21 @@ const TX_COLORS: Record<string,{color:string,bg:string}> = {
   cut:{color:'#dc2626',bg:'#fee2e2'}, draft:{color:'#6d28d9',bg:'#ede9fe'},
 }
 
-export default function PlayerPageClient({ player, stats, teamMap, transactions, injuries, contracts, playerAwards, lastGames, teamColor, ovr, currentContract, totalValue, actionButtons }: {
+export default function PlayerPageClient({ player, stats, teamMap, transactions, injuries, contracts, playerAwards, lastGames, gleagueStats, gleagueLastGames, teamColor, ovr, currentContract, totalValue, actionButtons }: {
   player: any, stats: any[], teamMap?: Record<string, any>, transactions?: any[], injuries: any[], contracts: any[], playerAwards: any[],
-  lastGames: any[], teamColor: string, ovr: number, currentContract: any, totalValue: number,
+  lastGames: any[], gleagueStats?: any[], gleagueLastGames?: any[], teamColor: string, ovr: number, currentContract: any, totalValue: number,
   actionButtons?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const p = player
   const tc = teamColor
+  // Only shown for a player who's actually appeared in at least one
+  // G-League box score or has a stats row — most players never touch the
+  // G-League at all, so the tab switcher itself stays hidden for them
+  // rather than showing an always-empty second tab.
+  const hasGLeagueData = (gleagueStats?.length||0) > 0 || (gleagueLastGames?.length||0) > 0
+  const [statsTab, setStatsTab] = useState<'nba'|'gleague'>('nba')
   const capFmt = (n:number) => n ? '$'+(n/1000000).toFixed(2)+'M' : '—'
   const TYPE_LABEL = isPT ? TYPE_LABEL_PT : TYPE_LABEL_EN
   const AWARD_LABELS = isPT ? AWARD_LABELS_PT : AWARD_LABELS_EN
@@ -308,6 +315,19 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
       </div>
 
       {/* STATS */}
+      {hasGLeagueData && (
+        <div className="flex gap-1 p-1 rounded-xl mb-3 w-fit" style={{background:'#ddd7ca',border:'1px solid #d4cec3'}}>
+          {(['nba','gleague'] as const).map(tabKey=>(
+            <button key={tabKey} type="button" onClick={()=>setStatsTab(tabKey)}
+              className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{background:statsTab===tabKey?'#f5f1eb':'transparent',color:statsTab===tabKey?'#1a1512':'#5c554e',border:'none',cursor:'pointer'}}>
+              {tabKey==='nba' ? 'NBA' : 'G-League'}
+            </button>
+          ))}
+        </div>
+      )}
+      {(!hasGLeagueData || statsTab==='nba') && (
+      <>
       <div className="sec-hdr mb-3"><span className="sec-title">{isPT?'Estatísticas da Época':'Season Statistics'}</span></div>
       {stats.length > 0 ? (
         <div className="rounded-xl overflow-hidden mb-6" style={{border:'1px solid #d4cdc5'}}>
@@ -439,6 +459,127 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {/* G-LEAGUE STATS */}
+      {hasGLeagueData && statsTab==='gleague' && (
+      <>
+      <div className="sec-hdr mb-3"><span className="sec-title">{isPT?'Estatísticas da Época — G-League':'Season Statistics — G-League'}</span></div>
+      {(gleagueStats?.length||0) > 0 ? (
+        <div className="rounded-xl overflow-hidden mb-6" style={{border:'1px solid #d4cdc5'}}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs" style={{minWidth:500}}>
+              <thead>
+                <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
+                  {[isPT?'Época':'Season',isPT?'Equipa':'Team','GP','MIN','PPG','RPG','APG','SPG','BPG','FG%','3P%','FT%'].map(h=>(
+                    <th key={h} className="px-2.5 py-2.5 font-bold text-right first:text-left"
+                        style={{color:'#5c554e',whiteSpace:'nowrap',fontSize:10}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(gleagueStats||[]).map((s:any,i:number) => {
+                  const gp=s.games||0
+                  const avg=(v:number)=>gp>0?(v/gp).toFixed(1):'—'
+                  const avgM=(v:number)=>gp>0?(v/gp).toFixed(0):'—'
+                  const pctS=(m:number,a:number)=>a>0?(m/a*100).toFixed(1)+'%':'—'
+                  const st=s.team
+                  const stc=st?readableTeamColor(st.color):'#8a8279'
+                  return (
+                    <tr key={s.id||i} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                      <td className="px-2.5 py-2.5 font-bold" style={{color:'#1a1512',whiteSpace:'nowrap'}}>{s.season}</td>
+                      <td className="px-2.5 py-2.5" style={{whiteSpace:'nowrap'}}>
+                        <span className="flex items-center gap-1.5 justify-end">
+                          {st?.logo_url && <img src={st.logo_url} alt="" style={{width:14,height:14,objectFit:'contain'}}/>}
+                          <span style={{color:stc,fontWeight:600,fontSize:11}}>{st?.name||'—'}</span>
+                        </span>
+                      </td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{gp}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{avgM(s.mins||0)}</td>
+                      <td className="px-2.5 py-2.5 text-right font-bold" style={{color:'#b45309'}}>{avg(s.pts)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#15803d'}}>{avg(s.reb)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#1d4ed8'}}>{avg(s.ast)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#6d28d9'}}>{avg(s.stl)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#c2410c'}}>{avg(s.blk)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{pctS(s.fgm,s.fga)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{pctS(s.tpm,s.tpa)}</td>
+                      <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{pctS(s.ftm,s.fta)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-2 text-xs" style={{color:'#a89f97',borderTop:'1px solid #e2dcd5',background:'#f5f1eb'}}>
+            {isPT ? 'Médias por jogo' : 'Per game averages'}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl p-4 text-center mb-6" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+          <p className="text-sm" style={{color:'#5c554e'}}>{isPT ? 'Sem estatísticas da G-League ainda.' : 'No G-League stats yet.'}</p>
+        </div>
+      )}
+
+      <div className="mt-6">
+        <div className="sec-hdr mb-4"><span className="sec-title">{isPT?'Últimos 5 Jogos — G-League':'Last 5 Games — G-League'}</span></div>
+        {(gleagueLastGames?.length||0) === 0 ? (
+          <div className="rounded-xl p-4 text-center" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
+            <p className="text-sm" style={{color:'#8a8279'}}>{isPT?'Ainda não jogou nenhum jogo.':'No games played yet.'}</p>
+          </div>
+        ) : (
+          <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs" style={{minWidth:600}}>
+                <thead>
+                  <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
+                    {[isPT?'Data':'Date',isPT?'Jogo':'Matchup',isPT?'Resultado':'Result','MIN','PTS','REB','AST','STL','BLK','FG','3P','FT'].map(h=>(
+                      <th key={h} className="px-2.5 py-2.5 font-bold text-right first:text-left"
+                          style={{color:'#5c554e',fontSize:10,whiteSpace:'nowrap'}}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(gleagueLastGames||[]).map((b:any,i:number) => {
+                    const g = b.game
+                    if (!g || !g.home || !g.away) return null
+                    const isHome = g.home_team === b.gleague_team_id
+                    const opp = isHome ? g.away : g.home
+                    const myScore = isHome ? g.home_score : g.away_score
+                    const oppScore = isHome ? g.away_score : g.home_score
+                    const won = (myScore||0) > (oppScore||0)
+                    const oppColor = readableTeamColor(opp?.color||'#5c554e')
+                    const dateStr = g.played_at ? new Date(g.played_at).toLocaleDateString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric'}) : '—'
+                    return (
+                      <tr key={b.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                        <td className="px-2.5 py-2.5 whitespace-nowrap" style={{color:'#8a8279'}}>{dateStr}</td>
+                        <td className="px-2.5 py-2.5 whitespace-nowrap">
+                          <span style={{color:'#8a8279'}}>{isHome?(isPT?'vs':'vs'):(isPT?'em':'@')} </span>
+                          <span style={{color:oppColor,fontWeight:600}}>{opp?.name||'—'}</span>
+                        </td>
+                        <td className="px-2.5 py-2.5 font-bold whitespace-nowrap" style={{color:won?'#15803d':'#dc2626'}}>
+                          {won?(isPT?'V':'W'):(isPT?'D':'L')} {myScore}-{oppScore}
+                        </td>
+                        <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.mins||0}</td>
+                        <td className="px-2.5 py-2.5 text-right font-bold" style={{color:'#b45309'}}>{b.pts||0}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{color:'#15803d'}}>{b.reb||0}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{color:'#1d4ed8'}}>{b.ast||0}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{color:'#6d28d9'}}>{b.stl||0}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{color:'#c2410c'}}>{b.blk||0}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.fgm||0}/{b.fga||0}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.tpm||0}/{b.tpa||0}</td>
+                        <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{b.ftm||0}/{b.fta||0}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+      </>
+      )}
 
       {/* TRANSFER HISTORY */}
       <div className="mt-6 mb-6">
