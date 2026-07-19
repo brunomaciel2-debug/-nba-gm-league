@@ -116,7 +116,10 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
       // could easily be excluded entirely. Scoped directly to this team via
       // the player_id join instead, so every one of its injuries comes back
       // regardless of the league-wide total.
-      supabase.from('injury_log').select('*, players!inner(team_id)').eq('status','active').eq('players.team_id', teamId),
+      // Fetches the WHOLE season now (not just status='active') so the
+      // Injury Report's season history can show every injury that's
+      // happened, not only the ones still open right now.
+      supabase.from('injury_log').select('*, players!inner(team_id)').eq('season','2025-26').eq('players.team_id', teamId).order('created_at',{ascending:false}),
       supabase.from('coaches').select('*').eq('team_id', teamId),
       supabase.from('preseason_games').select('*')
         .eq('season','2025-26')

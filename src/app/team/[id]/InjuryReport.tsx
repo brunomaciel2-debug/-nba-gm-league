@@ -2,7 +2,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
-import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY } from '@/lib/injury-constants'
+import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, medicalCostAfterInsurance, InjurySeverity } from '@/lib/injury-constants'
+
+function fmtCost(n: number) { return '$' + (n>=1000 ? (n/1000).toFixed(n%1000===0?0:1)+'K' : n) }
 
 const SEVERITY_STYLE: Record<string,{color:string,bg:string,labelEN:string,labelPT:string}> = {
   minor:              { color:'#b45309', bg:'#2a2000', labelEN:'Minor',       labelPT:'Ligeira' },
@@ -74,19 +76,9 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
   }
 
   const active = list.filter((i:any) => i.status === 'active')
-
-  if (active.length === 0) return (
-    <div>
-      <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{color:'#6b5f4e'}}>
-        🏥 {isPT ? 'Relatório de Lesões' : 'Injury Report'}
-      </h2>
-      <div className="rounded-xl p-5 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-        <p className="text-sm" style={{color:'#6b5f4e'}}>
-          ✅ {isPT ? 'Sem lesões activas. Plantel disponível na totalidade.' : 'No active injuries. Full squad available.'}
-        </p>
-      </div>
-    </div>
-  )
+  // `list` already arrives ordered by created_at desc (see the page.tsx
+  // query) — every injury this season, active or resolved, in the order
+  // they happened, newest first.
 
   return (
     <div>
@@ -94,10 +86,19 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
         <h2 className="text-xs font-semibold uppercase tracking-widest" style={{color:'#6b5f4e'}}>
           🏥 {isPT ? 'Relatório de Lesões' : 'Injury Report'}
         </h2>
-        <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{background:'#fee2e2',color:'#dc2626'}}>
-          {active.length} {isPT ? `jogador${active.length!==1?'es':''} lesionado${active.length!==1?'s':''}` : `player${active.length!==1?'s':''} injured`}
-        </span>
+        {active.length > 0 && (
+          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{background:'#fee2e2',color:'#dc2626'}}>
+            {active.length} {isPT ? `jogador${active.length!==1?'es':''} lesionado${active.length!==1?'s':''}` : `player${active.length!==1?'s':''} injured`}
+          </span>
+        )}
       </div>
+      {active.length === 0 && (
+        <div className="rounded-xl p-5 text-center mb-6" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <p className="text-sm" style={{color:'#6b5f4e'}}>
+            ✅ {isPT ? 'Sem lesões activas. Plantel disponível na totalidade.' : 'No active injuries. Full squad available.'}
+          </p>
+        </div>
+      )}
       <div className="flex flex-col gap-3">
         {active.map((inj:any) => {
           const p = playerMap[inj.player_id]
@@ -126,7 +127,7 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                 </span>
               </div>
               <div className="px-4 py-3" style={{background:'#ece7dd'}}>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-3">
                   <div>
                     <div className="text-xs mb-1" style={{color:'#6b5f4e'}}>{isPT?'Saúde':'Health'}</div>
                     <div className="flex items-center gap-2">
@@ -166,6 +167,20 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                     {inj.return_week && (
                       <div className="text-xs mt-0.5" style={{color:'#9c8e7a'}}>
                         {isPT?'Previsão inicial: Semana':'Original est.: Week'} {inj.return_week}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-xs mb-1" style={{color:'#6b5f4e'}}>{isPT?'Custo':'Cost'}</div>
+                    <div className="text-sm font-bold" style={{color:'#c2410c'}}>
+                      {fmtCost(medicalCostAfterInsurance(inj.severity as InjurySeverity))}
+                    </div>
+                    <div className="text-xs mt-0.5" style={{color:'#9c8e7a'}}>
+                      {isPT?'após 75% seguro':'after 75% insurance'}
+                    </div>
+                    {inj.specialist_used && (
+                      <div className="text-xs mt-0.5 font-semibold" style={{color:'#0e7490'}}>
+                        🩺 +{fmtCost(SPECIALIST_COST_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_COST_BY_SEVERITY]||0)}
                       </div>
                     )}
                   </div>
@@ -212,6 +227,65 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
         })}
       </div>
       {msg && <div className="mt-3 text-xs font-semibold" style={{color: msg.startsWith('✅')?'#15803d':'#dc2626'}}>{msg}</div>}
+
+      <h2 className="text-xs font-semibold uppercase tracking-widest mt-8 mb-3" style={{color:'#6b5f4e'}}>
+        📋 {isPT ? 'Histórico de Lesões da Época' : 'Season Injury History'}
+      </h2>
+      {list.length === 0 ? (
+        <div className="rounded-xl p-5 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+          <p className="text-sm" style={{color:'#6b5f4e'}}>
+            ✅ {isPT ? 'Nenhuma lesão esta época.' : 'No injuries this season.'}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+          <table className="w-full" style={{borderCollapse:'collapse',fontSize:11}}>
+            <thead>
+              <tr style={{background:'#e8e2d6',borderBottom:'2px solid #d4cdc5'}}>
+                <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Jogador':'Player'}</th>
+                <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Lesão':'Injury'}</th>
+                <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Gravidade':'Severity'}</th>
+                <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Ocorreu em':'Occurred'}</th>
+                <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Semana':'Week'}</th>
+                <th style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Jogos':'Games'}</th>
+                <th style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Custo':'Cost'}</th>
+                <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Estado':'Status'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((inj:any, i:number) => {
+                const p = playerMap[inj.player_id]
+                const sev = SEVERITY_STYLE[inj.severity] || SEVERITY_STYLE.minor
+                const cost = medicalCostAfterInsurance(inj.severity as InjurySeverity) + (inj.specialist_used ? (SPECIALIST_COST_BY_SEVERITY[inj.severity as keyof typeof SPECIALIST_COST_BY_SEVERITY]||0) : 0)
+                const occurredLabel = inj.occurred_in === 'game' ? (isPT?'🏀 Jogo':'🏀 Game')
+                  : inj.occurred_in === 'preseason_game' ? (isPT?'🏀 Amigável':'🏀 Friendly')
+                  : inj.occurred_in === 'off_court' ? (isPT?'🌆 Fora':'🌆 Off Court')
+                  : (isPT?'🏋️ Treino':'🏋️ Practice')
+                return (
+                  <tr key={inj.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                    <td style={{padding:'7px 10px',color:'#1a1512',fontWeight:600,whiteSpace:'nowrap'}}>{p?.name||'—'}</td>
+                    <td style={{padding:'7px 10px',color:'#3d3731'}}>{inj.injury_type}</td>
+                    <td style={{padding:'7px 10px'}}>
+                      <span style={{fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:4,background:sev.color+'22',color:sev.color}}>
+                        {isPT?sev.labelPT:sev.labelEN}
+                      </span>
+                    </td>
+                    <td style={{padding:'7px 10px',color:'#5c554e',whiteSpace:'nowrap'}}>{occurredLabel}</td>
+                    <td style={{padding:'7px 10px',color:'#8a8279'}}>{inj.week_number ?? '—'}</td>
+                    <td style={{padding:'7px 10px',textAlign:'right',color:'#5c554e'}}>~{inj.games_out}</td>
+                    <td style={{padding:'7px 10px',textAlign:'right',fontWeight:600,color:'#c2410c'}}>{fmtCost(cost)}</td>
+                    <td style={{padding:'7px 10px'}}>
+                      {inj.status === 'active'
+                        ? <span style={{fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:4,background:'#fee2e2',color:'#dc2626'}}>{isPT?'Ativa':'Active'}</span>
+                        : <span style={{fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:4,background:'#dcfce7',color:'#15803d'}}>{isPT?'Recuperado':'Recovered'}</span>}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

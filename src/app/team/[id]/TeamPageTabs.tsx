@@ -22,7 +22,7 @@ import SatisfactionTab from './SatisfactionTab'
 import TransactionsTab from './TransactionsTab'
 import { useTranslation } from '@/components/I18nProvider'
 
-type Tab = 'roster' | 'schedule' | 'contracts' | 'draft' | 'transactions' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'satisfaction' | 'scouting' | 'interactions' | 'social_media'
+type Tab = 'roster' | 'injuries' | 'schedule' | 'contracts' | 'draft' | 'transactions' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'satisfaction' | 'scouting' | 'interactions' | 'social_media'
 
 function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: boolean }) {
   return (
@@ -43,12 +43,13 @@ export default function TeamPageTabs({
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const searchParams = useSearchParams()
-  const VALID_TABS: Tab[] = ['roster','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media']
+  const VALID_TABS: Tab[] = ['roster','injuries','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media']
   const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'roster'
   const [tab, setTab] = useState<Tab>(initialTab)
 
   const TABS: { key: Tab, label: string, icon: string }[] = [
     { key: 'roster',     label: isPT ? 'Plantel'         : 'Roster',      icon: '👥' },
+    { key: 'injuries',   label: isPT ? 'Lesões'          : 'Injuries',    icon: '🏥' },
     { key: 'schedule',   label: isPT ? 'Calendário'      : 'Schedule',    icon: '📅' },
     { key: 'contracts',  label: isPT ? 'Contratos'       : 'Contracts',   icon: '📄' },
     { key: 'draft',      label: isPT ? 'Escolhas Draft'  : 'Draft Picks', icon: '🎓' },
@@ -74,11 +75,14 @@ export default function TeamPageTabs({
   const played   = games.filter((g:any) => g.status === 'final').length
   const upcoming = games.filter((g:any) => g.status !== 'final').length
 
+  const activeInjuryCount = injuries.filter((i:any) => i.status === 'active').length
+
   const badges: Partial<Record<Tab, string>> = {
     roster:    `${players.length}`,
     schedule:  `${played}/${played + upcoming}`,
     contracts: isPT ? 'Multi-ano' : 'Multi-yr',
     draft:     '5 yrs',
+    ...(activeInjuryCount > 0 ? { injuries: `${activeInjuryCount}` } : {}),
   }
 
   return (
@@ -91,7 +95,7 @@ export default function TeamPageTabs({
       }}>
         {TABS.map((t, i) => {
           const active = tab === t.key
-          const showDivider = i === 4
+          const showDivider = i === 5
           return (
             <div key={t.key}>
               {showDivider && <div style={{height:1,background:'#e2dcd5',margin:'6px 12px'}}/>}
@@ -132,11 +136,9 @@ export default function TeamPageTabs({
             <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
               <CoachingStaff staff={coaches} socialMediaFollowers={socialMediaFollowers} />
             </div>
-            <div className="mt-4 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-              <InjuryReport injuries={injuries} players={[...players, ...(injuredPlayers||[])]} teamId={teamId} />
-            </div>
           </>
         )}
+        {tab === 'injuries' && <InjuryReport injuries={injuries} players={[...players, ...(injuredPlayers||[])]} teamId={teamId} />}
         {tab === 'schedule'   && <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />}
         {tab === 'contracts'  && <ContractsTable teamId={teamId} teamColor={teamColor} />}
         {tab === 'draft'      && <DraftPicksTable teamId={teamId} />}
