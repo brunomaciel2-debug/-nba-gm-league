@@ -1366,6 +1366,39 @@ return last
 }
 
 try {
+// Auto top-up: keep every G-League roster at 10+ players. Real
+// incident — a first attempt at this same fix pulled in a 2027
+// draft-class prospect (AJ Dybantsa) and several Rest-of-World players,
+// both categories that should never be assignable. Bruno's explicit
+// criteria: only real, already-established free agents — age 23 or
+// under, no world_team_id (excludes Rest of the World), no
+// rookie_draft_season (excludes any not-yet-drafted prospect, current
+// class or future) — are eligible candidates.
+const MIN_GLEAGUE_ROSTER = 10
+{
+const { data: allGlTeams } = await supabaseAdmin.from('gleague_teams').select('id')
+const { data: allGlPlayers } = await supabaseAdmin.from('players').select('id,gleague_team_id').not('gleague_team_id','is',null)
+const rosterCounts: Record<string,number> = {}
+for (const p of (allGlPlayers||[])) rosterCounts[p.gleague_team_id] = (rosterCounts[p.gleague_team_id]||0)+1
+const thinTeams = (allGlTeams||[]).filter((t:any) => (rosterCounts[t.id]||0) < MIN_GLEAGUE_ROSTER)
+if (thinTeams.length > 0) {
+const totalNeeded = thinTeams.reduce((s:number,t:any)=>s+(MIN_GLEAGUE_ROSTER-(rosterCounts[t.id]||0)),0)
+const { data: pool } = await supabaseAdmin.from('players').select('id')
+.is('team_id',null).is('gleague_team_id',null).is('world_team_id',null)
+.eq('status','active').lte('age',23).is('rookie_draft_season',null)
+.limit(totalNeeded)
+let poolIdx = 0
+for (const t of thinTeams) {
+const need = MIN_GLEAGUE_ROSTER - (rosterCounts[t.id]||0)
+const toAssign = (pool||[]).slice(poolIdx, poolIdx+need)
+poolIdx += toAssign.length
+for (const p of toAssign) {
+await supabaseAdmin.from('players').update({ gleague_team_id: t.id }).eq('id', p.id)
+}
+}
+}
+}
+
 // Was matching G-League's own week_number directly against the NBA's
 // week counter — but the two are completely unrelated numbering schemes
 // (G-League's season starts Dec 27 with its own week 1; the NBA's week 1
@@ -1428,7 +1461,18 @@ const ranked = [...active].sort((a,b) => (b.usage||50) - (a.usage||50))
 // whole roster's minutes sum to a real team-game total (240 = 5 x 48).
 const tierMins = ranked.map((_,i) => i<5 ? 26+Math.random()*8 : i<9 ? 10+Math.random()*10 : 2+Math.random()*6)
 const totalTier = tierMins.reduce((s,v)=>s+v,0)
-const scale = totalTier>0 ? 240/totalTier : 0
+// Capped at a real individual-game ceiling (42 — no actual NBA/G-League
+// game produces more) as well as the usual 240-total target, whichever
+// scale factor is smaller. A real incident: Maine Celtics had only 2
+// players ever assigned to its G-League roster, so force-dividing a full
+// team's 240 minutes across just those 2 gave each of them 124 minutes —
+// a 53-point, 29-rebound box line for a "team of 2". The roster gap
+// itself was fixed separately (every team topped up to at least 10
+// players), but this cap means a team that's ever short-handed again
+// plays fewer total team-minutes instead of producing fictional games,
+// same principle as never letting a single NBA player's box line run away
+// in game-simulator.ts's own taper functions.
+const scale = totalTier>0 ? Math.min(240/totalTier, 42/Math.max(...tierMins)) : 0
 return ranked.map((p:any,i:number) => {
 const mins = Math.round(tierMins[i]*scale)
 if (mins<=0) return null

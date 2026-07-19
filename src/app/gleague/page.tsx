@@ -22,7 +22,14 @@ export default function GLeaguePage() {
     Promise.all([
       supabase.from('gleague_teams').select('*, nba:teams!gleague_teams_nba_affiliate_fkey(id,name,logo_url,color)').order('conference').order('wins',{ascending:false}),
       supabase.from('gleague_games').select('*, home:gleague_teams!gleague_games_home_team_fkey(id,name,color,logo_url), away:gleague_teams!gleague_games_away_team_fkey(id,name,color,logo_url)').eq('season','2025-26').gt('week_number',0).order('played_at',{ascending:true}),
-      supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age), team:gleague_teams(id,name,color)').eq('season','2025-26').gte('games',5),
+      // Was gte('games',5) — a real incident: the G-League season had only
+// just started (max 3 games played by anyone), so every player got
+// filtered out at the query level before the page even had a chance to
+// show partial-season leaders, making the whole tab look broken/empty
+// for weeks. 2 games (same minimum used elsewhere in this app for a
+// "real enough to rank" sample, e.g. Player of the Week) still fetched
+// at the per-category filter below.
+supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age), team:gleague_teams(id,name,color)').eq('season','2025-26').gt('games',0),
     ]).then(([{data:t},{data:g},{data:l}])=>{
       setTeams(t||[]); setGames(g||[]); setLeaders(l||[])
       const now=new Date(); const weekSet:Record<number,boolean>={}
@@ -245,7 +252,7 @@ export default function GLeaguePage() {
             {labelEN:'Steals',  labelPT:'Roubos',    key:'stl',color:'#6d28d9',unit:'SPG'},
             {labelEN:'Blocks',  labelPT:'Bloqueios', key:'blk',color:'#c2410c',unit:'BPG'},
           ].map(cat=>{
-            const sorted=[...leaders].filter((l:any)=>(l[cat.key]||0)>0&&l.games>=5).sort((a:any,b:any)=>(b[cat.key]/b.games)-(a[cat.key]/a.games)).slice(0,10)
+            const sorted=[...leaders].filter((l:any)=>(l[cat.key]||0)>0&&l.games>=2).sort((a:any,b:any)=>(b[cat.key]/b.games)-(a[cat.key]/a.games)).slice(0,10)
             return(
               <div key={cat.key} className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5',borderTop:`3px solid ${cat.color}`}}>
                 <div className="px-4 py-3 flex items-center justify-between" style={{background:'#f5f1eb',borderBottom:'1px solid #d4cdc5'}}>
