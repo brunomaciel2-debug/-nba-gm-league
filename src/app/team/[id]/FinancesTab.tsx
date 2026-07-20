@@ -129,6 +129,7 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'actual'|'projections'>('actual')
+  const [period, setPeriod] = useState<'yearly'|'monthly'>('yearly')
 
   useEffect(() => {
     Promise.all([
@@ -305,16 +306,28 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
                 </Tip>
               ))}
             </div>
-            <StatementTable
-              title={isPT?'📅 Época Completa (Real)':'📅 Full Season (Actual)'}
-              subtitle={isPT?'Soma real de tudo o que já entrou/saiu esta época':'Real sum of everything in/out so far this season'}
-              revRows={annualActualRev} expRows={annualActualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
-            />
-            <StatementTable
-              title={isPT?'🗓️ Mês Corrente (Real)':'🗓️ Current Month (Actual)'}
-              subtitle={isPT?'Soma real das últimas 4 semanas simuladas':'Real sum for the last 4 simulated weeks'}
-              revRows={monthActualRev} expRows={monthActualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
-            />
+            <div style={{display:'flex',gap:6,marginBottom:12}}>
+              {[{k:'yearly',l:isPT?'📅 Anual':'📅 Yearly'},{k:'monthly',l:isPT?'🗓️ Mensal':'🗓️ Monthly'}].map((v:any)=>(
+                <button key={v.k} onClick={()=>setPeriod(v.k)}
+                  style={{padding:'5px 14px',fontSize:11,fontWeight:600,borderRadius:8,cursor:'pointer',
+                    border:`1px solid ${period===v.k?teamColor:'#d4cdc5'}`,background:period===v.k?teamColor+'18':'#faf8f5',color:period===v.k?'#1a1512':'#5c554e'}}>
+                  {v.l}
+                </button>
+              ))}
+            </div>
+            {period==='yearly' ? (
+              <StatementTable
+                title={isPT?'📅 Época Completa (Real)':'📅 Full Season (Actual)'}
+                subtitle={isPT?'Soma real de tudo o que já entrou/saiu esta época':'Real sum of everything in/out so far this season'}
+                revRows={annualActualRev} expRows={annualActualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
+              />
+            ) : (
+              <StatementTable
+                title={isPT?'🗓️ Mês Corrente (Real)':'🗓️ Current Month (Actual)'}
+                subtitle={isPT?'Soma real das últimas 4 semanas simuladas':'Real sum for the last 4 simulated weeks'}
+                revRows={monthActualRev} expRows={monthActualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
+              />
+            )}
             <div style={{fontSize:12,fontWeight:700,color:'#5c554e',margin:'4px 0 8px'}}>{isPT?'Todos os Lançamentos':'All Transactions'}</div>
             <div style={{borderRadius:10,overflow:'hidden',border:'1px solid #d4cdc5'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
@@ -367,16 +380,28 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
               ?`Cada linha é calculada a partir do que esta equipa já cobrou/pagou de verdade esta época (${weeksElapsed} semana${weeksElapsed!==1?'s':''} de dados), projetado para um mês (~4.3 semanas) ou para a época toda (24 semanas). Não é um número igual para todas as equipas — muda com o teu desempenho real.`
               :`Every row is calculated from what this team has actually charged/paid so far this season (${weeksElapsed} week${weeksElapsed!==1?'s':''} of data), projected to one month (~4.3 weeks) or to the full season (24 weeks). Not the same number for every team — it moves with your real performance.`}
           </div>
-          <StatementTable
-            title={isPT?'📅 Época Completa (Anual)':'📅 Full Season (Annual)'}
-            subtitle={isPT?`Projeção a partir de ${weeksElapsed} semana${weeksElapsed!==1?'s':''} de dados reais, escalada para 24 semanas`:`Projected from ${weeksElapsed} week${weeksElapsed!==1?'s':''} of real data, scaled to 24 weeks`}
-            revRows={annualRev} expRows={annualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
-          />
-          <StatementTable
-            title={isPT?'🗓️ Mês Corrente':'🗓️ Current Month'}
-            subtitle={isPT?'Projeção escalada para ~4.3 semanas':'Projected, scaled to ~4.3 weeks'}
-            revRows={monthlyRev} expRows={monthlyExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
-          />
+          <div style={{display:'flex',gap:6,marginBottom:12}}>
+            {[{k:'yearly',l:isPT?'📅 Anual':'📅 Yearly'},{k:'monthly',l:isPT?'🗓️ Mensal':'🗓️ Monthly'}].map((v:any)=>(
+              <button key={v.k} onClick={()=>setPeriod(v.k)}
+                style={{padding:'5px 14px',fontSize:11,fontWeight:600,borderRadius:8,cursor:'pointer',
+                  border:`1px solid ${period===v.k?teamColor:'#d4cdc5'}`,background:period===v.k?teamColor+'18':'#faf8f5',color:period===v.k?'#1a1512':'#5c554e'}}>
+                {v.l}
+              </button>
+            ))}
+          </div>
+          {period==='yearly' ? (
+            <StatementTable
+              title={isPT?'📅 Época Completa (Anual)':'📅 Full Season (Annual)'}
+              subtitle={isPT?`Projeção a partir de ${weeksElapsed} semana${weeksElapsed!==1?'s':''} de dados reais, escalada para 24 semanas`:`Projected from ${weeksElapsed} week${weeksElapsed!==1?'s':''} of real data, scaled to 24 weeks`}
+              revRows={annualRev} expRows={annualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
+            />
+          ) : (
+            <StatementTable
+              title={isPT?'🗓️ Mês Corrente':'🗓️ Current Month'}
+              subtitle={isPT?'Projeção escalada para ~4.3 semanas':'Projected, scaled to ~4.3 weeks'}
+              revRows={monthlyRev} expRows={monthlyExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
+            />
+          )}
           {monthlyNet < 100000 && (
             <div style={{marginTop:4,padding:'10px 14px',background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:8,fontSize:11,color:'#5c554e',lineHeight:1.7}}>
               <strong style={{color:'#1a1512'}}>{isPT?'Como melhorar o teu resultado:':'How to improve your result:'}</strong><br/>
