@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, medicalCostAfterInsurance, InjurySeverity } from '@/lib/injury-constants'
@@ -112,14 +113,16 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
           return (
             <div key={inj.id} className="rounded-xl overflow-hidden" style={{border:'1px solid '+sev.color+'44'}}>
               <div className="flex items-center gap-3 px-4 py-3" style={{background:sev.bg,borderBottom:'1px solid '+sev.color+'33'}}>
-                <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0" style={{background:'#cec7bc'}}>
+                <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0" style={{background:'#cec7bc'}}>
                   {p?.photo_url ? <img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
-                    : <div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:'#6b5f4e'}}>
+                    : <div className="w-full h-full flex items-center justify-center text-sm font-black" style={{color:'#6b5f4e'}}>
                         {p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)||'?'}
                       </div>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm" style={{color:'#1a1612'}}>{p?.name||'Unknown'}</div>
+                  {p?.id
+                    ? <Link href={`/player/${p.id}`} className="font-bold text-sm hover:underline" style={{color:'#1a1612'}}>{p.name}</Link>
+                    : <div className="font-bold text-sm" style={{color:'#1a1612'}}>{p?.name||'Unknown'}</div>}
                   <div className="text-xs" style={{color:'#6b5f4e'}}>{p?.pos} · {inj.injury_type}</div>
                 </div>
                 <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:sev.color+'22',color:sev.color}}>
@@ -190,7 +193,7 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                 </div>
                 {health < 100 && (
                   <div className="rounded-lg px-3 py-2 text-xs" style={{background:'#ddd7ca'}}>
-                    {health>=90&&<span style={{color:'#a0e040'}}>⚡ {isPT?'90% de rendimento — ligeiro impacto na explosividade':'90% performance — slight impact on explosiveness'}</span>}
+                    {health>=90&&<span style={{color:'#4d7c0f'}}>⚡ {isPT?'90% de rendimento — ligeiro impacto na explosividade':'90% performance — slight impact on explosiveness'}</span>}
                     {health>=80&&health<90&&<span style={{color:'#b45309'}}>⚡ {isPT?'75% de rendimento — atletismo visivelmente limitado':'75% performance — visibly limited athleticism'}</span>}
                     {health>=65&&health<80&&<span style={{color:'#c2410c'}}>⚡ {isPT?'60% de rendimento — restrições significativas de movimento':'60% performance — significant movement restrictions'}</span>}
                     {health>=50&&health<65&&<span style={{color:'#ff6040'}}>⚡ {isPT?`50% de rendimento — muito limitado · ${inj.play_risk}% chance de agravar a lesão`:`50% performance — severely limited · ${inj.play_risk}% chance of aggravating injury`}</span>}
@@ -266,7 +269,11 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                   : (isPT?'🏋️ Treino':'🏋️ Practice')
                 return (
                   <tr key={inj.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                    <td style={{padding:'7px 10px',color:'#1a1512',fontWeight:600,whiteSpace:'nowrap'}}>{p?.name||'—'}</td>
+                    <td style={{padding:'7px 10px',fontWeight:600,whiteSpace:'nowrap'}}>
+                      {p?.id
+                        ? <Link href={`/player/${p.id}`} className="hover:underline" style={{color:'#1a1512'}}>{p.name}</Link>
+                        : <span style={{color:'#1a1512'}}>—</span>}
+                    </td>
                     <td style={{padding:'7px 10px',color:'#3d3731'}}>{inj.injury_type}</td>
                     <td style={{padding:'7px 10px'}}>
                       <span style={{fontSize:10,fontWeight:700,padding:'1px 6px',borderRadius:4,background:sev.color+'22',color:sev.color}}>
