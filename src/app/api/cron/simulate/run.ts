@@ -688,6 +688,14 @@ const { data: recentlyHealed } = healedPids.length > 0 ? await supabaseAdmin
 .from('injury_log').select('player_id,injury_type,healed_week')
 .eq('status','resolved').in('player_id', healedPids).not('healed_week','is',null)
 .gte('healed_week', week - 6) : { data: [] as any[] }
+// A player already carrying an open injury can't roll a second, fully
+// independent one on top of it — real incident: the same player showing up
+// in the Injury Report twice with two unrelated injuries and two separate
+// recovery clocks, because nothing here ever checked for an existing
+// active injury_log row before generating a new one.
+const { data: alreadyInjured } = healedPids.length > 0 ? await supabaseAdmin
+.from('injury_log').select('player_id').eq('status','active').in('player_id', healedPids) : { data: [] as any[] }
+const activelyInjuredPids = new Set((alreadyInjured||[]).map((r:any)=>r.player_id))
 const injTypeByName: Record<string,any> = {}
 ;(injTypes||[]).forEach((t:any) => injTypeByName[t.name] = t)
 const fragileMap: Record<string,{bodyPart:string,risk:number}> = {}
@@ -713,7 +721,7 @@ const facilityRiskMod = 1 + (facilityInjuryRiskMap[p.team_id]||0)/100
 const injuryPreventMod = injuryPreventMultByTeam[p.team_id] ?? 1
 const injChance = 0.018 * (1/durFactor) * hFactor * (pace>80?1.3:1.0) * avgOppAggro * (fragile?1.2:1.0) * facilityRiskMod * injuryPreventMod
 
-if (Math.random() < injChance && injTypes && injTypes.length > 0) {
+if (!activelyInjuredPids.has(pid) && Math.random() < injChance && injTypes && injTypes.length > 0) {
 const weights = (injTypes as any[]).map(t => ({
 t, w:(SWEIGHTS[t.severity]||10)*t.game_probability*((fragile&&t.body_part===fragile.bodyPart)?recurrenceBodyPartWeightBoost(fragile.risk):1)
 }))

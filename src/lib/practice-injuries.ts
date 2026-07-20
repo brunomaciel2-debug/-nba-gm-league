@@ -58,6 +58,13 @@ export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
   const pids = players.map((p: any) => p.id)
   const { data: recentlyHealed } = await supabaseAdmin.from('injury_log').select('player_id,injury_type,healed_week')
     .eq('status', 'resolved').in('player_id', pids).not('healed_week', 'is', null).gte('healed_week', week - 6)
+  // Same guard as the real-game injury generator — a player already
+  // carrying an open injury can't roll a second, fully independent one
+  // (a status='active' player can still have health >= 50, e.g. a Minor
+  // injury, so this table isn't already covered by the players query's own
+  // status='active' filter above).
+  const { data: alreadyInjured } = await supabaseAdmin.from('injury_log').select('player_id').eq('status', 'active').in('player_id', pids)
+  const activelyInjuredPids = new Set((alreadyInjured || []).map((r: any) => r.player_id))
   const injTypeByName: Record<string, any> = {}
   ;(injTypes || []).forEach((t: any) => { injTypeByName[t.name] = t })
   const fragileMap: Record<string, { bodyPart: string, risk: number }> = {}
@@ -70,6 +77,7 @@ export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
 
   let practiceInjuries = 0, offCourtIncidents = 0
   for (const p of players) {
+    if (activelyInjuredPids.has(p.id)) continue
     const durFactor = (p.durability || 75) / 100
     const fragile = fragileMap[p.id]
     const facilityRiskMod = 1 + (facilityRiskMap[p.team_id] || 0) / 100
