@@ -1147,9 +1147,13 @@ cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1)
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 for (const {year: completedYear, month: completedMonth} of seasonMonthsToCheck) {
 const monthKeyCheck = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}`
-const { data: existingMonthAward } = await supabaseAdmin.from('awards').select('id')
-.eq('award_type','potm_eastern').eq('period',`month_${monthKeyCheck}`).maybeSingle()
-if (existingMonthAward) continue
+// Checked potm_eastern alone before — if a transient error hit right after
+// Eastern's upsert but before Western's (or vice versa), that one existing
+// row made this "done" forever, silently leaving the other conference (and
+// Rookie of the Month) permanently missing for that entire month.
+const { data: existingMonthAwards } = await supabaseAdmin.from('awards').select('award_type')
+.in('award_type',['potm_eastern','potm_western']).eq('period',`month_${monthKeyCheck}`)
+if ((existingMonthAwards||[]).length >= 2) continue
 const monthKey = monthKeyCheck
 const monthLabel = `${MONTH_NAMES[completedMonth]} ${completedYear}`
 const firstOfMonth = `${completedYear}-${String(completedMonth+1).padStart(2,'0')}-01`
