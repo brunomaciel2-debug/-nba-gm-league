@@ -26,11 +26,14 @@ const HEALTH_STYLE = (h: number, isPT: boolean) => {
   return              { color:'#dc2626', label: isPT?'Fora':'Out',                 bar:'#dc2626' }
 }
 
+// Light tints instead of near-black backgrounds — same fix as
+// SEVERITY_STYLE above, these small status pills had the same illegible
+// dark-on-dark problem.
 const PLAY_STATUS = (health: number, isPT: boolean) => {
-  if (health < 50) return { text: isPT?'FORA':'OUT',              color:'#dc2626', bg:'#2a0000' }
-  if (health < 60) return { text: isPT?'GAME-TIME':'GAME-TIME',   color:'#c2410c', bg:'#2a1500' }
-  if (health < 75) return { text: isPT?'LIMITADO':'LIMITED',      color:'#b45309', bg:'#2a2000' }
-  return                  { text: isPT?'DISPONÍVEL':'AVAILABLE',  color:'#166534', bg:'#0a2a10' }
+  if (health < 50) return { text: isPT?'FORA':'OUT',              color:'#dc2626', bg:'#fee2e2' }
+  if (health < 60) return { text: isPT?'GAME-TIME':'GAME-TIME',   color:'#c2410c', bg:'#fde7db' }
+  if (health < 75) return { text: isPT?'LIMITADO':'LIMITED',      color:'#b45309', bg:'#fdf1e0' }
+  return                  { text: isPT?'DISPONÍVEL':'AVAILABLE',  color:'#166534', bg:'#dcfce7' }
 }
 
 export default function InjuryReport({ injuries, players, teamId }: { injuries: any[], players: any[], teamId?: string }) {
@@ -206,7 +209,7 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                   </div>
                 )}
                 {inj.injury_category === 'psychological' && (
-                  <div className="mt-2 rounded-lg px-3 py-2 text-xs" style={{background:'#1a1228',border:'1px solid #3a2a5a'}}>
+                  <div className="mt-2 rounded-lg px-3 py-2 text-xs" style={{background:'#f3e8ff',border:'1px solid #c4b5fd'}}>
                     <span style={{color:'#7c3aed'}}>
                       🧠 {isPT?`Psicológica — afecta moral (${inj.moral_impact>0?'-':''}${inj.moral_impact} moral) e consistência`:`Psychological — affects morale (${inj.moral_impact>0?'-':''}${inj.moral_impact} moral) and consistency`}
                     </span>
