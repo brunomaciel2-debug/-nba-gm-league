@@ -123,8 +123,13 @@ export default async function HomePage() {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                {[['PTS',hl.potw_pts,'#b45309'],['REB',hl.potw_reb,'#1d4ed8'],['AST',hl.potw_ast,'#15803d']].map(([l,v,c])=>(
+              {/* Steals and blocks are shown alongside PTS/REB/AST because
+                  they're weighted just as heavily (x3 each) as points in the
+                  formula that actually picks this award — leaving them out
+                  made a heavy-defense winner (a big block/steal game with a
+                  modest scoring line) look unexplainable. */}
+              <div className="grid grid-cols-5 gap-2 mb-4">
+                {[['PTS',hl.potw_pts,'#b45309'],['REB',hl.potw_reb,'#1d4ed8'],['AST',hl.potw_ast,'#15803d'],['STL',hl.potw_stl,'#7c3aed'],['BLK',hl.potw_blk,'#0e7490']].map(([l,v,c])=>(
                   <div key={l as string} className="rounded-xl p-2 text-center" style={{background:'#ede8de'}}>
                     <div className="text-xl font-black" style={{color:c as string}}>{v}</div>
                     <div className="text-xs" style={{color:'#6b5f4e'}}>{l}</div>
