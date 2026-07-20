@@ -1253,12 +1253,20 @@ try {
 const { data: weekGameRows } = await supabaseAdmin.from('games').select('id').eq('week_number',week).eq('status','final')
 const weekGameIds = (weekGameRows||[]).map((g:any)=>g.id)
 const weekBoxes2 = await fetchAllRows<any>((from,to) => supabaseAdmin
-.from('box_scores').select('player_id,game_id,team_id,mins,pts,reb,ast,stl,blk')
+.from('box_scores').select('player_id,game_id,team_id,mins,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers')
 .in('game_id', weekGameIds).range(from,to))
 
-let potwScore = 0, potwBox: any = null
+// Same real Game Score (GmSc) formula the box score's own "Game MVP" badge
+// uses (see gameScore() in GameBoxScore.tsx) — Bruno's call: the weekly
+// award should pick whoever actually had the best game by the standard
+// NBA metric, not a bespoke weighting nobody could reverse-engineer from
+// the stats shown on the card.
+const gameScore = (b: any) => (b.pts||0) + 0.4*(b.fgm||0) - 0.7*(b.fga||0) - 0.4*((b.fta||0)-(b.ftm||0))
++ 0.7*(b.off_reb||0) + 0.3*(b.def_reb||0) + (b.stl||0) + 0.7*(b.ast||0) + 0.7*(b.blk||0) - 0.4*(b.pf||0) - (b.turnovers||0)
+
+let potwScore = -Infinity, potwBox: any = null
 for (const box of (weekBoxes2||[])) {
-const score = (box.pts||0)*1.0 + (box.reb||0)*1.2 + (box.ast||0)*1.5 + (box.stl||0)*3 + (box.blk||0)*3
+const score = gameScore(box)
 if (score > potwScore && box.mins >= 15) { potwScore = score; potwBox = box }
 }
 
