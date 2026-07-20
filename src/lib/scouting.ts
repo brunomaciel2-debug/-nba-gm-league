@@ -61,7 +61,7 @@ function getCurrentTier(points: number): number {
 // ── WEEKLY POINTS GENERATION + MAINTENANCE BILLING ──────
 // Called by the weekly cron — adds scouting points based on scout quality,
 // and bills weekly maintenance cost for whatever tier the team currently holds.
-export async function generateWeeklyScoutPoints() {
+export async function generateWeeklyScoutPoints(week?: number) {
   const { data: scouts } = await supabase
     .from('coaches')
     .select('id,team_id,name,scouting_evaluation,scouting_network,scouting_experience')
@@ -137,7 +137,7 @@ export async function generateWeeklyScoutPoints() {
             team_id: scout.team_id, type: 'expense', category: 'scouting_maintenance',
             amount: tierInfo.weeklyMaintenance,
             description: `Weekly scouting operation overhead — Tier ${newTier}`,
-            season: '2025-26',
+            season: '2025-26', week_number: week,
           })
 
           if (newBalance < 0) {

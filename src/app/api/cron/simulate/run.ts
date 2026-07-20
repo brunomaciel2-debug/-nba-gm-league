@@ -2276,7 +2276,7 @@ console.log('Post-sim notifications sent')
 
 // ── WEEKLY SCOUTING POINTS ─────────────────────────────
 try {
-const scoutResult = await generateWeeklyScoutPoints()
+const scoutResult = await generateWeeklyScoutPoints(week)
 console.log(`Scouting points generated for ${scoutResult.updated} teams`)
 } catch(scoutErr) { console.warn('Scouting points generation failed:', scoutErr) }
 

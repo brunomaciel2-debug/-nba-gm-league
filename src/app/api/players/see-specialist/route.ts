@@ -50,10 +50,12 @@ export async function POST(req: NextRequest) {
   // above 50 health. No instant health change here.
   await admin.from('injury_log').update({ specialist_used: true }).eq('id', injury.id)
 
+  const { data: sc } = await admin.from('season_config').select('current_week').eq('id', 1).single()
+
   await admin.from('franchise_finances').update({ balance: (fin.balance || 0) - cost }).eq('team_id', player.team_id)
   await admin.from('franchise_transactions').insert({
     team_id: player.team_id, type: 'expense', category: 'specialist', amount: cost,
-    description: `Specialist consultation — ${player.name}`, season: '2025-26',
+    description: `Specialist consultation — ${player.name}`, season: '2025-26', week_number: sc?.current_week,
   })
 
   const lang = await getTeamLang(player.team_id)

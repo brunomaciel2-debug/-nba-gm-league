@@ -114,9 +114,10 @@ export async function POST(req: NextRequest) {
         if (fin && (fin.balance || 0) >= cost) {
           await admin.from('injury_log').update({ specialist_used: true }).eq('id', injury.id)
           await admin.from('franchise_finances').update({ balance: (fin.balance || 0) - cost }).eq('team_id', interaction.team_id)
+          const { data: scForSpecialist } = await admin.from('season_config').select('current_week').eq('id', 1).single()
           await admin.from('franchise_transactions').insert({
             team_id: interaction.team_id, type: 'expense', category: 'specialist', amount: cost,
-            description: `Specialist consultation — ${playerName}`, season: '2025-26',
+            description: `Specialist consultation — ${playerName}`, season: '2025-26', week_number: scForSpecialist?.current_week,
           })
         }
       }

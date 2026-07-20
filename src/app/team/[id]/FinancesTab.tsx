@@ -221,14 +221,14 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
 
   // Balance Sheet tab: the REAL ledger, no extrapolation — every dollar
   // shown here actually happened. "Annual" is the plain season-to-date sum;
-  // "Current Month" buckets by the transaction's real created_at calendar
-  // month, so categories with no week_number (scouting overhead, specialist
-  // visits) still land in the right bucket.
-  const now = new Date()
-  const currentMonthTx = transactions.filter(t => {
-    const d = new Date(t.created_at)
-    return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth()
-  })
+  // "Current Month" buckets by SIMULATED week_number (the last 4 weeks of
+  // the season, matching the game's own settlement cadence), not real
+  // calendar date — bucketing by real created_at date used to lump an
+  // entire season's worth of transactions into "this month" whenever many
+  // simulated weeks were played back-to-back in the same real day, making
+  // the team look far more profitable per month than it actually is.
+  const maxSimWeek = weekNumbers.length ? Math.max(...weekNumbers) : 0
+  const currentMonthTx = transactions.filter(t => t.week_number != null && t.week_number > maxSimWeek - 4)
   const monthActualRevSums = sumByCategory(currentMonthTx, 'revenue')
   const monthActualExpSums = sumByCategory(currentMonthTx, 'expense')
 
@@ -312,7 +312,7 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
             />
             <StatementTable
               title={isPT?'🗓️ Mês Corrente (Real)':'🗓️ Current Month (Actual)'}
-              subtitle={isPT?'Soma real deste mês do calendário':'Real sum for this calendar month'}
+              subtitle={isPT?'Soma real das últimas 4 semanas simuladas':'Real sum for the last 4 simulated weeks'}
               revRows={monthActualRev} expRows={monthActualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
             />
             <div style={{fontSize:12,fontWeight:700,color:'#5c554e',margin:'4px 0 8px'}}>{isPT?'Todos os Lançamentos':'All Transactions'}</div>
