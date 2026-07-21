@@ -8,8 +8,17 @@ const TYPE_STYLE: Record<string,{bg:string,color:string}> = {
   trade:      {bg:'#2a2010',color:'#c2410c'},
   signing:    {bg:'#0a2a10',color:'#166534'},
   waiver:     {bg:'#1a0a2a',color:'#7c3aed'},
-  injury:     {bg:'#2a0a0a',color:'#ff4040'},
   suspension: {bg:'#1a1a00',color:'#ffcc00'},
+  extension:  {bg:'#0a2030',color:'#0ea5e9'},
+  retirement: {bg:'#2a1808',color:'#b45309'},
+}
+
+// The "Player(s)"/"Staff" tag at the start of each row — orthogonal to the
+// type badge (TRADE/CONTRATO/...), since a signing can be either a player
+// or a coach and the type alone doesn't say which.
+const CATEGORY_STYLE: Record<string,{bg:string,color:string}> = {
+  player: {bg:'#e0e7ff',color:'#3730a3'},
+  staff:  {bg:'#fef3c7',color:'#92400e'},
 }
 
 export default function TransactionsPage() {
@@ -19,19 +28,23 @@ export default function TransactionsPage() {
   const [loading,setLoading] = useState(true)
 
   useEffect(()=>{
-    supabase.from('transactions').select('*').order('created_at',{ascending:false}).limit(100)
+    // Injuries have their own dedicated Injury Center (/injuries) now — this
+    // feed is only about roster/staff movement (entries, exits, trades).
+    supabase.from('transactions').select('*').neq('type','injury').order('created_at',{ascending:false}).limit(100)
       .then(({data})=>{setTxs(data||[]);setLoading(false)})
   },[])
 
   const TYPE_LABELS_PT: Record<string,string> = {
-    trade:'TRADE',signing:'CONTRATO',waiver:'WAIVER',injury:'LESÃO',suspension:'SUSPENSÃO'
+    trade:'TRADE',signing:'CONTRATO',waiver:'WAIVER',suspension:'SUSPENSÃO',extension:'RENOVAÇÃO',retirement:'RETIRADA'
   }
+  const CATEGORY_LABELS_PT: Record<string,string> = { player:'Jogador(es)', staff:'Staff' }
+  const CATEGORY_LABELS_EN: Record<string,string> = { player:'Player(s)', staff:'Staff' }
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-2" style={{color:'#1a1512'}}>🔄 {isPT?'Transações':'Transactions'}</h1>
       <p className="text-sm mb-6" style={{color:'#6b5f4e'}}>
-        {isPT?'Todos os trades, contratos, lesões e movimentos de plantel — actualizado em tempo real.':'All trades, signings, injuries and roster moves — updated in real time.'}
+        {isPT?'Entradas, saídas e trocas de jogadores e staff — actualizado em tempo real.':'Entries, exits and trades of players and staff — updated in real time.'}
       </p>
       {loading?<div className="text-center py-8" style={{color:'#8a8279'}}>{t('common.loading')}</div>
       :txs.length===0?(
@@ -43,9 +56,15 @@ export default function TransactionsPage() {
           {txs.map((tx:any)=>{
             const style=TYPE_STYLE[tx.type]||{bg:'#f0ece5',color:'#6b5f4e'}
             const typeLabel = isPT ? (TYPE_LABELS_PT[tx.type]||tx.type.toUpperCase()) : tx.type.toUpperCase()
+            const category = tx.category || 'player'
+            const catStyle = CATEGORY_STYLE[category] || CATEGORY_STYLE.player
+            const catLabel = isPT ? (CATEGORY_LABELS_PT[category]||category) : (CATEGORY_LABELS_EN[category]||category)
             return(
               <div key={tx.id} className="rounded-xl px-5 py-4" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="flex items-start gap-3">
+                  <span className="text-xs font-bold px-2 py-1 rounded flex-shrink-0 mt-0.5" style={{background:catStyle.bg,color:catStyle.color}}>
+                    #{catLabel}
+                  </span>
                   <span className="text-xs font-bold px-2 py-1 rounded flex-shrink-0 mt-0.5" style={{background:style.bg,color:style.color}}>
                     {typeLabel}
                   </span>

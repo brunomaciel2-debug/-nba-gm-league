@@ -171,6 +171,17 @@ export async function POST(req: NextRequest) {
       cap_used: newCapUsed,
     }).eq('id', actingTeamId)
 
+    try {
+      const { data: team } = await supabaseAdmin.from('teams').select('name').eq('id', actingTeamId).single()
+      const { data: cfg } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
+      await supabaseAdmin.from('transactions').insert({
+        type: 'extension', category: 'player',
+        description: `${player.name} signs a ${offeredYears}-year extension worth $${(offeredSalary/1_000_000).toFixed(1)}M/yr with ${team?.name || actingTeamId}`,
+        teams: [actingTeamId], players: [player.name], status: 'completed',
+        week_number: (cfg?.current_week || 0) + 1,
+      })
+    } catch (txErr) { console.warn('Failed to record extension transaction history', txErr) }
+
     // Notify
     await supabaseAdmin.from('inbox_messages').insert({
       to_team_id: actingTeamId,

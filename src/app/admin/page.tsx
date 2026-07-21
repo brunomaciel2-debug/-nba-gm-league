@@ -59,6 +59,7 @@ export default function AdminPage() {
     {icon:'🏀',label:'Resolve Free Agency', desc:'Decide Free Agency week contract offers',        href:'/admin/resolve-free-agency', color:'#c8102e'},
     {icon:'🎓',label:'Resolve Draft',       desc:'Run Round 1 / Round 2 of the Draft',            href:'/admin/resolve-draft',       color:'#7c3aed'},
     {icon:'📤',label:'Upload Draft Class', desc:'Provide next season\'s prospects via CSV',      href:'/admin/draft-class', color:'#0e7490'},
+    {icon:'🏀',label:'Retirement Decisions', desc:'Decide which 35+ veterans stay or retire',     href:'/admin/retirements', color:'#b45309'},
   ]
   const items_PT = [
     {icon:'⚡',label:'Simular Semana',     desc:'Disparar simulação da próxima semana',          href:'/admin/simulate',    color:'#15803d'},
@@ -77,6 +78,7 @@ export default function AdminPage() {
     {icon:'🏀',label:'Resolver Free Agency', desc:'Decidir propostas de contrato da semana de Free Agency', href:'/admin/resolve-free-agency', color:'#c8102e'},
     {icon:'🎓',label:'Resolver Draft',       desc:'Correr a Ronda 1 / Ronda 2 do Draft',            href:'/admin/resolve-draft',       color:'#7c3aed'},
     {icon:'📤',label:'Carregar Draft Class', desc:'Fornecer os prospects da próxima época via CSV', href:'/admin/draft-class', color:'#0e7490'},
+    {icon:'🏀',label:'Decisões de Retirada', desc:'Decidir quais os veteranos 35+ que ficam ou se retiram', href:'/admin/retirements', color:'#b45309'},
   ]
   const items = isPT ? items_PT : items_EN
 

@@ -82,6 +82,7 @@ TRUNCATE TABLE allstar_votes CASCADE;
 TRUNCATE TABLE rising_stars_roster CASCADE;
 TRUNCATE TABLE playoff_series CASCADE;
 TRUNCATE TABLE gleague_playoff_series CASCADE;
+TRUNCATE TABLE retirement_decisions CASCADE;
 -- championship_history nao tem copia de seguranca (fica sempre vazia no
 -- RESET, por desenho, tal como awards/jersey_sales_reports)
 TRUNCATE TABLE championship_history CASCADE;
@@ -175,6 +176,7 @@ INSERT INTO allstar_votes SELECT * FROM allstar_votes_preteste;
 INSERT INTO rising_stars_roster SELECT * FROM rising_stars_roster_preteste;
 INSERT INTO playoff_series SELECT * FROM playoff_series_preteste;
 INSERT INTO gleague_playoff_series SELECT * FROM gleague_playoff_series_preteste;
+INSERT INTO retirement_decisions SELECT * FROM retirement_decisions_preteste;
 INSERT INTO playoff_games SELECT * FROM playoff_games_preteste;
 INSERT INTO friendly_requests SELECT * FROM friendly_requests_preteste;
 INSERT INTO job_applications SELECT * FROM job_applications_preteste;

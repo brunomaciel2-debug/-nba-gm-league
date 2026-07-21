@@ -79,7 +79,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         currentContract={currentContract}
         totalValue={totalValue}
         actionButtons={
-          !player.team_id ? (
+          p.status === 'retired' ? null : !player.team_id ? (
             <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} phase={phase} faClosed={faClosed} rookieDraftSeason={isFutureDraftProspect ? p.rookie_draft_season : null} />
           ) : p.status === 'draft_pending' ? (
             <DraftConfirmPanel playerId={player.id} />

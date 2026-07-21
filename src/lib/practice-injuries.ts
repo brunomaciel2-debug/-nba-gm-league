@@ -143,7 +143,7 @@ export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
 
     if (chosen.severity !== 'minor') {
       await supabaseAdmin.from('transactions').insert({
-        type: 'injury',
+        type: 'injury', category: 'player',
         description: `${p.name} (${p.team_id}) — ${chosen.name}. Est. ${gamesOut} games out.`,
         teams: [p.team_id], players: [p.name], status: 'completed', week_number: week,
       })

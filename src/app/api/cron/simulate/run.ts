@@ -21,6 +21,7 @@ import { ALLSTAR_WEEK, ALLSTAR_HALF } from '@/lib/allstar-constants'
 import { simulateRisingStarsGame, simulateAllStarGame } from '@/lib/allstar-events-simulator'
 import { buildTeamBox } from '@/lib/gleague-simulator'
 import { resolveGLeaguePlayoffs } from '@/lib/gleague-playoff-resolver'
+import { resolveRetirementWarnings, queueRetirementDecisions } from '@/lib/retirement-resolver'
 import { resolveWeeklyTacticalDevelopment, getAllTeamsTacticalState } from '@/lib/tactical-resolver'
 import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
@@ -626,7 +627,7 @@ status:'suspended',
 suspended_games_remaining: (pl.suspended_games_remaining||0) + crossings,
 }).eq('id', pl.id)
 await supabaseAdmin.from('transactions').insert({
-type:'suspension',
+type:'suspension', category:'player',
 description:`${pl.name} (${pl.team_id}) — ${totalTechs} technical fouls (${isPostseasonWeek?'postseason':'regular season'}). Suspended ${crossings} game${crossings!==1?'s':''}.`,
 teams:[pl.team_id], players:[pl.name], status:'completed', week_number: week,
 })
@@ -817,7 +818,7 @@ games_missed:(p.games_missed||0)+1,
 
 if (chosen.severity!=='minor') {
 await supabaseAdmin.from('transactions').insert({
-type:'injury',
+type:'injury', category:'player',
 description:`${p.name} (${p.team_id}) — ${chosen.name}. Est. ${gamesOut} games out.`,
 teams:[p.team_id], players:[p.name], status:'completed', week_number: week,
 })
@@ -1838,7 +1839,23 @@ const rsResult = await resolveRisingStars()
 if (!rsResult.skipped) console.log(`Rising Stars roster resolved: ${rsResult.rookies} rookies, ${rsResult.sophomores} sophomores`)
 } catch (rsErr) { console.warn('Rising Stars resolution failed:', rsErr) }
 
+// Retirement heads-up to GMs — self-guarded (checks the week window and
+// which players already got warned internally), safe to call every week.
+try {
+const rwResult = await resolveRetirementWarnings(week)
+if (rwResult.warned > 0) console.log(`Retirement warnings sent: ${rwResult.warned}`)
+} catch (rwErr) { console.warn('Retirement warning step failed:', rwErr) }
+
 if (isEndOfSeason) {
+// Veteran retirement decisions — queued here for the Commissioner (see
+// /admin/retirements), never auto-resolved. Self-guarded (only ever
+// queues a player once per season), so safe even though this whole block
+// re-checks `week===40` every half.
+try {
+const rqResult = await queueRetirementDecisions()
+if (rqResult.queued > 0) console.log(`Retirement decisions queued: ${rqResult.queued}`)
+} catch (rqErr) { console.warn('Retirement decision queueing failed:', rqErr) }
+
 const MIN_GAMES = 65
 const { data: rawSeasonStats } = await supabaseAdmin
 .from('player_stats').select('*,players!inner(id,name,pos,team_id,nba_experience,potential_grade,teams!players_team_id_fkey!inner(id,name,conference,wins,pts_against))')

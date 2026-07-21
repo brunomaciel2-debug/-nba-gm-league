@@ -57,6 +57,7 @@ export async function recordPlayerTransaction(
 
     await admin.from('transactions').insert({
       type: LEGACY_TYPE[args.type] || args.type,
+      category: 'player',
       description,
       teams: [args.fromTeamId, args.toTeamId].filter(Boolean),
       players: [playerName],
@@ -102,6 +103,7 @@ export async function recordTradeLegacyTransaction(admin: SupabaseClient, propos
 
     await admin.from('transactions').insert({
       type: 'trade',
+      category: 'player',
       description: parts.join(' · '),
       teams: teamIds,
       players: allPlayerIds.map((id: any) => playerNameMap[id]).filter(Boolean),

@@ -34,6 +34,9 @@ export async function resolveStaffOffers() {
     .order('created_at')
   if (!offers || offers.length === 0) return { resolved: 0 }
 
+  const { data: cfg } = await admin.from('season_config').select('current_week').eq('id', 1).single()
+  const currentWeek = (cfg?.current_week || 0) + 1
+
   const byCoach: Record<string, any[]> = {}
   for (const o of offers) {
     if (!byCoach[o.coach_id]) byCoach[o.coach_id] = []
@@ -53,7 +56,7 @@ export async function resolveStaffOffers() {
     }
 
     const teamIds = coachOffers.map((o: any) => o.team_id)
-    const { data: teamsData } = await admin.from('teams').select('id,wins,losses').in('id', teamIds)
+    const { data: teamsData } = await admin.from('teams').select('id,name,wins,losses').in('id', teamIds)
     const teamMap: Record<string, any> = {}
     ;(teamsData || []).forEach((t: any) => { teamMap[t.id] = t })
 
@@ -67,6 +70,12 @@ export async function resolveStaffOffers() {
     await admin.from('coaches').update({
       team_id: teamId, role: chosen.role, salary: chosen.salary, contract_years: chosen.years,
     }).eq('id', coachId)
+
+    await admin.from('transactions').insert({
+      type: 'signing', category: 'staff',
+      description: `${coach.name} hired as ${chosen.role.replace('_', ' ')} by ${teamMap[teamId]?.name || teamId}`,
+      teams: [teamId], players: [], status: 'completed', week_number: currentWeek,
+    })
 
     const winnerLang = await getTeamLang(teamId)
     const wonNotif = notifStaffOfferWon(winnerLang, coach.name, chosen.role, chosen.salary, chosen.years)
