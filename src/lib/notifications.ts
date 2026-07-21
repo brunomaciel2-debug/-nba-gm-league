@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek, getWeekDates } from './season-week-helper'
 import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded, notifMonthlySettlement } from './notifications-helpers'
 import { medicalCostAfterInsurance, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
-import { OffSystem, nodesForSystem, isNodeUnlocked, masteredCountByLevel } from './tactical-constants'
+import { OffSystem, nodesForSystem, isNodeUnlocked } from './tactical-constants'
 import { NBA_SUBSIDY_MONTHLY, UTILITIES_MONTHLY, INSURANCE_MONTHLY } from './finance-constants'
 
 const supabase = createClient(
@@ -599,8 +599,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       const focusNodeId = focusByKey[key]
       const progressByNodeId = progressByKey[key] || {}
       const focusNode = focusNodeId ? nodesForSystem(activeSystem).find(n=>n.id===focusNodeId) : null
-      const counts = masteredCountByLevel(progressByNodeId, activeSystem)
-      const focusValid = focusNode && (progressByNodeId[focusNode.id]||0) < 100 && isNodeUnlocked(focusNode, counts)
+      const focusValid = focusNode && (progressByNodeId[focusNode.id]||0) < 100 && isNodeUnlocked(focusNode, progressByNodeId)
       if (!focusValid) {
         const lang = await getTeamLang(team.id)
         const notif = notifTacticalFocusNeeded(lang, activeSystem)

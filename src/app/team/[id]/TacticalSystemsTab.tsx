@@ -91,11 +91,10 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
   // no longer counts as "chosen" (matches resolveWeeklyTacticalDevelopment).
   const viewFocusNodeId = focusByNodeKey[viewSystem]
   const viewFocusNode = viewFocusNodeId ? nodesForSystem(viewSystem).find(n => n.id === viewFocusNodeId) : null
-  const focusValid = !!viewFocusNode && viewProgress(viewFocusNode.id) < 100 && isNodeUnlocked(viewFocusNode, counts)
-  const activeCounts = masteredCountByLevel(activeProgressMap, activeSystem)
+  const focusValid = !!viewFocusNode && viewProgress(viewFocusNode.id) < 100 && isNodeUnlocked(viewFocusNode, viewProgressMap)
   const activeFocusNodeId = focusByNodeKey[activeSystem]
   const activeFocusNode = activeFocusNodeId ? nodesForSystem(activeSystem).find(n => n.id === activeFocusNodeId) : null
-  const activeFocusValid = !!activeFocusNode && (progressByNodeId[`${activeSystem}|${activeFocusNode.id}`] || 0) < 100 && isNodeUnlocked(activeFocusNode, activeCounts)
+  const activeFocusValid = !!activeFocusNode && (progressByNodeId[`${activeSystem}|${activeFocusNode.id}`] || 0) < 100 && isNodeUnlocked(activeFocusNode, activeProgressMap)
 
   const setFocus = async (node: TechNode) => {
     setSaving(true); setMsg('')
@@ -172,7 +171,7 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
             {nodesForSystem(viewSystem).filter(n => n.level === level).map(node => {
               const progress = viewProgress(node.id)
               const mastered = progress >= 100
-              const unlocked = isNodeUnlocked(node, counts)
+              const unlocked = isNodeUnlocked(node, viewProgressMap)
               const isFocus = focusValid && node.id === viewFocusNodeId
               // Only one tech develops at a time — once a valid focus is
               // set, every OTHER unlocked-but-not-mastered node is blocked

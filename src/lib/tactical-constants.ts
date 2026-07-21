@@ -132,15 +132,25 @@ export function nodesForSystem(system: OffSystem): TechNode[] {
   return TECH_TREE.filter(t => t.system === system)
 }
 
-// Pyramid unlock rule: the Nth node (1-indexed, in tree-definition order
-// within its level) at level L unlocks once (N+1) nodes are mastered at
-// level L-1. Level 1 is always unlocked.
-export function isNodeUnlocked(node: TechNode, masteredCountByLevel: Record<number, number>): boolean {
+// Pyramid unlock rule: a node at level L sits directly above two ADJACENT
+// level-(L-1) nodes (position i and i+1, 0-indexed within tree-definition
+// order) — think Pascal's triangle / bowling pins, matching the pyramid
+// layout shown in the UI. It only unlocks once BOTH of those specific
+// parents are mastered. This used to just check "are at least N nodes
+// mastered somewhere in the level below", which let any 2 masteries
+// anywhere — not necessarily the node's real adjacent parents — unlock it
+// (a real incident: mastering the 1st and 3rd level-1 nodes wrongly
+// unlocked the level-2 node whose true parents were the 1st and 2nd).
+// Level 1 is always unlocked.
+export function isNodeUnlocked(node: TechNode, progressByNodeId: Record<string, number>): boolean {
   if (node.level === 1) return true
   const nodesAtLevel = nodesForSystem(node.system).filter(x => x.level === node.level)
-  const posInLevel = nodesAtLevel.findIndex(x => x.id === node.id) + 1 // 1-indexed
-  const masteredBelow = masteredCountByLevel[node.level - 1] || 0
-  return masteredBelow >= posInLevel + 1
+  const posInLevel = nodesAtLevel.findIndex(x => x.id === node.id) // 0-indexed
+  const parentLevel = nodesForSystem(node.system).filter(x => x.level === node.level - 1)
+  const leftParent = parentLevel[posInLevel]
+  const rightParent = parentLevel[posInLevel + 1]
+  if (!leftParent || !rightParent) return false
+  return (progressByNodeId[leftParent.id] || 0) >= 100 && (progressByNodeId[rightParent.id] || 0) >= 100
 }
 
 export function masteredCountByLevel(progressByNodeId: Record<string, number>, system: OffSystem): Record<number, number> {

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import {
-  OFF_SYSTEMS, OffSystem, nodesForSystem, isNodeUnlocked, masteredCountByLevel,
+  OFF_SYSTEMS, OffSystem, nodesForSystem, isNodeUnlocked,
 } from '@/lib/tactical-constants'
 
 const SEASON = '2025-26'
@@ -74,8 +74,7 @@ export async function resolveWeeklyTacticalDevelopment(week: number): Promise<{ 
         // progress happens this week — the GM has to actively pick the next
         // one themselves (see /api/tactical/set-focus). Flagged here so a
         // reminder notification goes out instead of silently stalling.
-        const counts = masteredCountByLevel(progressByNodeId, system)
-        const focusValid = focusNode && (progressByNodeId[focusNode.id] || 0) < 100 && isNodeUnlocked(focusNode, counts)
+        const focusValid = focusNode && (progressByNodeId[focusNode.id] || 0) < 100 && isNodeUnlocked(focusNode, progressByNodeId)
         if (focusValid) {
           const before = progressByNodeId[focusNode!.id] || 0
           const after = Math.min(100, before + fillRate(tacticalDevQuality))

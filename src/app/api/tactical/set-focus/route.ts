@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { OFF_SYSTEMS, OffSystem, nodesForSystem, isNodeUnlocked, masteredCountByLevel } from '@/lib/tactical-constants'
+import { OFF_SYSTEMS, OffSystem, nodesForSystem, isNodeUnlocked } from '@/lib/tactical-constants'
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -30,8 +30,7 @@ export async function POST(req: NextRequest) {
   ;(progressRows || []).forEach((r: any) => { progressByNodeId[r.node_id] = r.progress })
 
   if ((progressByNodeId[nodeId] || 0) >= 100) return NextResponse.json({ error: 'This tech is already mastered' }, { status: 400 })
-  const counts = masteredCountByLevel(progressByNodeId, system as OffSystem)
-  if (!isNodeUnlocked(node, counts)) return NextResponse.json({ error: 'This tech is still locked' }, { status: 400 })
+  if (!isNodeUnlocked(node, progressByNodeId)) return NextResponse.json({ error: 'This tech is still locked' }, { status: 400 })
 
   // Only one tech develops at a time — a valid, still-in-progress focus
   // must be fully mastered before switching to a different one. Mirrors the
@@ -40,7 +39,7 @@ export async function POST(req: NextRequest) {
   const { data: currentFocus } = await admin.from('tactical_focus').select('node_id').eq('team_id', teamId).eq('system', system).maybeSingle()
   if (currentFocus && currentFocus.node_id !== nodeId) {
     const currentNode = nodesForSystem(system as OffSystem).find(n => n.id === currentFocus.node_id)
-    const currentValid = currentNode && (progressByNodeId[currentFocus.node_id] || 0) < 100 && isNodeUnlocked(currentNode, counts)
+    const currentValid = currentNode && (progressByNodeId[currentFocus.node_id] || 0) < 100 && isNodeUnlocked(currentNode, progressByNodeId)
     if (currentValid) return NextResponse.json({ error: 'Finish the in-focus tech before picking a different one' }, { status: 400 })
   }
 
