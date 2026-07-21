@@ -141,6 +141,23 @@ const DRIFT_RATE = 0.07
 // wasted. This is also how a GM "tests" whether a surprising breakout
 // player is genuinely marketable, without it ever changing his real,
 // slow-moving fame number.
+// New-team jersey hype — real fans want the new jersey the moment a player
+// lands somewhere, especially a popular one (a superstar traded to a new
+// team is a real, well-known jersey-sales spike; a bench player picked up
+// off waivers barely registers). Scales with fame (the same hidden
+// popularity driver as normal sales) so it can never make a nobody outsell
+// an actual star, it just adds real curiosity-buying on top for however
+// famous he already is. Peaks the month he actually joined, roughly halves
+// the month after, then fades — same "first weeks" window Bruno described.
+const ACQUISITION_BOOST_BASE = 0.15
+const ACQUISITION_BOOST_FAME_SCALE = 1.6
+function acquisitionBoostMultiplier(fame: number, monthsSinceAcquired: number): number {
+  const peak = ACQUISITION_BOOST_BASE + (fame / 100) * ACQUISITION_BOOST_FAME_SCALE
+  if (monthsSinceAcquired === 0) return 1 + peak
+  if (monthsSinceAcquired === 1) return 1 + peak * 0.4
+  return 1
+}
+
 function resolveCampaignSalesBoost(campaign: any, hadGamesThisMonth: boolean, stillGood: boolean): { multiplier: number, status: string, note: string } {
   if (hadGamesThisMonth && stillGood) {
     return { multiplier: 1 + campaign.sales_boost_pct / 100, status: 'completed', note: 'Ad campaign landed — real sales bump this month.' }
@@ -221,6 +238,15 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
   const campaignByPlayer: Record<string, any> = {}
   ;(activeCampaigns || []).forEach((c: any) => { campaignByPlayer[c.player_id] = c })
 
+  // Most recent trade/signing/draft landing each player on his CURRENT team
+  // — only that matters for "just joined" hype, not his whole transfer
+  // history. Ordered so .find() below picks the latest one per player.
+  const { data: acquisitions } = await supabaseAdmin.from('player_transactions')
+    .select('player_id,to_team_id,type,week_number').in('player_id', playerIds)
+    .in('type', ['trade', 'fa_signing', 'draft']).order('week_number', { ascending: false })
+  const latestAcquisitionByPlayer: Record<string, any> = {}
+  ;(acquisitions || []).forEach((a: any) => { if (!latestAcquisitionByPlayer[a.player_id]) latestAcquisitionByPlayer[a.player_id] = a })
+
   const revenueByTeam: Record<string, number> = {}
   const topSellerByTeam: Record<string, { name: string, revenue: number }> = {}
   const reportRows: any[] = []
@@ -248,6 +274,24 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
 
     let units = jerseyUnitsSold(newFame)
     let campaignNote: string | null = null
+    let acquisitionNote: string | null = null
+
+    // New-team jersey hype — only counts an acquisition that actually
+    // landed him on the team he's CURRENTLY on (a since-reversed old trade
+    // shouldn't keep boosting him forever), and only within its first two
+    // months.
+    const acquisition = latestAcquisitionByPlayer[p.id]
+    if (acquisition && acquisition.to_team_id === p.team_id && acquisition.week_number != null) {
+      const acquisitionMonth = Math.floor(acquisition.week_number / 4)
+      const monthsSinceAcquired = monthNum - acquisitionMonth
+      if (monthsSinceAcquired >= 0 && monthsSinceAcquired <= 1) {
+        const boostMult = acquisitionBoostMultiplier(newFame, monthsSinceAcquired)
+        units = Math.round(units * boostMult)
+        acquisitionNote = monthsSinceAcquired === 0
+          ? 'New team jersey hype — just joined this month.'
+          : 'New team jersey hype fading — joined last month.'
+      }
+    }
 
     // A campaign only resolves if it actually started THIS month (a fresh
     // campaign started mid-month elsewhere would still be "active" but not
@@ -269,6 +313,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
     reportRows.push({
       season: SEASON, month_num: monthNum, team_id: p.team_id, player_id: p.id,
       units_sold: units, revenue, fame_at_time: newFame, campaign_note: campaignNote,
+      acquisition_note: acquisitionNote,
     })
     revenueByTeam[p.team_id] = (revenueByTeam[p.team_id] || 0) + revenue
     if (!topSellerByTeam[p.team_id] || revenue > topSellerByTeam[p.team_id].revenue) {

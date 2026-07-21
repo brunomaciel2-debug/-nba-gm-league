@@ -30,6 +30,7 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
   const [selectedPlayer, setSelectedPlayer] = useState('')
   const [starting, setStarting] = useState(false)
   const [msg, setMsg] = useState('')
+  const [period, setPeriod] = useState<'yearly' | 'monthly'>('monthly')
 
   const load = async () => {
     const [{ data: rep }, { data: camp }] = await Promise.all([
@@ -63,7 +64,16 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
 
   const latestMonth = reports.length ? Math.max(...reports.map((r: any) => r.month_num)) : null
   const latestReports = latestMonth != null ? reports.filter((r: any) => r.month_num === latestMonth) : []
-  const topSellers = [...latestReports].sort((a: any, b: any) => b.revenue - a.revenue).slice(0, 8)
+
+  // Yearly top sellers = each player's revenue/units SUMMED across every
+  // month reported so far this season, not just his latest single-month row.
+  const seasonByPlayer: Record<string, { player_id: any, revenue: number, units_sold: number }> = {}
+  reports.forEach((r: any) => {
+    const s = (seasonByPlayer[r.player_id] ||= { player_id: r.player_id, revenue: 0, units_sold: 0 })
+    s.revenue += r.revenue; s.units_sold += r.units_sold
+  })
+  const topSellers = (period === 'yearly' ? Object.values(seasonByPlayer) : latestReports)
+    .slice().sort((a: any, b: any) => b.revenue - a.revenue).slice(0, 8)
 
   const monthTotals: Record<number, number> = {}
   const monthUnits: Record<number, number> = {}
@@ -72,6 +82,8 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
     monthUnits[r.month_num] = (monthUnits[r.month_num] || 0) + r.units_sold
   })
   const months = Object.keys(monthTotals).map(Number).sort((a, b) => b - a)
+  const seasonTotalRevenue = Object.values(monthTotals).reduce((a, b) => a + b, 0)
+  const seasonTotalUnits = Object.values(monthUnits).reduce((a, b) => a + b, 0)
 
   const startCampaign = async (tierKey: string) => {
     if (!selectedPlayer) { setMsg(isPT ? 'Escolhe um jogador primeiro' : 'Pick a player first'); return }
@@ -98,8 +110,20 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
           : "Jersey sales (online, national reach — separate from arena tickets/concessions) are real and post straight to the team's balance sheet every month. How popular a player is — quality, consistency, team market, awards — is never shown directly; only the real result, sales, shown below."}
       </div>
 
+      <div className="flex gap-2 mb-3">
+        {[{ k: 'monthly', l: isPT ? '🗓️ Mensal' : '🗓️ Monthly' }, { k: 'yearly', l: isPT ? '📅 Anual' : '📅 Yearly' }].map((v: any) => (
+          <button key={v.k} onClick={() => setPeriod(v.k)}
+            className="px-3 py-1 rounded-lg text-xs font-semibold"
+            style={{ border: `1px solid ${period === v.k ? teamColor : '#d4cdc5'}`, background: period === v.k ? teamColor + '18' : '#faf8f5', color: period === v.k ? '#1a1512' : '#5c554e' }}>
+            {v.l}
+          </button>
+        ))}
+      </div>
+
       <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8a8279' }}>
-        {isPT ? `Mais Vendidos${latestMonth != null ? ` — Mês ${latestMonth}` : ''}` : `Top Sellers${latestMonth != null ? ` — Month ${latestMonth}` : ''}`}
+        {period === 'yearly'
+          ? (isPT ? 'Mais Vendidos — Época Completa' : 'Top Sellers — Full Season')
+          : (isPT ? `Mais Vendidos${latestMonth != null ? ` — Mês ${latestMonth}` : ''}` : `Top Sellers${latestMonth != null ? ` — Month ${latestMonth}` : ''}`)}
       </h2>
       {topSellers.length === 0 ? (
         <div className="rounded-xl p-6 text-center mb-6" style={{ background: '#e8e2d6', border: '1px solid #d4cdc5' }}>
@@ -115,6 +139,7 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold truncate" style={{ color: '#1a1512' }}>{p?.name || r.player_id}</div>
                   {r.campaign_note && <div className="text-xs mt-0.5" style={{ color: r.campaign_note.includes('backfired') || r.campaign_note.includes('falhou') ? '#dc2626' : '#15803d' }}>📣 {r.campaign_note}</div>}
+                  {r.acquisition_note && <div className="text-xs mt-0.5" style={{ color: '#1d4ed8' }}>🆕 {r.acquisition_note}</div>}
                 </div>
                 <div className="text-right flex-shrink-0">
                   <div className="text-sm font-black" style={{ color: '#15803d' }}>{r.units_sold.toLocaleString()} {isPT ? 'jerseys' : 'jerseys'}</div>
@@ -186,19 +211,33 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
       {months.length > 0 && (
         <>
           <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8a8279' }}>
-            {isPT ? 'Histórico Mensal' : 'Monthly History'}
+            {period === 'yearly'
+              ? (isPT ? 'Total da Época' : 'Season Total')
+              : (isPT ? 'Histórico Mensal' : 'Monthly History')}
           </h2>
-          <div className="rounded-xl overflow-hidden" style={{ background: '#e8e2d6', border: '1px solid #d4cdc5' }}>
-            {months.map((m, i) => (
-              <div key={m} className="flex items-center justify-between px-4 py-2.5" style={{ background: i % 2 === 0 ? '#ece7dd' : '#e8e2d6', borderBottom: '1px solid #d4cdc5' }}>
-                <span className="text-sm" style={{ color: '#1a1512' }}>{isPT ? 'Mês' : 'Month'} {m}</span>
+          {period === 'yearly' ? (
+            <div className="rounded-xl overflow-hidden" style={{ background: '#e8e2d6', border: '1px solid #d4cdc5' }}>
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-sm font-semibold" style={{ color: '#1a1512' }}>{isPT ? `Época 2025-26 (${months.length} ${months.length !== 1 ? 'meses' : 'mês'})` : `2025-26 Season (${months.length} month${months.length !== 1 ? 's' : ''})`}</span>
                 <div className="text-right">
-                  <div className="text-sm font-bold" style={{ color: '#15803d' }}>{fmt(monthTotals[m])}</div>
-                  <div className="text-xs" style={{ color: '#8a8279' }}>{(monthUnits[m]||0).toLocaleString()} {isPT ? 'jerseys' : 'jerseys'}</div>
+                  <div className="text-base font-black" style={{ color: '#15803d' }}>{fmt(seasonTotalRevenue)}</div>
+                  <div className="text-xs" style={{ color: '#8a8279' }}>{seasonTotalUnits.toLocaleString()} {isPT ? 'jerseys' : 'jerseys'}</div>
                 </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="rounded-xl overflow-hidden" style={{ background: '#e8e2d6', border: '1px solid #d4cdc5' }}>
+              {months.map((m, i) => (
+                <div key={m} className="flex items-center justify-between px-4 py-2.5" style={{ background: i % 2 === 0 ? '#ece7dd' : '#e8e2d6', borderBottom: '1px solid #d4cdc5' }}>
+                  <span className="text-sm" style={{ color: '#1a1512' }}>{isPT ? 'Mês' : 'Month'} {m}</span>
+                  <div className="text-right">
+                    <div className="text-sm font-bold" style={{ color: '#15803d' }}>{fmt(monthTotals[m])}</div>
+                    <div className="text-xs" style={{ color: '#8a8279' }}>{(monthUnits[m]||0).toLocaleString()} {isPT ? 'jerseys' : 'jerseys'}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
