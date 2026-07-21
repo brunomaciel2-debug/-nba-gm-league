@@ -191,16 +191,24 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
                     background: mastered ? '#dcfce7' : unlocked ? '#faf8f5' : '#e2dcd5',
                     border: `2px solid ${mastered ? '#15803d' : isFocus ? teamColor : unlocked ? '#d4cdc5' : '#c8c0b4'}`,
                     boxShadow: isFocus ? `0 0 0 2px ${teamColor}44` : 'none',
-                    opacity: !unlocked ? 0.5 : blockedByOtherFocus ? 0.55 : 1,
-                    filter: blockedByOtherFocus ? 'blur(1px)' : 'none',
+                    opacity: !unlocked ? 0.55 : blockedByOtherFocus ? 0.55 : 1,
+                    // Locked nodes still show their real name (blurred, same
+                    // treatment as blockedByOtherFocus) instead of hiding it
+                    // behind a bare lock icon — a GM plans which path to take
+                    // several rows ahead, so what's coming at level 2, 3...
+                    // needs to be readable-through-the-blur, not a mystery box.
+                    filter: (!unlocked || blockedByOtherFocus) ? 'blur(1.5px)' : 'none',
                   }}>
+                  {!unlocked && (
+                    <div className="text-xs mb-0.5" style={{ color: '#8a8279' }}>🔒</div>
+                  )}
                   {isFocus && (
                     <div className="text-xs font-black mb-0.5" style={{ color: teamColor }}>
                       🎯 {isPT ? 'Em Foco' : 'In Focus'}
                     </div>
                   )}
                   <div className="text-xs font-bold leading-tight" style={{ color: mastered ? '#15803d' : unlocked ? '#1a1512' : '#8a8279' }}>
-                    {unlocked ? name : '🔒'}
+                    {name}
                   </div>
                   {unlocked && !mastered && (
                     <div className="h-1.5 rounded-full overflow-hidden mt-1.5" style={{ background: '#d4cdc5' }}>
