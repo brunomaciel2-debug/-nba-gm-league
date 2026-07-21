@@ -115,11 +115,21 @@ export default function FreeAgentsPage() {
   const [maxAge, setMaxAge] = useState(42)
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('players').select('*, photo_url, gleague_team_id, gleague_teams(id,name), player_stats(pts,reb,ast,stl,blk,games,fgm,fga,tpm,tpa,ftm,fta,season)').is('team_id', null).is('world_team_id', null).eq('status', 'active'),
-      supabase.from('coaches').select('*').is('team_id', null),
-    ]).then(([{ data: pl }, { data: st }]) => {
-      setPlayers(pl || []); setStaff(st || []); setLoading(false)
+    // Excludes the upcoming draft class (draft_config.next_draft_season) —
+    // those prospects share the same team_id/world_team_id=null signature
+    // as a real free agent, but haven't been drafted yet and were never
+    // meant to be signable. A player from an ALREADY-drafted class sitting
+    // undrafted/waived still counts as a genuine free agent, so this only
+    // excludes rookie_draft_season >= the next draft, not any non-null value.
+    supabase.from('draft_config').select('next_draft_season').eq('id', 1).maybeSingle().then(({ data: cfg }) => {
+      const nextDraft = cfg?.next_draft_season
+      const draftFilter = nextDraft ? `rookie_draft_season.is.null,rookie_draft_season.lt.${nextDraft}` : 'rookie_draft_season.is.null'
+      Promise.all([
+        supabase.from('players').select('*, photo_url, gleague_team_id, gleague_teams(id,name), player_stats(pts,reb,ast,stl,blk,games,fgm,fga,tpm,tpa,ftm,fta,season)').is('team_id', null).is('world_team_id', null).eq('status', 'active').or(draftFilter),
+        supabase.from('coaches').select('*').is('team_id', null),
+      ]).then(([{ data: pl }, { data: st }]) => {
+        setPlayers(pl || []); setStaff(st || []); setLoading(false)
+      })
     })
   }, [])
 

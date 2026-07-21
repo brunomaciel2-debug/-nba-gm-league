@@ -11,7 +11,7 @@ import PlayerPageClient from './PlayerPageClient'
 export const dynamic = "force-dynamic"
 
 export default async function PlayerPage({ params }: { params: { id: string } }) {
-  const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }, { data: lastGames }, { data: cfg }, { data: allTeams }, { data: transactions }, { data: gleagueStats }, { data: gleagueLastGames }] =
+  const [{ data: player }, { data: stats }, { data: injuries }, { data: contracts }, { data: playerAwards }, { data: lastGames }, { data: cfg }, { data: allTeams }, { data: transactions }, { data: gleagueStats }, { data: gleagueLastGames }, { data: draftCfg }] =
     await Promise.all([
       supabase.from('players').select('*, nba_experience, nba_recruitable, world_team_id, world_teams:world_team_id(id,name,country), teams:teams!players_team_id_fkey(name,color,id,logo_url)').eq('id', params.id).single(),
       supabase.from('player_stats').select('*,triple_doubles').eq('player_id', params.id).order('season', { ascending: false }),
@@ -29,6 +29,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       // assigned to a G-League team at some point.
       supabase.from('gleague_player_stats').select('*, team:gleague_teams(id,name,color,logo_url)').eq('player_id', params.id).order('season', { ascending: false }),
       supabase.from('gleague_box_scores').select('*,game:gleague_games(id,home_team,away_team,home_score,away_score,played_at,home:gleague_teams!gleague_games_home_team_fkey(name,color),away:gleague_teams!gleague_games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0).order('created_at', { ascending: false }).limit(5),
+      supabase.from('draft_config').select('next_draft_season').eq('id', 1).maybeSingle(),
     ])
   const teamMap: Record<string, any> = {}
   for (const t of (allTeams || [])) teamMap[t.id] = t
@@ -39,6 +40,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   if (!player) return <div className="p-8 text-center" style={{ color:'#5c554e' }}>Player not found. / Jogador não encontrado.</div>
 
   const p = player as any
+  // Only the upcoming draft class is unsignable — a player from an
+  // already-drafted class sitting as a genuine free agent is fine.
+  const isFutureDraftProspect = !!(p.rookie_draft_season && draftCfg?.next_draft_season && p.rookie_draft_season >= draftCfg.next_draft_season)
   const team = p.teams as any
   const tc = readableTeamColor(team?.color || '3a8adf')
   const ovr = calcOvr(p)
@@ -76,7 +80,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         totalValue={totalValue}
         actionButtons={
           !player.team_id ? (
-            <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} phase={phase} faClosed={faClosed} />
+            <OfferButton playerId={player.id} isAssigned={!!player.on_gleague_assignment} phase={phase} faClosed={faClosed} rookieDraftSeason={isFutureDraftProspect ? p.rookie_draft_season : null} />
           ) : p.status === 'draft_pending' ? (
             <DraftConfirmPanel playerId={player.id} />
           ) : p.rookie_option_status?.startsWith('pending_') ? (

@@ -32,10 +32,17 @@ export async function POST(req: NextRequest) {
   }
 
   // Get player
-  const { data: player } = await admin.from('players').select('id, name, team_id, gleague_team_id, on_gleague_assignment').eq('id', playerId).single()
+  const { data: player } = await admin.from('players').select('id, name, team_id, gleague_team_id, on_gleague_assignment, rookie_draft_season').eq('id', playerId).single()
   if (!player) return NextResponse.json({ error: 'Player not found' }, { status: 404 })
   if (player.team_id) return NextResponse.json({ error: 'Player already on a team' }, { status: 400 })
   if (player.on_gleague_assignment) return NextResponse.json({ error: 'Player is on NBA assignment - cannot be signed' }, { status: 400 })
+  // rookie_draft_season only blocks signing if that class hasn't actually
+  // been drafted yet — a past class (already drafted, now a genuine FA) is
+  // fine, only the upcoming class in draft_config.next_draft_season isn't.
+  const { data: draftCfg } = await admin.from('draft_config').select('next_draft_season').eq('id', 1).maybeSingle()
+  if (player.rookie_draft_season && draftCfg?.next_draft_season && player.rookie_draft_season >= draftCfg.next_draft_season) {
+    return NextResponse.json({ error: 'This player is a future draft prospect, not yet drafted — cannot be signed' }, { status: 400 })
+  }
 
   // Check cap room - $650k for 1 year
   const OFFER_SALARY = 650000

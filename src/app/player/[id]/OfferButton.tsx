@@ -13,7 +13,7 @@ function fmt(n: number) {
   return '$' + (n / 1_000_000).toFixed(2) + 'M'
 }
 
-export default function OfferButton({ playerId, isAssigned, phase, faClosed }: { playerId: number, isAssigned: boolean, phase?: string, faClosed?: boolean }) {
+export default function OfferButton({ playerId, isAssigned, phase, faClosed, rookieDraftSeason }: { playerId: number, isAssigned: boolean, phase?: string, faClosed?: boolean, rookieDraftSeason?: string | number | null }) {
   const [gmTeamId, setGmTeamId]   = useState<string|null>(null)
   const [offered, setOffered]     = useState(false)
   const [loading, setLoading]     = useState(false)
@@ -77,6 +77,12 @@ export default function OfferButton({ playerId, isAssigned, phase, faClosed }: {
   }, [playerId])
 
   if (!gmTeamId) return null
+
+  if (rookieDraftSeason) return (
+    <div style={{marginTop:16,padding:'10px 16px',background:'#f0ece5',border:'1px solid #d4cdc5',borderRadius:8,fontSize:13,color:'#8a8279'}}>
+      🎓 Future draft prospect ({rookieDraftSeason} class) — not yet eligible to be signed
+    </div>
+  )
 
   if (isAssigned) return (
     <div style={{marginTop:16,padding:'10px 16px',background:'#f0ece5',border:'1px solid #d4cdc5',borderRadius:8,fontSize:13,color:'#8a8279'}}>
