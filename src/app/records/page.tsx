@@ -24,6 +24,7 @@ export default function RecordsPage() {
   const [teamGameCombined,setTeamGameCombined] = useState<TeamGameRecord[]>([])
   const [teamGame3pm,setTeamGame3pm] = useState<TeamGameRecord[]>([])
   const [longestStreak,setLongestStreak] = useState<{teamId:string,teamName:string,teamColor?:string,logo?:string,streak:number}[]>([])
+  const [championships,setChampionships] = useState<any[]>([])
 
   useEffect(()=>{
     (async () => {
@@ -170,6 +171,9 @@ export default function RecordsPage() {
         }))
       }
       setSeasonBestsTotal(totalResult)
+
+      const { data: champs } = await supabase.from('championship_history').select('*').order('season',{ascending:false}).order('created_at',{ascending:false})
+      setChampionships(champs||[])
 
       setLoading(false)
     })()
@@ -335,6 +339,29 @@ export default function RecordsPage() {
               )
             })}
         </Card>
+      </div>
+
+      <SectionTitle icon="🏆">{isPT?'Histórico de Campeões':'Championship History'}</SectionTitle>
+      <div className="grid md:grid-cols-2 gap-6 mb-10">
+        {[{league:'nba',label:isPT?'NBA':'NBA',color:'#c8102e'},{league:'gleague',label:'G League',color:'#1d4ed8'}].map(({league,label,color})=>{
+          const rows = championships.filter((c:any)=>c.league===league)
+          return (
+            <Card key={league} title={label} color={color}>
+              {rows.length===0
+                ? <div className="p-4 text-xs text-center" style={{color:'#8a8279'}}>{isPT?'Ainda sem campeão':'No champion yet'}</div>
+                : rows.map((c:any,i:number)=>(
+                  <div key={c.id} className="flex items-center justify-between gap-3 px-4 py-3"
+                       style={{background:i%2===0?'#ece7dd':'#e8e2d6',borderBottom:i<rows.length-1?'1px solid #d4cdc5':'none'}}>
+                    <span className="text-xs font-semibold flex-shrink-0" style={{color:'#8a8279'}}>{c.season}</span>
+                    <div className="flex-1 min-w-0 text-right">
+                      <div className="text-sm font-bold truncate" style={{color}}>🏆 {c.champion_team_name}</div>
+                      <div className="text-xs truncate" style={{color:'#8a8279'}}>{isPT?'vice':'runner-up'}: {c.runner_up_team_name}</div>
+                    </div>
+                  </div>
+                ))}
+            </Card>
+          )
+        })}
       </div>
 
     </div>

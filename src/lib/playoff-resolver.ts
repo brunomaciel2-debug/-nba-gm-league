@@ -73,6 +73,22 @@ async function resolveFinalsMVP(championId: string, runnerUpId: string) {
   }, { onConflict: 'season,award_type,period' })
 }
 
+// Records the season's champion/runner-up into the shared cross-league
+// history table (also used by the G-League bracket) — fires once, the
+// moment the NBA Finals series completes. Names are snapshotted at the
+// time (not just the id) so the history page never depends on a join that
+// could break across a season reset or franchise relocation.
+async function recordChampionship(championId: string, runnerUpId: string) {
+  const { data: teams } = await supabaseAdmin.from('teams').select('id,name').in('id', [championId, runnerUpId])
+  const nameById: Record<string, string> = {}
+  ;(teams || []).forEach((t: any) => { nameById[t.id] = t.name })
+  await supabaseAdmin.from('championship_history').insert({
+    season: SEASON, league: 'nba',
+    champion_team_id: championId, champion_team_name: nameById[championId] || championId,
+    runner_up_team_id: runnerUpId, runner_up_team_name: nameById[runnerUpId] || runnerUpId,
+  })
+}
+
 async function advanceWinner(seriesType: string, winnerId: string, loserId: string) {
   // NBA Finals isn't in the per-conference map — both conference-final
   // winners feed it, with the better regular-season record hosting (team_high),
@@ -134,7 +150,7 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
       const loserId = s.wins_high > s.wins_low ? s.team_low : s.team_high
       await supabaseAdmin.from('playoff_series').update({ status: 'completed' }).eq('id', s.id)
       await advanceWinner(s.series_type, winnerId, loserId)
-      if (s.series_type === 'nba_finals') await resolveFinalsMVP(winnerId, loserId)
+      if (s.series_type === 'nba_finals') { await resolveFinalsMVP(winnerId, loserId); await recordChampionship(winnerId, loserId) }
       continue
     }
 
@@ -195,7 +211,7 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
       const loserId = newWinsHigh > newWinsLow ? s.team_low : s.team_high
       await supabaseAdmin.from('playoff_series').update({ status: 'completed' }).eq('id', s.id)
       await advanceWinner(s.series_type, winnerId, loserId)
-      if (s.series_type === 'nba_finals') await resolveFinalsMVP(winnerId, loserId)
+      if (s.series_type === 'nba_finals') { await resolveFinalsMVP(winnerId, loserId); await recordChampionship(winnerId, loserId) }
     }
   }
   return { processed }
