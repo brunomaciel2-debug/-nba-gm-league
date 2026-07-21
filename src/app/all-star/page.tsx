@@ -35,7 +35,13 @@ export default function AllStarPage() {
           supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast)').eq('status','active').eq('player_stats.season','2025-26'),
           supabase.from('teams').select('id,name,conference,color,logo_url').not('id','in','(ALL,RVS,ROO,SOP)'),
           supabase.from('season_config').select('current_week').eq('id',1).single(),
-          supabase.from('allstar_roster').select('*, players!allstar_roster_player_id_fkey(name,pos,photo_url,team_id)').eq('season','2025-26'),
+          // is_injured rows are historical markers (the original pick who
+          // got hurt) — the row for who actually took his spot is a
+          // separate, non-injured row already in this same result set, so
+          // rendering both doubled every replaced player onto the roster
+          // (found live: Eastern showed 7 "starters" and 16 total instead
+          // of 5 + 12, exactly the count of injured markers still included).
+          supabase.from('allstar_roster').select('*, players!allstar_roster_player_id_fkey(name,pos,photo_url,team_id)').eq('season','2025-26').eq('is_injured',false),
         ])
         if(r1.status==='fulfilled'&&r1.value.data)setPlayers(r1.value.data)
         if(r2.status==='fulfilled'&&r2.value.data)setTeams(Object.fromEntries(r2.value.data.map((t:any)=>[t.id,t])))
