@@ -94,6 +94,7 @@ export default function Navbar() {
         { label: isPT ? 'Classificação'    : 'Standings',       href: '/standings',      icon: 'ti-list-numbers' },
         { label: isPT ? 'Equipas'          : 'Teams',           href: '/teams',          icon: 'ti-users' },
         { label: isPT ? 'Trade Center'     : 'Trade Center',    href: '/trade-center',   icon: 'ti-switch-horizontal' },
+        { label: isPT ? 'Lesões'           : 'Injuries',        href: '/injuries',       icon: 'ti-first-aid-kit' },
         { label: isPT ? 'Transações'       : 'Transactions',    href: '/transactions',   icon: 'ti-arrows-exchange' },
       ],
     },
