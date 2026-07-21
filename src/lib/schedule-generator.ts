@@ -2,6 +2,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getWeekDates } from '@/lib/season-week-helper'
 import { ALLSTAR_WEEK, ALLSTAR_HALF } from '@/lib/allstar-constants'
 
+const SEASON = '2025-26'
+
 // Maps a game's round-within-week index to a day offset from that week's
 // start date. Every within-week gap is 2 days (no back-to-backs inside a
 // week); the only 1-day gap possible is the seam between round 3 of one
@@ -181,7 +183,7 @@ export async function generateRegularSeasonSchedule(opts: { startWeek: number; e
         rows.push({
           week_number: week, game_number: gameNumber,
           home_team: g.home, away_team: g.away,
-          status: 'scheduled', game_type: 'regular',
+          status: 'scheduled', game_type: 'regular', season: SEASON,
           scheduled_date: scheduledDate, day_of_week: dayOfWeek,
         })
       }

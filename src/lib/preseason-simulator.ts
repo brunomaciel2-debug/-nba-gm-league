@@ -284,7 +284,7 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
     const { data: gameRec } = await supabaseAdmin.from('games').insert({
       week_number: 0, game_number: (count || 0) + 1,
       home_team: pg.home_team, away_team: pg.away_team,
-      home_score: homeScore, away_score: awayScore,
+      home_score: homeScore, away_score: awayScore, season: '2025-26',
       status: 'final', played_at: new Date().toISOString(),
       // The friendly's own real-world scheduled_date (e.g. Oct 2 2025) — not
       // set previously, so the Schedule page fell back to grouping this row

@@ -185,7 +185,7 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
 
     const { data: gameRec } = await supabaseAdmin.from('games').insert({
       week_number: week, game_number: gameNumber, home_team: homeTeamId, away_team: awayTeamId,
-      home_score: result.homeScore, away_score: result.awayScore, status: 'final',
+      home_score: result.homeScore, away_score: result.awayScore, status: 'final', season: SEASON,
       played_at: new Date().toISOString(), game_type: 'playoff',
       attendance: Math.round((ht.arena_capacity || 18000) * 0.97), is_rivalry: false,
       referee_id: refereeId, referee_rating: refereeRating,

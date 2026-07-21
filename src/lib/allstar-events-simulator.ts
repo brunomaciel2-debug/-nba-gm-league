@@ -44,7 +44,7 @@ async function insertGameAndBox(opts: {
   const { data: gameRec } = await supabaseAdmin.from('games').insert({
     week_number: weekNumber, game_number: (count || 0) + 1,
     home_team: homeTeamId, away_team: awayTeamId,
-    home_score: result.homeScore, away_score: result.awayScore,
+    home_score: result.homeScore, away_score: result.awayScore, season: SEASON,
     status: 'final', played_at: new Date().toISOString(),
     // The Schedule page groups/sorts by scheduled_date (the real intended
     // in-season calendar date), falling back to played_at (the real-world
