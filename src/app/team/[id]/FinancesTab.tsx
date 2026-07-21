@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
+import { getWeekDates } from '@/lib/season-week-helper'
 
 type Transaction = {
   id: string; type: 'revenue' | 'expense'; category: string
@@ -222,14 +223,19 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
 
   // Balance Sheet tab: the REAL ledger, no extrapolation — every dollar
   // shown here actually happened. "Annual" is the plain season-to-date sum;
-  // "Current Month" buckets by SIMULATED week_number (the last 4 weeks of
-  // the season, matching the game's own settlement cadence), not real
-  // calendar date — bucketing by real created_at date used to lump an
-  // entire season's worth of transactions into "this month" whenever many
-  // simulated weeks were played back-to-back in the same real day, making
-  // the team look far more profitable per month than it actually is.
+  // "Current Month" buckets by the SIMULATED in-game calendar month (the
+  // same month/year every week's real scheduled dates fall into, per
+  // season-week-helper.ts) — not a rolling 4-week window, and not real
+  // wall-clock date. A rolling window kept showing a big number right after
+  // a new in-game month started (still counting weeks from the tail end of
+  // the previous month); this resets to near-zero the moment the season's
+  // own calendar crosses into a new month, like an actual bank statement.
+  // A week that straddles a month boundary is credited to whichever month
+  // it FINISHES in, same convention the Player of the Month sweep uses.
+  const weekMonthKey = (w: number) => { const d = getWeekDates(w).end; return `${d.getFullYear()}-${d.getMonth()}` }
   const maxSimWeek = weekNumbers.length ? Math.max(...weekNumbers) : 0
-  const currentMonthTx = transactions.filter(t => t.week_number != null && t.week_number > maxSimWeek - 4)
+  const currentMonthKey = maxSimWeek > 0 ? weekMonthKey(maxSimWeek) : null
+  const currentMonthTx = transactions.filter(t => t.week_number != null && currentMonthKey != null && weekMonthKey(t.week_number) === currentMonthKey)
   const monthActualRevSums = sumByCategory(currentMonthTx, 'revenue')
   const monthActualExpSums = sumByCategory(currentMonthTx, 'expense')
 
@@ -324,7 +330,7 @@ export default function FinancesTab({ teamId, teamColor }: { teamId: string, tea
             ) : (
               <StatementTable
                 title={isPT?'🗓️ Mês Corrente (Real)':'🗓️ Current Month (Actual)'}
-                subtitle={isPT?'Soma real das últimas 4 semanas simuladas':'Real sum for the last 4 simulated weeks'}
+                subtitle={isPT?'Soma real do mês corrente da época simulada':'Real sum for the current month of the simulated season'}
                 revRows={monthActualRev} expRows={monthActualExp} netColor={v=>v>=0?'#15803d':'#dc2626'} isPT={isPT}
               />
             )}
