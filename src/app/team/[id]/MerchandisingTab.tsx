@@ -25,6 +25,7 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
 
   const [reports, setReports] = useState<any[]>([])
   const [campaigns, setCampaigns] = useState<any[]>([])
+  const [pastPlayers, setPastPlayers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPlayer, setSelectedPlayer] = useState('')
   const [starting, setStarting] = useState(false)
@@ -37,12 +38,27 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
     ])
     setReports(rep || [])
     setCampaigns(camp || [])
+
+    // A jersey-sales report is a historical record — it can reference a
+    // player who has since been traded away or cut and is no longer in the
+    // current roster prop below. That used to just fall back to showing the
+    // raw player_id number instead of a name. Fetch names directly for
+    // whichever ids show up here, independent of current team roster.
+    const currentIds = new Set(players.map((p: any) => p.id))
+    const historicalIds = Array.from(new Set([...(rep || []).map((r: any) => r.player_id), ...(camp || []).map((c: any) => c.player_id)]))
+      .filter((id: any) => id != null && !currentIds.has(id))
+    if (historicalIds.length) {
+      const { data: past } = await supabase.from('players').select('id,name').in('id', historicalIds)
+      setPastPlayers(past || [])
+    } else {
+      setPastPlayers([])
+    }
     setLoading(false)
   }
 
   useEffect(() => { load() }, [teamId])
 
-  const playerMap = Object.fromEntries(players.map((p: any) => [p.id, p]))
+  const playerMap = Object.fromEntries([...players, ...pastPlayers].map((p: any) => [p.id, p]))
   const activeCampaignPlayerIds = new Set(campaigns.filter((c: any) => c.status === 'active').map((c: any) => c.player_id))
 
   const latestMonth = reports.length ? Math.max(...reports.map((r: any) => r.month_num)) : null
