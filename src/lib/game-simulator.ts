@@ -842,13 +842,28 @@ const merged:any={}
 ;["PG","SG","SF","PF","C"].forEach(pos=>{
 const pd=dc?.[pos]
 const posHasMins=!!pd&&["s","b1","b2"].some(sl=>pd[sl]?.name&&(pd[sl]?.mins||0)>0)
-merged[pos]=posHasMins?pd:auto[pos]
+if(!posHasMins){merged[pos]=auto[pos];return}
+// A saved slot can name a player no longer on THIS active roster — traded
+// away, cut, or currently hurt — since the chart was submitted. That used
+// to just silently drop the slot's minutes with no fallback, and if it was
+// specifically the "s" (starter) slot, the team quietly played a real
+// game one starter short (a real incident: only 2 of 5 positions had a
+// starter who still resolved). Promote whichever slot — s, then b1, then
+// b2 — is the highest-priority one that still resolves to a real,
+// currently-active player into the starter spot, keeping the rest of the
+// real GM's chart (and its substitution order) otherwise untouched.
+const resolves=(sl:string)=>{const e=pd[sl];return !!e?.name&&(e.mins||0)>0&&players.some((p:any)=>p.name===e.name)}
+if(resolves("s")){merged[pos]=pd;return}
+const promoteSlot=(["b1","b2"] as const).find(resolves)
+merged[pos]=promoteSlot?{...pd,s:pd[promoteSlot],[promoteSlot]:pd.s}:auto[pos]
 })
 if(dc?.ball_roles)merged.ball_roles=dc.ball_roles
 applyDC(players,merged)
-// Final safety net — only reachable if even the merged chart (real + auto
-// patched positions) somehow still leaves the team unplayable.
-if(players.filter((p:any)=>p.mins>0).length<5)applyDC(players,auto)
+// Final safety net — checks STARTERS specifically (not just "5 players
+// got some minutes"), since a team can field 5+ total players through
+// normal bench rotation while still coming up short a real starter if a
+// position's fallback above somehow still failed to resolve.
+if(players.filter((p:any)=>p.isStarter).length<5)applyDC(players,auto)
 }
 
 function applyDC(players:any[],dc:any){
