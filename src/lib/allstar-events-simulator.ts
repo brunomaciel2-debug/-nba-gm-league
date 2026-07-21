@@ -1,7 +1,10 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { simulateGame } from '@/lib/game-simulator'
 import { buildAutoDepthChart } from '@/lib/auto-depth-chart'
-import { ALLSTAR_WEEK } from '@/lib/allstar-constants'
+import { ALLSTAR_WEEK, ALLSTAR_HALF } from '@/lib/allstar-constants'
+import { getHalfWeekDates } from '@/lib/season-week-helper'
+
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 // Simulates the two All-Star Weekend exhibition games (Rising Stars and the
 // East/West All-Star Game) once each squad has been announced — see
@@ -32,9 +35,9 @@ function depthChartFor(orderedPlayers: any[]) {
 async function insertGameAndBox(opts: {
   homeTeamId: string, awayTeamId: string, homeTeamObj: any, awayTeamObj: any,
   homePlayers: any[], awayPlayers: any[], homeOrd: any, awayOrd: any,
-  gameType: string, weekNumber: number,
+  gameType: string, weekNumber: number, scheduledDate: string,
 }) {
-  const { homeTeamId, awayTeamId, homeTeamObj, awayTeamObj, homePlayers, awayPlayers, homeOrd, awayOrd, gameType, weekNumber } = opts
+  const { homeTeamId, awayTeamId, homeTeamObj, awayTeamObj, homePlayers, awayPlayers, homeOrd, awayOrd, gameType, weekNumber, scheduledDate } = opts
   const result = simulateGame(homeTeamObj, awayTeamObj, homePlayers, awayPlayers, homeOrd, awayOrd)
 
   const { count } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true }).eq('week_number', weekNumber)
@@ -43,6 +46,12 @@ async function insertGameAndBox(opts: {
     home_team: homeTeamId, away_team: awayTeamId,
     home_score: result.homeScore, away_score: result.awayScore,
     status: 'final', played_at: new Date().toISOString(),
+    // The Schedule page groups/sorts by scheduled_date (the real intended
+    // in-season calendar date), falling back to played_at (the real-world
+    // moment this got simulated) only when it's missing — without this the
+    // exhibition games showed up under whatever real month the commissioner
+    // happened to click "simulate" in, instead of All-Star Weekend itself.
+    scheduled_date: scheduledDate,
     game_type: gameType, period_scores: result.periods,
     // Neutral-site exhibition — no real GM's arena/ticket pricing applies,
     // so attendance/referee are flavor-only flat values, not computed.
@@ -93,11 +102,17 @@ export async function simulateRisingStarsGame() {
   const homeOrd = { depth_chart: depthChartFor(rookiePlayers) }
   const awayOrd = { depth_chart: depthChartFor(sophPlayers) }
 
+  // Real ASW order: Rising Stars on the block's 1st day, the All-Star Game
+  // on its 2nd (see simulateAllStarGame() below) — both land inside
+  // ALLSTAR_HALF's date range (getHalfWeekDates), never real wall-clock
+  // "today".
+  const rsDate = ymd(getHalfWeekDates(ALLSTAR_WEEK, ALLSTAR_HALF).start)
+
   const { gameId, homeScore, awayScore, mvpPlayerId, mvpScore } = await insertGameAndBox({
     homeTeamId: 'ROO', awayTeamId: 'SOP',
     homeTeamObj: { id: 'ROO', name: 'Rookie Team' }, awayTeamObj: { id: 'SOP', name: 'Sophomore Team' },
     homePlayers: rookiePlayers, awayPlayers: sophPlayers, homeOrd, awayOrd,
-    gameType: 'rising_stars', weekNumber: ALLSTAR_WEEK,
+    gameType: 'rising_stars', weekNumber: ALLSTAR_WEEK, scheduledDate: rsDate,
   })
 
   if (mvpPlayerId) {
@@ -139,11 +154,13 @@ export async function simulateAllStarGame() {
   const homeOrd = { depth_chart: depthChartFor(eastPlayers), ...tactics }
   const awayOrd = { depth_chart: depthChartFor(westPlayers), ...tactics }
 
+  const asDate = ymd((() => { const d = getHalfWeekDates(ALLSTAR_WEEK, ALLSTAR_HALF).start; d.setDate(d.getDate() + 1); return d })())
+
   const { gameId, homeScore, awayScore, mvpPlayerId, mvpScore } = await insertGameAndBox({
     homeTeamId: 'ALL', awayTeamId: 'RVS',
     homeTeamObj: { id: 'ALL', name: 'All-Stars East' }, awayTeamObj: { id: 'RVS', name: 'All-Stars West' },
     homePlayers: eastPlayers, awayPlayers: westPlayers, homeOrd, awayOrd,
-    gameType: 'allstar', weekNumber: ALLSTAR_WEEK,
+    gameType: 'allstar', weekNumber: ALLSTAR_WEEK, scheduledDate: asDate,
   })
 
   if (mvpPlayerId) {
