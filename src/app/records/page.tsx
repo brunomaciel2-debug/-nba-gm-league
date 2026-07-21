@@ -11,7 +11,7 @@ type TeamGameRecord = { teamId:string, teamName:string, teamColor?:string, logo?
 type StreakRecord = { teamId:string, teamName:string, teamColor?:string, logo?:string, streak:number }
 
 const POS_GAME_KEYS = ['pts','reb','ast','stl','blk','tpm','ftm','plus_minus'] as const
-const NEG_GAME_KEYS = ['turnovers','pf'] as const
+const NEG_GAME_KEYS = ['turnovers'] as const
 const POS_TOTAL_KEYS = ['pts','reb','ast','stl','blk','tpm','double_doubles','triple_doubles'] as const
 const NEG_TOTAL_KEYS = ['turnovers'] as const
 
@@ -230,7 +230,6 @@ export default function RecordsPage() {
   }
   const GAME_STAT_LOW_LABELS: Record<string,{en:string,pt:string,color:string}> = {
     turnovers: {en:'Most Turnovers', pt:'Mais Perdas de Bola', color:'#dc2626'},
-    pf:        {en:'Most Personal Fouls', pt:'Mais Faltas Pessoais', color:'#b45309'},
   }
   const TOTAL_LABELS: Record<string,{en:string,pt:string,color:string}> = {
     pts: {en:'Most Points (season)',      pt:'Mais Pontos (época)',        color:'#c2410c'},
