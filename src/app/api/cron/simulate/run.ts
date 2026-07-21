@@ -59,7 +59,16 @@ return all
 // deployment (e.g. the admin manual-trigger route) don't have to bounce
 // through an extra HTTP self-call — that extra hop had no timeout of its
 // own and could leave the caller hanging indefinitely if this took too long.
-export async function runWeeklySimulation() {
+// opts.gameLimit caps how many of this half's regular-season games get
+// simulated THIS call (the Commissioner's "Simulate 1 Game" button) — when
+// set, every once-per-half step below (weekly highlights, awards, training,
+// notifications, next_sim_half/current_week advancing) is skipped for as
+// long as any regular games in this half are still left 'scheduled', so a
+// half only ever finalizes once every one of its games has actually been
+// simulated, whether that happened in one full-block call or several
+// one-game-at-a-time ones.
+export async function runWeeklySimulation(opts?: { gameLimit?: number }) {
+const gameLimit = opts?.gameLimit
 try {
 const { data: cfg } = await supabaseAdmin.from('season_config').select('*').eq('id',1).single()
 const week = (cfg?.current_week || 0) + 1
@@ -247,8 +256,13 @@ const marquee = getMarqueeWeekInfo(week)
 // all (Free Agency, Draft, etc.) — the filter just matches nothing there.
 const ymdLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
-const { data: weekGames } = await supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
+const { data: weekGamesAll } = await supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
 .gte('scheduled_date', ymdLocal(halfStart)).lte('scheduled_date', ymdLocal(halfEnd))
+.order('scheduled_date').order('game_number')
+// gameLimit only ever takes the FIRST few of this half's still-scheduled
+// games (deterministic order) — the rest stay 'scheduled' for a later call,
+// same games, same half, nothing skipped or reordered.
+const weekGames = gameLimit ? (weekGamesAll || []).slice(0, gameLimit) : (weekGamesAll || [])
 
 for (const sg of (weekGames||[])) {
 const ht = teamMap[sg.home_team], at = teamMap[sg.away_team]
@@ -530,6 +544,26 @@ double_doubles: isDD?1:0,
 }
 }
 } // end if (!isPreseason) — random round-robin block
+
+// A capped call (gameLimit) that still left games 'scheduled' in this half
+// stops right here — every step below assumes the half is actually done
+// (weekly highlights, awards, training, notifications, advancing
+// next_sim_half/current_week), and running any of it against a half that's
+// only partly simulated would be wrong, not just early. The remaining
+// games stay untouched for the next "Simulate 1 Game" / "Complete Block" call.
+if (gameLimit && !isPreseason) {
+const ymdLocal2 = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const { start: halfStart2, end: halfEnd2 } = getHalfWeekDates(week, half)
+const { count: stillScheduled } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true })
+.eq('week_number', week).eq('status', 'scheduled')
+.gte('scheduled_date', ymdLocal2(halfStart2)).lte('scheduled_date', ymdLocal2(halfEnd2))
+if (stillScheduled && stillScheduled > 0) {
+return NextResponse.json({
+success: true, partial: true, week, half, games_simulated: gamesSimulated, games_remaining: stillScheduled,
+message: `Semana ${week} — ${gamesSimulated} jogo(s) simulado(s), ${stillScheduled} por simular neste bloco.`,
+})
+}
+}
 
 // ── TECHNICAL FOUL SUSPENSIONS ────────────────────────
 // Real NBA rule: 16 technicals in a regular season = 1-game suspension,

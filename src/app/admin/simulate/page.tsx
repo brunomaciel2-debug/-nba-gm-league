@@ -72,10 +72,32 @@ export default function AdminSimulatePage() {
       : 'The simulation did not respond in time, even after checking the database directly.')
   }
 
-  const simulate = async () => {
-    const n = Math.max(1, blockCount)
+  // Orders are submitted once per week and read for both its blocks — only
+  // regenerate auto-orders when a block is about to START a new week
+  // (half 1), not when continuing the same week's 2nd block.
+  const maybeGenerateAutoOrders = async (half: number) => {
+    if (half !== 1) return
+    setLog(prev => [...prev, isPT ? '⚙️ A gerar ordens automáticas para equipas sem GM...' : '⚙️ Generating auto orders for teams without GM...'])
+    const ordRes = await fetch('/api/admin/auto-orders', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: 'nba-admin-2025' }),
+    })
+    const ordData = await ordRes.json()
+    if (ordData.generated !== undefined) {
+      setLog(prev => [...prev, isPT
+        ? `✓ Ordens automáticas geradas para ${ordData.generated} equipas${ordData.carriedForward ? `, ${ordData.carriedForward} equipa(s) com GM mantiveram a última ordem real` : ''}`
+        : `✓ Auto orders generated for ${ordData.generated} teams${ordData.carriedForward ? `, ${ordData.carriedForward} GM team(s) kept their last real order` : ''}`])
+    }
+  }
+
+  const halfLabel = (half: number) => half === 1 ? (isPT ? 'dias 1-3' : 'days 1-3') : (isPT ? 'dias 4-7' : 'days 4-7')
+
+  // "Complete Block" — one call, no game limit: always fully resolves
+  // whatever's left in the CURRENT half, whether that's a fresh half or one
+  // a previous interrupted call only got partway through.
+  const simulate = async (n: number) => {
     if (!confirm(n === 1
-      ? (isPT ? 'Simular o próximo bloco (3-4 dias) agora?' : 'Simulate the next block (3-4 days) now?')
+      ? (isPT ? 'Completar o bloco atual (3-4 dias) agora?' : 'Complete the current block (3-4 days) now?')
       : (isPT ? `Simular os próximos ${n} blocos (3-4 dias cada) agora? Isto pode demorar vários minutos.` : `Simulate the next ${n} blocks (3-4 days each) now? This may take several minutes.`))) return
 
     setLoading(true)
@@ -86,39 +108,82 @@ export default function AdminSimulatePage() {
         const before = await getSeasonState()
         if (n > 1) setLog(prev => [...prev, isPT ? `— Bloco ${i} de ${n} —` : `— Block ${i} of ${n} —`])
 
-        // Orders are submitted once per week and read for both its blocks —
-        // only regenerate auto-orders when this block is about to START a
-        // new week (half 1), not when continuing the same week's 2nd block.
-        if (before.half === 1) {
-          setLog(prev => [...prev, isPT ? '⚙️ A gerar ordens automáticas para equipas sem GM...' : '⚙️ Generating auto orders for teams without GM...'])
-          const ordRes = await fetch('/api/admin/auto-orders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ secret: 'nba-admin-2025' }),
-          })
-          const ordData = await ordRes.json()
-          if (ordData.generated !== undefined) {
-            setLog(prev => [...prev, isPT
-              ? `✓ Ordens automáticas geradas para ${ordData.generated} equipas${ordData.carriedForward ? `, ${ordData.carriedForward} equipa(s) com GM mantiveram a última ordem real` : ''}`
-              : `✓ Auto orders generated for ${ordData.generated} teams${ordData.carriedForward ? `, ${ordData.carriedForward} GM team(s) kept their last real order` : ''}`])
-          }
-        }
+        await maybeGenerateAutoOrders(before.half)
 
         setLog(prev => [...prev, isPT ? '⏳ A simular...' : '⏳ Simulating...'])
         const data = await callSimulateStep(before)
-        const halfLabel = before.half === 1 ? (isPT ? 'dias 1-3' : 'days 1-3') : (isPT ? 'dias 4-7' : 'days 4-7')
         const noGames = !data.games_simulated && !data.friendlies_simulated
         const msg = data._confirmedByPoll
-          ? (isPT ? `✅ Semana ${data.week} (${halfLabel}) — confirmado na base de dados.` : `✅ Week ${data.week} (${halfLabel}) — confirmed against the database.`)
+          ? (isPT ? `✅ Semana ${data.week} (${halfLabel(before.half)}) — confirmado na base de dados.` : `✅ Week ${data.week} (${halfLabel(before.half)}) — confirmed against the database.`)
           : (isPT
-              ? `✅ Semana ${data.week} (${halfLabel})${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}.`
-              : `✅ Week ${data.week} (${halfLabel})${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}.`)
+              ? `✅ Semana ${data.week} (${halfLabel(before.half)})${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}.`
+              : `✅ Week ${data.week} (${halfLabel(before.half)})${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}.`)
         setLog(prev => [...prev, msg])
         setResult(data)
       }
     } catch (e: any) {
       const msg = `❌ ${e.message}`
       setLog(prev => [...prev, msg])
+      setResult({ error: e.message })
+    }
+    setLoading(false)
+  }
+
+  // "Simulate 1 Game" — caps this call to just the next unsimulated game in
+  // the current block (see run.ts's gameLimit) — everything else in the
+  // block (and every once-per-half step) waits until it's actually done.
+  const simulateOneGame = async () => {
+    if (!confirm(isPT ? 'Simular apenas o próximo jogo agora?' : 'Simulate just the next game now?')) return
+    setLoading(true)
+    setResult(null)
+    try {
+      const before = await getSeasonState()
+      await maybeGenerateAutoOrders(before.half)
+      setLog(prev => [...prev, isPT ? '⏳ A simular 1 jogo...' : '⏳ Simulating 1 game...'])
+      const res = await fetch('/api/admin/simulate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: 'nba-admin-2025', gameLimit: 1 }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || (isPT ? 'Erro desconhecido' : 'Unknown error'))
+      const msg = data.partial
+        ? (isPT ? `✅ 1 jogo simulado — ${data.games_remaining} por simular neste bloco (Semana ${data.week}).` : `✅ 1 game simulated — ${data.games_remaining} left in this block (Week ${data.week}).`)
+        : (isPT ? `✅ Jogo simulado — era o último do bloco, bloco completo (Semana ${data.week}).` : `✅ Game simulated — it was the last one in the block, block complete (Week ${data.week}).`)
+      setLog(prev => [...prev, msg])
+      setResult(data)
+    } catch (e: any) {
+      setLog(prev => [...prev, `❌ ${e.message}`])
+      setResult({ error: e.message })
+    }
+    setLoading(false)
+  }
+
+  // "Simulate 1 Week" — keeps calling complete-block until the CURRENT week
+  // (the one about to be processed when this started) is fully done,
+  // whether that takes 1 more block (already mid-week, at half 2) or 2
+  // (starting fresh at half 1) — never spills into the following week.
+  const simulateOneWeek = async () => {
+    if (!confirm(isPT ? 'Simular a semana atual até ao fim (pode ser 1 ou 2 blocos)?' : 'Simulate the current week to completion (1 or 2 blocks)?')) return
+    setLoading(true)
+    setResult(null)
+    try {
+      const startState = await getSeasonState()
+      const targetWeek = startState.week + 1
+      for (let i = 0; i < 2; i++) {
+        const before = await getSeasonState()
+        if (before.week >= targetWeek) break
+        await maybeGenerateAutoOrders(before.half)
+        setLog(prev => [...prev, isPT ? `⏳ A simular semana ${targetWeek} (${halfLabel(before.half)})...` : `⏳ Simulating week ${targetWeek} (${halfLabel(before.half)})...`])
+        const data = await callSimulateStep(before)
+        const noGames = !data.games_simulated && !data.friendlies_simulated
+        setLog(prev => [...prev, isPT
+          ? `✅ Semana ${data.week} (${halfLabel(before.half)})${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}.`
+          : `✅ Week ${data.week} (${halfLabel(before.half)})${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}.`])
+        setResult(data)
+      }
+      setLog(prev => [...prev, isPT ? `🏁 Semana ${targetWeek} completa!` : `🏁 Week ${targetWeek} complete!`])
+    } catch (e: any) {
+      setLog(prev => [...prev, `❌ ${e.message}`])
       setResult({ error: e.message })
     }
     setLoading(false)
@@ -173,33 +238,71 @@ export default function AdminSimulatePage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-xs font-semibold" style={{color:'#5c554e'}}>
-          {isPT ? 'Nº de blocos (3-4 dias) a simular:' : 'Blocks (3-4 days) to simulate:'}
-        </span>
-        <input
-          type="number"
-          min={1}
-          max={40}
-          value={blockCount}
+      {/* Primary actions */}
+      <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>
+        {isPT ? 'Simular' : 'Simulate'}
+      </div>
+      <div className="flex flex-col gap-2 mb-6">
+        <button
+          onClick={simulateOneGame}
           disabled={loading}
-          onChange={e => setBlockCount(Math.min(40, Math.max(1, parseInt(e.target.value) || 1)))}
-          className="w-16 px-2 py-1 rounded-lg text-sm text-center font-bold disabled:opacity-40"
-          style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}
-        />
+          className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 text-left px-4"
+          style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}>
+          🏀 {isPT ? '1 Jogo' : '1 Game'}
+          <div className="text-xs font-normal mt-0.5" style={{color:'#8a8279'}}>
+            {isPT ? 'Simula apenas o próximo jogo do bloco atual, e para aí.' : 'Simulates just the next game in the current block, then stops.'}
+          </div>
+        </button>
+        <button
+          onClick={() => simulate(1)}
+          disabled={loading}
+          className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 text-left px-4"
+          style={{background:'#c8102e', color:'#fff'}}>
+          ✅ {isPT ? 'Completar Bloco (3-4 dias)' : 'Complete Block (3-4 days)'}
+          <div className="text-xs font-normal mt-0.5" style={{color:'#ffd9d9'}}>
+            {isPT ? 'Termina todos os jogos que faltam no bloco atual (novo ou a meio).' : 'Finishes every game still left in the current block (fresh or mid-way).'}
+          </div>
+        </button>
+        <button
+          onClick={simulateOneWeek}
+          disabled={loading}
+          className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 text-left px-4"
+          style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}>
+          📅 {isPT ? '1 Semana Completa' : 'Full Week'}
+          <div className="text-xs font-normal mt-0.5" style={{color:'#8a8279'}}>
+            {isPT ? 'Simula a semana atual até ao fim (1 ou 2 blocos, conforme o ponto onde vai).' : 'Simulates the current week to completion (1 or 2 blocks, depending on where it is right now).'}
+          </div>
+        </button>
       </div>
 
-      <button
-        onClick={simulate}
-        disabled={loading}
-        className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 mb-4"
-        style={{background:'#c8102e', color:'#fff'}}>
-        {loading
-          ? (isPT ? '⏳ A simular...' : '⏳ Simulating...')
-          : blockCount === 1
-            ? `⚡ ${isPT ? 'Simular Próximo Bloco (3-4 dias)' : 'Simulate Next Block (3-4 days)'}`
-            : `⚡ ${isPT ? `Simular Próximos ${blockCount} Blocos` : `Simulate Next ${blockCount} Blocks`}`}
-      </button>
+      {/* Advanced: bulk-skip several blocks at once (testing) */}
+      <details className="mb-4">
+        <summary className="text-xs font-semibold cursor-pointer" style={{color:'#8a8279'}}>
+          {isPT ? 'Avançado: simular vários blocos de uma vez' : 'Advanced: simulate several blocks at once'}
+        </summary>
+        <div className="flex items-center gap-2 mt-3">
+          <span className="text-xs font-semibold" style={{color:'#5c554e'}}>
+            {isPT ? 'Nº de blocos (3-4 dias):' : 'Blocks (3-4 days):'}
+          </span>
+          <input
+            type="number"
+            min={1}
+            max={40}
+            value={blockCount}
+            disabled={loading}
+            onChange={e => setBlockCount(Math.min(40, Math.max(1, parseInt(e.target.value) || 1)))}
+            className="w-16 px-2 py-1 rounded-lg text-sm text-center font-bold disabled:opacity-40"
+            style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}
+          />
+          <button
+            onClick={() => simulate(blockCount)}
+            disabled={loading}
+            className="flex-1 py-2 rounded-xl font-bold text-sm disabled:opacity-40"
+            style={{background:'#5c554e', color:'#fff'}}>
+            {loading ? (isPT ? '⏳ A simular...' : '⏳ Simulating...') : `⚡ ${isPT ? `Simular ${blockCount} Bloco${blockCount!==1?'s':''}` : `Simulate ${blockCount} Block${blockCount!==1?'s':''}`}`}
+          </button>
+        </div>
+      </details>
 
       {/* Log */}
       {log.length > 0 && (
