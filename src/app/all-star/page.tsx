@@ -174,7 +174,7 @@ export default function AllStarPage() {
                               return(
                                 <button key={p.id} onClick={()=>toggleVote(conf,pos,p.id)} disabled={!isSel&&sel.length>=2}
                                   className="flex flex-col items-center p-2 rounded-lg transition-all disabled:opacity-40"
-                                  style={{background:isSel?'#2a2000':'#faf8f5',border:'1px solid '+(isSel?'#b45309':'#d4cdc5')}}>
+                                  style={{background:isSel?'#fdf1e0':'#faf8f5',border:'1px solid '+(isSel?'#b45309':'#d4cdc5')}}>
                                   <div className="w-10 h-10 rounded-full overflow-hidden mb-1" style={{background:tc+'22'}}>
                                     {p.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
                                       :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
@@ -216,7 +216,7 @@ export default function AllStarPage() {
                       {cr.map((r:any)=>{
                         const p=r.players;const tm=teams[p?.team_id];const tc=readableTeamColor(tm?.color||'555')
                         return(
-                          <div key={r.id} className="rounded-xl p-3 text-center" style={{background:r.is_starter?'#2a2000':'#faf8f5',border:'1px solid '+(r.is_starter?'#b45309':'#d4cdc5')}}>
+                          <div key={r.id} className="rounded-xl p-3 text-center" style={{background:r.is_starter?'#fdf1e0':'#faf8f5',border:'1px solid '+(r.is_starter?'#b45309':'#d4cdc5')}}>
                             {r.is_starter&&<div className="text-xs font-bold mb-1" style={{color:'#b45309'}}>⭐ {isPT?'TITULAR':'STARTER'}</div>}
                             <div className="w-12 h-12 rounded-full overflow-hidden mx-auto mb-2" style={{background:tc+'22'}}>
                               {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>

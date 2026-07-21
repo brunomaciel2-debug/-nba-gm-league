@@ -13,8 +13,18 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
   const currentWeek = sc?.current_week || 0
   if (currentWeek < VOTING_CLOSES_WEEK) return { skipped: true }
 
-  const { data: config } = await supabaseAdmin.from('allstar_config').select('roster_announced').eq('id', 1).single()
-  if (config?.roster_announced) return { skipped: true }
+  // Atomically claim the announcement — this function runs unconditionally
+  // on every simulate call, and a single real week is processed across two
+  // separate half-1/half-2 invocations. The old check ("SELECT the flag,
+  // decide to proceed, set the flag true only at the very end") left a real
+  // race window: both halves could read roster_announced=false before
+  // either had written true, so both ran the full delete+insert — a real
+  // incident that doubled every single roster row. A conditional UPDATE
+  // only ever succeeds for whichever call gets there first; the loser sees
+  // 0 rows affected and bails out immediately, before doing any real work.
+  const { data: claimed } = await supabaseAdmin.from('allstar_config')
+    .update({ roster_announced: true }).eq('id', 1).eq('roster_announced', false).select('id')
+  if (!claimed || claimed.length === 0) return { skipped: true }
 
   const minGames = minGamesByWeek(currentWeek)
 
@@ -117,7 +127,7 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
 
   await supabaseAdmin.from('allstar_roster').delete().eq('season', SEASON)
   await supabaseAdmin.from('allstar_roster').insert(finalRoster)
-  await supabaseAdmin.from('allstar_config').update({ roster_announced: true }).eq('id', 1)
+  // roster_announced was already claimed atomically above — no need to set it again.
 
   // Create the actual award record every selected player was missing —
   // sponsor objective "player_allstar" and the award notification both
