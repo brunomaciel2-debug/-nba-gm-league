@@ -16,7 +16,9 @@ import { resolveSummerLeague } from '@/lib/summer-league'
 import { resolvePlayoffSeries } from '@/lib/playoff-resolver'
 import { assignRefereesToScheduledGames, rateRefereePerformance } from '@/lib/referees'
 import { resolveMonthlyMerchandising } from '@/lib/merchandising'
-import { resolveAllStarWeekend } from '@/lib/allstar-resolver'
+import { resolveAllStarWeekend, resolveRisingStars } from '@/lib/allstar-resolver'
+import { ALLSTAR_WEEK, ALLSTAR_HALF } from '@/lib/allstar-constants'
+import { simulateRisingStarsGame, simulateAllStarGame } from '@/lib/allstar-events-simulator'
 import { resolveWeeklyTacticalDevelopment, getAllTeamsTacticalState } from '@/lib/tactical-resolver'
 import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
@@ -832,6 +834,24 @@ if (half === 1) {
 // For phases with no day-scoped games (Free Agency, Draft, etc.) this is
 // just a quick, mostly-empty pass — kept consistent on purpose so every
 // week always takes exactly 2 sim actions, same cadence throughout.
+
+// ── ALL-STAR WEEKEND EXHIBITION GAMES ────────────────
+// ALLSTAR_HALF is half 1 by definition (schedule-generator.ts never
+// places a regular game there), so this dedicated no-other-games block
+// is exactly this branch, for this one week. Both resolvers are
+// self-guarded on their own "_played" flag in allstar_config, so this is
+// safe even if this half gets processed more than once.
+if (week === ALLSTAR_WEEK && ALLSTAR_HALF === 1) {
+try {
+const rsGame = await simulateRisingStarsGame()
+if (!rsGame.skipped) console.log(`Rising Stars game simulated: ${rsGame.homeScore}-${rsGame.awayScore}`)
+} catch (rsgErr) { console.warn('Rising Stars game simulation failed:', rsgErr) }
+try {
+const asGame = await simulateAllStarGame()
+if (!asGame.skipped) console.log(`All-Star Game simulated: ${asGame.homeScore}-${asGame.awayScore}`)
+} catch (asgErr) { console.warn('All-Star Game simulation failed:', asgErr) }
+}
+
 try { await runPostSimNotifications(week, gamesCreated, techFoulEvents) } catch (notifErr) { console.warn('Half-1 notifications failed:', notifErr) }
 await supabaseAdmin.from('season_config').update({ next_sim_half: 2 }).eq('id',1)
 return NextResponse.json({
@@ -1832,6 +1852,13 @@ try {
 const asResult = await resolveAllStarWeekend()
 if (!asResult.skipped) console.log(`All-Star Weekend resolved: ${asResult.total} roster spots, ${asResult.auto_votes} auto-votes`)
 } catch (asErr) { console.warn('All-Star Weekend resolution failed:', asErr) }
+
+// Rising Stars (Rookies vs Sophomores) roster — same self-guarded contract
+// as resolveAllStarWeekend() above, just its own announce week/flag.
+try {
+const rsResult = await resolveRisingStars()
+if (!rsResult.skipped) console.log(`Rising Stars roster resolved: ${rsResult.rookies} rookies, ${rsResult.sophomores} sophomores`)
+} catch (rsErr) { console.warn('Rising Stars resolution failed:', rsErr) }
 
 if (isEndOfSeason) {
 const MIN_GAMES = 65

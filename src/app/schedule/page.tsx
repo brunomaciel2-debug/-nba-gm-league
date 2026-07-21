@@ -17,13 +17,15 @@ export default function SchedulePage() {
     preseason: {label:'Pre-Season',    bg:'#f0f9ff',color:'#0369a1'},
     regular:   {label:'Regular Season',bg:'#f0fdf4',color:'#15803d'},
     playoff:   {label:'Playoffs',      bg:'#fef2f2',color:'#dc2626'},
-    allstar:   {label:'All-Star',      bg:'#fef9c3',color:'#b45309'},
+    allstar:      {label:'All-Star',      bg:'#fef9c3',color:'#b45309'},
+    rising_stars: {label:'Rising Stars',  bg:'#ecfdf5',color:'#0d9488'},
   }
   const GAME_TYPE_LABEL_PT: Record<string,{label:string,bg:string,color:string}> = {
     preseason: {label:'Pré-Época',     bg:'#f0f9ff',color:'#0369a1'},
     regular:   {label:'Época Regular', bg:'#f0fdf4',color:'#15803d'},
     playoff:   {label:'Playoffs',      bg:'#fef2f2',color:'#dc2626'},
-    allstar:   {label:'All-Star',      bg:'#fef9c3',color:'#b45309'},
+    allstar:      {label:'All-Star',      bg:'#fef9c3',color:'#b45309'},
+    rising_stars: {label:'Rising Stars',  bg:'#ecfdf5',color:'#0d9488'},
   }
   const GAME_TYPE_LABEL = isPT ? GAME_TYPE_LABEL_PT : GAME_TYPE_LABEL_EN
 

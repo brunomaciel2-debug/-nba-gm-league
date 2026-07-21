@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getWeekDates } from '@/lib/season-week-helper'
+import { ALLSTAR_WEEK, ALLSTAR_HALF } from '@/lib/allstar-constants'
 
 // Maps a game's round-within-week index to a day offset from that week's
 // start date. Every within-week gap is 2 days (no back-to-backs inside a
@@ -125,19 +126,32 @@ export async function generateRegularSeasonSchedule(opts: { startWeek: number; e
   const remaining = [...allGames]
   let weekIdx = 0
   const MAX_ROUNDS_PER_WEEK = 4
+  // All-Star Weekend (ALLSTAR_HALF=1 of ALLSTAR_WEEK, see allstar-constants.ts)
+  // is a dedicated no-other-games block — rounds 0-1 map to that half's dates
+  // (getHalfWeekDates), so the first 2 rounds ever recorded for that week
+  // index must always come back empty. Checking weekRounds[wIdx].length < 2
+  // (not the round counter) makes this safe even if packing needs a second
+  // pass over the same week — whichever 2 rounds land first for that week
+  // are the blocked ones, and anything skipped just stays in `remaining` to
+  // be placed in a later week instead of being lost.
+  const allstarWeekIdx = ALLSTAR_WEEK - startWeek
   while (remaining.length > 0) {
     for (let round = 0; round < MAX_ROUNDS_PER_WEEK && remaining.length > 0; round++) {
+      const wIdx = weekIdx % totalWeeks
+      const isBlockedAllstarRound = wIdx === allstarWeekIdx && weekRounds[wIdx].length < 2
       const usedThisRound = new Set<string>()
       const roundGames: GameSlot[] = []
-      for (let i = 0; i < remaining.length; i++) {
-        const g = remaining[i]
-        if (usedThisRound.has(g.home) || usedThisRound.has(g.away)) continue
-        usedThisRound.add(g.home); usedThisRound.add(g.away)
-        roundGames.push(g)
-        remaining.splice(i, 1)
-        i--
+      if (!isBlockedAllstarRound) {
+        for (let i = 0; i < remaining.length; i++) {
+          const g = remaining[i]
+          if (usedThisRound.has(g.home) || usedThisRound.has(g.away)) continue
+          usedThisRound.add(g.home); usedThisRound.add(g.away)
+          roundGames.push(g)
+          remaining.splice(i, 1)
+          i--
+        }
       }
-      weekRounds[weekIdx % totalWeeks].push(roundGames)
+      weekRounds[wIdx].push(roundGames)
     }
     weekIdx++
     if (weekIdx > totalWeeks * 3) break // safety valve, shouldn't be needed

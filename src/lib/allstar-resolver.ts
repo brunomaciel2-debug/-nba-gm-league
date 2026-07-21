@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
-import { VOTING_CLOSES_WEEK, minGamesByWeek } from '@/lib/allstar-constants'
+import { VOTING_CLOSES_WEEK, ANNOUNCE_WEEK, minGamesByWeek } from '@/lib/allstar-constants'
 export * from '@/lib/allstar-constants'
 
 const SEASON = '2025-26'
@@ -101,7 +101,34 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
       }
       for (const [pid, cnt] of sorted) if (!allCands.find(c => c.pid === pid)) allCands.push({ pid, votes: cnt, pos })
     }
-    const reserves = allCands.filter(c => !starters.includes(c.pid)).sort((a, b) => b.votes - a.votes).slice(0, 7)
+
+    // Guarantee exactly 5 starters per conference. A position can come up
+    // with zero eligible candidates (sparse manual voting + no auto-votes
+    // needed there, since auto-votes only fill for teams that never
+    // voted) — this is the real gap found live (Eastern only got 4
+    // starters). Fill any remaining slot from the conference's best
+    // not-yet-selected eligible player by season production, same
+    // pts/reb/ast-weighted score already used for auto-votes above.
+    const confElRanked = eligible.filter((p: any) => teamConf[p.team_id] === conf)
+      .map((p: any) => { const s = p.player_stats?.[0] || {}; const gp = Math.max(1, s.games || 1); return { ...p, score: (s.pts / gp) * 0.5 + (s.reb / gp) * 0.25 + (s.ast / gp) * 0.25 } })
+      .sort((a: any, b: any) => b.score - a.score)
+    while (starters.length < 5) {
+      const filler = confElRanked.find((p: any) => !starters.includes(p.id))
+      if (!filler) break
+      starters.push(filler.id)
+      rosterRows.push({ season: SEASON, conference: conf, player_id: filler.id, position: filler.pos, is_starter: true, vote_count: 0, is_injured: false })
+    }
+
+    // Exactly 7 reserves per conference (5 starters + 7 reserves = 12,
+    // matching the real NBA format). Same production-based fallback if
+    // fewer than 7 candidates got any votes.
+    const reserves: { pid: number, votes: number, pos: string }[] =
+      allCands.filter(c => !starters.includes(c.pid)).sort((a, b) => b.votes - a.votes).slice(0, 7)
+    while (reserves.length < 7) {
+      const filler = confElRanked.find((p: any) => !starters.includes(p.id) && !reserves.some((r) => r.pid === p.id))
+      if (!filler) break
+      reserves.push({ pid: filler.id, votes: 0, pos: filler.pos })
+    }
     for (const r of reserves) rosterRows.push({ season: SEASON, conference: conf, player_id: r.pid, position: r.pos, is_starter: false, vote_count: r.votes, is_injured: false })
   }
 
@@ -111,19 +138,31 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
   const { data: activeInjuries } = await supabaseAdmin.from('injury_log').select('player_id').eq('status', 'active')
   const injuredIds = new Set((activeInjuries || []).map((i: any) => i.player_id))
 
-  const finalRoster = rosterRows.flatMap(row => {
+  // Was a .flatMap with each row computing its own replacement independently
+  // off a fixed "already on roster" snapshot — with only ever 1 injured
+  // player per conference in practice that never showed a problem, but with
+  // several injured at once (the real case found live: 4 in one conference)
+  // two different injured slots could pick the exact same healthy
+  // replacement twice, and a replaced STARTER always got logged as a
+  // reserve (losing a starting spot instead of keeping it). Rewritten as an
+  // imperative loop with one running "already used" set, and a replacement
+  // now inherits the replaced player's is_starter flag.
+  const usedPlayerIds = new Set(rosterRows.map((r: any) => r.player_id))
+  const finalRoster: any[] = []
+  for (const row of rosterRows) {
     if (injuredIds.has(row.player_id)) {
-      const inR = new Set(rosterRows.map((r: any) => r.player_id))
-      const rep = eligible.filter((p: any) => teamConf[p.team_id] === row.conference && !inR.has(p.id) && !injuredIds.has(p.id))
+      const rep = eligible.filter((p: any) => teamConf[p.team_id] === row.conference && !usedPlayerIds.has(p.id) && !injuredIds.has(p.id))
         .map((p: any) => { const s = p.player_stats?.[0] || {}; const gp = Math.max(1, s.games || 1); return { ...p, score: (s.pts / gp) * 0.5 + (s.reb / gp) * 0.25 + (s.ast / gp) * 0.25 } })
         .sort((a: any, b: any) => b.score - a.score)[0]
-      if (rep) return [
-        { ...row, is_injured: true, replaced_by: rep.id },
-        { season: SEASON, conference: row.conference, player_id: rep.id, position: row.position, is_starter: false, vote_count: 0, is_injured: false }
-      ]
+      if (rep) {
+        usedPlayerIds.add(rep.id)
+        finalRoster.push({ ...row, is_injured: true, replaced_by: rep.id })
+        finalRoster.push({ season: SEASON, conference: row.conference, player_id: rep.id, position: row.position, is_starter: row.is_starter, vote_count: 0, is_injured: false })
+        continue
+      }
     }
-    return [row]
-  })
+    finalRoster.push(row)
+  }
 
   await supabaseAdmin.from('allstar_roster').delete().eq('season', SEASON)
   await supabaseAdmin.from('allstar_roster').insert(finalRoster)
@@ -165,4 +204,84 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
   }
 
   return { skipped: false, total: finalRoster.length, auto_votes: autoRows.length }
+}
+
+// Rookies vs Sophomores ("Rising Stars") — unlike the East/West game, this
+// roster is entirely system-selected: top 12 by average Game Score in each
+// group (nba_experience 0 = Rookies, 1 = Sophomores), top 5 of each as
+// starters. Same idempotency pattern as resolveAllStarWeekend() (atomic
+// conditional UPDATE on its own flag) since this also runs unconditionally
+// every cron invocation.
+export async function resolveRisingStars(): Promise<{ skipped: boolean, rookies?: number, sophomores?: number }> {
+  const { data: sc } = await supabaseAdmin.from('season_config').select('current_week').eq('id', 1).single()
+  const currentWeek = sc?.current_week || 0
+  if (currentWeek < ANNOUNCE_WEEK) return { skipped: true }
+
+  const { data: claimed } = await supabaseAdmin.from('allstar_config')
+    .update({ rising_stars_announced: true }).eq('id', 1).eq('rising_stars_announced', false).select('id')
+  if (!claimed || claimed.length === 0) return { skipped: true }
+
+  const { data: activeInjuries } = await supabaseAdmin.from('injury_log').select('player_id').eq('status', 'active')
+  const injuredIds = new Set((activeInjuries || []).map((i: any) => i.player_id))
+
+  const { data: playersRaw } = await supabaseAdmin
+    .from('players').select('id,name,team_id,status,nba_experience')
+    .eq('status', 'active').in('nba_experience', [0, 1])
+
+  // Game Score is a LINEAR combination of box-score counting stats, so the
+  // average per game over a season is just the same formula applied to the
+  // season's TOTALS (from player_stats) divided by games played — no need
+  // to walk every individual box_scores row.
+  const { data: statsRows } = await supabaseAdmin.from('player_stats')
+    .select('player_id,games,pts,fgm,fga,ftm,fta,off_reb,def_reb,stl,ast,blk,fouls,turnovers')
+    .eq('season', SEASON)
+  const statsByPlayer: Record<string, any> = {}
+  ;(statsRows || []).forEach((s: any) => { statsByPlayer[s.player_id] = s })
+
+  const gameScoreAvg = (s: any) => {
+    if (!s || !s.games) return -Infinity
+    const total = (s.pts || 0) + 0.4 * (s.fgm || 0) - 0.7 * (s.fga || 0) - 0.4 * ((s.fta || 0) - (s.ftm || 0))
+      + 0.7 * (s.off_reb || 0) + 0.3 * (s.def_reb || 0) + (s.stl || 0) + 0.7 * (s.ast || 0) + 0.7 * (s.blk || 0)
+      - 0.4 * (s.fouls || 0) - (s.turnovers || 0)
+    return total / s.games
+  }
+
+  const buildGroup = (expYears: number) => (playersRaw || [])
+    .filter((p: any) => p.nba_experience === expYears && !injuredIds.has(p.id))
+    .map((p: any) => ({ ...p, gs: gameScoreAvg(statsByPlayer[p.id]) }))
+    .filter((p: any) => Number.isFinite(p.gs))
+    .sort((a: any, b: any) => b.gs - a.gs)
+    .slice(0, 12)
+
+  const rookies = buildGroup(0)
+  const sophomores = buildGroup(1)
+
+  const rows: any[] = []
+  ;[{ group: rookies, team: 'ROO' }, { group: sophomores, team: 'SOP' }].forEach(({ group, team }) => {
+    group.forEach((p: any, idx: number) => {
+      rows.push({ season: SEASON, team_id: team, player_id: p.id, is_starter: idx < 5, game_score: +p.gs.toFixed(2) })
+    })
+  })
+
+  await supabaseAdmin.from('rising_stars_roster').delete().eq('season', SEASON)
+  if (rows.length) await supabaseAdmin.from('rising_stars_roster').insert(rows)
+
+  // Same milestone-visibility need as the All-Star awards above — Starter
+  // vs Reserve per squad, surfaced via awards.notes on the player page.
+  const awardRows = rows.map((r: any) => ({
+    season: SEASON,
+    award_type: r.team_id === 'ROO' ? 'rising_stars_rookie' : 'rising_stars_sophomore',
+    period: `season_p${r.player_id}`,
+    team_id: r.team_id,
+    player_id: r.player_id,
+    score: r.game_score,
+    notes: r.is_starter ? 'Rising Stars Starter' : 'Rising Stars Reserve',
+  }))
+  if (awardRows.length) {
+    await supabaseAdmin.from('awards').delete().eq('season', SEASON).in('award_type', ['rising_stars_rookie', 'rising_stars_sophomore'])
+    const { error } = await supabaseAdmin.from('awards').insert(awardRows)
+    if (error) console.error('Rising Stars awards insert failed:', error)
+  }
+
+  return { skipped: false, rookies: rookies.length, sophomores: sophomores.length }
 }

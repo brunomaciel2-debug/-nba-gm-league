@@ -17,7 +17,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       supabase.from('player_stats').select('*,triple_doubles').eq('player_id', params.id).order('season', { ascending: false }),
       supabase.from('injury_log').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', { ascending: true }),
-      supabase.from('awards').select('award_type,period,season,stats_context,created_at').eq('player_id', params.id).order('created_at', { ascending: false }),
+      supabase.from('awards').select('award_type,period,season,stats_context,notes,created_at').eq('player_id', params.id).order('created_at', { ascending: false }),
       supabase.from('box_scores').select('*,games(id,home_team,away_team,home_score,away_score,played_at,home:teams!games_home_team_fkey(name,color),away:teams!games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0).order('created_at', { ascending: false }).limit(5),
       supabase.from('season_config').select('current_week').eq('id', 1).single(),
       supabase.from('teams').select('id,name,color,logo_url'),

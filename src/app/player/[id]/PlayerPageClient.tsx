@@ -29,6 +29,9 @@ const AWARD_LABELS_EN: Record<string,string> = {
   all_nba_1:'1st Team All-NBA', all_nba_2:'2nd Team All-NBA', all_nba_3:'3rd Team All-NBA',
   all_rookie_1:'1st Rookie Team', all_rookie_2:'2nd Rookie Team',
   all_star_east:'All-Star (Eastern Conference)', all_star_west:'All-Star (Western Conference)',
+  all_star_mvp:'All-Star Game MVP',
+  rising_stars_rookie:'Rising Stars (Rookie)', rising_stars_sophomore:'Rising Stars (Sophomore)',
+  rising_stars_mvp:'Rising Stars MVP',
 }
 const AWARD_LABELS_PT: Record<string,string> = {
   potw_eastern:'Jogador da Semana (Este)', potw_western:'Jogador da Semana (Oeste)',
@@ -38,6 +41,9 @@ const AWARD_LABELS_PT: Record<string,string> = {
   all_nba_1:'1º Quinteto All-NBA', all_nba_2:'2º Quinteto All-NBA', all_nba_3:'3º Quinteto All-NBA',
   all_rookie_1:'1º Quinteto de Rookies', all_rookie_2:'2º Quinteto de Rookies',
   all_star_east:'All-Star (Conferência Este)', all_star_west:'All-Star (Conferência Oeste)',
+  all_star_mvp:'MVP do Jogo das Estrelas',
+  rising_stars_rookie:'Rising Stars (Rookie)', rising_stars_sophomore:'Rising Stars (Sophomore)',
+  rising_stars_mvp:'MVP do Rising Stars',
 }
 const AWARD_COLORS: Record<string,string> = {
   mvp:'#c8102e', dpoy:'#15803d', roy:'#6d28d9', finals_mvp:'#c8102e',
@@ -45,7 +51,8 @@ const AWARD_COLORS: Record<string,string> = {
   potw_eastern:'#b45309', potw_western:'#1d4ed8',
   potm_eastern:'#b45309', potm_western:'#1d4ed8',
   all_rookie_1:'#6d28d9', all_rookie_2:'#8a8279',
-  all_star_east:'#e05050', all_star_west:'#5090d0',
+  all_star_east:'#e05050', all_star_west:'#5090d0', all_star_mvp:'#c8102e',
+  rising_stars_rookie:'#0d9488', rising_stars_sophomore:'#0369a1', rising_stars_mvp:'#c8102e',
 }
 
 function AttrBar({ value, color }: { value: number, color: string }) {
@@ -681,6 +688,11 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                 <div className="text-xs" style={{color:'#8a8279'}}>
                   {a.season} · {a.period?.replace(/_p\d+$/,'').replace('week_',isPT?'Semana ':'Week ').replace('month_',isPT?'Mês ':'Month ').replace('season',isPT?'Época Completa':'Full Season')}
                 </div>
+                {/* Starter/Reserve (or position) detail for All-Star-style
+                    awards lives in notes and was never shown anywhere before. */}
+                {a.notes && (
+                  <div className="text-xs font-medium" style={{color:'#5c554e'}}>{a.notes}</div>
+                )}
               </div>
               {a.stats_context?.ppg && (
                 <div className="text-xs font-semibold" style={{color:'#5c554e'}}>

@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
-import { getStatusForWeek, getHalfWeekDates, formatSimDate } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates, formatSimDate, getSimDate } from '@/lib/season-week-helper'
 import GlobalSearch from './GlobalSearch'
 
 export default function SimulatorBanner() {
@@ -12,15 +12,21 @@ export default function SimulatorBanner() {
   const [nextEvent, setNextEvent] = useState<any>(null)
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('season_config').select('*').eq('id', 1).single(),
+    supabase.from('season_config').select('*').eq('id', 1).single().then(({ data: cfg }) => {
+      setConfig(cfg)
+      // season_events rows are dated within the SIMULATED season calendar
+      // (Jul 2025 - Jun 2026) — comparing against real wall-clock "today"
+      // (as this used to) drifts further wrong every real day that passes
+      // without a matching sim day, until eventually every event silently
+      // reads as already past and "Next:" just stops showing anything. The
+      // simulated "today" (this week's start date) is the correct anchor.
+      const simToday = getSimDate(cfg?.current_week || 1)
+      const simTodayStr = `${simToday.getFullYear()}-${String(simToday.getMonth() + 1).padStart(2, '0')}-${String(simToday.getDate()).padStart(2, '0')}`
       supabase.from('season_events')
         .select('*').eq('season', '2025-26')
-        .gte('end_date', new Date().toISOString().split('T')[0])
-        .order('start_date').limit(1).single(),
-    ]).then(([{ data: cfg }, { data: ev }]) => {
-      setConfig(cfg)
-      setNextEvent(ev)
+        .gte('end_date', simTodayStr)
+        .order('start_date').limit(1).single()
+        .then(({ data: ev }) => setNextEvent(ev))
     })
   }, [])
 
@@ -84,6 +90,20 @@ export default function SimulatorBanner() {
   const simDay = (d: string) => isPT ? (SIM_DAY_PT[d] ?? d) : d
   const isActive = ['regular-season', 'playoffs', 'play-in', 'pre-season', 'summer-league', 'free-agency'].includes(status)
 
+  // A major event (All-Star Weekend, etc.) 2 sim-weeks out or closer gets its
+  // own loud, colored, pulsing badge next to the status pill — not just
+  // buried in the small muted "Next:" text on the right, which is easy to
+  // miss and says nothing beyond "some event is coming eventually". This is
+  // the actual "an event of this magnitude is approaching" notice Bruno
+  // asked for, distinct from the routine week-by-week sim info.
+  const eventSoon = (() => {
+    if (!nextEvent) return false
+    const simToday = getSimDate(week || 1)
+    const evStart = new Date(nextEvent.start_date + 'T00:00:00')
+    const daysUntil = Math.round((evStart.getTime() - simToday.getTime()) / 86400000)
+    return daysUntil <= 14
+  })()
+
   return (
     <div style={{ background: '#0a0f1a', borderBottom: '1px solid #1f2937', padding: '6px 0' }}>
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between flex-wrap gap-2">
@@ -99,6 +119,12 @@ export default function SimulatorBanner() {
             }} />
             {label}{week > 0 ? `: ${isPT ? 'Semana' : 'Week'} ${week}` : ''}
           </span>
+          {eventSoon && nextEvent && (
+            <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+              style={{ background: nextEvent.color || '#b45309', color: '#fff', animation: 'pulse 2s infinite' }}>
+              {nextEvent.icon} {nextEvent.event_name} · {fmtEventDate(nextEvent.start_date)}
+            </span>
+          )}
           {nextWeek > 0 ? (
             <span className="text-xs" style={{ color: '#8a8279' }}>
               {isPT ? 'Próxima simulação:' : 'Next sim:'}{' '}
