@@ -71,12 +71,12 @@ export default async function HomePage() {
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <HomeCalendarCard config={seasonConfig} upcomingEvents={upcomingEvents || []} />
         {bannerUrl ? (
-          <div className="rounded-2xl overflow-hidden flex-1 min-w-0" style={{height:280}}>
+          <div className="rounded-2xl overflow-hidden flex-1 min-w-0 h-56 md:h-auto">
             <img src={bannerUrl} alt="NBA GM League" className="w-full h-full object-cover"/>
           </div>
         ) : (
-          <div className="rounded-2xl flex-1 min-w-0 flex items-center justify-center"
-               style={{height:280,background:'linear-gradient(135deg,#1a1610 0%,#2a2218 50%,#1a1610 100%)',
+          <div className="rounded-2xl flex-1 min-w-0 flex items-center justify-center h-56 md:h-auto"
+               style={{background:'linear-gradient(135deg,#1a1610 0%,#2a2218 50%,#1a1610 100%)',
                        border:'1px solid #d4cec3'}}>
             <div className="text-center">
               <div className="text-5xl mb-3">🏀</div>
