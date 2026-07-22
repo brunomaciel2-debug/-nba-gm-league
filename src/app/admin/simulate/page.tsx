@@ -131,26 +131,27 @@ export default function AdminSimulatePage() {
     setLoading(false)
   }
 
-  // "Simulate 1 Game" — caps this call to just the next unsimulated game in
-  // the current block (see run.ts's gameLimit) — everything else in the
-  // block (and every once-per-half step) waits until it's actually done.
-  const simulateOneGame = async () => {
-    if (!confirm(isPT ? 'Simular apenas o próximo jogo agora?' : 'Simulate just the next game now?')) return
+  // "Simulate 1 Day" — caps this call to just the earliest unsimulated
+  // calendar day in the current block (see run.ts's dayLimit) — everything
+  // else in the block (and every once-per-half step) waits until it's
+  // actually done.
+  const simulateOneDay = async () => {
+    if (!confirm(isPT ? 'Simular apenas o próximo dia agora?' : 'Simulate just the next day now?')) return
     setLoading(true)
     setResult(null)
     try {
       const before = await getSeasonState()
       await maybeGenerateAutoOrders(before.half)
-      setLog(prev => [...prev, isPT ? '⏳ A simular 1 jogo...' : '⏳ Simulating 1 game...'])
+      setLog(prev => [...prev, isPT ? '⏳ A simular 1 dia...' : '⏳ Simulating 1 day...'])
       const res = await fetch('/api/admin/simulate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret: 'nba-admin-2025', gameLimit: 1 }),
+        body: JSON.stringify({ secret: 'nba-admin-2025', dayLimit: 1 }),
       })
       const data = await res.json()
       if (!res.ok || !data.success) throw new Error(data.error || (isPT ? 'Erro desconhecido' : 'Unknown error'))
       const msg = data.partial
-        ? (isPT ? `✅ 1 jogo simulado — ${data.games_remaining} por simular neste bloco (${formatWeekRange(data.week,locale)}).` : `✅ 1 game simulated — ${data.games_remaining} left in this block (${formatWeekRange(data.week,locale)}).`)
-        : (isPT ? `✅ Jogo simulado — era o último do bloco, bloco completo (${formatWeekRange(data.week,locale)}).` : `✅ Game simulated — it was the last one in the block, block complete (${formatWeekRange(data.week,locale)}).`)
+        ? (isPT ? `✅ ${data.games_simulated} jogo(s) simulado(s) — ${data.games_remaining} por simular neste bloco (${formatWeekRange(data.week,locale)}).` : `✅ ${data.games_simulated} game(s) simulated — ${data.games_remaining} left in this block (${formatWeekRange(data.week,locale)}).`)
+        : (isPT ? `✅ Dia simulado — era o último do bloco, bloco completo (${formatWeekRange(data.week,locale)}).` : `✅ Day simulated — it was the last one in the block, block complete (${formatWeekRange(data.week,locale)}).`)
       setLog(prev => [...prev, msg])
       setResult(data)
     } catch (e: any) {
@@ -213,23 +214,29 @@ export default function AdminSimulatePage() {
         </div>
         <div className="flex flex-col gap-1.5 text-sm" style={{color:'#3d3731'}}>
           {(isPT ? [
-            '🏀 4 jogos por equipa (round-robin)',
-            '🤝 Amigáveis pendentes resolvidos (não contam para stats)',
+            '🏀 Jogos da semana (regulares, amigáveis/Pré-Época, exibições All-Star, Playoffs, G-League e Summer League, consoante a fase da época)',
             '📊 Estatísticas de jogadores actualizadas (excepto na Pré-Época)',
-            '🏥 Saúde e lesões processadas',
-            '📈 Desenvolvimento de atributos',
-            '🏆 Prémios semanais / mensais (excepto na Pré-Época)',
-            '💰 Objectivos de patrocínio verificados',
+            '🏥 Saúde e lesões (em jogo, treino e fora de campo), recuperação e suspensões por faltas técnicas',
+            '📈 Desenvolvimento de atributos e treino (slots e créditos)',
+            '🏆 Prémios (semanais, mensais, da época) e Power Rankings actualizados',
+            '💰 Finanças da equipa: patrocínios, merchandising e manutenção de instalações',
+            '❤️ Popularidade e satisfação (fãs, GM, donos)',
+            '🤝 Interações entre jogadores e All-Star Weekend (votação/plantéis)',
+            '⚠️ Avisos de retirada e decisões de fim de época',
+            '👴 Envelhecimento e progressão de rookies (fim de época)',
             '🔬 Pontos de scouting gerados',
             '📣 Notificações enviadas aos GMs',
           ] : [
-            '🏀 4 games per team (round-robin)',
-            '🤝 Pending friendlies resolved (don\'t count toward stats)',
+            '🏀 Games for the week (regular, friendlies/Pre-Season, All-Star exhibitions, Playoffs, G-League and Summer League, depending on the season phase)',
             '📊 Player stats updated (except during Pre-Season)',
-            '🏥 Health and injuries processed',
-            '📈 Attribute development',
-            '🏆 Weekly / monthly awards (except during Pre-Season)',
-            '💰 Sponsor objectives checked',
+            '🏥 Health and injuries (in-game, practice and off-court), recovery and technical-foul suspensions',
+            '📈 Attribute development and training (slots and credits)',
+            '🏆 Awards (weekly, monthly, season) and Power Rankings updated',
+            '💰 Team finances: sponsorships, merchandising and facility upkeep',
+            '❤️ Popularity and satisfaction (fans, GM, owners)',
+            '🤝 Player interactions and All-Star Weekend (voting/rosters)',
+            '⚠️ Retirement warnings and end-of-season decisions',
+            '👴 Aging and rookie option progression (end of season)',
             '🔬 Scouting points generated',
             '📣 Notifications sent to GMs',
           ]).map((item, i) => (
@@ -245,36 +252,32 @@ export default function AdminSimulatePage() {
         {isPT ? 'Simular' : 'Simulate'}
       </div>
       <div className="flex flex-col gap-2 mb-6">
-        <button
-          onClick={simulateOneGame}
-          disabled={loading}
-          className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 text-left px-4"
-          style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}>
-          🏀 {isPT ? '1 Jogo' : '1 Game'}
-          <div className="text-xs font-normal mt-0.5" style={{color:'#8a8279'}}>
-            {isPT ? 'Simula apenas o próximo jogo do bloco atual, e para aí.' : 'Simulates just the next game in the current block, then stops.'}
-          </div>
-        </button>
-        <button
-          onClick={() => simulate(1)}
-          disabled={loading}
-          className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 text-left px-4"
-          style={{background:'#c8102e', color:'#fff'}}>
-          ✅ {isPT ? 'Completar Bloco (3-4 dias)' : 'Complete Block (3-4 days)'}
-          <div className="text-xs font-normal mt-0.5" style={{color:'#ffd9d9'}}>
-            {isPT ? 'Termina todos os jogos que faltam no bloco atual (novo ou a meio).' : 'Finishes every game still left in the current block (fresh or mid-way).'}
-          </div>
-        </button>
-        <button
-          onClick={simulateOneWeek}
-          disabled={loading}
-          className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 text-left px-4"
-          style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}>
-          📅 {isPT ? '1 Semana Completa' : 'Full Week'}
-          <div className="text-xs font-normal mt-0.5" style={{color:'#8a8279'}}>
-            {isPT ? 'Simula a semana atual até ao fim (1 ou 2 blocos, conforme o ponto onde vai).' : 'Simulates the current week to completion (1 or 2 blocks, depending on where it is right now).'}
-          </div>
-        </button>
+        {[
+          { onClick: simulateOneDay, icon: '🌅', color: '#1d4ed8',
+            labelPT: '1 Dia', labelEN: '1 Day',
+            descPT: 'Simula só o próximo dia com jogos por realizar no bloco atual, e para aí.',
+            descEN: 'Simulates just the next day of games in the current block, then stops.' },
+          { onClick: () => simulate(1), icon: '✅', color: '#c8102e',
+            labelPT: 'Completar Bloco (3-4 dias)', labelEN: 'Complete Block (3-4 days)',
+            descPT: 'Termina todos os jogos que faltam no bloco atual (novo ou a meio).',
+            descEN: 'Finishes every game still left in the current block (fresh or mid-way).' },
+          { onClick: simulateOneWeek, icon: '📅', color: '#15803d',
+            labelPT: '1 Semana Completa', labelEN: 'Full Week',
+            descPT: 'Simula a semana atual até ao fim (1 ou 2 blocos, conforme o ponto onde vai).',
+            descEN: 'Simulates the current week to completion (1 or 2 blocks, depending on where it is right now).' },
+        ].map(opt => (
+          <button
+            key={opt.labelEN}
+            onClick={opt.onClick}
+            disabled={loading}
+            className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 text-left px-4"
+            style={{background:'#faf8f5', border:'1px solid #d4cdc5', borderLeft:`4px solid ${opt.color}`, color:'#1a1512'}}>
+            <span style={{color:opt.color}}>{opt.icon} {isPT ? opt.labelPT : opt.labelEN}</span>
+            <div className="text-xs font-normal mt-0.5" style={{color:'#8a8279'}}>
+              {isPT ? opt.descPT : opt.descEN}
+            </div>
+          </button>
+        ))}
       </div>
 
       {/* Advanced: bulk-skip several blocks at once (testing) */}

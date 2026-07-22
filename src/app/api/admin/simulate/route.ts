@@ -11,12 +11,12 @@ export const maxDuration = 800
 export async function POST(req: NextRequest) {
   try {
     // Verify admin secret
-    const { secret, gameLimit } = await req.json()
+    const { secret, dayLimit } = await req.json()
     if (secret !== process.env.ADMIN_SECRET && secret !== 'nba-admin-2025') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    return await runWeeklySimulation(gameLimit ? { gameLimit } : undefined)
+    return await runWeeklySimulation(dayLimit ? { dayLimit } : undefined)
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
