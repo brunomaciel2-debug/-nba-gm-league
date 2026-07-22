@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 
-type Tab = 'teams'|'standings'|'schedule'|'leaders'
+type Tab = 'teams'|'standings'|'schedule'|'leaders'|'playoffs'
 
 export default function GLeaguePage() {
   const {t} = useTranslation()
@@ -17,6 +17,9 @@ export default function GLeaguePage() {
   const [loading,setLoading]=useState(true)
   const [week,setWeek]=useState<number|null>(null)
   const [filterTeam,setFilterTeam]=useState<string>('ALL')
+  const [playoffSeries,setPlayoffSeries]=useState<any[]>([])
+  const [pendingRegularCount,setPendingRegularCount]=useState(0)
+  const [champion,setChampion]=useState<any>(null)
 
   useEffect(()=>{
     Promise.all([
@@ -30,8 +33,12 @@ export default function GLeaguePage() {
 // "real enough to rank" sample, e.g. Player of the Week) still fetched
 // at the per-category filter below.
 supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,photo_url), team:gleague_teams(id,name,color)').eq('season','2025-26').gt('games',0),
-    ]).then(([{data:t},{data:g},{data:l}])=>{
+      supabase.from('gleague_playoff_series').select('*').eq('season','2025-26'),
+      supabase.from('gleague_games').select('*',{count:'exact',head:true}).eq('season','2025-26').eq('game_type','regular').eq('status','scheduled'),
+      supabase.from('championship_history').select('*').eq('season','2025-26').eq('league','gleague').maybeSingle(),
+    ]).then(([{data:t},{data:g},{data:l},{data:ps},{count:prc},{data:champ}])=>{
       setTeams(t||[]); setGames(g||[]); setLeaders(l||[])
+      setPlayoffSeries(ps||[]); setPendingRegularCount(prc||0); setChampion(champ||null)
       const now=new Date(); const weekSet:Record<number,boolean>={}
       ;(g||[]).forEach((x:any)=>{weekSet[x.week_number]=true})
       const allWeeks=Object.keys(weekSet).map(Number).sort((a,b)=>a-b)
@@ -56,6 +63,7 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
     {key:'standings',labelEN:'Standings',     labelPT:'Classificação', icon:'ti-list-numbers'},
     {key:'schedule', labelEN:'Schedule',      labelPT:'Calendário',    icon:'ti-calendar'},
     {key:'leaders',  labelEN:'League Leaders',labelPT:'Líderes',       icon:'ti-trophy'},
+    {key:'playoffs', labelEN:'Playoffs',      labelPT:'Playoffs',      icon:'ti-tournament'},
   ] as const
 
   const weekLabel=(w:number)=>{
@@ -295,6 +303,114 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
           })}
         </div>
       )}
+      {tab==='playoffs'&&(()=>{
+        const teamById: Record<string, any> = {}
+        teams.forEach((t:any)=>{ teamById[t.id]=t })
+        const seriesByType: Record<string, any> = {}
+        playoffSeries.forEach((s:any)=>{ seriesByType[s.series_type]=s })
+        const bracketSeeded = playoffSeries.length > 0
+
+        const TeamLine = ({team,isWinner,empty}:{team:any,isWinner:boolean,empty:boolean})=>(
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{background:isWinner?'#dcfce7':'#faf8f5',border:'1px solid '+(isWinner?'#15803d':'#d4cdc5'),opacity:empty?0.5:1}}>
+            {team?.logo_url?<img src={team.logo_url} alt="" style={{width:22,height:22,objectFit:'contain',flexShrink:0}}/>:<div style={{width:22,height:22,flexShrink:0}}/>}
+            <span className="text-xs font-semibold truncate flex-1" style={{color:isWinner?'#15803d':'#1a1512'}}>{team?.name||'TBD'}</span>
+            {isWinner&&<span style={{fontSize:11,color:'#15803d'}}>✓</span>}
+          </div>
+        )
+        const MatchupBox = ({seriesType,label}:{seriesType:string,label:string})=>{
+          const s = seriesByType[seriesType]
+          const high = s?.team_high ? teamById[s.team_high] : null
+          const low = s?.team_low ? teamById[s.team_low] : null
+          const completed = s?.status === 'completed'
+          const winnerId = completed ? (s.wins_high > s.wins_low ? s.team_high : s.team_low) : null
+          return (
+            <div className="rounded-xl p-2" style={{background:'#f0ece5',border:'1px solid #d4cdc5',minWidth:170}}>
+              <div className="text-xs font-bold uppercase mb-1.5 text-center" style={{color:'#8a8279',letterSpacing:'0.5px'}}>{label}</div>
+              <div className="flex flex-col gap-1">
+                <TeamLine team={high} isWinner={winnerId===s?.team_high} empty={!high}/>
+                <TeamLine team={low} isWinner={winnerId===s?.team_low} empty={!low}/>
+              </div>
+            </div>
+          )
+        }
+        const ConfBracket = ({conf}:{conf:'eastern'|'western'})=>(
+          <div className="flex flex-col gap-3 items-center">
+            <div className="grid grid-cols-2 gap-2">
+              <MatchupBox seriesType={`r1_${conf}_1v8`} label={isPT?'Ronda 1':'Round 1'}/>
+              <MatchupBox seriesType={`r1_${conf}_4v5`} label={isPT?'Ronda 1':'Round 1'}/>
+              <MatchupBox seriesType={`r1_${conf}_2v7`} label={isPT?'Ronda 1':'Round 1'}/>
+              <MatchupBox seriesType={`r1_${conf}_3v6`} label={isPT?'Ronda 1':'Round 1'}/>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <MatchupBox seriesType={`r2_${conf}_a`} label={isPT?'Meias-Finais':'Conf. Semis'}/>
+              <MatchupBox seriesType={`r2_${conf}_b`} label={isPT?'Meias-Finais':'Conf. Semis'}/>
+            </div>
+            <MatchupBox seriesType={`cf_${conf}`} label={isPT?`Final ${conf==='eastern'?'Este':'Oeste'}`:`${conf==='eastern'?'East':'West'} Final`}/>
+          </div>
+        )
+
+        return (
+          <div>
+            {champion&&(
+              <div className="rounded-xl p-5 mb-6 text-center" style={{background:'#fef3c7',border:'2px solid #b45309'}}>
+                <div className="text-3xl mb-2">🏆</div>
+                <div className="text-lg font-black" style={{color:'#92400e'}}>{champion.champion_team_name}</div>
+                <div className="text-xs mt-1" style={{color:'#8a6a00'}}>{isPT?'Campeão da G League 2025-26':'2025-26 G League Champion'} · {isPT?'vice':'runner-up'}: {champion.runner_up_team_name}</div>
+              </div>
+            )}
+
+            {!bracketSeeded&&(
+              <div className="rounded-xl p-6 mb-8 text-center" style={{background:'#faf8f5',border:'1px dashed #d4cdc5'}}>
+                <div className="text-2xl mb-2">⏳</div>
+                <p className="text-sm" style={{color:'#5c554e'}}>
+                  {isPT
+                    ? `Os playoffs começam assim que a época regular terminar por completo. Faltam ${pendingRegularCount} jogo(s) da época regular.`
+                    : `Playoffs begin once every regular-season game has been simulated. ${pendingRegularCount} regular-season game(s) still remaining.`}
+                </p>
+                <p className="text-xs mt-2" style={{color:'#8a8279'}}>
+                  {isPT?'Top 8 por conferência — pré-visualização com a classificação atual:':'Top 8 per conference — preview based on current standings:'}
+                </p>
+              </div>
+            )}
+
+            {!bracketSeeded ? (
+              <div className="grid md:grid-cols-2 gap-6">
+                {[['Eastern',east],['Western',west]].map(([conf,ranked]:any)=>(
+                  <div key={conf} className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
+                    <div className="px-4 py-2" style={{background:conf==='Eastern'?'#1e3a5f':'#7c2d12'}}>
+                      <span className="text-sm font-bold" style={{color:'#fff'}}>{confLabel(conf)}</span>
+                    </div>
+                    {ranked.slice(0,8).map((t:any,i:number)=>(
+                      <div key={t.id} className="flex items-center gap-2 px-4 py-2" style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                        <span className="text-xs font-bold w-4" style={{color:'#15803d'}}>{i+1}</span>
+                        {t.logo_url?<img src={t.logo_url} alt="" className="w-5 h-5 object-contain"/>:null}
+                        <span className="text-xs flex-1 truncate" style={{color:'#1a1512'}}>{t.name}</span>
+                        <span className="text-xs font-semibold" style={{color:'#8a8279'}}>{t.wins}-{t.losses}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-[1fr_auto_1fr] gap-6 items-center">
+                <div>
+                  <div className="text-xs font-bold uppercase text-center mb-3" style={{color:'#1e3a8a',letterSpacing:'1px'}}>{isPT?'Conferência Este':'Eastern Conference'}</div>
+                  <ConfBracket conf="eastern"/>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <i className="ti ti-trophy" style={{fontSize:36,color:'#c8102e'}}></i>
+                  <div className="text-xs font-bold uppercase" style={{color:'#c8102e',letterSpacing:'1px'}}>{isPT?'Final G League':'G League Finals'}</div>
+                  <MatchupBox seriesType="gl_finals" label={isPT?'Final':'Finals'}/>
+                </div>
+                <div>
+                  <div className="text-xs font-bold uppercase text-center mb-3" style={{color:'#7c2d12',letterSpacing:'1px'}}>{isPT?'Conferência Oeste':'Western Conference'}</div>
+                  <ConfBracket conf="western"/>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
       </>}
     </div>
   )
