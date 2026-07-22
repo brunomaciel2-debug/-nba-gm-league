@@ -534,11 +534,18 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             the row, so it read as shifted left. Explicit column numbers
             keep each section in its column even if one of the three is
             missing for a given game. */}
+        {/* lg (1024px), not sm (640px) — a phone rotated to landscape is
+            commonly 700-900px wide, comfortably past sm but nowhere near
+            wide enough to fit all three sections; the MVP column (real 1fr
+            remainder) was shrinking to ~117px, forcing its photo+text to
+            wrap into a very tall column that then overlapped whatever sits
+            above it (items-center vertically centers each column inside the
+            tallest one's row height). Confirmed at 800x360. */}
         {((periodScores && periodScores.length > 0) || (mvpEntry && mvpTeam) || refereeName) && (
-          <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr_auto] items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_auto] items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
             {/* LINE SCORE — Q1-Q4 plus OT1/OT2/... if the game went to overtime */}
             {periodScores && periodScores.length > 0 && (
-              <div className="sm:col-start-1 overflow-x-auto flex items-center">
+              <div className="lg:col-start-1 overflow-x-auto flex items-center">
                 <table className="text-xs" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
                   <thead>
                     <tr>
@@ -574,7 +581,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
             {/* GAME MVP — highest Game Score (GmSc), the same formula NBA.com/
                 ESPN use to summarize a single-game performance in one number. */}
             {mvpEntry && mvpTeam && (
-              <div className="sm:col-start-2 p-3 flex items-center justify-center gap-3 min-w-0">
+              <div className="lg:col-start-2 p-3 flex items-center justify-center gap-3 min-w-0">
                 {mvpEntry.b.photo_url ? (
                   <img src={mvpEntry.b.photo_url} alt="" className="w-20 h-20 rounded-full object-cover flex-shrink-0"
                     style={{ border: `3px solid ${mvpColorOnDark}`, boxShadow: `0 0 0 4px ${mvpColorOnDark}1a` }} />
@@ -612,7 +619,7 @@ export default function GameBoxScore(props: GameBoxScoreProps) {
                 which moved up under the arena name where it actually
                 belongs). */}
             {refereeName && (
-              <div className="sm:col-start-3 p-3 flex items-center justify-center gap-3 min-w-0">
+              <div className="lg:col-start-3 p-3 flex items-center justify-center gap-3 min-w-0">
                 <div
                   className="w-20 h-20 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
                   style={{ background: 'rgba(255,255,255,0.08)', border: '2px solid rgba(255,255,255,0.15)' }}
