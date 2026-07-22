@@ -18,7 +18,14 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       supabase.from('injury_log').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
       supabase.from('contracts').select('*').eq('player_id', params.id).order('season', { ascending: true }),
       supabase.from('awards').select('award_type,period,season,stats_context,notes,created_at').eq('player_id', params.id).order('created_at', { ascending: false }),
-      supabase.from('box_scores').select('*,games(id,home_team,away_team,home_score,away_score,played_at,home:teams!games_home_team_fkey(name,color),away:teams!games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0).order('created_at', { ascending: false }).limit(5),
+      // box_scores has no created_at column of its own (and ordering by the
+      // joined games.played_at via PostgREST's foreignTable option does not
+      // reliably sort descending here) — order('created_at',...) used to
+      // silently error, which is why this always came back empty even for
+      // a player with 60+ games played. Fetch every one of his box scores
+      // (bounded by nature — a season is at most ~82 games) and sort by the
+      // real game date in plain JS below instead.
+      supabase.from('box_scores').select('*,games(id,home_team,away_team,home_score,away_score,played_at,home:teams!games_home_team_fkey(name,color),away:teams!games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0),
       supabase.from('season_config').select('current_week').eq('id', 1).single(),
       supabase.from('teams').select('id,name,color,logo_url'),
       supabase.from('player_transactions').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
@@ -31,6 +38,10 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       supabase.from('gleague_box_scores').select('*,game:gleague_games(id,home_team,away_team,home_score,away_score,played_at,home:gleague_teams!gleague_games_home_team_fkey(name,color),away:gleague_teams!gleague_games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0).order('created_at', { ascending: false }).limit(5),
       supabase.from('draft_config').select('next_draft_season').eq('id', 1).maybeSingle(),
     ])
+  const sortedLastGames = [...(lastGames || [])]
+    .sort((a: any, b: any) => new Date(b.games?.played_at || 0).getTime() - new Date(a.games?.played_at || 0).getTime())
+    .slice(0, 5)
+
   const teamMap: Record<string, any> = {}
   for (const t of (allTeams || [])) teamMap[t.id] = t
   const nextWeek = (cfg?.current_week || 0) + 1
@@ -71,7 +82,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
         injuries={injuries||[]}
         contracts={contracts||[]}
         playerAwards={playerAwards||[]}
-        lastGames={lastGames||[]}
+        lastGames={sortedLastGames}
         gleagueStats={gleagueStats||[]}
         gleagueLastGames={gleagueLastGames||[]}
         teamColor={tc}
