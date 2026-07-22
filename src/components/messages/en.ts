@@ -64,7 +64,7 @@ const en = {
     rule3Title: 'Maximum Salary — $50M',
     rule3Desc: 'No player can earn more than $50M per year. This is the league-wide ceiling, whether through free agency, trade, or contract extension.',
     rule4Title: 'Roster Size — 12 to 15',
-    rule4Desc: 'Teams should carry between 12 and 15 active players. The 15-player maximum is enforced for free agency signings, but the 12-player minimum is currently advisory only — the app warns you if a cut would drop you below it, but nothing blocks the cut. Keep an eye on it yourself.',
+    rule4Desc: 'Teams must carry between 12 and 15 active players. Both ends are real, hard limits — the app blocks any cut, trade, or rookie-option decision that would drop your roster below 12 (outside Free Agency week) or push it past 15.',
     rule5Title: 'Cut Players & Dead Cap',
     rule5Desc: 'Releasing a player does not free up cap space immediately. Their salary remains on your cap as "dead money" until another team signs them as a free agent — at which point the charge moves to the new team and your cap space is restored.',
     rule6Title: 'Free Agency Signings',

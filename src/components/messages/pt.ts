@@ -64,7 +64,7 @@ const pt = {
     rule3Title: 'Salário Máximo — 50M$',
     rule3Desc: 'Nenhum jogador pode ganhar mais de 50M$ por ano. Este é o teto máximo da liga, seja através de free agency, trade ou renovação de contrato.',
     rule4Title: 'Tamanho do Plantel — 12 a 15',
-    rule4Desc: 'As equipas devem ter entre 12 e 15 jogadores ativos. O máximo de 15 é aplicado nas contratações de free agency, mas o mínimo de 12 é atualmente só um aviso — a app avisa-te se um corte te fizer descer abaixo disso, mas nada bloqueia o corte. Fica de olho tu próprio.',
+    rule4Desc: 'As equipas têm de ter entre 12 e 15 jogadores ativos. Os dois limites são reais e bloqueiam mesmo a ação — a app impede qualquer corte, troca ou decisão de opção de rookie que faça a equipa descer abaixo de 12 (fora da semana de Free Agency) ou passar de 15.',
     rule5Title: 'Dispensa de Jogadores & Salário Morto',
     rule5Desc: 'Dispensar um jogador não liberta margem salarial de imediato. O seu salário continua na folha salarial como "salário morto" até outra equipa o contratar como free agent — altura em que o encargo passa para a nova equipa e a tua margem é restaurada.',
     rule6Title: 'Contratações em Free Agency',
