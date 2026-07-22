@@ -1,81 +1,121 @@
 'use client'
 import { useTranslation } from '@/components/I18nProvider'
 import Link from 'next/link'
-import { getStatusForWeek, getHalfWeekDates, getSimDate, formatWeekRange, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
 
-// Homepage "at a glance" calendar card — same color palette as the navbar's
-// SimulatorBanner strip (SEASON_STATUS_COLORS), so a GM learns one color
-// per season phase once and recognizes it everywhere on the site.
+const WEEKDAY_PT = ['D','S','T','Q','Q','S','S']
+const WEEKDAY_EN = ['S','M','T','W','T','F','S']
+const MONTH_NAMES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const MONTH_NAMES_EN = ['January','February','March','April','May','June','July','August','September','October','November','December']
+
+function ymd(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
+
+// 6 full weeks (42 days) starting on the Sunday on/before the 1st — always
+// enough rows for any month, muted leading/trailing days from neighbors.
+function getMonthGrid(year: number, month: number): Date[] {
+  const first = new Date(year, month, 1)
+  const gridStart = new Date(year, month, 1 - first.getDay())
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(gridStart)
+    d.setDate(gridStart.getDate() + i)
+    return d
+  })
+}
+
+// Homepage "at a glance" calendar — a real month grid (not another status
+// summary; the navbar's SimulatorBanner strip already covers that) showing
+// the SIMULATED season calendar: this week highlighted, the specific days
+// of the next simulation block called out, and the next major event marked
+// on its date. Same color palette as the navbar (SEASON_STATUS_COLORS) so a
+// GM recognizes one color per season phase everywhere on the site.
 export function HomeCalendarCard({ config, nextEvent }: { config: any, nextEvent: any }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
-  const locale = isPT ? 'pt-PT' : 'en-US'
 
   if (!config) return null
 
   const week = config.current_week || 0
   const nextWeek = week + 1
   const status = getStatusForWeek(week)
-  const nextStatus = getStatusForWeek(nextWeek)
   const sc = SEASON_STATUS_COLORS[status] || SEASON_STATUS_COLORS['offseason']
   const label = SEASON_STATUS_LABELS[status] ? (isPT ? SEASON_STATUS_LABELS[status].pt : SEASON_STATUS_LABELS[status].en) : status
-  const nextLabel = SEASON_STATUS_LABELS[nextStatus] ? (isPT ? SEASON_STATUS_LABELS[nextStatus].pt : SEASON_STATUS_LABELS[nextStatus].en) : nextStatus
+
+  const { start: weekStart, end: weekEnd } = week > 0
+    ? { start: getHalfWeekDates(week,1).start, end: getHalfWeekDates(week,2).end }
+    : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
 
   const nextHalf: 1 | 2 = config.next_sim_half === 2 ? 2 : 1
   const { start: blockStart, end: blockEnd } = nextWeek > 0
     ? getHalfWeekDates(nextWeek, nextHalf)
     : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
-  const fmtDate = (d: Date) => d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
-  const fmtEventDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString(locale, { month: 'short', day: 'numeric' })
 
-  const SIM_DAY_PT: Record<string, string> = {
-    Monday: 'Segunda', Tuesday: 'Terça', Wednesday: 'Quarta',
-    Thursday: 'Quinta', Friday: 'Sexta', Saturday: 'Sábado', Sunday: 'Domingo',
-  }
-  const simDay = (d: string) => isPT ? (SIM_DAY_PT[d] ?? d) : d
+  // The grid shows whichever month the upcoming simulation block falls in —
+  // that's the thing a GM actually wants to see coming up, more than the
+  // (possibly already-finished) current week.
+  const gridMonth = blockStart
+  const days = getMonthGrid(gridMonth.getFullYear(), gridMonth.getMonth())
+  const weekdayLabels = isPT ? WEEKDAY_PT : WEEKDAY_EN
+  const monthLabel = `${(isPT ? MONTH_NAMES_PT : MONTH_NAMES_EN)[gridMonth.getMonth()]} ${gridMonth.getFullYear()}`
 
-  const eventSoon = (() => {
-    if (!nextEvent) return false
-    const simToday = getSimDate(week || 1)
-    const evStart = new Date(nextEvent.start_date + 'T00:00:00')
-    const daysUntil = Math.round((evStart.getTime() - simToday.getTime()) / 86400000)
-    return daysUntil <= 14
-  })()
+  const weekStartStr = ymd(weekStart), weekEndStr = ymd(weekEnd)
+  const blockStartStr = ymd(blockStart), blockEndStr = ymd(blockEnd)
+  const eventDateStr = nextEvent?.start_date
 
   return (
-    <div className="rounded-2xl flex flex-col gap-3" style={{background:'#0a0f1a',border:'1px solid #1f2937',padding:'16px',height:280,width:260,flexShrink:0}}>
-      <div className="text-xs font-bold uppercase tracking-widest" style={{color:'#8a8279',letterSpacing:'1px'}}>
-        📅 {isPT ? 'Calendário' : 'Calendar'}
-      </div>
-
-      <div>
-        <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full w-fit"
+    <div className="rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5',padding:'14px 16px',width:300,flexShrink:0}}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-bold" style={{color:'#1a1512'}}>{monthLabel}</span>
+        <span className="flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full"
           style={{ background: sc.bg, color: sc.text }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: sc.dot, display: 'inline-block', boxShadow: `0 0 6px ${sc.dot}` }} />
+          <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc.dot, display: 'inline-block' }} />
           {label}
         </span>
-        {week > 0 && <div className="text-sm font-semibold mt-1.5" style={{color:'#d4cdc5'}}>{formatWeekRange(week, locale)}</div>}
       </div>
 
-      <div style={{borderTop:'1px solid #1f2937',paddingTop:10}}>
-        <div className="text-xs" style={{color:'#8a8279'}}>{isPT ? 'Próxima simulação' : 'Next simulation'}</div>
-        <div className="text-sm font-semibold mt-0.5" style={{color: sc.text}}>
-          {nextStatus !== status ? `${nextLabel} · ` : ''}{fmtDate(blockStart)}–{fmtDate(blockEnd)}
-        </div>
-        <div className="text-xs mt-0.5" style={{color:'#8a8279'}}>
-          {isPT ? 'Simula-se às' : 'Simulates on'} {simDay(config.sim_day_1)} {isPT ? 'e' : '&'} {simDay(config.sim_day_2)}
-        </div>
+      <div className="grid grid-cols-7 gap-0.5 mb-0.5">
+        {weekdayLabels.map((w, i) => (
+          <div key={i} className="text-center text-xs font-bold" style={{color:'#b0a89e'}}>{w}</div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-0.5">
+        {days.map((d, i) => {
+          const dStr = ymd(d)
+          const inGridMonth = d.getMonth() === gridMonth.getMonth()
+          const isThisWeek = dStr >= weekStartStr && dStr <= weekEndStr
+          const isNextBlock = dStr >= blockStartStr && dStr <= blockEndStr
+          const isEvent = eventDateStr === dStr
+          return (
+            <div key={i} className="flex items-center justify-center relative" style={{height:30}}>
+              <div className="flex items-center justify-center rounded-full text-xs"
+                style={{
+                  width: 26, height: 26, fontWeight: isNextBlock ? 800 : 500,
+                  color: !inGridMonth ? '#d4cdc5' : isNextBlock ? '#fff' : isThisWeek ? sc.text : '#3d3731',
+                  background: isNextBlock ? sc.dot : isThisWeek ? sc.bg : 'transparent',
+                }}>
+                {d.getDate()}
+              </div>
+              {isEvent && <div style={{position:'absolute',bottom:0,width:5,height:5,borderRadius:'50%',background:nextEvent.color||'#b45309'}} />}
+            </div>
+          )
+        })}
       </div>
 
-      {nextEvent && (
-        <div style={{borderTop:'1px solid #1f2937',paddingTop:10,marginTop:'auto'}}>
-          <div className="text-xs mb-1.5" style={{color:'#8a8279'}}>{isPT ? 'A seguir' : 'Coming up'}</div>
-          <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full w-fit"
-            style={eventSoon ? {background: nextEvent.color || '#b45309', color: '#fff'} : {background:'#1f2937', color:'#d4cdc5'}}>
-            {nextEvent.icon} {nextEvent.event_name} · {fmtEventDate(nextEvent.start_date)}
+      <div className="flex items-center gap-3 mt-2 pt-2 flex-wrap" style={{borderTop:'1px solid #e2dcd5'}}>
+        <span className="flex items-center gap-1 text-xs" style={{color:'#5c554e'}}>
+          <span style={{width:8,height:8,borderRadius:'50%',background:sc.bg,border:`1px solid ${sc.dot}`,display:'inline-block'}}/>
+          {isPT ? 'Esta semana' : 'This week'}
+        </span>
+        <span className="flex items-center gap-1 text-xs" style={{color:'#5c554e'}}>
+          <span style={{width:8,height:8,borderRadius:'50%',background:sc.dot,display:'inline-block'}}/>
+          {isPT ? 'Próxima simulação' : 'Next simulation'}
+        </span>
+        {nextEvent && (
+          <span className="flex items-center gap-1 text-xs" style={{color:'#5c554e'}}>
+            <span style={{width:8,height:8,borderRadius:'50%',background:nextEvent.color||'#b45309',display:'inline-block'}}/>
+            {nextEvent.icon} {nextEvent.event_name}
           </span>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
