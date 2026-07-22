@@ -5,3 +5,8 @@ node_modules/
 *.log
 .DS_Store
 *.tsbuildinfo
+
+# Bruno's personal working files (exports, test scripts) — not app code,
+# don't need to live in the repo's git history.
+*.xlsx
+~$*.xlsx
