@@ -89,9 +89,42 @@ export default function TeamPageTabs({
   }
 
   return (
-    <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-      {/* SIDEBAR */}
-      <div style={{
+    <div className="flex flex-col md:flex-row" style={{ gap: 16 }}>
+      {/* MOBILE TAB STRIP — the desktop sidebar below is a fixed 180px
+          column that, with no menu of its own, was squeezing the entire
+          content area down to under 150px wide on phone-size screens
+          (confirmed while testing: content area measured 139px at a 568px
+          viewport). Below md, this horizontally-scrollable pill row
+          replaces it entirely so content gets the full screen width. */}
+      <div className="flex md:hidden overflow-x-auto gap-1.5 pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+        {TABS.map(t => {
+          const active = tab === t.key
+          return (
+            <button key={t.key} type="button" onClick={() => setTab(t.key)}
+              className="flex items-center gap-1.5 flex-shrink-0"
+              style={{
+                padding: '7px 12px', fontSize: 12, fontWeight: active ? 700 : 500,
+                borderRadius: 20, whiteSpace: 'nowrap',
+                background: active ? teamColor + '18' : '#faf8f5',
+                color: active ? teamColor : '#5c554e',
+                border: `1px solid ${active ? teamColor + '55' : '#d4cdc5'}`,
+              }}>
+              <span style={{fontSize:14}}>{t.icon}</span>
+              {t.label}
+              {badges[t.key] && (
+                <span style={{fontSize:9,padding:'1px 4px',borderRadius:4,
+                  background: active ? teamColor+'33' : '#e8e2d8',
+                  color: active ? teamColor : '#8a8279', fontWeight:600}}>
+                  {badges[t.key]}
+                </span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* DESKTOP SIDEBAR */}
+      <div className="hidden md:block" style={{
         width: 180, flexShrink: 0, background: '#faf8f5',
         border: '1px solid #d4cdc5', borderRadius: 14, padding: '8px 0',
         position: 'sticky', top: 80,
