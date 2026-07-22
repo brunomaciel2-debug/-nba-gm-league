@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
-import { getWeekDates } from '@/lib/season-week-helper'
+import { getWeekDates, formatWeekRange } from '@/lib/season-week-helper'
 
 const AWARD_META_EN: Record<string,{label:string,icon:string,color:string,desc:string}> = {
   potw_eastern:{label:'Player of the Week',  icon:'ti-star',         color:'#b45309',desc:'Eastern Conference'},
@@ -80,7 +80,9 @@ function AwardCard({award,meta,isPT}:{award:any,meta:any,isPT:boolean}) {
   const stats=award.stats_context
   const period = award.period?.startsWith('month_')
     ? formatMonthPeriod(award.period, isPT)
-    : award.period?.replace('week_',isPT?'Semana ':'Week ').replace('season','2025-26')
+    : award.period?.startsWith('week_')
+    ? formatWeekRange(parseInt(award.period.replace('week_',''),10), isPT?'pt-PT':'en-US')
+    : award.period?.replace('season','2025-26')
   return (
     <div className="rounded-2xl overflow-hidden" style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`3px solid ${meta.color}`}}>
       <div className="px-5 py-3 flex items-center justify-between" style={{background:'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
@@ -256,7 +258,7 @@ export default function AwardsPage() {
                 {weeklyPeriodsInMonth.map((period:any)=>(
                   <div key={period} className="mb-8">
                     <h3 className="text-sm font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1px'}}>
-                      {period.replace('week_',isPT?'Semana ':'Week ')}
+                      {formatWeekRange(parseInt(period.replace('week_',''),10), isPT?'pt-PT':'en-US')}
                     </h3>
                     <div className="grid md:grid-cols-3 gap-4">
                       {['potw_eastern','potw_western','rotw'].map(type=>{
