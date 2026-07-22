@@ -169,7 +169,7 @@ export default function PowerRankingsPage() {
             const borderColor=r.rank===1?'#b45309':r.rank===2?'#6b7280':r.rank===3?'#92400e':'#d4cdc5'
             const chips = r.criteria ? buildChips(r.criteria, isPT) : null
             return(
-              <div key={r.team_id} style={{borderRadius:12,overflow:'hidden',border:'1px solid #d4cdc5',borderTop:`3px solid ${borderColor}`,background:isTop3?'#fffbeb':'#faf8f5'}}>
+              <div key={r.team_id} style={{borderRadius:12,border:'1px solid #d4cdc5',borderTop:`3px solid ${borderColor}`,background:isTop3?'#fffbeb':'#faf8f5'}}>
                 <div style={{display:'flex',gap:14,padding:'14px 18px',alignItems:'flex-start'}}>
                   <div style={{width:40,flexShrink:0,display:'flex',flexDirection:'column',alignItems:'center',gap:3,paddingTop:2}}>
                     <div style={{fontSize:isTop3?22:16,fontWeight:800,color:r.rank===1?'#b45309':r.rank===2?'#6b7280':r.rank===3?'#92400e':'#1a1512'}}>{r.rank}</div>
