@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
-import { getStatusForWeek, getHalfWeekDates, formatSimDate, getSimDate } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates, formatSimDate, formatWeekRange, getSimDate } from '@/lib/season-week-helper'
 import GlobalSearch from './GlobalSearch'
 
 export default function SimulatorBanner() {
@@ -117,7 +117,7 @@ export default function SimulatorBanner() {
               boxShadow: `0 0 6px ${sc.dot}`,
               animation: isActive ? 'pulse 2s infinite' : 'none',
             }} />
-            {label}{week > 0 ? `: ${isPT ? 'Semana' : 'Week'} ${week}` : ''}
+            {label}{week > 0 ? `: ${formatWeekRange(week, locale)}` : ''}
           </span>
           {eventSoon && nextEvent && (
             <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
@@ -130,7 +130,7 @@ export default function SimulatorBanner() {
               {isPT ? 'Próxima simulação:' : 'Next sim:'}{' '}
               <span style={{ color: '#d4cdc5' }}>
                 {nextStatus !== status ? `${nextLabel} · ` : ''}
-                {isPT ? 'Semana' : 'Week'} {nextWeek}{halfMarker} · {fmtDate(weekStart)} – {fmtDate(weekEnd)}
+                {fmtDate(weekStart)} – {fmtDate(weekEnd)}{halfMarker}
               </span>
             </span>
           ) : (

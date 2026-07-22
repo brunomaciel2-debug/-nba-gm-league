@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { useTranslation } from '@/components/I18nProvider'
+import { formatWeekRange } from '@/lib/season-week-helper'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,7 +32,7 @@ export default function PowerRankingsPage() {
         <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:4}}>
           <h1 style={{fontSize:26,fontWeight:900,color:'#1a1512',margin:0}}>⚡ Power Rankings</h1>
           {week>0
-            ?<span style={{fontSize:12,color:'#8a8279',fontWeight:500}}>{isPT?`Semana ${week} · Época 2025-26`:`Week ${week} · 2025-26 Season`}</span>
+            ?<span style={{fontSize:12,color:'#8a8279',fontWeight:500}}>{isPT?`${formatWeekRange(week,'pt-PT')} · Época 2025-26`:`${formatWeekRange(week,'en-US')} · 2025-26 Season`}</span>
             :<span style={{fontSize:12,color:'#b45309',fontWeight:600,padding:'2px 8px',background:'#fef3c7',borderRadius:4}}>{isPT?'Edição Pré-Época':'Pre-Season Edition'}</span>}
         </div>
         <p style={{fontSize:13,color:'#8a8279',margin:0}}>

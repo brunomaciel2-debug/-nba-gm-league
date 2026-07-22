@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { getStatusForWeek, getWeekDates } from './season-week-helper'
+import { getStatusForWeek, getWeekDates, formatWeekRange } from './season-week-helper'
 import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded, notifMonthlySettlement } from './notifications-helpers'
 import { medicalCostAfterInsurance, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
 import { OffSystem, nodesForSystem, isNodeUnlocked } from './tactical-constants'
@@ -117,8 +117,8 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
 
     const notif = notifWeeklyResults(lang, team.name, team.wins, team.losses, { opp, score: `${ts}-${os}`, won: ts > os })
     const allResults = lang === 'pt'
-      ? `Resultados da semana ${week}:\n\n${results.join('\n')}\n\nRegisto da época: ${team.wins}V-${team.losses}D`
-      : `Your week ${week} results:\n\n${results.join('\n')}\n\nSeason record: ${team.wins}W-${team.losses}L`
+      ? `Resultados de ${formatWeekRange(week,'pt-PT')}:\n\n${results.join('\n')}\n\nRegisto da época: ${team.wins}V-${team.losses}D`
+      : `Your ${formatWeekRange(week,'en-US')} results:\n\n${results.join('\n')}\n\nSeason record: ${team.wins}W-${team.losses}L`
 
     await notify(team.id, 'results', notif.subject, allResults, { week, wins, losses })
   }
@@ -347,8 +347,8 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     const stats = `${award.stats_context?.ppg} PPG · ${award.stats_context?.rpg} RPG · ${award.stats_context?.apg} APG`
     const subject = lang === 'pt' ? `🌟 Jogador da Semana — ${award.players?.name}!` : `🌟 Player of the Week — ${award.players?.name}!`
     const body = lang === 'pt'
-      ? `O ${award.players?.name} foi nomeado Jogador da Semana ${week} da Conferência ${conf === 'Eastern' ? 'Este' : 'Oeste'}.\n\nEstatísticas: ${stats} em ${award.stats_context?.games} jogos.`
-      : `${award.players?.name} has been named ${conf} Conference Player of the Week for Week ${week}.\n\nStats: ${stats} in ${award.stats_context?.games} games.`
+      ? `O ${award.players?.name} foi nomeado Jogador da Semana (${formatWeekRange(week,'pt-PT')}) da Conferência ${conf === 'Eastern' ? 'Este' : 'Oeste'}.\n\nEstatísticas: ${stats} em ${award.stats_context?.games} jogos.`
+      : `${award.players?.name} has been named ${conf} Conference Player of the Week for ${formatWeekRange(week,'en-US')}.\n\nStats: ${stats} in ${award.stats_context?.games} games.`
     await notify(teamId, 'award', subject, body, { player_id: award.player_id, award_type: award.award_type })
   }
 

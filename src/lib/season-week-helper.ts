@@ -77,3 +77,30 @@ export function formatSimDate(week: number, locale: string = 'en-US'): string {
   const d = getSimDate(week)
   return d.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+// "Week 36" on its own means nothing to Bruno — he wants the real simulated
+// calendar range it maps to instead (e.g. "Mar 13–19"), everywhere a raw
+// week number would otherwise be shown as a label.
+export function formatWeekRange(week: number, locale: string = 'en-US'): string {
+  const { start, end } = getWeekDates(week)
+  const fmt = (d: Date) => d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+  return `${fmt(start)}–${fmt(end)}`
+}
+
+// Same idea for a half-week block (see getHalfWeekDates) — used wherever a
+// "Week X (days 1-3)" label used to appear.
+export function formatHalfWeekRange(week: number, half: 1 | 2, locale: string = 'en-US'): string {
+  const { start, end } = getHalfWeekDates(week, half)
+  const fmt = (d: Date) => d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+  return `${fmt(start)}–${fmt(end)}`
+}
+
+// "Month 8" means nothing either — a simulated month is 4 simulated weeks
+// (see merchandising.ts), credited to whichever real calendar month its
+// last week actually finishes in (same convention FinancesTab's
+// weekMonthKey already uses for "Current Month" bucketing).
+export function formatSimMonthName(monthNum: number, locale: string = 'en-US'): string {
+  const monthEndWeek = monthNum * 4
+  const { end } = getWeekDates(monthEndWeek)
+  return end.toLocaleDateString(locale, { month: 'long' })
+}

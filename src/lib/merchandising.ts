@@ -9,6 +9,7 @@ import { legacyFameFloor } from '@/lib/merchandising-legacy-rank'
 // '@/lib/merchandising' keeps working unchanged.
 import { marketMultiplier, followersBonus, effectiveMarketMultiplier } from '@/lib/market-tiers'
 export { marketMultiplier, followersBonus, effectiveMarketMultiplier }
+import { formatSimMonthName } from '@/lib/season-week-helper'
 
 const SEASON = '2025-26'
 
@@ -332,7 +333,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
     await supabaseAdmin.from('franchise_finances').update({ balance: (fin.balance || 0) + revenue }).eq('team_id', teamId)
     await supabaseAdmin.from('franchise_transactions').insert({
       team_id: teamId, type: 'revenue', category: 'merchandise', amount: revenue,
-      description: `Jersey sales — Month ${monthNum}`, season: SEASON, week_number: week,
+      description: `Jersey sales — ${formatSimMonthName(monthNum, 'en-US')}`, season: SEASON, week_number: week,
     })
 
     const top = topSellerByTeam[teamId]

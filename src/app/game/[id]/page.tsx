@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import GameBoxScore, { BoxRow } from '@/components/GameBoxScore'
+import { formatWeekRange } from '@/lib/season-week-helper'
 
 export default function GamePage({ params }: { params: { id: string } }) {
   const { t } = useTranslation()
@@ -75,7 +76,7 @@ export default function GamePage({ params }: { params: { id: string } }) {
       awayBox={awayBox}
       periodScores={game.period_scores}
       playedAt={game.played_at}
-      weekLabel={game.week_number > 0 ? `${isPT ? 'Semana' : 'Week'} ${game.week_number}` : null}
+      weekLabel={game.week_number > 0 ? formatWeekRange(game.week_number, isPT ? 'pt-PT' : 'en-US') : null}
       attendance={game.attendance}
       refereeName={referee?.name || null}
       refereeHref={referee?.name ? `/referees/${game.referee_id}` : null}

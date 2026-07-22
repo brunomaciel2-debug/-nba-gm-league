@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
+import { formatWeekRange } from '@/lib/season-week-helper'
 
 const POSITIONS = ['PG','SG','SF','PF','C']
 
@@ -276,7 +277,7 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
             {isPT?'Ordens Semanais':'Weekly Orders'} — {team?.name||teamId}
           </h1>
           <p className="text-sm" style={{color:'#6b5f4e'}}>
-            {isPT?`Semana ${currentWeek} · Prazo: domingo 23:59 hora de Lisboa`:`Week ${currentWeek} · Deadline: Sunday 23:59 Lisbon time`}
+            {isPT?`${formatWeekRange(currentWeek,'pt-PT')} · Prazo: domingo 23:59 hora de Lisboa`:`${formatWeekRange(currentWeek,'en-US')} · Deadline: Sunday 23:59 Lisbon time`}
           </p>
         </div>
         {locked && <span className="ml-auto px-3 py-1.5 rounded-lg text-xs font-bold"

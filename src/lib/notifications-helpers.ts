@@ -2,6 +2,7 @@
 // Lê o idioma do GM a partir do gm_profiles.language
 
 import { createClient } from '@supabase/supabase-js'
+import { formatSimMonthName } from './season-week-helper'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -528,7 +529,7 @@ export function notifMonthlySettlement(lang: 'en'|'pt', subsidy: number, coachin
 export function notifJerseySalesReport(lang: 'en'|'pt', monthNum: number, topPlayerName: string, topPlayerRevenue: number, totalRevenue: number) {
   const fmt = (n: number) => '$' + (n >= 1000000 ? (n/1000000).toFixed(1)+'M' : (n/1000).toFixed(0)+'K')
   return {
-    subject: lang === 'pt' ? `👕 Relatório de Merchandising — Mês ${monthNum}` : `👕 Merchandising Report — Month ${monthNum}`,
+    subject: lang === 'pt' ? `👕 Relatório de Merchandising — ${formatSimMonthName(monthNum,'pt-PT')}` : `👕 Merchandising Report — ${formatSimMonthName(monthNum,'en-US')}`,
     body: lang === 'pt'
       ? `A equipa faturou ${fmt(totalRevenue)} em venda de jerseys este mês. ${topPlayerName} liderou as vendas, sozinho responsável por ${fmt(topPlayerRevenue)}.`
       : `The team made ${fmt(totalRevenue)} in jersey sales this month. ${topPlayerName} led the way, alone responsible for ${fmt(topPlayerRevenue)}.`,

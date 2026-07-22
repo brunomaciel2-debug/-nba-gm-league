@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
+import { formatWeekRange } from '@/lib/season-week-helper'
 
 const TX_LABELS_PT: Record<string,string> = { trade:'Troca', fa_signing:'Assinatura FA', cut:'Corte', draft:'Draft' }
 const TX_LABELS_EN: Record<string,string> = { trade:'Trade', fa_signing:'FA Signing', cut:'Cut', draft:'Draft' }
@@ -98,7 +99,7 @@ export default function TransactionsTab({ teamId, teamColor }: { teamId: string,
                       </span>
                     </div>
                     <div className="text-xs flex-shrink-0" style={{color:'#a89f97'}}>
-                      {tx.week_number ? `${isPT?'Semana':'Week'} ${tx.week_number}` : ''}
+                      {tx.week_number ? formatWeekRange(tx.week_number, isPT?'pt-PT':'en-US') : ''}
                     </div>
                     {tx.type === 'trade' && tx.proposal_id && (
                       <a href={`/trade-center?proposal=${tx.proposal_id}`}

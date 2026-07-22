@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import { isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, medicalCostAfterInsurance, InjurySeverity } from '@/lib/injury-constants'
+import { formatWeekRange } from '@/lib/season-week-helper'
 
 function fmtCost(n: number) { return '$' + (n>=1000 ? (n/1000).toFixed(n%1000===0?0:1)+'K' : n) }
 
@@ -175,7 +176,7 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                     </div>
                     {inj.return_week && (
                       <div className="text-xs mt-0.5" style={{color:'#9c8e7a'}}>
-                        {isPT?'Previsão inicial: Semana':'Original est.: Week'} {inj.return_week}
+                        {isPT?'Previsão inicial:':'Original est.:'} {formatWeekRange(inj.return_week, isPT?'pt-PT':'en-US')}
                       </div>
                     )}
                   </div>
@@ -255,7 +256,7 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                 <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Lesão':'Injury'}</th>
                 <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Gravidade':'Severity'}</th>
                 <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Ocorreu em':'Occurred'}</th>
-                <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Semana':'Week'}</th>
+                <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Data':'Date'}</th>
                 <th style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Jogos':'Games'}</th>
                 <th style={{padding:'8px 10px',textAlign:'right',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Custo':'Cost'}</th>
                 <th style={{padding:'8px 10px',textAlign:'left',fontWeight:700,color:'#6b5f4e'}}>{isPT?'Estado':'Status'}</th>
@@ -284,7 +285,7 @@ export default function InjuryReport({ injuries, players, teamId }: { injuries: 
                       </span>
                     </td>
                     <td style={{padding:'7px 10px',color:'#5c554e',whiteSpace:'nowrap'}}>{occurredLabel}</td>
-                    <td style={{padding:'7px 10px',color:'#8a8279'}}>{inj.week_number ?? '—'}</td>
+                    <td style={{padding:'7px 10px',color:'#8a8279'}}>{inj.week_number ? formatWeekRange(inj.week_number, isPT?'pt-PT':'en-US') : '—'}</td>
                     <td style={{padding:'7px 10px',textAlign:'right',color:'#5c554e'}}>~{inj.games_out}</td>
                     <td style={{padding:'7px 10px',textAlign:'right',fontWeight:600,color:'#c2410c'}}>{fmtCost(cost)}</td>
                     <td style={{padding:'7px 10px'}}>

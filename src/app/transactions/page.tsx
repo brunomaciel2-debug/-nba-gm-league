@@ -82,7 +82,7 @@ export default function TransactionsPage() {
                       <>
                         <div>{formatSimDate(tx.week_number, isPT?'pt-PT':'en-US')}</div>
                         <div style={{fontSize:10,opacity:0.7}}>
-                          {isPT?'Semana':'Week'} {tx.week_number} · {new Date(tx.created_at).toLocaleTimeString(isPT?'pt-PT':'en-US',{hour:'2-digit',minute:'2-digit'})}
+                          {new Date(tx.created_at).toLocaleTimeString(isPT?'pt-PT':'en-US',{hour:'2-digit',minute:'2-digit'})}
                         </div>
                       </>
                     ) : (

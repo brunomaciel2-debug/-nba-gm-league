@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
+import { formatSimMonthName } from '@/lib/season-week-helper'
 
 const fmt = (n: number) => {
   const abs = Math.abs(n), sign = n < 0 ? '-' : ''
@@ -123,7 +124,7 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
       <h2 className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: '#8a8279' }}>
         {period === 'yearly'
           ? (isPT ? 'Mais Vendidos — Época Completa' : 'Top Sellers — Full Season')
-          : (isPT ? `Mais Vendidos${latestMonth != null ? ` — Mês ${latestMonth}` : ''}` : `Top Sellers${latestMonth != null ? ` — Month ${latestMonth}` : ''}`)}
+          : (isPT ? `Mais Vendidos${latestMonth != null ? ` — ${formatSimMonthName(latestMonth,'pt-PT')}` : ''}` : `Top Sellers${latestMonth != null ? ` — ${formatSimMonthName(latestMonth,'en-US')}` : ''}`)}
       </h2>
       {topSellers.length === 0 ? (
         <div className="rounded-xl p-6 text-center mb-6" style={{ background: '#e8e2d6', border: '1px solid #d4cdc5' }}>
@@ -229,7 +230,7 @@ export default function MerchandisingTab({ teamId, teamColor, players }: { teamI
             <div className="rounded-xl overflow-hidden" style={{ background: '#e8e2d6', border: '1px solid #d4cdc5' }}>
               {months.map((m, i) => (
                 <div key={m} className="flex items-center justify-between px-4 py-2.5" style={{ background: i % 2 === 0 ? '#ece7dd' : '#e8e2d6', borderBottom: '1px solid #d4cdc5' }}>
-                  <span className="text-sm" style={{ color: '#1a1512' }}>{isPT ? 'Mês' : 'Month'} {m}</span>
+                  <span className="text-sm" style={{ color: '#1a1512' }}>{formatSimMonthName(m, isPT?'pt-PT':'en-US')}</span>
                   <div className="text-right">
                     <div className="text-sm font-bold" style={{ color: '#15803d' }}>{fmt(monthTotals[m])}</div>
                     <div className="text-xs" style={{ color: '#8a8279' }}>{(monthUnits[m]||0).toLocaleString()} {isPT ? 'jerseys' : 'jerseys'}</div>

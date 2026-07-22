@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
+import { formatHalfWeekRange, formatWeekRange } from '@/lib/season-week-helper'
 
 // How long to wait for /api/admin/simulate's own HTTP response before
 // falling back to polling the database directly. A real incident: a week
@@ -32,7 +33,7 @@ export default function AdminSimulatePage() {
 
   const getSeasonState = async () => {
     const { data } = await supabase.from('season_config').select('current_week,next_sim_half').eq('id',1).single()
-    return { week: data?.current_week as number, half: (data?.next_sim_half as number) || 1 }
+    return { week: data?.current_week as number, half: (data?.next_sim_half === 2 ? 2 : 1) as 1 | 2 }
   }
 
   // One /api/admin/simulate call = one "half" of a week (one block). If the
@@ -90,7 +91,8 @@ export default function AdminSimulatePage() {
     }
   }
 
-  const halfLabel = (half: number) => half === 1 ? (isPT ? 'dias 1-3' : 'days 1-3') : (isPT ? 'dias 4-7' : 'days 4-7')
+  const locale = isPT ? 'pt-PT' : 'en-US'
+  const halfLabel = (week: number, half: 1 | 2) => formatHalfWeekRange(week, half, locale)
 
   // "Complete Block" — one call, no game limit: always fully resolves
   // whatever's left in the CURRENT half, whether that's a fresh half or one
@@ -114,10 +116,10 @@ export default function AdminSimulatePage() {
         const data = await callSimulateStep(before)
         const noGames = !data.games_simulated && !data.friendlies_simulated
         const msg = data._confirmedByPoll
-          ? (isPT ? `✅ Semana ${data.week} (${halfLabel(before.half)}) — confirmado na base de dados.` : `✅ Week ${data.week} (${halfLabel(before.half)}) — confirmed against the database.`)
+          ? (isPT ? `✅ ${halfLabel(data.week,before.half)} — confirmado na base de dados.` : `✅ ${halfLabel(data.week,before.half)} — confirmed against the database.`)
           : (isPT
-              ? `✅ Semana ${data.week} (${halfLabel(before.half)})${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}.`
-              : `✅ Week ${data.week} (${halfLabel(before.half)})${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}.`)
+              ? `✅ ${halfLabel(data.week,before.half)}${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}.`
+              : `✅ ${halfLabel(data.week,before.half)}${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}.`)
         setLog(prev => [...prev, msg])
         setResult(data)
       }
@@ -147,8 +149,8 @@ export default function AdminSimulatePage() {
       const data = await res.json()
       if (!res.ok || !data.success) throw new Error(data.error || (isPT ? 'Erro desconhecido' : 'Unknown error'))
       const msg = data.partial
-        ? (isPT ? `✅ 1 jogo simulado — ${data.games_remaining} por simular neste bloco (Semana ${data.week}).` : `✅ 1 game simulated — ${data.games_remaining} left in this block (Week ${data.week}).`)
-        : (isPT ? `✅ Jogo simulado — era o último do bloco, bloco completo (Semana ${data.week}).` : `✅ Game simulated — it was the last one in the block, block complete (Week ${data.week}).`)
+        ? (isPT ? `✅ 1 jogo simulado — ${data.games_remaining} por simular neste bloco (${formatWeekRange(data.week,locale)}).` : `✅ 1 game simulated — ${data.games_remaining} left in this block (${formatWeekRange(data.week,locale)}).`)
+        : (isPT ? `✅ Jogo simulado — era o último do bloco, bloco completo (${formatWeekRange(data.week,locale)}).` : `✅ Game simulated — it was the last one in the block, block complete (${formatWeekRange(data.week,locale)}).`)
       setLog(prev => [...prev, msg])
       setResult(data)
     } catch (e: any) {
@@ -173,15 +175,15 @@ export default function AdminSimulatePage() {
         const before = await getSeasonState()
         if (before.week >= targetWeek) break
         await maybeGenerateAutoOrders(before.half)
-        setLog(prev => [...prev, isPT ? `⏳ A simular semana ${targetWeek} (${halfLabel(before.half)})...` : `⏳ Simulating week ${targetWeek} (${halfLabel(before.half)})...`])
+        setLog(prev => [...prev, isPT ? `⏳ A simular ${halfLabel(targetWeek,before.half)}...` : `⏳ Simulating ${halfLabel(targetWeek,before.half)}...`])
         const data = await callSimulateStep(before)
         const noGames = !data.games_simulated && !data.friendlies_simulated
         setLog(prev => [...prev, isPT
-          ? `✅ Semana ${data.week} (${halfLabel(before.half)})${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}.`
-          : `✅ Week ${data.week} (${halfLabel(before.half)})${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}.`])
+          ? `✅ ${halfLabel(data.week,before.half)}${noGames ? ' — sem jogos nesta fase' : ` — ${data.games_simulated} jogos, ${data.friendlies_simulated||0} amigável(is)`}.`
+          : `✅ ${halfLabel(data.week,before.half)}${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}.`])
         setResult(data)
       }
-      setLog(prev => [...prev, isPT ? `🏁 Semana ${targetWeek} completa!` : `🏁 Week ${targetWeek} complete!`])
+      setLog(prev => [...prev, isPT ? `🏁 ${formatWeekRange(targetWeek,locale)} completa!` : `🏁 ${formatWeekRange(targetWeek,locale)} complete!`])
     } catch (e: any) {
       setLog(prev => [...prev, `❌ ${e.message}`])
       setResult({ error: e.message })
@@ -334,7 +336,7 @@ export default function AdminSimulatePage() {
             <span style={{fontSize:28}}>✅</span>
             <div>
               <p className="text-sm font-bold" style={{color:'#15803d'}}>
-                {isPT ? `Semana ${result.week} simulada com sucesso!` : `Week ${result.week} simulated successfully!`}
+                {isPT ? `${formatWeekRange(result.week,locale)} simulada com sucesso!` : `${formatWeekRange(result.week,locale)} simulated successfully!`}
               </p>
               <p className="text-xs mt-0.5" style={{color:'#166534'}}>
                 {result.games_simulated} {isPT ? 'jogos simulados' : 'games simulated'}

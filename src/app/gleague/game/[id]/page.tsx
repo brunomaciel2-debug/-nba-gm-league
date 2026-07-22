@@ -60,6 +60,10 @@ export default function GLeagueGamePage({ params }: { params: { id: string } }) 
   const home = game.home as any
   const away = game.away as any
 
+  // G-League uses its own week numbering (own season start date, independent
+  // of the NBA's) with no real-date helper of its own — playedAt below
+  // already carries the real date, so no separate week label (raw or
+  // converted) is shown here.
   return (
     <GameBoxScore
       homeTeam={{ id: game.home_team, name: home?.name, logo_url: home?.logo_url, color: home?.color, href: `/gleague/${game.home_team}`, arena: home?.arena, city: home?.city, wins: home?.wins, losses: home?.losses }}
@@ -69,7 +73,7 @@ export default function GLeagueGamePage({ params }: { params: { id: string } }) 
       homeBox={homeBox}
       awayBox={awayBox}
       playedAt={game.played_at}
-      weekLabel={game.week_number > 0 ? `${isPT ? 'Semana' : 'Week'} ${game.week_number}` : null}
+      weekLabel={null}
       status={game.status}
       isPT={isPT}
       backHref="/gleague"

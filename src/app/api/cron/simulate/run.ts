@@ -5,7 +5,7 @@ import { generatePowerRankings } from '@/lib/generate-power-rankings'
 import { runPostSimNotifications } from '@/lib/notifications'
 import { generateWeeklyScoutPoints } from '@/lib/scouting'
 import { homeWinProb, updateElo } from '@/lib/elo-helper'
-import { getStatusForWeek, getHalfWeekDates } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates, formatSimMonthName, formatWeekRange, formatHalfWeekRange } from '@/lib/season-week-helper'
 import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
@@ -561,7 +561,7 @@ const { count: stillScheduled } = await supabaseAdmin.from('games').select('*', 
 if (stillScheduled && stillScheduled > 0) {
 return NextResponse.json({
 success: true, partial: true, week, half, games_simulated: gamesSimulated, games_remaining: stillScheduled,
-message: `Semana ${week} — ${gamesSimulated} jogo(s) simulado(s), ${stillScheduled} por simular neste bloco.`,
+message: `${formatWeekRange(week,'pt-PT')} — ${gamesSimulated} jogo(s) simulado(s), ${stillScheduled} por simular neste bloco.`,
 })
 }
 }
@@ -894,8 +894,8 @@ await supabaseAdmin.from('season_config').update({ next_sim_half: 2 }).eq('id',1
 return NextResponse.json({
 success: true, week, half: 1, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated,
 message: gamesSimulated > 0 || friendliesSimulated > 0
-? `Semana ${week} — dias 1-3 simulados (${gamesSimulated} jogos, ${friendliesSimulated} amigável(is)). Corre outra vez para simular os dias 4-7.`
-: `Semana ${week} — dias 1-3 (sem jogos nesta fase). Corre outra vez para simular os dias 4-7.`
+? `${formatHalfWeekRange(week,1,'pt-PT')} simulados (${gamesSimulated} jogos, ${friendliesSimulated} amigável(is)). Corre outra vez para simular ${formatHalfWeekRange(week,2,'pt-PT')}.`
+: `${formatHalfWeekRange(week,1,'pt-PT')} (sem jogos nesta fase). Corre outra vez para simular ${formatHalfWeekRange(week,2,'pt-PT')}.`
 })
 }
 
@@ -1752,7 +1752,7 @@ season:'2025-26', award_type:`potw_${conf.toLowerCase()}`,
 period:`week_${week}`, conference: conf,
 player_id: winner.id, team_id: playerTeam[winner.id],
 score: winner.score, stats_context: winner.stats,
-notes: `Week ${week} ${conf} Player of the Week`
+notes: `${formatWeekRange(week,'en-US')} ${conf} Player of the Week`
 }, {onConflict:'season,award_type,period'})
 }
 }
@@ -1767,7 +1767,7 @@ season:'2025-26', award_type:'rotw',
 period:`week_${week}`,
 player_id: rotwWinner.id, team_id: playerTeam[rotwWinner.id],
 score: rotwWinner.score, stats_context: rotwWinner.stats,
-notes: `Week ${week} Rookie of the Week`
+notes: `${formatWeekRange(week,'en-US')} Rookie of the Week`
 }, {onConflict:'season,award_type,period'})
 }
 
@@ -1803,7 +1803,7 @@ if (!fin) continue
 await supabaseAdmin.from('franchise_finances').update({ balance: (fin.balance||0) - cost }).eq('team_id', teamId)
 await supabaseAdmin.from('franchise_transactions').insert({
 team_id: teamId, type: 'expense', category: 'maintenance', amount: cost,
-description: `Monthly facility/concession maintenance — Month ${monthNum}`, season: '2025-26', week_number: week,
+description: `Monthly facility/concession maintenance — ${formatSimMonthName(monthNum, 'en-US')}`, season: '2025-26', week_number: week,
 })
 }
 } catch (maintErr) { console.warn('Monthly maintenance deduction failed:', maintErr) }

@@ -184,8 +184,7 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
                 className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"
                 style={{background:'#f0ece5',color:week===minWeek?'#d4cdc5':'#1a1512',border:'1px solid #d4cdc5',cursor:week===minWeek?'not-allowed':'pointer'}}>‹</button>
               <div className="text-center min-w-[120px]">
-                <div className="text-xs font-bold" style={{color:'#1a1512'}}>{isPT?'Semana':'Week'} {week}</div>
-                <div className="text-xs" style={{color:'#8a8279'}}>{week?weekLabel(week):''}</div>
+                <div className="text-xs font-bold" style={{color:'#1a1512'}}>{week?weekLabel(week):''}</div>
               </div>
               <button onClick={()=>setWeek(w=>Math.min(maxWeek,(w||maxWeek)+1))} disabled={week===maxWeek}
                 className="w-8 h-8 rounded-lg flex items-center justify-center font-bold"

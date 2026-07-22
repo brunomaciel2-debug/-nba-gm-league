@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
+import { formatWeekRange } from '@/lib/season-week-helper'
 
 function Tooltip({ text }: { text: string }) {
   return (
@@ -127,7 +128,7 @@ export default function SocialMediaTab({ teamId, teamColor, coaches, socialMedia
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-semibold" style={{ color: info.color }}>{isPT ? info.labelPT : info.labelEN}</div>
                   <div className="text-xs mt-0.5" style={{ color: '#8a8279' }}>
-                    {isPT ? 'Semana' : 'Week'} {e.week_number}{impactParts.length ? ` · ${impactParts.join(' · ')}` : ''}
+                    {formatWeekRange(e.week_number, isPT?'pt-PT':'en-US')}{impactParts.length ? ` · ${impactParts.join(' · ')}` : ''}
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">

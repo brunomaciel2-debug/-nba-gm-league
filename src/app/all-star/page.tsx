@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 import { VOTING_OPENS_WEEK, VOTING_CLOSES_WEEK, ALLSTAR_WEEK, minGamesByWeek, expectedGamesByWeek } from '@/lib/allstar-constants'
+import { formatWeekRange } from '@/lib/season-week-helper'
 
 const POSITIONS = ['PG','SG','SF','PF','C']
 const CONFS = ['Eastern','Western']
@@ -24,6 +25,7 @@ export default function AllStarPage() {
 
   const VOTING_OPENS  = VOTING_OPENS_WEEK
   const VOTING_CLOSES = VOTING_CLOSES_WEEK
+  const locale = isPT ? 'pt-PT' : 'en-US'
 
   useEffect(() => {
     const load = async () => {
@@ -98,7 +100,7 @@ export default function AllStarPage() {
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold mb-1" style={{color:'#b45309'}}>⭐ {isPT?'All-Star Weekend 2025-26':'All-Star Weekend 2025-26'}</h1>
-            <p className="text-sm" style={{color:'#8a6a00'}}>{isPT?`Semana ${ALLSTAR_WEEK} · Caloiros vs Veteranos (Sáb) · Este vs Oeste (Dom)`:`Week ${ALLSTAR_WEEK} · Rookies vs Sophomores (Sat) · East vs West (Sun)`}</p>
+            <p className="text-sm" style={{color:'#8a6a00'}}>{isPT?`${formatWeekRange(ALLSTAR_WEEK,locale)} · Caloiros vs Veteranos (Sáb) · Este vs Oeste (Dom)`:`${formatWeekRange(ALLSTAR_WEEK,locale)} · Rookies vs Sophomores (Sat) · East vs West (Sun)`}</p>
           </div>
           <div className="text-right">
             {!ready?(
@@ -106,10 +108,10 @@ export default function AllStarPage() {
             ):(
               <span className="text-xs px-3 py-1.5 rounded-full font-semibold inline-block"
                     style={{background:votingOpen?'#0a2a10':votingClosed?'#2a0a0a':'#faf8f5',color:votingOpen?'#15803d':votingClosed?'#dc2626':'#5c554e'}}>
-                {votingOpen?`🗳️ ${isPT?'Votação Aberta':'Voting Open'}`:votingClosed?`🔒 ${isPT?'Votação Fechada':'Voting Closed'}`:`${isPT?'Abre na Semana':'Opens Week'} ${VOTING_OPENS}`}
+                {votingOpen?`🗳️ ${isPT?'Votação Aberta':'Voting Open'}`:votingClosed?`🔒 ${isPT?'Votação Fechada':'Voting Closed'}`:`${isPT?'Abre em':'Opens'} ${formatWeekRange(VOTING_OPENS,locale)}`}
               </span>
             )}
-            <div className="text-xs mt-1" style={{color:'#6b5f4e'}}>{isPT?'Atual: Semana':'Current: Week'} {curWeek}</div>
+            <div className="text-xs mt-1" style={{color:'#6b5f4e'}}>{isPT?'Atual:':'Current:'} {formatWeekRange(curWeek,locale)}</div>
           </div>
         </div>
       </div>
@@ -139,8 +141,8 @@ export default function AllStarPage() {
             {!votingOpen&&!votingClosed&&(
               <div className="rounded-xl p-10 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="text-5xl mb-4">🔒</div>
-                <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>{isPT?`Votação abre na Semana ${VOTING_OPENS}`:`Voting opens Week ${VOTING_OPENS}`}</h2>
-                <p style={{color:'#6b5f4e'}}>{isPT?`A liga está na Semana ${curWeek}. A votação abre no início da Semana ${VOTING_OPENS}.`:`The league is currently in Week ${curWeek}. Voting opens at the start of Week ${VOTING_OPENS}.`}</p>
+                <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>{isPT?`Votação abre em ${formatWeekRange(VOTING_OPENS,locale)}`:`Voting opens ${formatWeekRange(VOTING_OPENS,locale)}`}</h2>
+                <p style={{color:'#6b5f4e'}}>{isPT?`A liga está em ${formatWeekRange(curWeek,locale)}. A votação abre a partir de ${formatWeekRange(VOTING_OPENS,locale)}.`:`The league is currently at ${formatWeekRange(curWeek,locale)}. Voting opens starting ${formatWeekRange(VOTING_OPENS,locale)}.`}</p>
               </div>
             )}
             {votingClosed&&(
@@ -210,7 +212,7 @@ export default function AllStarPage() {
               <div className="rounded-xl p-10 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="text-5xl mb-4">⭐</div>
                 <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>{isPT?'Ainda não anunciado':'Not yet announced'}</h2>
-                <p style={{color:'#6b5f4e'}}>{isPT?`Os convocados serão anunciados pelo Comissário após a Semana ${VOTING_CLOSES}.`:`Roster will be announced by the Commissioner after Week ${VOTING_CLOSES}.`}</p>
+                <p style={{color:'#6b5f4e'}}>{isPT?`Os convocados serão anunciados pelo Comissário após ${formatWeekRange(VOTING_CLOSES,locale)}.`:`Roster will be announced by the Commissioner after ${formatWeekRange(VOTING_CLOSES,locale)}.`}</p>
               </div>
             ):(
               CONFS.map(conf=>{

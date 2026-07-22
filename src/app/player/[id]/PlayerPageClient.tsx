@@ -4,6 +4,7 @@ import { useTranslation } from '@/components/I18nProvider'
 import { countryName } from '@/lib/country-pt'
 import { countryFlag } from '@/lib/country-flags'
 import { readableTeamColor } from '@/lib/color'
+import { formatWeekRange, formatSimMonthName } from '@/lib/season-week-helper'
 import Link from 'next/link'
 
 const TYPE_LABEL_EN: Record<string,{label:string,color:string,bg:string}> = {
@@ -110,6 +111,25 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
 }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
+  // Awards store WHEN they were earned as an internal key — week_36,
+  // season_p123, or month_2026-02 (Player of the Month already keys off the
+  // real calendar month, not a sequential counter) — Bruno wants the real
+  // simulated date shown instead of the raw number, never "Week 36" as-is.
+  const periodLabel = (period: string | null | undefined): string => {
+    if (!period) return ''
+    const cleaned = period.replace(/_p\d+$/, '')
+    const weekMatch = cleaned.match(/^week_(\d+)$/)
+    if (weekMatch) return formatWeekRange(Number(weekMatch[1]), isPT ? 'pt-PT' : 'en-US')
+    const monthKeyMatch = cleaned.match(/^month_(\d{4})-(\d{2})$/)
+    if (monthKeyMatch) {
+      const d = new Date(Number(monthKeyMatch[1]), Number(monthKeyMatch[2]) - 1, 1)
+      return d.toLocaleDateString(isPT ? 'pt-PT' : 'en-US', { month: 'long', year: 'numeric' })
+    }
+    const monthMatch = cleaned.match(/^month_(\d+)$/)
+    if (monthMatch) return formatSimMonthName(Number(monthMatch[1]), isPT ? 'pt-PT' : 'en-US')
+    if (cleaned === 'season') return isPT ? 'Época Completa' : 'Full Season'
+    return cleaned
+  }
   const p = player
   const tc = teamColor
   // Only shown for a player who's actually appeared in at least one
@@ -628,7 +648,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                   ) : <span style={{color:'#8a8279'}}>{isPT?'Agente Livre':'Free Agent'}</span>}
                 </div>
                 <div className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>
-                  {tx.season}{tx.week_number ? ` · ${isPT?'Semana':'Week'} ${tx.week_number}` : ''}
+                  {tx.season}{tx.week_number ? ` · ${formatWeekRange(tx.week_number, isPT?'pt-PT':'en-US')}` : ''}
                 </div>
                 {tx.type === 'trade' && tx.proposal_id && (
                   <a href={`/trade-center?proposal=${tx.proposal_id}`}
@@ -686,7 +706,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
               <div className="flex-1">
                 <div className="text-sm font-semibold" style={{color:'#1a1512'}}>{AWARD_LABELS[a.award_type]||a.award_type}</div>
                 <div className="text-xs" style={{color:'#8a8279'}}>
-                  {a.season} · {a.period?.replace(/_p\d+$/,'').replace('week_',isPT?'Semana ':'Week ').replace('month_',isPT?'Mês ':'Month ').replace('season',isPT?'Época Completa':'Full Season')}
+                  {a.season} · {periodLabel(a.period)}
                 </div>
                 {/* Starter/Reserve (or position) detail for All-Star-style
                     awards lives in notes and was never shown anywhere before. */}
