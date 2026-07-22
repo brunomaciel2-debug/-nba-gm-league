@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
+import { TOTAL_ATTRIBUTES } from '@/lib/scouting'
 
 const TIERS = {
   1: { label: 'Tier 1', pointsRequired: 100, revealCount: 6, creditCost: 10, weeklyMaintenance: 0, desc: 'Local scouting network — college games, combine reports' },
@@ -290,8 +291,8 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
                     <span style={{color:pc,fontWeight:600}}>{p.pos}</span> · {p.college || 'International'}
                   </div>
                 </div>
-                <div style={{fontSize:11,fontWeight:600,color: revealed.size === 30 ? '#15803d' : '#8a8279'}}>
-                  {revealed.size}/30 scouted
+                <div style={{fontSize:11,fontWeight:600,color: revealed.size === TOTAL_ATTRIBUTES ? '#15803d' : '#8a8279'}}>
+                  {revealed.size}/{TOTAL_ATTRIBUTES} scouted
                 </div>
                 <a href={`/prospect/${p.id}`} onClick={e=>e.stopPropagation()} style={{fontSize:10,color:'#1d4ed8',textDecoration:'none',fontWeight:600}}>
                   View →

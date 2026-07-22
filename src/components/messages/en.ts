@@ -113,7 +113,7 @@ const en = {
     title: 'Scouting Guide',
     subtitle: 'How to evaluate the draft class and unlock deeper scouting capability over the season.',
     rule1Title: 'Hidden Attributes',
-    rule1Desc: 'Every prospect has all 30 attributes hidden by default. Scouted values are real, not projections.',
+    rule1Desc: 'Every prospect has all 29 attributes hidden by default. Scouted values are real, not projections.',
     rule2Title: 'Overall Rating Stays Hidden',
     rule2Desc: 'The OVR of a prospect is never revealed to GMs, no matter how much you scout. Only the commissioner sees it.',
     rule3Title: 'Private to Your Team',

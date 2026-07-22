@@ -113,7 +113,7 @@ const pt = {
     title: 'Guia de Scouting',
     subtitle: 'Como avaliar a draft class e desbloquear maior capacidade de scouting ao longo da época.',
     rule1Title: 'Atributos Escondidos',
-    rule1Desc: 'Todos os prospectos têm os 30 atributos escondidos por defeito. Os valores revelados são reais, não projeções.',
+    rule1Desc: 'Todos os prospectos têm os 29 atributos escondidos por defeito. Os valores revelados são reais, não projeções.',
     rule2Title: 'Avaliação Geral Continua Escondida',
     rule2Desc: 'O OVR de um prospecto nunca é revelado aos GMs, independentemente de quanto scouting fizeres. Só o comissário o vê.',
     rule3Title: 'Privado à Tua Equipa',

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import ProspectPhotoUpload from './ProspectPhotoUpload'
 import { useTranslation } from '@/components/I18nProvider'
+import { TOTAL_ATTRIBUTES } from '@/lib/scouting'
 
 const ATTR_GROUPS_EN = [
   { label:'Scoring',       color:'#b45309', attrs:[{key:'three',label:'Three Point'},{key:'layup',label:'Layup'},{key:'dunk',label:'Afundanço'},{key:'mid',label:'Mid-Range'},{key:'ft',label:'Free Throws'},{key:'siq',label:'Shot IQ'},{key:'draw_foul',label:'Draw Foul'},{key:'close_shot',label:'Close Shot'},{key:'standing_dunk',label:'Afundanço Estático'}]},
@@ -63,7 +64,7 @@ export default function ProspectPageClient({prospectId}:{prospectId:string}) {
 
   const p=prospect; const posColor=POS_COLOR[p.pos]||'#5c554e'
   const isRevealed=(attr:string)=>isCommissioner||revealedAttrs.has(attr)
-  const revealedCount=isCommissioner?30:revealedAttrs.size
+  const revealedCount=isCommissioner?TOTAL_ATTRIBUTES:revealedAttrs.size
 
   const infoItems = isPT
     ? [{label:'Altura',val:p.height||'—'},{label:'Peso',val:p.weight?p.weight+'lbs':'—'},{label:'Nacionalidade',val:p.nationality||'—'},{label:'Escola',val:p.college||'—'}]
@@ -110,7 +111,7 @@ export default function ProspectPageClient({prospectId}:{prospectId:string}) {
       {!isCommissioner&&myTeamId&&(
         <div style={{marginBottom:20,padding:'12px 16px',borderRadius:10,background:'#ede9fe',border:'1px solid #c4b5fd',display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
           <div style={{fontSize:12,color:'#5b21b6'}}>
-            🔍 {isPT?<>Scouted: <strong>{revealedCount}/30</strong> atributos revelados para {p.name}</>:<>Scouted: <strong>{revealedCount}/30</strong> attributes revealed for {p.name}</>}
+            🔍 {isPT?<>Scouted: <strong>{revealedCount}/{TOTAL_ATTRIBUTES}</strong> atributos revelados para {p.name}</>:<>Scouted: <strong>{revealedCount}/{TOTAL_ATTRIBUTES}</strong> attributes revealed for {p.name}</>}
           </div>
           <a href="/scouting" style={{fontSize:12,fontWeight:700,color:'#fff',background:'#6d28d9',padding:'6px 14px',borderRadius:8,textDecoration:'none'}}>
             {isPT?'Fazer Scouting →':'Scout this player →'}

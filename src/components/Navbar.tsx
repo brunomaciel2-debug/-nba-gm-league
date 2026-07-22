@@ -47,20 +47,33 @@ function NavDropdown({ label, icon, items, onNavigate }: {
         <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 13, marginLeft: 2, color: '#d4a537' }}></i>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 rounded-xl overflow-hidden py-1"
-             style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 200,
+        <div className="absolute left-0 top-full z-50 rounded-xl py-1"
+             style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 220, maxHeight: '75vh', overflowY: 'auto',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.2)', marginTop: 8 }}>
-          {items.map((item: any) => (
-            <Link key={item.href} href={item.href}
-              onClick={() => { setOpen(false); onNavigate() }}
-              className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
-              style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
-              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-              <i className={`ti ${item.icon}`} style={{ fontSize: 14, color: '#c8102e' }}></i>
-              {item.label}
-            </Link>
-          ))}
+          {items.map((item: any, i: number) => {
+            const showGroup = item.group && item.group !== items[i - 1]?.group
+            return (
+              <div key={item.href}>
+                {showGroup && (
+                  <div style={{
+                    margin: i === 0 ? '4px 14px 4px' : '10px 14px 4px',
+                    fontSize: 10, fontWeight: 700, letterSpacing: '0.5px',
+                    textTransform: 'uppercase', color: '#8a8279',
+                  }}>{item.group}</div>
+                )}
+                {showGroup && i !== 0 && <div style={{ height: 1, background: '#d6d0c6', margin: '0 12px 4px' }} />}
+                <Link href={item.href}
+                  onClick={() => { setOpen(false); onNavigate() }}
+                  className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
+                  style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <i className={`ti ${item.icon}`} style={{ fontSize: 14, color: '#c8102e' }}></i>
+                  {item.label}
+                </Link>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -125,25 +138,32 @@ export default function Navbar() {
     label: isPT ? 'Regras & Info' : 'Rules & Info',
     icon: 'ti-book',
     items: [
-      { label: isPT ? 'Regras do Tecto Salarial'  : 'Salary Cap Rules',    href: '/rules/cap',      icon: 'ti-cash' },
-      { label: isPT ? 'Regras de Contratos'        : 'Contract Rules',      href: '/rules/contracts',icon: 'ti-file-text' },
-      { label: isPT ? 'Regras de Trades'           : 'Trade Rules',         href: '/rules/trades',   icon: 'ti-switch-horizontal' },
-      { label: isPT ? 'Regras de Treino'           : 'Training Rules',      href: '/rules/training', icon: 'ti-barbell' },
-      { label: isPT ? 'Regras de Free Agency'      : 'Free Agency Rules',   href: '/rules/free-agency', icon: 'ti-user-dollar' },
-      { label: isPT ? 'Regras do Draft'            : 'Draft Rules',         href: '/rules/draft',    icon: 'ti-clipboard-list' },
-      { label: isPT ? 'Regras de Faltas'  : 'Foul Rules',href: '/rules/technical-fouls', icon: 'ti-flag' },
-      { label: isPT ? 'Regras de Lesões'           : 'Injury Rules',        href: '/rules/injuries', icon: 'ti-first-aid-kit' },
-      { label: isPT ? 'Regras da G-League'         : 'G-League Rules',      href: '/rules/gleague',  icon: 'ti-ball-basketball' },
-      { label: isPT ? 'Regras de Prémios'          : 'Awards Rules',        href: '/rules/awards',   icon: 'ti-trophy' },
-      { label: isPT ? 'Regras de Líderes da Liga'  : 'League Leaders Rules',href: '/rules/league-leaders', icon: 'ti-chart-bar' },
-      { label: isPT ? 'Moral e Interações'          : 'Morale & Interactions', href: '/rules/interactions', icon: 'ti-message-circle' },
-      { label: isPT ? 'Guia das Ordens Semanais'  : 'Weekly Orders Guide',  href: '/rules/orders',   icon: 'ti-clipboard-list' },
-      { label: isPT ? 'Guia de Scouting'          : 'Scouting Guide',       href: '/rules/scouting', icon: 'ti-search' },
-      { label: isPT ? 'Objetivos de Patrocínio'   : 'Sponsor Objectives',   href: '/rules/sponsors', icon: 'ti-target-arrow' },
-      { label: isPT ? 'Regras de Merchandising'   : 'Merchandising Rules',  href: '/rules/merchandising', icon: 'ti-shirt' },
-      { label: isPT ? 'Familiaridade Tática'      : 'Tactical Familiarity', href: '/rules/tactical-systems', icon: 'ti-brain' },
-      { label: isPT ? 'Finanças e Economia da Arena' : 'Finances & Arena Economy', href: '/rules/finances', icon: 'ti-building-stadium' },
-      { label: isPT ? 'Satisfação e Avaliação do GM' : 'GM Satisfaction & Evaluation', href: '/rules/satisfaction', icon: 'ti-clipboard-check' },
+      // 1. Roster & Contracts
+      { label: isPT ? 'Regras do Tecto Salarial'  : 'Salary Cap Rules',    href: '/rules/cap',      icon: 'ti-cash', group: isPT ? 'Plantel & Contratos' : 'Roster & Contracts' },
+      { label: isPT ? 'Regras de Contratos'        : 'Contract Rules',      href: '/rules/contracts',icon: 'ti-file-text', group: isPT ? 'Plantel & Contratos' : 'Roster & Contracts' },
+      { label: isPT ? 'Regras de Trades'           : 'Trade Rules',         href: '/rules/trades',   icon: 'ti-switch-horizontal', group: isPT ? 'Plantel & Contratos' : 'Roster & Contracts' },
+      { label: isPT ? 'Regras de Free Agency'      : 'Free Agency Rules',   href: '/rules/free-agency', icon: 'ti-user-dollar', group: isPT ? 'Plantel & Contratos' : 'Roster & Contracts' },
+      { label: isPT ? 'Regras do Draft'            : 'Draft Rules',         href: '/rules/draft',    icon: 'ti-clipboard-list', group: isPT ? 'Plantel & Contratos' : 'Roster & Contracts' },
+      // 2. On the Court
+      { label: isPT ? 'Regras de Faltas'  : 'Foul Rules',href: '/rules/technical-fouls', icon: 'ti-flag', group: isPT ? 'Em Campo' : 'On the Court' },
+      { label: isPT ? 'Regras de Lesões'           : 'Injury Rules',        href: '/rules/injuries', icon: 'ti-first-aid-kit', group: isPT ? 'Em Campo' : 'On the Court' },
+      { label: isPT ? 'Regras da G-League'         : 'G-League Rules',      href: '/rules/gleague',  icon: 'ti-ball-basketball', group: isPT ? 'Em Campo' : 'On the Court' },
+      { label: isPT ? 'Regras de Prémios'          : 'Awards Rules',        href: '/rules/awards',   icon: 'ti-trophy', group: isPT ? 'Em Campo' : 'On the Court' },
+      { label: isPT ? 'Regras de Líderes da Liga'  : 'League Leaders Rules',href: '/rules/league-leaders', icon: 'ti-chart-bar', group: isPT ? 'Em Campo' : 'On the Court' },
+      // 3. Player Development
+      { label: isPT ? 'Regras de Treino'           : 'Training Rules',      href: '/rules/training', icon: 'ti-barbell', group: isPT ? 'Desenvolvimento' : 'Player Development' },
+      { label: isPT ? 'Familiaridade Tática'      : 'Tactical Familiarity', href: '/rules/tactical-systems', icon: 'ti-brain', group: isPT ? 'Desenvolvimento' : 'Player Development' },
+      { label: isPT ? 'Guia de Scouting'          : 'Scouting Guide',       href: '/rules/scouting', icon: 'ti-search', group: isPT ? 'Desenvolvimento' : 'Player Development' },
+      // 4. Team Management
+      { label: isPT ? 'Guia das Ordens Semanais'  : 'Weekly Orders Guide',  href: '/rules/orders',   icon: 'ti-clipboard-list', group: isPT ? 'Gestão de Equipa' : 'Team Management' },
+      { label: isPT ? 'Moral e Interações'          : 'Morale & Interactions', href: '/rules/interactions', icon: 'ti-message-circle', group: isPT ? 'Gestão de Equipa' : 'Team Management' },
+      { label: isPT ? 'Regras de Retirada'         : 'Retirement Rules',    href: '/rules/retirement', icon: 'ti-door-exit', group: isPT ? 'Gestão de Equipa' : 'Team Management' },
+      { label: isPT ? 'Regras do Psychology Office' : 'Psychology Office Rules', href: '/rules/psychology-office', icon: 'ti-brain', group: isPT ? 'Gestão de Equipa' : 'Team Management' },
+      { label: isPT ? 'Satisfação e Avaliação do GM' : 'GM Satisfaction & Evaluation', href: '/rules/satisfaction', icon: 'ti-clipboard-check', group: isPT ? 'Gestão de Equipa' : 'Team Management' },
+      // 5. Business
+      { label: isPT ? 'Finanças e Economia da Arena' : 'Finances & Arena Economy', href: '/rules/finances', icon: 'ti-building-stadium', group: isPT ? 'Negócio' : 'Business' },
+      { label: isPT ? 'Objetivos de Patrocínio'   : 'Sponsor Objectives',   href: '/rules/sponsors', icon: 'ti-target-arrow', group: isPT ? 'Negócio' : 'Business' },
+      { label: isPT ? 'Regras de Merchandising'   : 'Merchandising Rules',  href: '/rules/merchandising', icon: 'ti-shirt', group: isPT ? 'Negócio' : 'Business' },
     ],
   }
 
@@ -379,16 +399,26 @@ export default function Navbar() {
                   </button>
                   {groupOpen && (
                     <div className="flex flex-col gap-1" style={{ paddingLeft: 16 }}>
-                      {group.items.map(item => (
-                        <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm no-underline"
-                          style={{ color: '#9ba5b0' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
-                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                          <i className={`ti ${item.icon}`} style={{ fontSize: 14 }}></i>
-                          {item.label}
-                        </Link>
-                      ))}
+                      {group.items.map((item: any, i: number) => {
+                        const showSubGroup = item.group && item.group !== (group.items[i - 1] as any)?.group
+                        return (
+                          <div key={item.href}>
+                            {showSubGroup && (
+                              <div style={{ margin: i === 0 ? '2px 12px 4px' : '10px 12px 4px', fontSize: 9, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#6b7280' }}>
+                                {item.group}
+                              </div>
+                            )}
+                            <Link href={item.href} onClick={() => setOpen(false)}
+                              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm no-underline"
+                              style={{ color: '#9ba5b0' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                              <i className={`ti ${item.icon}`} style={{ fontSize: 14 }}></i>
+                              {item.label}
+                            </Link>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
