@@ -32,6 +32,7 @@ import { cityDistanceMiles, computeAwayTravelCost } from '@/lib/travel-constants
 import { resolveWeeklySocialMedia } from '@/lib/social-media-resolver'
 import { resolveWeeklyGmSatisfaction } from '@/lib/gm-satisfaction'
 import { resolveWeeklyPracticeAndOffCourtInjuries } from '@/lib/practice-injuries'
+import { resolveWeeklyPsychologyOffice } from '@/lib/psychology-office-resolver'
 
 // Supabase/PostgREST silently caps any unpaginated query at db.max_rows
 // (1000 on this project) — a full week now has ~1700+ box_scores rows
@@ -2264,6 +2265,15 @@ await Promise.all(chunk.map((id:string) => supabaseAdmin.from('injury_log').upda
 }
 }
 } catch(e) { console.warn('Recovery step failed',e) }
+
+// ── PSYCHOLOGY OFFICE ──────────────────────────────────
+// Runs after the recovery step above so it reads each player's
+// already-naturally-drifted moral this week, then layers a guaranteed
+// extra push on top for anyone occupying an active slot.
+try {
+const psychResult = await resolveWeeklyPsychologyOffice(week)
+console.log(`Psychology Office — processed: ${psychResult.processed}, cleared: ${psychResult.cleared}`)
+} catch(psychErr) { console.warn('Psychology Office resolution failed:', psychErr) }
 
 // ── SPONSOR OBJECTIVES ────────────────────────────────
 try {

@@ -20,9 +20,10 @@ import PlayerInteractions from './PlayerInteractions'
 import SocialMediaTab from './SocialMediaTab'
 import SatisfactionTab from './SatisfactionTab'
 import TransactionsTab from './TransactionsTab'
+import PsychologyOfficeTab from './PsychologyOfficeTab'
 import { useTranslation } from '@/components/I18nProvider'
 
-type Tab = 'roster' | 'injuries' | 'schedule' | 'contracts' | 'draft' | 'transactions' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'satisfaction' | 'scouting' | 'interactions' | 'social_media'
+type Tab = 'roster' | 'injuries' | 'schedule' | 'contracts' | 'draft' | 'transactions' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'satisfaction' | 'scouting' | 'interactions' | 'social_media' | 'psychology'
 
 function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: boolean }) {
   return (
@@ -43,7 +44,7 @@ export default function TeamPageTabs({
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const searchParams = useSearchParams()
-  const VALID_TABS: Tab[] = ['roster','injuries','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media']
+  const VALID_TABS: Tab[] = ['roster','injuries','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media','psychology']
   const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'roster'
   const [tab, setTab] = useState<Tab>(initialTab)
 
@@ -62,6 +63,7 @@ export default function TeamPageTabs({
     { key: 'satisfaction', label: isPT ? 'Satisfação'    : 'Satisfaction', icon: '📋', group: 'info' },
     { key: 'scouting',   label: 'Scouting',                               icon: '🔍', group: 'action' },
     { key: 'training',   label: isPT ? 'Treino'          : 'Training',    icon: '🏋️', group: 'action' },
+    { key: 'psychology', label: isPT ? 'Gabinete de Psicologia' : 'Psychology Office', icon: '🧠', group: 'action' },
     { key: 'facilities', label: isPT ? 'Instalações'     : 'Facilities',  icon: '🏟️', group: 'action' },
     { key: 'tactical',   label: isPT ? 'Sistemas'       : 'Systems',       icon: '🔥', group: 'action' },
     { key: 'sponsors',   label: isPT ? 'Patrocinadores'  : 'Sponsors',    icon: '💰', group: 'action' },
@@ -188,6 +190,7 @@ export default function TeamPageTabs({
         {tab === 'draft'      && <DraftPicksTable teamId={teamId} />}
         {tab === 'transactions' && <TransactionsTab teamId={teamId} teamColor={teamColor} />}
         {tab === 'training'   && <TrainingTab teamId={teamId} teamColor={teamColor} players={players} />}
+        {tab === 'psychology' && <PsychologyOfficeTab teamId={teamId} teamColor={teamColor} players={players} coaches={coaches} />}
         {tab === 'facilities' && <FacilitiesTab teamId={teamId} teamColor={teamColor} arenaName={arenaName} arenaCapacity={arenaCapacity} />}
         {tab === 'finances'   && <FinancesTab teamId={teamId} teamColor={teamColor} />}
         {tab === 'merchandising' && <MerchandisingTab teamId={teamId} teamColor={teamColor} players={players} />}
