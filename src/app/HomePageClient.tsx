@@ -62,12 +62,22 @@ export function HomeCalendarCard({ config, upcomingEvents }: { config: any, upco
 
   const todayStr = ymd(today)
   const blockStartStr = ymd(blockStart), blockEndStr = ymd(blockEnd)
-  const eventByDate: Record<string, any> = {}
-  ;(upcomingEvents || []).forEach(ev => { if (!eventByDate[ev.start_date]) eventByDate[ev.start_date] = ev })
 
   // Only list, in the legend, events that actually land on a visible cell —
   // no point explaining a color nobody sees this month.
   const visibleEvents = (upcomingEvents || []).filter(ev => days.some(d => ymd(d) === ev.start_date))
+
+  // Several events share the same category color in season_events (e.g.
+  // every G-League milestone is stored green) — fine for a single badge
+  // elsewhere, but useless here when 2-3 of them show up together and need
+  // to be told apart. Assigns each VISIBLE event its own color from a fixed
+  // palette instead, cycling if there are ever more events than colors.
+  const MARKER_PALETTE = ['#dc2626','#1d4ed8','#15803d','#b45309','#7c3aed','#0e7490','#db2777']
+  const markerColorById: Record<string, string> = {}
+  visibleEvents.forEach((ev, i) => { markerColorById[ev.id] = MARKER_PALETTE[i % MARKER_PALETTE.length] })
+
+  const eventByDate: Record<string, any> = {}
+  ;(upcomingEvents || []).forEach(ev => { if (!eventByDate[ev.start_date]) eventByDate[ev.start_date] = ev })
 
   return (
     <div className="rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5',padding:'14px 16px',width:300,flexShrink:0}}>
@@ -102,7 +112,7 @@ export function HomeCalendarCard({ config, upcomingEvents }: { config: any, upco
                 }}>
                 {d.getDate()}
               </div>
-              {ev && <div style={{position:'absolute',bottom:0,width:5,height:5,borderRadius:'50%',background:ev.color||'#b45309'}} />}
+              {ev && <div style={{position:'absolute',bottom:0,width:5,height:5,borderRadius:'50%',background:markerColorById[ev.id]||ev.color||'#b45309'}} />}
             </div>
           )
         })}
@@ -119,7 +129,7 @@ export function HomeCalendarCard({ config, upcomingEvents }: { config: any, upco
         </span>
         {visibleEvents.map(ev => (
           <span key={ev.id} className="flex items-center gap-1 text-xs" style={{color:'#5c554e'}}>
-            <span style={{width:8,height:8,borderRadius:'50%',background:ev.color||'#b45309',display:'inline-block'}}/>
+            <span style={{width:8,height:8,borderRadius:'50%',background:markerColorById[ev.id]||ev.color||'#b45309',display:'inline-block'}}/>
             {ev.icon} {ev.event_name}
           </span>
         ))}
