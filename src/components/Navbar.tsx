@@ -71,6 +71,12 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [commOpen, setCommOpen] = useState(false)
   const [gmOpen, setGmOpen] = useState(false)
+  // The mobile drawer used to flatten every dropdown into one long
+  // alphabetized list (Bruno: "tenho de fazer muito scroll down e up") —
+  // these track which of the desktop's own groups (League/Events/Rules)
+  // are expanded, defaulting to all collapsed so the drawer opens short.
+  const [mobileGroupsOpen, setMobileGroupsOpen] = useState<Record<string, boolean>>({})
+  const toggleMobileGroup = (key: string) => setMobileGroupsOpen(prev => ({ ...prev, [key]: !prev[key] }))
   const { user, profile, loading, signOut } = useAuth()
   const { t } = useTranslation()
 
@@ -181,12 +187,9 @@ export default function Navbar() {
     { href: `/inbox`,                    label: isPT ? 'Caixa de Entrada'  : 'Inbox',             icon: 'ti-mail' },
   ]
 
-  const ALL_MOBILE = [
-    ...NAV_DROPDOWNS.flatMap(d => d.items),
-    ...RULES_DROPDOWN.items,
-    ...NAV_LINKS_STATIC,
-    ...NAV_LINKS_RIGHT,
-  ].sort((a, b) => a.label.localeCompare(b.label))
+  // Same grouping as the desktop dropdowns (League, Events, Rules & Info)
+  // instead of one flattened, alphabetized list of 25+ links.
+  const MOBILE_GROUPS = [...NAV_DROPDOWNS, RULES_DROPDOWN]
 
   return (
     <>
@@ -362,7 +365,37 @@ export default function Navbar() {
               <i className="ti ti-home" style={{ fontSize: 16 }}></i>
               {isPT ? 'Início' : 'Home'}
             </Link>
-            {ALL_MOBILE.map(item => (
+
+            {MOBILE_GROUPS.map(group => {
+              const groupOpen = !!mobileGroupsOpen[group.label]
+              return (
+                <div key={group.label}>
+                  <button type="button" onClick={() => toggleMobileGroup(group.label)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm"
+                    style={{ color: '#c9d1d9', background: 'transparent', border: 'none', textAlign: 'left' }}>
+                    <i className={`ti ${group.icon}`} style={{ fontSize: 16 }}></i>
+                    <span style={{ flex: 1 }}>{group.label}</span>
+                    <i className={`ti ti-chevron-${groupOpen ? 'up' : 'down'}`} style={{ fontSize: 14, color: '#8a8279' }}></i>
+                  </button>
+                  {groupOpen && (
+                    <div className="flex flex-col gap-1" style={{ paddingLeft: 16 }}>
+                      {group.items.map(item => (
+                        <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm no-underline"
+                          style={{ color: '#9ba5b0' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          <i className={`ti ${item.icon}`} style={{ fontSize: 14 }}></i>
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {[...NAV_LINKS_STATIC, ...NAV_LINKS_RIGHT].map(item => (
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm no-underline"
                 style={{ color: '#c9d1d9' }}
@@ -372,6 +405,7 @@ export default function Navbar() {
                 {item.label}
               </Link>
             ))}
+
             <div className="px-3 py-2">
               <LanguageSwitcher />
             </div>
