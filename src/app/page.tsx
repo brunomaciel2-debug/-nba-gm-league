@@ -31,13 +31,19 @@ export default async function HomePage() {
 
   // season_events rows are dated within the SIMULATED season calendar, so
   // "today" for this query is the simulated week's start date, same anchor
-  // SimulatorBanner uses — not real wall-clock today.
+  // SimulatorBanner uses — not real wall-clock today. Most single-day
+  // milestones (draft, trade deadline, playoffs-begin, etc.) store no
+  // end_date at all — a plain .gte('end_date', ...) silently drops every
+  // one of them (NULL fails any comparison), which is why "G League
+  // Playoffs Begin" never showed up here even though it's the very next
+  // event. The .or() below treats a NULL end_date as "ends the day it
+  // starts" instead.
   const simToday = getSimDate((seasonConfig as any)?.current_week || 1)
   const simTodayStr = `${simToday.getFullYear()}-${String(simToday.getMonth() + 1).padStart(2, '0')}-${String(simToday.getDate()).padStart(2, '0')}`
-  const { data: nextEvent } = await supabase.from('season_events')
+  const { data: upcomingEvents } = await supabase.from('season_events')
     .select('*').eq('season', '2025-26')
-    .gte('end_date', simTodayStr)
-    .order('start_date').limit(1).single()
+    .or(`end_date.gte.${simTodayStr},and(end_date.is.null,start_date.gte.${simTodayStr})`)
+    .order('start_date').limit(8)
 
   const teamMap = Object.fromEntries((teams||[]).map((t:Team) => [t.id, t]))
   // hl.hstreak_games references specific game IDs from the streak team's own
@@ -63,7 +69,7 @@ export default async function HomePage() {
 
       {/* BANNER + CALENDAR */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
-        <HomeCalendarCard config={seasonConfig} nextEvent={nextEvent} />
+        <HomeCalendarCard config={seasonConfig} upcomingEvents={upcomingEvents || []} />
         {bannerUrl ? (
           <div className="rounded-2xl overflow-hidden flex-1 min-w-0" style={{height:280}}>
             <img src={bannerUrl} alt="NBA GM League" className="w-full h-full object-cover"/>

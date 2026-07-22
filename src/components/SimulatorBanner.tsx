@@ -22,9 +22,13 @@ export default function SimulatorBanner() {
       // simulated "today" (this week's start date) is the correct anchor.
       const simToday = getSimDate(cfg?.current_week || 1)
       const simTodayStr = `${simToday.getFullYear()}-${String(simToday.getMonth() + 1).padStart(2, '0')}-${String(simToday.getDate()).padStart(2, '0')}`
+      // Most single-day milestones (draft, trade deadline, playoffs-begin,
+      // etc.) store no end_date at all — a plain .gte('end_date', ...)
+      // silently drops every one of them (NULL fails any comparison). This
+      // treats a NULL end_date as "ends the day it starts" instead.
       supabase.from('season_events')
         .select('*').eq('season', '2025-26')
-        .gte('end_date', simTodayStr)
+        .or(`end_date.gte.${simTodayStr},and(end_date.is.null,start_date.gte.${simTodayStr})`)
         .order('start_date').limit(1).single()
         .then(({ data: ev }) => setNextEvent(ev))
     })

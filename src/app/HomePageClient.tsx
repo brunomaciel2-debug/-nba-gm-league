@@ -24,11 +24,14 @@ function getMonthGrid(year: number, month: number): Date[] {
 
 // Homepage "at a glance" calendar — a real month grid (not another status
 // summary; the navbar's SimulatorBanner strip already covers that) showing
-// the SIMULATED season calendar: this week highlighted, the specific days
-// of the next simulation block called out, and the next major event marked
-// on its date. Same color palette as the navbar (SEASON_STATUS_COLORS) so a
-// GM recognizes one color per season phase everywhere on the site.
-export function HomeCalendarCard({ config, nextEvent }: { config: any, nextEvent: any }) {
+// the SIMULATED season calendar: today (the last simulated day), the
+// specific days of the next simulation block, and every upcoming event that
+// falls within the visible month — not just the single nearest one, so e.g.
+// "G League Playoffs Begin" still shows up alongside "G League Finals"
+// rather than only ever the closest of the two. Same color palette as the
+// navbar (SEASON_STATUS_COLORS) so a GM recognizes one color per season
+// phase everywhere on the site.
+export function HomeCalendarCard({ config, upcomingEvents }: { config: any, upcomingEvents: any[] }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
 
@@ -40,9 +43,9 @@ export function HomeCalendarCard({ config, nextEvent }: { config: any, nextEvent
   const sc = SEASON_STATUS_COLORS[status] || SEASON_STATUS_COLORS['offseason']
   const label = SEASON_STATUS_LABELS[status] ? (isPT ? SEASON_STATUS_LABELS[status].pt : SEASON_STATUS_LABELS[status].en) : status
 
-  const { start: weekStart, end: weekEnd } = week > 0
-    ? { start: getHalfWeekDates(week,1).start, end: getHalfWeekDates(week,2).end }
-    : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
+  // "Today" is the last day of the last fully-simulated week — a single
+  // date, not a 7-day span (the whole week isn't equally "now").
+  const today = week > 0 ? getHalfWeekDates(week, 2).end : new Date('2025-10-01')
 
   const nextHalf: 1 | 2 = config.next_sim_half === 2 ? 2 : 1
   const { start: blockStart, end: blockEnd } = nextWeek > 0
@@ -57,9 +60,14 @@ export function HomeCalendarCard({ config, nextEvent }: { config: any, nextEvent
   const weekdayLabels = isPT ? WEEKDAY_PT : WEEKDAY_EN
   const monthLabel = `${(isPT ? MONTH_NAMES_PT : MONTH_NAMES_EN)[gridMonth.getMonth()]} ${gridMonth.getFullYear()}`
 
-  const weekStartStr = ymd(weekStart), weekEndStr = ymd(weekEnd)
+  const todayStr = ymd(today)
   const blockStartStr = ymd(blockStart), blockEndStr = ymd(blockEnd)
-  const eventDateStr = nextEvent?.start_date
+  const eventByDate: Record<string, any> = {}
+  ;(upcomingEvents || []).forEach(ev => { if (!eventByDate[ev.start_date]) eventByDate[ev.start_date] = ev })
+
+  // Only list, in the legend, events that actually land on a visible cell —
+  // no point explaining a color nobody sees this month.
+  const visibleEvents = (upcomingEvents || []).filter(ev => days.some(d => ymd(d) === ev.start_date))
 
   return (
     <div className="rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5',padding:'14px 16px',width:300,flexShrink:0}}>
@@ -81,20 +89,20 @@ export function HomeCalendarCard({ config, nextEvent }: { config: any, nextEvent
         {days.map((d, i) => {
           const dStr = ymd(d)
           const inGridMonth = d.getMonth() === gridMonth.getMonth()
-          const isThisWeek = dStr >= weekStartStr && dStr <= weekEndStr
+          const isToday = dStr === todayStr
           const isNextBlock = dStr >= blockStartStr && dStr <= blockEndStr
-          const isEvent = eventDateStr === dStr
+          const ev = eventByDate[dStr]
           return (
             <div key={i} className="flex items-center justify-center relative" style={{height:30}}>
               <div className="flex items-center justify-center rounded-full text-xs"
                 style={{
-                  width: 26, height: 26, fontWeight: isNextBlock ? 800 : 500,
-                  color: !inGridMonth ? '#d4cdc5' : isNextBlock ? '#fff' : isThisWeek ? sc.text : '#3d3731',
-                  background: isNextBlock ? sc.dot : isThisWeek ? sc.bg : 'transparent',
+                  width: 26, height: 26, fontWeight: (isToday || isNextBlock) ? 800 : 500,
+                  color: !inGridMonth ? '#d4cdc5' : isToday ? '#fff' : isNextBlock ? sc.text : '#3d3731',
+                  background: isToday ? '#1a1512' : isNextBlock ? sc.bg : 'transparent',
                 }}>
                 {d.getDate()}
               </div>
-              {isEvent && <div style={{position:'absolute',bottom:0,width:5,height:5,borderRadius:'50%',background:nextEvent.color||'#b45309'}} />}
+              {ev && <div style={{position:'absolute',bottom:0,width:5,height:5,borderRadius:'50%',background:ev.color||'#b45309'}} />}
             </div>
           )
         })}
@@ -102,19 +110,19 @@ export function HomeCalendarCard({ config, nextEvent }: { config: any, nextEvent
 
       <div className="flex items-center gap-3 mt-2 pt-2 flex-wrap" style={{borderTop:'1px solid #e2dcd5'}}>
         <span className="flex items-center gap-1 text-xs" style={{color:'#5c554e'}}>
-          <span style={{width:8,height:8,borderRadius:'50%',background:sc.bg,border:`1px solid ${sc.dot}`,display:'inline-block'}}/>
-          {isPT ? 'Esta semana' : 'This week'}
+          <span style={{width:8,height:8,borderRadius:'50%',background:'#1a1512',display:'inline-block'}}/>
+          {isPT ? 'Hoje' : 'Today'}
         </span>
         <span className="flex items-center gap-1 text-xs" style={{color:'#5c554e'}}>
-          <span style={{width:8,height:8,borderRadius:'50%',background:sc.dot,display:'inline-block'}}/>
+          <span style={{width:8,height:8,borderRadius:'50%',background:sc.bg,border:`1px solid ${sc.dot}`,display:'inline-block'}}/>
           {isPT ? 'Próxima simulação' : 'Next simulation'}
         </span>
-        {nextEvent && (
-          <span className="flex items-center gap-1 text-xs" style={{color:'#5c554e'}}>
-            <span style={{width:8,height:8,borderRadius:'50%',background:nextEvent.color||'#b45309',display:'inline-block'}}/>
-            {nextEvent.icon} {nextEvent.event_name}
+        {visibleEvents.map(ev => (
+          <span key={ev.id} className="flex items-center gap-1 text-xs" style={{color:'#5c554e'}}>
+            <span style={{width:8,height:8,borderRadius:'50%',background:ev.color||'#b45309',display:'inline-block'}}/>
+            {ev.icon} {ev.event_name}
           </span>
-        )}
+        ))}
       </div>
     </div>
   )
