@@ -79,8 +79,16 @@ export function HomeCalendarCard({ config, upcomingEvents }: { config: any, upco
   const eventByDate: Record<string, any> = {}
   ;(upcomingEvents || []).forEach(ev => { if (!eventByDate[ev.start_date]) eventByDate[ev.start_date] = ev })
 
+  // Fixed at the card's natural size with a typical 3-event legend — locked
+  // instead of content-driven so the banner next to it (which stretches to
+  // match via flexbox) always gets the exact same height, letting Bruno
+  // commission a banner image sized to fit this box with zero cropping,
+  // ever. The legend area scrolls internally on the rare month with more
+  // events than fit, instead of growing the whole card.
+  const CARD_HEIGHT = 383
+
   return (
-    <div className="rounded-2xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5',padding:'14px 16px',width:300,flexShrink:0}}>
+    <div className="rounded-2xl flex flex-col" style={{background:'#faf8f5',border:'1px solid #d4cdc5',padding:'14px 16px',width:300,height:CARD_HEIGHT,flexShrink:0}}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-bold" style={{color:'#1a1512'}}>{monthLabel}</span>
         <span className="flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full"
@@ -118,7 +126,7 @@ export function HomeCalendarCard({ config, upcomingEvents }: { config: any, upco
         })}
       </div>
 
-      <div className="flex items-center gap-3 mt-2 pt-2 flex-wrap" style={{borderTop:'1px solid #e2dcd5'}}>
+      <div className="flex items-center gap-3 mt-2 pt-2 flex-wrap flex-1 overflow-y-auto content-start" style={{borderTop:'1px solid #e2dcd5'}}>
         <span className="flex items-center gap-1 text-xs" style={{color:'#5c554e'}}>
           <span style={{width:8,height:8,borderRadius:'50%',background:'#1a1512',display:'inline-block'}}/>
           {isPT ? 'Hoje' : 'Today'}

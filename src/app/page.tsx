@@ -72,7 +72,13 @@ export default async function HomePage() {
         <HomeCalendarCard config={seasonConfig} upcomingEvents={upcomingEvents || []} />
         {bannerUrl ? (
           <div className="rounded-2xl overflow-hidden flex-1 min-w-0 h-56 md:h-auto">
-            <img src={bannerUrl} alt="NBA GM League" className="w-full h-full object-cover"/>
+            {/* The banner's own logo/title sits well left-of-center in the
+                source image (it was designed for a much wider, shorter box)
+                — object-cover's default center crop, now that this box is
+                narrower and taller than before, was cutting the "B" off
+                "BEYOND". Anchoring the crop to the left edge instead keeps
+                the whole logo in frame. */}
+            <img src={bannerUrl} alt="NBA GM League" className="w-full h-full object-cover object-left"/>
           </div>
         ) : (
           <div className="rounded-2xl flex-1 min-w-0 flex items-center justify-center h-56 md:h-auto"
