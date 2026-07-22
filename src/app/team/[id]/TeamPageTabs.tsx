@@ -47,24 +47,27 @@ export default function TeamPageTabs({
   const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'roster'
   const [tab, setTab] = useState<Tab>(initialTab)
 
-  const TABS: { key: Tab, label: string, icon: string }[] = [
-    { key: 'roster',     label: isPT ? 'Plantel'         : 'Roster',      icon: '👥' },
-    { key: 'injuries',   label: isPT ? 'Lesões'          : 'Injuries',    icon: '🏥' },
-    { key: 'schedule',   label: isPT ? 'Calendário'      : 'Schedule',    icon: '📅' },
-    { key: 'contracts',  label: isPT ? 'Contratos'       : 'Contracts',   icon: '📄' },
-    { key: 'draft',      label: isPT ? 'Escolhas Draft'  : 'Draft Picks', icon: '🎓' },
-    { key: 'transactions', label: isPT ? 'Transferências' : 'Transactions', icon: '🔄' },
-    { key: 'scouting',   label: 'Scouting',                               icon: '🔍' },
-    { key: 'training',   label: isPT ? 'Treino'          : 'Training',    icon: '🏋️' },
-    { key: 'facilities', label: isPT ? 'Instalações'     : 'Facilities',  icon: '🏟️' },
-    { key: 'finances',   label: isPT ? 'Finanças'        : 'Finances',    icon: '💵' },
-    { key: 'merchandising', label: isPT ? 'Merchandising' : 'Merchandising', icon: '👕' },
-    { key: 'tactical',   label: isPT ? 'Sistemas'       : 'Systems',       icon: '🔥' },
-    { key: 'sponsors',   label: isPT ? 'Patrocinadores'  : 'Sponsors',    icon: '💰' },
-    { key: 'goals',      label: isPT ? 'Objetivos'       : 'Goals',       icon: '🎯' },
-    { key: 'satisfaction', label: isPT ? 'Satisfação'    : 'Satisfaction', icon: '📋' },
-    { key: 'interactions', label: isPT ? 'Interações'    : 'Interactions', icon: '💬' },
-    { key: 'social_media', label: isPT ? 'Social Media'  : 'Social Media', icon: '📱' },
+  // Split into two groups: pages the GM merely consults (Informação) vs
+  // pages where the GM makes decisions/takes action (Gestão). Requested by
+  // Bruno since the flat 17-item list had become hard to scan.
+  const TABS: { key: Tab, label: string, icon: string, group: 'info' | 'action' }[] = [
+    { key: 'roster',     label: isPT ? 'Plantel'         : 'Roster',      icon: '👥', group: 'info' },
+    { key: 'injuries',   label: isPT ? 'Lesões'          : 'Injuries',    icon: '🏥', group: 'info' },
+    { key: 'schedule',   label: isPT ? 'Calendário'      : 'Schedule',    icon: '📅', group: 'info' },
+    { key: 'contracts',  label: isPT ? 'Contratos'       : 'Contracts',   icon: '📄', group: 'info' },
+    { key: 'draft',      label: isPT ? 'Escolhas Draft'  : 'Draft Picks', icon: '🎓', group: 'info' },
+    { key: 'transactions', label: isPT ? 'Transferências' : 'Transactions', icon: '🔄', group: 'info' },
+    { key: 'finances',   label: isPT ? 'Finanças'        : 'Finances',    icon: '💵', group: 'info' },
+    { key: 'goals',      label: isPT ? 'Objetivos'       : 'Goals',       icon: '🎯', group: 'info' },
+    { key: 'satisfaction', label: isPT ? 'Satisfação'    : 'Satisfaction', icon: '📋', group: 'info' },
+    { key: 'scouting',   label: 'Scouting',                               icon: '🔍', group: 'action' },
+    { key: 'training',   label: isPT ? 'Treino'          : 'Training',    icon: '🏋️', group: 'action' },
+    { key: 'facilities', label: isPT ? 'Instalações'     : 'Facilities',  icon: '🏟️', group: 'action' },
+    { key: 'tactical',   label: isPT ? 'Sistemas'       : 'Systems',       icon: '🔥', group: 'action' },
+    { key: 'sponsors',   label: isPT ? 'Patrocinadores'  : 'Sponsors',    icon: '💰', group: 'action' },
+    { key: 'interactions', label: isPT ? 'Interações'    : 'Interactions', icon: '💬', group: 'action' },
+    { key: 'social_media', label: isPT ? 'Social Media'  : 'Social Media', icon: '📱', group: 'action' },
+    { key: 'merchandising', label: isPT ? 'Merchandising' : 'Merchandising', icon: '👕', group: 'action' },
   ]
 
   useEffect(() => {
@@ -95,10 +98,18 @@ export default function TeamPageTabs({
       }}>
         {TABS.map((t, i) => {
           const active = tab === t.key
-          const showDivider = i === 5
+          const showGroupLabel = i === 0 || t.group !== TABS[i - 1].group
+          const groupLabel = t.group === 'info' ? (isPT ? 'Informação' : 'Information') : (isPT ? 'Gestão' : 'Management')
           return (
             <div key={t.key}>
-              {showDivider && <div style={{height:1,background:'#e2dcd5',margin:'6px 12px'}}/>}
+              {showGroupLabel && i !== 0 && <div style={{height:1,background:'#e2dcd5',margin:'8px 12px'}}/>}
+              {showGroupLabel && (
+                <div style={{
+                  margin: i === 0 ? '2px 14px 6px' : '2px 14px 6px',
+                  fontSize: 10, fontWeight: 700, letterSpacing: '1px',
+                  textTransform: 'uppercase', color: '#a39a8d',
+                }}>{groupLabel}</div>
+              )}
               <button type="button" onClick={() => setTab(t.key)}
                 style={{
                   display:'flex', alignItems:'center', gap:10, width:'100%',
