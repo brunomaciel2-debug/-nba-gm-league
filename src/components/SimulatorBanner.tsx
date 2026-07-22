@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
-import { getStatusForWeek, getHalfWeekDates, formatSimDate, formatWeekRange, getSimDate } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates, formatSimDate, formatWeekRange, getSimDate, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
 import GlobalSearch from './GlobalSearch'
 
 export default function SimulatorBanner() {
@@ -56,31 +56,13 @@ export default function SimulatorBanner() {
   const fmtEventDate = (d: string) =>
     new Date(d + 'T12:00:00').toLocaleDateString(locale, { month: 'short', day: 'numeric' })
 
-  const statusColors: Record<string, { bg: string; text: string; dot: string }> = {
-    'free-agency':    { bg: '#1a2a3a', text: '#93c5fd', dot: '#93c5fd' },
-    'summer-league':  { bg: '#1a3a2a', text: '#6ee7b7', dot: '#6ee7b7' },
-    'pre-season':     { bg: '#1e3a2f', text: '#4ade80', dot: '#4ade80' },
-    'regular-season': { bg: '#1e2a3a', text: '#60a5fa', dot: '#60a5fa' },
-    'play-in':        { bg: '#3a2a1a', text: '#fbbf24', dot: '#fbbf24' },
-    'playoffs':       { bg: '#3a1e1e', text: '#f87171', dot: '#f87171' },
-    'offseason':      { bg: '#2a2218', text: '#d4cdc5', dot: '#8a8279' },
-  }
-  const sc = statusColors[status] || statusColors['offseason']
+  const sc = SEASON_STATUS_COLORS[status] || SEASON_STATUS_COLORS['offseason']
 
-  const STATUS_LABEL: Record<string, { en: string; pt: string }> = {
-    'free-agency':    { en: 'Free Agency',     pt: 'Agência Livre' },
-    'summer-league':  { en: 'Summer League',   pt: 'Summer League' },
-    'pre-season':     { en: 'Pre-Season',      pt: 'Pré-Época' },
-    'regular-season': { en: 'Regular Season',  pt: 'Época Regular' },
-    'play-in':        { en: 'Play-In',         pt: 'Play-In' },
-    'playoffs':       { en: 'Playoffs',        pt: 'Playoffs' },
-    'offseason':      { en: 'Off-Season',      pt: 'Fora de Época' },
-  }
-  const label = STATUS_LABEL[status]
-    ? (isPT ? STATUS_LABEL[status].pt : STATUS_LABEL[status].en)
+  const label = SEASON_STATUS_LABELS[status]
+    ? (isPT ? SEASON_STATUS_LABELS[status].pt : SEASON_STATUS_LABELS[status].en)
     : status
-  const nextLabel = STATUS_LABEL[nextStatus]
-    ? (isPT ? STATUS_LABEL[nextStatus].pt : STATUS_LABEL[nextStatus].en)
+  const nextLabel = SEASON_STATUS_LABELS[nextStatus]
+    ? (isPT ? SEASON_STATUS_LABELS[nextStatus].pt : SEASON_STATUS_LABELS[nextStatus].en)
     : nextStatus
 
   const SIM_DAY_PT: Record<string, string> = {

@@ -3,7 +3,8 @@ import Link from 'next/link'
 import type { Article, Game, Team, Transaction } from '@/lib/types'
 import { readableTeamColor } from '@/lib/color'
 import LeagueLeadersMini from './LeagueLeadersMini'
-import { WeeklyHighlightsHeader, HighlightCardTitle, HighlightEmpty, ViewBoxScore, ViewTeamLink, WinStreakLabel, FeaturedHeader, FeaturedLabel, UnderdogLabel, UotwWinLoss, WinBadge, SeasonBadge, ArticleDate } from './HomePageClient'
+import { WeeklyHighlightsHeader, HighlightCardTitle, HighlightEmpty, ViewBoxScore, ViewTeamLink, WinStreakLabel, FeaturedHeader, FeaturedLabel, UnderdogLabel, UotwWinLoss, WinBadge, SeasonBadge, ArticleDate, HomeCalendarCard } from './HomePageClient'
+import { getSimDate } from '@/lib/season-week-helper'
 export const revalidate = 60
 
 function teamColor(t?: Team) { return t ? readableTeamColor(t.color) : '#1d4ed8' }
@@ -15,6 +16,7 @@ export default async function HomePage() {
     { data: recentGames },
     { data: siteConfig },
     { data: highlight },
+    { data: seasonConfig },
   ] = await Promise.all([
     supabase.from('articles').select('*').eq('published', true).order('created_at', { ascending: false }),
     supabase.from('teams').select('*').not('id','in','(ALL,RVS,ROO,SOP)'),
@@ -24,7 +26,18 @@ export default async function HomePage() {
     supabase.from('weekly_highlights')
       .select('*, potw:players!weekly_highlights_potw_player_id_fkey(id,name,pos,photo_url,team_id), uotw_winner:teams!weekly_highlights_uotw_winner_id_fkey(id,name,color,logo_url), uotw_loser:teams!weekly_highlights_uotw_loser_id_fkey(id,name,color,logo_url), hstreak_team:teams!weekly_highlights_hstreak_team_id_fkey(id,name,color,logo_url,wins,losses), uotw_game:games!weekly_highlights_uotw_game_id_fkey(id,home_score,away_score), potw_game:games!weekly_highlights_potw_game_id_fkey(id,home_team,away_team,home_score,away_score)')
       .order('week_number', { ascending: false }).limit(1).single(),
+    supabase.from('season_config').select('*').eq('id', 1).single(),
   ])
+
+  // season_events rows are dated within the SIMULATED season calendar, so
+  // "today" for this query is the simulated week's start date, same anchor
+  // SimulatorBanner uses — not real wall-clock today.
+  const simToday = getSimDate((seasonConfig as any)?.current_week || 1)
+  const simTodayStr = `${simToday.getFullYear()}-${String(simToday.getMonth() + 1).padStart(2, '0')}-${String(simToday.getDate()).padStart(2, '0')}`
+  const { data: nextEvent } = await supabase.from('season_events')
+    .select('*').eq('season', '2025-26')
+    .gte('end_date', simTodayStr)
+    .order('start_date').limit(1).single()
 
   const teamMap = Object.fromEntries((teams||[]).map((t:Team) => [t.id, t]))
   // hl.hstreak_games references specific game IDs from the streak team's own
@@ -48,22 +61,25 @@ export default async function HomePage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
 
-      {/* BANNER */}
-      {bannerUrl ? (
-        <div className="rounded-2xl overflow-hidden mb-6" style={{height:280}}>
-          <img src={bannerUrl} alt="NBA GM League" className="w-full h-full object-cover"/>
-        </div>
-      ) : (
-        <div className="rounded-2xl mb-6 flex items-center justify-center"
-             style={{height:280,background:'linear-gradient(135deg,#1a1610 0%,#2a2218 50%,#1a1610 100%)',
-                     border:'1px solid #d4cec3'}}>
-          <div className="text-center">
-            <div className="text-5xl mb-3">🏀</div>
-            <h1 className="text-4xl font-black mb-2" style={{color:'#1a1612'}}>NBA GM League</h1>
-            <SeasonBadge />
+      {/* BANNER + CALENDAR */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <HomeCalendarCard config={seasonConfig} nextEvent={nextEvent} />
+        {bannerUrl ? (
+          <div className="rounded-2xl overflow-hidden flex-1 min-w-0" style={{height:280}}>
+            <img src={bannerUrl} alt="NBA GM League" className="w-full h-full object-cover"/>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="rounded-2xl flex-1 min-w-0 flex items-center justify-center"
+               style={{height:280,background:'linear-gradient(135deg,#1a1610 0%,#2a2218 50%,#1a1610 100%)',
+                       border:'1px solid #d4cec3'}}>
+            <div className="text-center">
+              <div className="text-5xl mb-3">🏀</div>
+              <h1 className="text-4xl font-black mb-2" style={{color:'#1a1612'}}>NBA GM League</h1>
+              <SeasonBadge />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* FEATURED ARTICLES */}
       {(featured1 || featured2) && (

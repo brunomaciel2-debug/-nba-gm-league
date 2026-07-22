@@ -95,6 +95,30 @@ export function formatHalfWeekRange(week: number, half: 1 | 2, locale: string = 
   return `${fmt(start)}–${fmt(end)}`
 }
 
+// Shared season-phase color/label palette — single source of truth so every
+// place that shows a phase (the navbar's SimulatorBanner strip, the homepage
+// calendar card, etc.) uses the exact same color for the exact same phase,
+// letting a GM learn "blue = regular season" once and reuse that everywhere.
+export const SEASON_STATUS_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  'free-agency':    { bg: '#1a2a3a', text: '#93c5fd', dot: '#93c5fd' },
+  'summer-league':  { bg: '#1a3a2a', text: '#6ee7b7', dot: '#6ee7b7' },
+  'pre-season':     { bg: '#1e3a2f', text: '#4ade80', dot: '#4ade80' },
+  'regular-season': { bg: '#1e2a3a', text: '#60a5fa', dot: '#60a5fa' },
+  'play-in':        { bg: '#3a2a1a', text: '#fbbf24', dot: '#fbbf24' },
+  'playoffs':       { bg: '#3a1e1e', text: '#f87171', dot: '#f87171' },
+  'offseason':      { bg: '#2a2218', text: '#d4cdc5', dot: '#8a8279' },
+}
+
+export const SEASON_STATUS_LABELS: Record<string, { en: string; pt: string }> = {
+  'free-agency':    { en: 'Free Agency',     pt: 'Agência Livre' },
+  'summer-league':  { en: 'Summer League',   pt: 'Summer League' },
+  'pre-season':     { en: 'Pre-Season',      pt: 'Pré-Época' },
+  'regular-season': { en: 'Regular Season',  pt: 'Época Regular' },
+  'play-in':        { en: 'Play-In',         pt: 'Play-In' },
+  'playoffs':       { en: 'Playoffs',        pt: 'Playoffs' },
+  'offseason':      { en: 'Off-Season',      pt: 'Fora de Época' },
+}
+
 // "Month 8" means nothing either — a simulated month is 4 simulated weeks
 // (see merchandising.ts), credited to whichever real calendar month its
 // last week actually finishes in (same convention FinancesTab's
