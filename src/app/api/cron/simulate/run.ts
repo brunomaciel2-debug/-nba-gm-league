@@ -1138,10 +1138,16 @@ await supabaseAdmin.from('training_slots').update({ locked: false }).eq('id', sl
 }
 continue
 }
+// A full slot pauses here — it does NOT keep accumulating extra 10-credit
+// batches week after week. It only resumes filling once the GM has spent
+// every credit sitting in it (TrainingTab.tsx resets fill_pct to 0 only
+// when credits_available hits 0). Skipping the gain entirely while any
+// credits remain is what enforces that pause.
+if ((slot.credits_available||0) > 0) continue
 const gain = trainingFillRate(slot.slot_type, slot.team_id)
-let newFill = (slot.fill_pct||0) + gain
-let newCredits = slot.credits_available||0
-while (newFill >= 100) { newCredits += 10; newFill -= 100 }
+const rawFill = (slot.fill_pct||0) + gain
+const newFill = Math.min(100, rawFill)
+const newCredits = rawFill >= 100 ? 10 : (slot.credits_available||0)
 if (newFill !== slot.fill_pct || newCredits !== slot.credits_available) {
 await supabaseAdmin.from('training_slots').update({ fill_pct: newFill, credits_available: newCredits }).eq('id', slot.id)
 }
