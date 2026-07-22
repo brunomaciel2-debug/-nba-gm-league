@@ -54,8 +54,8 @@ function buildChips(criteria: any[], isPT: boolean) {
   if (rf) {
     const noGames = rf.data.games === 0 || rf.data.last5 === 'N/A'
     chips.push({ icon:'📈', label: isPT?'Forma recente':'Recent form',
-      value: noGames ? (isPT?'Sem jogos ainda':'No games yet') : `${rf.data.last5} · ${rf.data.streak}`,
-      detail: isPT?'Resultado nos últimos 5 jogos e a sequência atual (vitórias/derrotas seguidas).':'Result in the last 5 games and the current winning/losing streak.',
+      value: noGames ? (isPT?'Sem jogos ainda':'No games yet') : rf.data.last5,
+      detail: isPT?'Resultado nos últimos 5 jogos.':'Result in the last 5 games.',
       grade: rf.grade })
   }
 
@@ -186,7 +186,7 @@ export default function PowerRankingsPage() {
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
                       <span style={{fontSize:14,fontWeight:700,color:'#1a1512'}}>{r.team?.name}</span>
                       {(r.wins>0||r.losses>0)&&<span style={{fontSize:11,fontWeight:600,color:'#5c554e',background:'#e8e2d6',padding:'1px 6px',borderRadius:4}}>{r.wins}-{r.losses}</span>}
-                      {r.ppg&&<span style={{fontSize:10,color:'#8a8279'}}>{r.ppg} PPG</span>}
+                      {r.ppg&&<span style={{fontSize:10,color:'#8a8279'}}>{r.ppg} {isPT?'marcados':'scored'} · {r.opp_ppg} {isPT?'sofridos':'allowed'}</span>}
                       <span style={{fontSize:10,color:'#8a8279',marginLeft:'auto'}}>{r.team?.conference} · {r.team?.division}</span>
                     </div>
                     {chips ? (
