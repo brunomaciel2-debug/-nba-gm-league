@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
-import { TOTAL_ATTRIBUTES } from '@/lib/scouting'
+import { TOTAL_ATTRIBUTES } from '@/lib/scouting-constants'
 
 const TIERS = {
   1: { label: 'Tier 1', pointsRequired: 100, revealCount: 6, creditCost: 10, weeklyMaintenance: 0, desc: 'Local scouting network — college games, combine reports' },

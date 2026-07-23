@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import ProspectPhotoUpload from './ProspectPhotoUpload'
 import { useTranslation } from '@/components/I18nProvider'
-import { TOTAL_ATTRIBUTES } from '@/lib/scouting'
+import { TOTAL_ATTRIBUTES } from '@/lib/scouting-constants'
 
 const ATTR_GROUPS_EN = [
   { label:'Scoring',       color:'#b45309', attrs:[{key:'three',label:'Three Point'},{key:'layup',label:'Layup'},{key:'dunk',label:'Afundanço'},{key:'mid',label:'Mid-Range'},{key:'ft',label:'Free Throws'},{key:'siq',label:'Shot IQ'},{key:'draw_foul',label:'Draw Foul'},{key:'close_shot',label:'Close Shot'},{key:'standing_dunk',label:'Afundanço Estático'}]},

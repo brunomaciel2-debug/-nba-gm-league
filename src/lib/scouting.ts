@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { getTeamLang, notifScoutTier, notifScoutMaintenanceNegative } from './notifications-helpers'
+import { TOTAL_ATTRIBUTES, SCOUTABLE_ATTRIBUTES } from './scouting-constants'
+
+export { TOTAL_ATTRIBUTES, SCOUTABLE_ATTRIBUTES }
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,18 +41,6 @@ export const SCOUT_TIERS = {
     description: 'International scouting — private workouts, full team of evaluators',
   },
 }
-
-export const TOTAL_ATTRIBUTES = 29
-
-export const SCOUTABLE_ATTRIBUTES = [
-  'three','layup','dunk','mid','ft','siq','draw_foul',
-  'blk','stl','idef','pdef',
-  'def_reb','off_reb',
-  'stamina','durability','speed','agility','strength',
-  'ball_hdl','pass_vis','pass_iq','assist_role',
-  'pressure','consistency','crowd_effect','streaky','trash_talk',
-  'close_shot','standing_dunk',
-]
 
 function getCurrentTier(points: number): number {
   if (points >= SCOUT_TIERS[3].pointsRequired) return 3
