@@ -77,7 +77,7 @@ function NavDropdown({ label, icon, items, onNavigate }: {
                   </button>
                 )}
                 {showGroup && i !== 0 && <div style={{ height: 1, background: '#d6d0c6', margin: '0 12px 4px' }} />}
-                {(!hasGroups || openGroups[item.group]) && (
+                {(!item.group || openGroups[item.group]) && (
                   <Link href={item.href}
                     onClick={() => { setOpen(false); onNavigate() }}
                     className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
@@ -120,8 +120,8 @@ export default function Navbar() {
       label: isPT ? 'Liga' : 'League',
       icon: 'ti-ball-basketball',
       items: [
+        { label: isPT ? 'Equipas'          : 'Teams',           href: '/teams',          icon: 'ti-users' },
         { label: isPT ? 'Classificação'    : 'Standings',       href: '/standings',      icon: 'ti-list-numbers', group: isPT ? 'Classificação & Calendário' : 'Standings & Schedule' },
-        { label: isPT ? 'Equipas'          : 'Teams',           href: '/teams',          icon: 'ti-users', group: isPT ? 'Classificação & Calendário' : 'Standings & Schedule' },
         { label: isPT ? 'Calendário'       : 'Schedule',        href: '/schedule',       icon: 'ti-calendar', group: isPT ? 'Classificação & Calendário' : 'Standings & Schedule' },
         { label: isPT ? 'Margem Salarial'  : 'Cap Space',       href: '/cap-space',      icon: 'ti-cash', group: isPT ? 'Transações' : 'Transactions' },
         { label: isPT ? 'Free Agents'      : 'Free Agents',     href: '/free-agents',    icon: 'ti-user-plus', group: isPT ? 'Transações' : 'Transactions' },
