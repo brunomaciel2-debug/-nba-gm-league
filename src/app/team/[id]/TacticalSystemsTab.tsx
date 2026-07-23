@@ -191,13 +191,13 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
                     background: mastered ? '#dcfce7' : unlocked ? '#faf8f5' : '#e2dcd5',
                     border: `2px solid ${mastered ? '#15803d' : isFocus ? teamColor : unlocked ? '#d4cdc5' : '#c8c0b4'}`,
                     boxShadow: isFocus ? `0 0 0 2px ${teamColor}44` : 'none',
-                    opacity: !unlocked ? 0.55 : blockedByOtherFocus ? 0.55 : 1,
+                    opacity: !unlocked ? 0.75 : blockedByOtherFocus ? 0.75 : 1,
                     // Locked nodes still show their real name (blurred, same
                     // treatment as blockedByOtherFocus) instead of hiding it
                     // behind a bare lock icon — a GM plans which path to take
                     // several rows ahead, so what's coming at level 2, 3...
                     // needs to be readable-through-the-blur, not a mystery box.
-                    filter: (!unlocked || blockedByOtherFocus) ? 'blur(1.5px)' : 'none',
+                    filter: (!unlocked || blockedByOtherFocus) ? 'blur(0.5px)' : 'none',
                   }}>
                   {!unlocked && (
                     <div className="text-xs mb-0.5" style={{ color: '#8a8279' }}>🔒</div>
