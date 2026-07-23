@@ -343,16 +343,6 @@ export async function checkSponsorObjectives() {
         break
       }
 
-      case 'cap_utilization': {
-        const { data: players } = await supabase.from('players')
-          .select('salary').eq('team_id',teamId).eq('status','active')
-        const totalSalary = (players||[]).reduce((t:number,p:any)=>t+(p.salary||0),0)
-        const salaryCap = 140000000
-        currentValue = Math.round((totalSalary/salaryCap)*100)
-        isAchieved = currentValue >= obj.threshold
-        break
-      }
-
       default:
         continue
     }

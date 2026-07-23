@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
+import { translateObjectiveDescription, RIVAL_PLACEHOLDER_PATTERN } from '@/lib/sponsor-objective-i18n'
 
 function useIsPT() {
   const { t } = useTranslation()
@@ -138,7 +139,6 @@ const OBJECTIVE_ICONS: Record<string, string> = {
   champion:             '🏆',
   top_conference:       '📍',
   top_division:         '📍',
-  cap_utilization:      '💰',
   fan_satisfaction:     '😊',
   jumbotron_built:      '📺',
   special_events:       '🎉',
@@ -181,10 +181,11 @@ function ObjectiveRow({ obj, tracking, rivalName }: { obj: Objective, tracking?:
   const achieved = tracking?.achieved || false
   const paid = tracking?.paid || false
   const icon = OBJECTIVE_ICONS[obj.objective_type] || '🎯'
+  const translated = translateObjectiveDescription(obj.description, isPT)
   // Replace generic rival reference with actual rival name
   const description = rivalName && obj.objective_type === 'wins_rivalry'
-    ? obj.description.replace(/your divisional rival|your rival/gi, rivalName)
-    : obj.description
+    ? translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalName)
+    : translated
 
   return (
     <div style={{

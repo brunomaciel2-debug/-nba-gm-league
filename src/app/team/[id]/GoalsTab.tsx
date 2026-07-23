@@ -56,7 +56,6 @@ const OBJECTIVE_ICONS: Record<string, string> = {
   reach_conf_finals:    '🥈',
   reach_finals:         '🥇',
   champion:             '🏆',
-  cap_utilization:      '💰',
   fan_satisfaction:     '😊',
   jumbotron_built:      '📺',
   concessions_built:    '🍔',
