@@ -90,13 +90,25 @@ export default function TransactionsTab({ teamId, teamColor }: { teamId: string,
                       {player?.name || `#${tx.player_id}`}
                     </a>
                     <div className="flex items-center gap-1.5 text-xs flex-1 min-w-0" style={{color:'#6b5f4e'}}>
-                      <span style={{fontWeight: isIncoming ? 400 : 700, color: isIncoming ? '#6b5f4e' : '#dc2626'}}>
-                        {fromTeam?.name || (isPT?'Agente Livre':'Free Agent')}
-                      </span>
+                      {fromTeam ? (
+                        <a href={`/team/${fromTeam.id}`} className="no-underline" style={{fontWeight: isIncoming ? 400 : 700, color: isIncoming ? '#6b5f4e' : '#dc2626'}}>
+                          {fromTeam.name}
+                        </a>
+                      ) : (
+                        <span style={{fontWeight: isIncoming ? 400 : 700, color: isIncoming ? '#6b5f4e' : '#dc2626'}}>
+                          {isPT?'Agente Livre':'Free Agent'}
+                        </span>
+                      )}
                       <span style={{color:'#b0a89e'}}>→</span>
-                      <span style={{fontWeight: isIncoming ? 700 : 400, color: isIncoming ? '#15803d' : '#6b5f4e'}}>
-                        {toTeam?.name || (isPT?'Agente Livre':'Free Agent')}
-                      </span>
+                      {toTeam ? (
+                        <a href={`/team/${toTeam.id}`} className="no-underline" style={{fontWeight: isIncoming ? 700 : 400, color: isIncoming ? '#15803d' : '#6b5f4e'}}>
+                          {toTeam.name}
+                        </a>
+                      ) : (
+                        <span style={{fontWeight: isIncoming ? 700 : 400, color: isIncoming ? '#15803d' : '#6b5f4e'}}>
+                          {isPT?'Agente Livre':'Free Agent'}
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs flex-shrink-0" style={{color:'#a89f97'}}>
                       {tx.week_number ? formatWeekRange(tx.week_number, isPT?'pt-PT':'en-US') : ''}

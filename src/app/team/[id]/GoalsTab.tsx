@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
@@ -121,6 +122,7 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
   const [pool, setPool] = useState<PoolEntry[]>([])
   const [jerseys, setJerseys] = useState<JerseyImage[]>([])
   const [rivalName, setRivalName] = useState('')
+  const [rivalTeamId, setRivalTeamId] = useState('')
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'achieved'>('all')
 
@@ -146,6 +148,7 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
       setPool(p || [])
       setJerseys(j || [])
       if (t?.rival_team_id) {
+        setRivalTeamId(t.rival_team_id)
         supabase.from('teams').select('name').eq('id', t.rival_team_id).single()
           .then(({ data: r }) => { if (r?.name) setRivalName(r.name) })
       }
@@ -261,9 +264,13 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
                   if (!obj) return null
                   const icon = OBJECTIVE_ICONS[obj.objective_type] || '🎯'
                   const translated = translateObjectiveDescription(obj.description, isPT)
-                  const desc = rivalName && obj.objective_type === 'wins_rivalry'
-                    ? translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalName)
-                    : translated
+                  let desc: React.ReactNode = translated
+                  if (rivalName && obj.objective_type === 'wins_rivalry') {
+                    const parts = translated.split(RIVAL_PLACEHOLDER_PATTERN)
+                    desc = parts.length === 2
+                      ? <>{parts[0]}<Link href={`/team/${rivalTeamId}`} className="hover:underline" style={{color:'inherit'}}>{rivalName}</Link>{parts[1]}</>
+                      : translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalName)
+                  }
                   const showProgress = !tracking.achieved && tracking.current_value > 0 && obj.threshold > 1
 
                   return (

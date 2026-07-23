@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { PlayerPreviewCard, PickChip, capFmt } from './PendingTradesPanel'
 
@@ -106,7 +107,11 @@ export default function TradeDetailModal({ proposalId, isPT, onClose }: { propos
                     <div key={row.team_id} style={{ border: '1px solid #e2dcd5', borderRadius: 10, overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f5f1eb' }}>
                         {team?.logo_url && <img src={team.logo_url} alt="" style={{ width: 22, height: 22, objectFit: 'contain' }} />}
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1512' }}>{team?.name || row.team_id}</span>
+                        {team ? (
+                          <Link href={`/team/${row.team_id}`} className="hover:underline" style={{ fontSize: 13, fontWeight: 700, color: '#1a1512' }}>{team.name}</Link>
+                        ) : (
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1512' }}>{row.team_id}</span>
+                        )}
                         {row.team_id === proposal.initiator_team && (
                           <span style={{ fontSize: 10, fontWeight: 600, color: '#8a8279' }}>({isPT ? 'proponente' : 'initiator'})</span>
                         )}
@@ -119,7 +124,7 @@ export default function TradeDetailModal({ proposalId, isPT, onClose }: { propos
                               {playersOut.map((p: any) => <PlayerPreviewCard key={p.id} p={p} isPT={isPT} />)}
                               {picksOut.length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: playersOut.length ? 6 : 0 }}>
-                                  {picksOut.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={row.team_id} isPT={isPT} />)}
+                                  {picksOut.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={row.team_id} isPT={isPT} originalTeamName={teamInfoMap[pk.original_team_id]?.name} />)}
                                 </div>
                               )}
                             </div>
@@ -132,7 +137,7 @@ export default function TradeDetailModal({ proposalId, isPT, onClose }: { propos
                               {playersIn.map((p: any) => <PlayerPreviewCard key={p.id} p={p} isPT={isPT} />)}
                               {picksIn.length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: playersIn.length ? 6 : 0 }}>
-                                  {picksIn.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={row.team_id} isPT={isPT} />)}
+                                  {picksIn.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={row.team_id} isPT={isPT} originalTeamName={teamInfoMap[pk.original_team_id]?.name} />)}
                                 </div>
                               )}
                             </div>

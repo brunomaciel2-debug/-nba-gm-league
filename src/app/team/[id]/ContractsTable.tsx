@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
@@ -120,7 +121,7 @@ export default function ContractsTable({ teamId, teamColor }: { teamId: string, 
               {rows.map((p,i) => (
                 <tr key={p.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                   <td className="px-4 py-2.5 sticky left-0" style={{background:i%2===0?'#faf8f5':'#f5f1eb'}}>
-                    <span className="font-semibold" style={{color:p.isDeadCap?'#8a8279':'#1a1512'}}>{p.name}</span>
+                    <Link href={`/player/${p.id}`} className="font-semibold no-underline" style={{color:p.isDeadCap?'#8a8279':'#1a1512'}}>{p.name}</Link>
                     {p.isDeadCap && <span className="ml-1.5 text-xs font-bold" style={{color:'#dc2626',fontSize:9}}>💀 {isPT?'DINHEIRO MORTO':'DEAD CAP'}</span>}
                   </td>
                   <td className="px-3 py-2.5 text-center" style={{color:'#8a8279'}}>{p.isDeadCap?'—':p.pos}</td>

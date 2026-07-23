@@ -114,6 +114,7 @@ export default function TeamSchedule({
   const played   = games.filter(g=>g.status==='final').length
   const upcoming = games.filter(g=>g.status!=='final').length
   const worldTeamIds = new Set(worldTeams.map((t:any)=>t.id))
+  const teamHref = (id:string) => worldTeamIds.has(id) ? `/world/${id}` : `/team/${id}`
   const fmtDate = (iso:string) => new Date(iso).toLocaleDateString(isPT?'pt-PT':'en-US',{weekday:'short',month:'short',day:'numeric'})
   const fmtTime = (iso:string) => new Date(iso).toLocaleTimeString(isPT?'pt-PT':'en-US',{hour:'numeric',minute:'2-digit',timeZone:'Europe/Lisbon'})
   const myActivePS = preseasonGames.filter(g=>['pending','accepted','scheduled','final'].includes(g.status))
@@ -267,7 +268,9 @@ export default function TeamSchedule({
                 {pendingToAccept.map((g:any) => (
                   <div key={g.id} className="flex items-center justify-between gap-3 py-1.5">
                     <span className="text-xs" style={{color:'#1a1512'}}>
-                      {teams[g.home_team]?.name||g.home_team} vs {teams[g.away_team]?.name||g.away_team}
+                      <Link href={teamHref(g.home_team)} onClick={e=>e.stopPropagation()} className="hover:underline" style={{color:'inherit'}}>{teams[g.home_team]?.name||g.home_team}</Link>
+                      {' vs '}
+                      <Link href={teamHref(g.away_team)} onClick={e=>e.stopPropagation()} className="hover:underline" style={{color:'inherit'}}>{teams[g.away_team]?.name||g.away_team}</Link>
                       {g.scheduled_date && <span style={{color:'#8a8279'}}> · {fmtDate(g.scheduled_date+'T12:00:00')}</span>}
                     </span>
                     <div className="flex gap-2">
@@ -300,7 +303,9 @@ export default function TeamSchedule({
                 {pendingToCancel.map((g:any) => (
                   <div key={g.id} className="flex items-center justify-between gap-3 py-1.5">
                     <span className="text-xs" style={{color:'#1a1512'}}>
-                      {teams[g.home_team]?.name||g.home_team} vs {teams[g.away_team]?.name||g.away_team}
+                      <Link href={teamHref(g.home_team)} onClick={e=>e.stopPropagation()} className="hover:underline" style={{color:'inherit'}}>{teams[g.home_team]?.name||g.home_team}</Link>
+                      {' vs '}
+                      <Link href={teamHref(g.away_team)} onClick={e=>e.stopPropagation()} className="hover:underline" style={{color:'inherit'}}>{teams[g.away_team]?.name||g.away_team}</Link>
                       {g.scheduled_date && <span style={{color:'#8a8279'}}> · {fmtDate(g.scheduled_date+'T12:00:00')}</span>}
                     </span>
                     <button onClick={async () => {

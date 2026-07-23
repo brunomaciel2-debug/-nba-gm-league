@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow } from '@/lib/roster-limits'
@@ -10,11 +11,15 @@ export function capFmt(n: number) { return n ? '$' + (n / 1000000).toFixed(2) + 
 function ovrColor(ovr: number) { return ovr>=85?'#b45309':ovr>=75?'#15803d':ovr>=65?'#1d4ed8':'#5c554e' }
 function ovrBg(ovr: number) { return ovr>=85?'#fef3c7':ovr>=75?'#dcfce7':ovr>=65?'#dbeafe':'#f0ece5' }
 
-export function PlayerPreviewCard({ p, isPT, fromLabel }: { p: any, isPT: boolean, fromLabel?: string }) {
+export function PlayerPreviewCard({ p, isPT, fromLabel, fromTeamId }: { p: any, isPT: boolean, fromLabel?: string, fromTeamId?: string }) {
   const ovr = p.real_ovr
   return (
     <div>
-      {fromLabel && <div style={{ fontSize: 9, fontWeight: 700, color: '#b45309', marginLeft: 42, marginBottom: -2 }}>{isPT?'de':'from'} {fromLabel}</div>}
+      {fromLabel && (
+        <div style={{ fontSize: 9, fontWeight: 700, color: '#b45309', marginLeft: 42, marginBottom: -2 }}>
+          {isPT?'de':'from'} {fromTeamId ? <Link href={`/team/${fromTeamId}`} className="hover:underline" style={{color:'inherit'}}>{fromLabel}</Link> : fromLabel}
+        </div>
+      )}
       <a href={`/player/${p.id}`} className="no-underline" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 4px', borderRadius: 8 }}>
         {p.photo_url
           ? <img src={p.photo_url} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid #d4cdc5' }} />
@@ -39,14 +44,22 @@ export function PlayerPreviewCard({ p, isPT, fromLabel }: { p: any, isPT: boolea
   )
 }
 
-export function PickChip({ pk, teamId, isPT, fromLabel }: { pk: any, teamId: string, isPT: boolean, fromLabel?: string }) {
+export function PickChip({ pk, teamId, isPT, fromLabel, fromTeamId, originalTeamName }: { pk: any, teamId: string, isPT: boolean, fromLabel?: string, fromTeamId?: string, originalTeamName?: string }) {
   const isOwn = pk.original_team_id === teamId
   return (
     <div>
-      {fromLabel && <div style={{ fontSize: 9, fontWeight: 700, color: '#b45309', marginBottom: 2 }}>{isPT?'de':'from'} {fromLabel}</div>}
+      {fromLabel && (
+        <div style={{ fontSize: 9, fontWeight: 700, color: '#b45309', marginBottom: 2 }}>
+          {isPT?'de':'from'} {fromTeamId ? <Link href={`/team/${fromTeamId}`} className="hover:underline" style={{color:'inherit'}}>{fromLabel}</Link> : fromLabel}
+        </div>
+      )}
       <div style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: '#f0ece5', border: '1px solid #d4cdc5', color: '#5c554e', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         {pk.season} R{pk.round}
-        {!isOwn && <span style={{ color: '#b45309' }}>({isPT?'via':'via'} {pk.original_team_id})</span>}
+        {!isOwn && (
+          <span style={{ color: '#b45309' }}>
+            ({isPT?'via':'via'} <Link href={`/team/${pk.original_team_id}`} className="hover:underline" style={{color:'inherit'}}>{originalTeamName || pk.original_team_id}</Link>)
+          </span>
+        )}
         {pk.protection && pk.protection !== 'unprotected' && <span style={{ color: '#dc2626' }}>({pk.protection})</span>}
       </div>
     </div>
@@ -97,7 +110,7 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
       // non-initiator team has accepted) — figure out who's still holding it up.
       const waitingOnTeams = (allTeamRows || [])
         .filter((t: any) => t.team_id !== teamId && t.status === 'pending')
-        .map((t: any) => teamInfoMap[t.team_id]?.name || t.team_id)
+        .map((t: any) => ({ id: t.team_id, name: teamInfoMap[t.team_id]?.name || t.team_id }))
 
       // For a 3+ team trade, figure out which OTHER team each of my incoming
       // assets actually came from — not necessarily the initiator.
@@ -135,7 +148,7 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
         playersOut: (playersOut || []).map((p: any) => ({ ...p, fromLabel: undefined })),
         playersIn: (playersIn || []).map((p: any) => {
           const srcId = sourceOf(String(p.id), 'players_out')
-          return { ...p, fromLabel: isMultiTeam ? teamInfoMap[srcId]?.name : undefined }
+          return { ...p, fromLabel: isMultiTeam ? teamInfoMap[srcId]?.name : undefined, fromTeamId: srcId || proposal.initiator_team }
         }),
         picksOut: (picksOut || []).map((pk: any) => ({ ...pk, fromLabel: undefined })),
         picksIn: (picksIn || []).map((pk: any) => {
@@ -207,7 +220,14 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
                 {entry.initiatorTeam?.logo_url && <img src={entry.initiatorTeam.logo_url} alt="" style={{ width: 32, height: 32, objectFit: 'contain' }} />}
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#1a1512' }}>
-                    {isPT ? `Proposta de troca de ${entry.initiatorTeam?.name || 'Equipa Desconhecida'}` : `Trade proposal from ${entry.initiatorTeam?.name || 'Unknown Team'}`}
+                    {entry.initiatorTeam ? (
+                      <>
+                        {isPT ? 'Proposta de troca de ' : 'Trade proposal from '}
+                        <Link href={`/team/${proposal.initiator_team}`} className="hover:underline" style={{color:'inherit'}} onClick={e => e.stopPropagation()}>{entry.initiatorTeam.name}</Link>
+                      </>
+                    ) : (
+                      isPT ? 'Proposta de troca de Equipa Desconhecida' : 'Trade proposal from Unknown Team'
+                    )}
                   </div>
                   <div style={{ fontSize: 11, color: '#8a8279' }}>
                     {isPT
@@ -228,9 +248,13 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
 
                   {entry.myStatus === 'accepted' && entry.waitingOnTeams.length > 0 && (
                     <div style={{ marginBottom: 12, padding: '6px 10px', borderRadius: 8, background: '#dbeafe', border: '1px solid #93c5fd', fontSize: 11, color: '#1d4ed8', fontWeight: 600 }}>
-                      ⏳ {isPT
-                        ? `Já aceitaste. Esta troca só se realiza quando todas as equipas aceitarem — ainda à espera de: ${entry.waitingOnTeams.join(', ')}.`
-                        : `You've already accepted. This trade only goes through once every team involved accepts — still waiting on: ${entry.waitingOnTeams.join(', ')}.`}
+                      ⏳ {isPT ? 'Já aceitaste. Esta troca só se realiza quando todas as equipas aceitarem — ainda à espera de: ' : "You've already accepted. This trade only goes through once every team involved accepts — still waiting on: "}
+                      {entry.waitingOnTeams.map((wt: any, i: number) => (
+                        <span key={wt.id}>
+                          {i > 0 && ', '}
+                          <Link href={`/team/${wt.id}`} className="hover:underline" style={{color:'inherit'}}>{wt.name}</Link>
+                        </span>
+                      ))}.
                     </div>
                   )}
 
@@ -242,7 +266,7 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
                           {entry.playersOut.map((p: any) => <PlayerPreviewCard key={p.id} p={p} isPT={isPT} />)}
                           {entry.picksOut.length > 0 && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: entry.playersOut.length ? 6 : 0 }}>
-                              {entry.picksOut.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={teamId} isPT={isPT} />)}
+                              {entry.picksOut.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={teamId} isPT={isPT} originalTeamName={entry.teamInfoMap[pk.original_team_id]?.name} />)}
                             </div>
                           )}
                         </div>
@@ -252,10 +276,10 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
                       <div style={{ fontSize: 10, fontWeight: 700, color: '#15803d', marginBottom: 6, textTransform: 'uppercase' }}>{isPT?'Recebes':'You receive'}</div>
                       {entry.playersIn.length === 0 && entry.picksIn.length === 0 ? <div style={{ fontSize: 12, color: '#b0a89e' }}>{isPT?'Nada':'Nothing'}</div> : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          {entry.playersIn.map((p: any) => <PlayerPreviewCard key={p.id} p={p} isPT={isPT} fromLabel={p.fromLabel} />)}
+                          {entry.playersIn.map((p: any) => <PlayerPreviewCard key={p.id} p={p} isPT={isPT} fromLabel={p.fromLabel} fromTeamId={p.fromTeamId} />)}
                           {entry.picksIn.length > 0 && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: entry.playersIn.length ? 6 : 0 }}>
-                              {entry.picksIn.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={proposal.initiator_team} isPT={isPT} fromLabel={pk.fromLabel} />)}
+                              {entry.picksIn.map((pk: any) => <PickChip key={pk.id} pk={pk} teamId={proposal.initiator_team} isPT={isPT} fromLabel={pk.fromLabel} fromTeamId={pk.sourceTeamId} originalTeamName={entry.teamInfoMap[pk.original_team_id]?.name} />)}
                             </div>
                           )}
                         </div>

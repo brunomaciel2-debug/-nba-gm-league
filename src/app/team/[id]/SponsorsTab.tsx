@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
@@ -176,16 +177,20 @@ function Tip({ text, children }: TipProps) {
   )
 }
 
-function ObjectiveRow({ obj, tracking, rivalName }: { obj: Objective, tracking?: ObjectiveTracking, rivalName?: string }) {
+function ObjectiveRow({ obj, tracking, rivalName, rivalTeamId }: { obj: Objective, tracking?: ObjectiveTracking, rivalName?: string, rivalTeamId?: string }) {
   const isPT = useIsPT()
   const achieved = tracking?.achieved || false
   const paid = tracking?.paid || false
   const icon = OBJECTIVE_ICONS[obj.objective_type] || '🎯'
   const translated = translateObjectiveDescription(obj.description, isPT)
-  // Replace generic rival reference with actual rival name
-  const description = rivalName && obj.objective_type === 'wins_rivalry'
-    ? translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalName)
-    : translated
+  // Replace generic rival reference with actual rival name (linked to their page)
+  let description: React.ReactNode = translated
+  if (rivalName && obj.objective_type === 'wins_rivalry') {
+    const parts = translated.split(RIVAL_PLACEHOLDER_PATTERN)
+    description = parts.length === 2 && rivalTeamId
+      ? <>{parts[0]}<Link href={`/team/${rivalTeamId}`} className="hover:underline" style={{color:'inherit'}}>{rivalName}</Link>{parts[1]}</>
+      : translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalName)
+  }
 
   return (
     <div style={{
@@ -318,7 +323,7 @@ function SponsorImagePreview({ jerseyUrl, companyName, label, aspect }: { jersey
 }
 
 function SponsorCard({
-  entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl, rivalName, realCompanyName, companyDescription
+  entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl, rivalName, rivalTeamId, realCompanyName, companyDescription
 }: {
   entry: PoolEntry
   objectives: Objective[]
@@ -329,6 +334,7 @@ function SponsorCard({
   hasContract: boolean
   jerseyUrl?: string
   rivalName?: string
+  rivalTeamId?: string
   realCompanyName?: string
   companyDescription?: string
 }) {
@@ -419,7 +425,7 @@ function SponsorCard({
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:isGM && !hasContract ? 12 : 0}}>
         {objectives.map(obj => (
-          <ObjectiveRow key={obj.id} obj={obj} rivalName={rivalName}/>
+          <ObjectiveRow key={obj.id} obj={obj} rivalName={rivalName} rivalTeamId={rivalTeamId}/>
         ))}
       </div>
 
@@ -452,6 +458,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
   const [objectives, setObjectives] = useState<Objective[]>([])
   const [jerseys, setJerseys] = useState<JerseyImage[]>([])
   const [rivalName, setRivalName] = useState<string>('')
+  const [rivalTeamId, setRivalTeamId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
   const [msg, setMsg] = useState('')
@@ -480,6 +487,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
     supabase.from('teams').select('rival_team_id').eq('id', teamId).single()
       .then(({ data: t }) => {
         if (t?.rival_team_id) {
+          setRivalTeamId(t.rival_team_id)
           supabase.from('teams').select('name').eq('id', t.rival_team_id).single()
             .then(({ data: r }) => { if (r?.name) setRivalName(r.name) })
         }
@@ -649,6 +657,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
                 hasContract={hasContract}
                 jerseyUrl={sponsorImg?.jersey_url}
                 rivalName={rivalName}
+                rivalTeamId={rivalTeamId}
                 realCompanyName={sponsorImg?.company_name}
                 companyDescription={sponsorImg?.company_description}
               />

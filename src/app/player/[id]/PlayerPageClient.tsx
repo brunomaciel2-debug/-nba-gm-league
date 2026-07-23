@@ -207,7 +207,11 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
                 <div className="text-xs font-bold uppercase tracking-widest mb-1" style={{color:tc,letterSpacing:'1px'}}>
-                  {p.world_team_id && p.world_teams ? `${p.world_teams.name} · ${countryName(p.world_teams.country, isPT)}` : p.teams?.name} · {p.pos}
+                  {p.world_team_id && p.world_teams
+                    ? <><Link href={`/world/${p.world_team_id}`} className="hover:underline" style={{color:'inherit'}}>{p.world_teams.name}</Link> · {countryName(p.world_teams.country, isPT)}</>
+                    : p.teams
+                      ? <Link href={`/team/${p.team_id}`} className="hover:underline" style={{color:'inherit'}}>{p.teams.name}</Link>
+                      : null} · {p.pos}
                 </div>
                 <h1 className="text-3xl font-black mb-2" style={{color:'#1a1512'}}>{p.name}</h1>
                 <div className="flex gap-3 text-sm flex-wrap items-center">
@@ -385,7 +389,11 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                       <td className="px-2.5 py-2.5" style={{whiteSpace:'nowrap'}}>
                         <span className="flex items-center gap-1.5 justify-end">
                           {st?.logo_url && <img src={st.logo_url} alt="" style={{width:14,height:14,objectFit:'contain'}}/>}
-                          <span style={{color:stc,fontWeight:600,fontSize:11}}>{st?.name||s.team_id||'—'}</span>
+                          {st ? (
+                            <Link href={`/team/${s.team_id}`} className="hover:underline" style={{color:stc,fontWeight:600,fontSize:11}}>{st.name}</Link>
+                          ) : (
+                            <span style={{color:stc,fontWeight:600,fontSize:11}}>{s.team_id||'—'}</span>
+                          )}
                         </span>
                       </td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{gp}</td>
@@ -449,6 +457,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                     if (!g || !g.home || !g.away) return null
                     const isHome = g.home_team === p.team_id
                     const opp = isHome ? g.away : g.home
+                    const oppId = isHome ? g.away_team : g.home_team
                     const myScore = isHome ? g.home_score : g.away_score
                     const oppScore = isHome ? g.away_score : g.home_score
                     const won = (myScore||0) > (oppScore||0)
@@ -459,7 +468,11 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                         <td className="px-2.5 py-2.5 whitespace-nowrap" style={{color:'#8a8279'}}>{dateStr}</td>
                         <td className="px-2.5 py-2.5 whitespace-nowrap">
                           <span style={{color:'#8a8279'}}>{isHome?(isPT?'vs':'vs'):(isPT?'em':'@')} </span>
-                          <span style={{color:oppColor,fontWeight:600}}>{opp?.name||'—'}</span>
+                          {opp ? (
+                            <Link href={`/team/${oppId}`} className="hover:underline" style={{color:oppColor,fontWeight:600}}>{opp.name}</Link>
+                          ) : (
+                            <span style={{color:oppColor,fontWeight:600}}>—</span>
+                          )}
                         </td>
                         <td className="px-2.5 py-2.5 font-bold whitespace-nowrap" style={{color:won?'#15803d':'#dc2626'}}>
                           {won?(isPT?'V':'W'):(isPT?'D':'L')} {myScore}-{oppScore}
@@ -519,7 +532,11 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                       <td className="px-2.5 py-2.5" style={{whiteSpace:'nowrap'}}>
                         <span className="flex items-center gap-1.5 justify-end">
                           {st?.logo_url && <img src={st.logo_url} alt="" style={{width:14,height:14,objectFit:'contain'}}/>}
-                          <span style={{color:stc,fontWeight:600,fontSize:11}}>{st?.name||'—'}</span>
+                          {st ? (
+                            <Link href={`/gleague/${s.team_id}`} className="hover:underline" style={{color:stc,fontWeight:600,fontSize:11}}>{st.name}</Link>
+                          ) : (
+                            <span style={{color:stc,fontWeight:600,fontSize:11}}>—</span>
+                          )}
                         </span>
                       </td>
                       <td className="px-2.5 py-2.5 text-right" style={{color:'#5c554e'}}>{gp}</td>
@@ -578,6 +595,7 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                     if (!g || !g.home || !g.away) return null
                     const isHome = g.home_team === b.gleague_team_id
                     const opp = isHome ? g.away : g.home
+                    const oppId = isHome ? g.away_team : g.home_team
                     const myScore = isHome ? g.home_score : g.away_score
                     const oppScore = isHome ? g.away_score : g.home_score
                     const won = (myScore||0) > (oppScore||0)
@@ -588,7 +606,11 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                         <td className="px-2.5 py-2.5 whitespace-nowrap" style={{color:'#8a8279'}}>{dateStr}</td>
                         <td className="px-2.5 py-2.5 whitespace-nowrap">
                           <span style={{color:'#8a8279'}}>{isHome?(isPT?'vs':'vs'):(isPT?'em':'@')} </span>
-                          <span style={{color:oppColor,fontWeight:600}}>{opp?.name||'—'}</span>
+                          {opp ? (
+                            <Link href={`/gleague/${oppId}`} className="hover:underline" style={{color:oppColor,fontWeight:600}}>{opp.name}</Link>
+                          ) : (
+                            <span style={{color:oppColor,fontWeight:600}}>—</span>
+                          )}
                         </td>
                         <td className="px-2.5 py-2.5 font-bold whitespace-nowrap" style={{color:won?'#15803d':'#dc2626'}}>
                           {won?(isPT?'V':'W'):(isPT?'D':'L')} {myScore}-{oppScore}
@@ -634,17 +656,17 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                 <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:txColor.bg,color:txColor.color}}>{label}</span>
                 <div className="flex items-center gap-2 text-sm flex-1 min-w-0" style={{color:'#1a1512'}}>
                   {fromTeam ? (
-                    <span className="flex items-center gap-1.5 truncate">
+                    <Link href={`/team/${tx.from_team_id}`} className="flex items-center gap-1.5 truncate hover:underline" style={{color:'inherit'}}>
                       {fromTeam.logo_url && <img src={fromTeam.logo_url} alt="" style={{width:16,height:16,objectFit:'contain'}}/>}
                       {fromTeam.name}
-                    </span>
+                    </Link>
                   ) : <span style={{color:'#8a8279'}}>{isPT?'Agente Livre':'Free Agent'}</span>}
                   <span style={{color:'#b0a89e'}}>→</span>
                   {toTeam ? (
-                    <span className="flex items-center gap-1.5 truncate">
+                    <Link href={`/team/${tx.to_team_id}`} className="flex items-center gap-1.5 truncate hover:underline" style={{color:'inherit'}}>
                       {toTeam.logo_url && <img src={toTeam.logo_url} alt="" style={{width:16,height:16,objectFit:'contain'}}/>}
                       {toTeam.name}
-                    </span>
+                    </Link>
                   ) : <span style={{color:'#8a8279'}}>{isPT?'Agente Livre':'Free Agent'}</span>}
                 </div>
                 <div className="text-xs flex-shrink-0" style={{color:'#8a8279'}}>

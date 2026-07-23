@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import { formatWeekRange } from '@/lib/season-week-helper'
@@ -514,7 +515,8 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
                       <InfoTip text={isPT?'Reduz muito o lançamento e aumenta as perdas de bola do jogador escolhido, mas deixa os companheiros dele com lançamentos mais fáceis — a tua defesa fica mais fina no resto do campo.':'Sharply reduces the chosen player\'s shooting and raises his turnovers, but leaves his teammates with easier looks — the rest of your defense is stretched thinner.'} />
                     </label>
                     <div className="text-xs font-semibold mb-1" style={{color:'#7c2d12'}}>
-                      {isPT?`Jogador de ${g.teamName} a dobrar`:`${g.teamName} player to double-team`}
+                      {isPT ? <>Jogador de <Link href={`/team/${g.teamId}`} className="hover:underline" style={{color:'inherit'}}>{g.teamName}</Link> a dobrar</>
+                            : <><Link href={`/team/${g.teamId}`} className="hover:underline" style={{color:'inherit'}}>{g.teamName}</Link> player to double-team</>}
                     </div>
                     <select value={a.double_team_target||''} onChange={e=>setAssignment(g.teamId,{double_team_target:e.target.value})}
                       className="w-full text-xs px-3 py-2 rounded-lg"
@@ -532,7 +534,8 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
                       <InfoTip text={isPT?'Designa um jogador teu para marcar sempre um jogador específico do adversário, em vez de depender de quem calhar a marcá-lo. Sem penalização no resto da defesa.':'Assigns one of your players to always guard a specific opponent, instead of leaving it to whoever happens to switch onto him. No penalty elsewhere.'} />
                     </label>
                     <div className="text-xs font-semibold mb-1" style={{color:'#0e7490'}}>
-                      1. {isPT?`Jogador de ${g.teamName} a neutralizar`:`${g.teamName} player to neutralize`}
+                      1. {isPT ? <>Jogador de <Link href={`/team/${g.teamId}`} className="hover:underline" style={{color:'inherit'}}>{g.teamName}</Link> a neutralizar</>
+                                : <><Link href={`/team/${g.teamId}`} className="hover:underline" style={{color:'inherit'}}>{g.teamName}</Link> player to neutralize</>}
                     </div>
                     <select value={a.lockdown_target||''} onChange={e=>setAssignment(g.teamId,{lockdown_target:e.target.value, ...(e.target.value?{}:{lockdown_defender:''})})}
                       className="w-full text-xs px-3 py-2 rounded-lg mb-2"

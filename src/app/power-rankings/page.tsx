@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { createClient } from '@supabase/supabase-js'
+import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
 import { formatWeekRange } from '@/lib/season-week-helper'
 
@@ -184,7 +185,7 @@ export default function PowerRankingsPage() {
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,flexWrap:'wrap'}}>
-                      <span style={{fontSize:14,fontWeight:700,color:'#1a1512'}}>{r.team?.name}</span>
+                      <Link href={`/team/${r.team_id}`} style={{fontSize:14,fontWeight:700,color:'#1a1512',textDecoration:'none'}}>{r.team?.name}</Link>
                       {(r.wins>0||r.losses>0)&&<span style={{fontSize:11,fontWeight:600,color:'#5c554e',background:'#e8e2d6',padding:'1px 6px',borderRadius:4}}>{r.wins}-{r.losses}</span>}
                       {r.ppg&&<span style={{fontSize:10,color:'#8a8279'}}>{r.ppg} {isPT?'marcados':'scored'} · {r.opp_ppg} {isPT?'sofridos':'allowed'}</span>}
                       <span style={{fontSize:10,color:'#8a8279',marginLeft:'auto'}}>{r.team?.conference} · {r.team?.division}</span>

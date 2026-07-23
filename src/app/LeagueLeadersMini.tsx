@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 
@@ -20,6 +21,7 @@ export default function LeagueLeadersMini() {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const CATS = isPT ? CATS_PT : CATS_EN
+  const router = useRouter()
 
   const [leaders, setLeaders] = useState<any[][]>([[], [], []])
   const [loading, setLoading] = useState(true)
@@ -84,54 +86,65 @@ export default function LeagueLeadersMini() {
               ) : (
                 <div>
                   {leader && (
-                    <Link href={`/player/${leader.id}`} className="no-underline group">
-                      <div className="p-5 flex items-center gap-4 transition-all group-hover:brightness-110"
-                        style={{borderBottom:'1px solid #ddd8ce'}}>
-                        <div className="relative flex-shrink-0">
-                          <div className="w-24 h-24 rounded-full overflow-hidden"
-                            style={{background:tc+'22',border:'2px solid '+tc+'55'}}>
-                            {leader.photo_url
-                              ? <img src={leader.photo_url} alt="" className="w-full h-full object-cover"/>
-                              : <div className="w-full h-full flex items-center justify-center font-black text-2xl" style={{color:tc}}>
-                                  {leader.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
-                                </div>}
-                          </div>
-                          <div className="absolute -top-1 -left-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
-                            style={{background:cat.color,color:'#e8e2d9'}}>1</div>
+                    <div className="p-5 flex items-center gap-4 transition-all hover:brightness-110 cursor-pointer"
+                      style={{borderBottom:'1px solid #ddd8ce'}}
+                      onClick={() => router.push(`/player/${leader.id}`)}>
+                      <div className="relative flex-shrink-0">
+                        <div className="w-24 h-24 rounded-full overflow-hidden"
+                          style={{background:tc+'22',border:'2px solid '+tc+'55'}}>
+                          {leader.photo_url
+                            ? <img src={leader.photo_url} alt="" className="w-full h-full object-cover"/>
+                            : <div className="w-full h-full flex items-center justify-center font-black text-2xl" style={{color:tc}}>
+                                {leader.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                              </div>}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-base truncate" style={{color:'#1a1612'}}>{leader.name}</div>
-                          <div className="text-xs" style={{color:tc}}>{leader.pos} · {(leader.teams as any)?.name}</div>
-                          <div className="text-xs mt-0.5" style={{color:'#9c8e7a'}}>{leader.gp} GP</div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <div className="text-3xl font-black" style={{color:cat.color}}>{leader.statValue}</div>
-                          <div className="text-xs" style={{color:'#9c8e7a'}}>{cat.unit}</div>
-                        </div>
+                        <div className="absolute -top-1 -left-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black"
+                          style={{background:cat.color,color:'#e8e2d9'}}>1</div>
                       </div>
-                    </Link>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-base truncate" style={{color:'#1a1612'}}>{leader.name}</div>
+                        <div className="text-xs" style={{color:tc}}>
+                          {leader.pos} ·{' '}
+                          {leader.teams && (
+                            <Link href={`/team/${(leader.teams as any).id}`} className="no-underline" style={{color:tc}}
+                              onClick={e => e.stopPropagation()}>
+                              {(leader.teams as any).name}
+                            </Link>
+                          )}
+                        </div>
+                        <div className="text-xs mt-0.5" style={{color:'#9c8e7a'}}>{leader.gp} GP</div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="text-3xl font-black" style={{color:cat.color}}>{leader.statValue}</div>
+                        <div className="text-xs" style={{color:'#9c8e7a'}}>{cat.unit}</div>
+                      </div>
+                    </div>
                   )}
                   {list.slice(1).map((p, i) => {
                     const ptc = p?.teams ? readableTeamColor((p.teams as any).color) : '#5c554e'
                     return (
-                      <Link key={p.id} href={`/player/${p.id}`} className="no-underline group">
-                        <div className="flex items-center gap-3 px-5 py-2.5 transition-all group-hover:brightness-125"
-                          style={{borderBottom: i < 3 ? '1px solid #1e1a14' : 'none'}}>
-                          <span className="text-sm font-bold w-4 flex-shrink-0" style={{color:'#b8ae9e'}}>{i+2}</span>
-                          <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0" style={{background:ptc+'22'}}>
-                            {p.photo_url
-                              ? <img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
-                              : <div className="w-full h-full flex items-center justify-center text-base font-black" style={{color:ptc}}>
-                                  {p.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
-                                </div>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold truncate" style={{color:'#2d2723'}}>{p.name}</div>
-                            <div className="text-xs" style={{color:'#9c8e7a'}}>{(p.teams as any)?.id}</div>
-                          </div>
-                          <div className="font-bold text-sm flex-shrink-0" style={{color:cat.color}}>{p.statValue}</div>
+                      <div key={p.id} className="flex items-center gap-3 px-5 py-2.5 transition-all hover:brightness-125 cursor-pointer"
+                        style={{borderBottom: i < 3 ? '1px solid #1e1a14' : 'none'}}
+                        onClick={() => router.push(`/player/${p.id}`)}>
+                        <span className="text-sm font-bold w-4 flex-shrink-0" style={{color:'#b8ae9e'}}>{i+2}</span>
+                        <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0" style={{background:ptc+'22'}}>
+                          {p.photo_url
+                            ? <img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
+                            : <div className="w-full h-full flex items-center justify-center text-base font-black" style={{color:ptc}}>
+                                {p.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                              </div>}
                         </div>
-                      </Link>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold truncate" style={{color:'#2d2723'}}>{p.name}</div>
+                          {p.teams && (
+                            <Link href={`/team/${(p.teams as any).id}`} className="text-xs no-underline" style={{color:'#9c8e7a'}}
+                              onClick={e => e.stopPropagation()}>
+                              {(p.teams as any).name}
+                            </Link>
+                          )}
+                        </div>
+                        <div className="font-bold text-sm flex-shrink-0" style={{color:cat.color}}>{p.statValue}</div>
+                      </div>
                     )
                   })}
                 </div>

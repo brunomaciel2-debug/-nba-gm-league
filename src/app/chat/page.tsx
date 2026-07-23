@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
@@ -201,13 +202,11 @@ export default function ChatPage() {
     else groupedMessages.push({ date, msgs: [msg] })
   }
 
+  const activeChannelOtherId = activeChannel === 'general' ? null
+    : (activeChannel.split('_').find(p => p !== myTeamId) || null)
   const activeChannelName = activeChannel === 'general'
     ? (isPT?'🏀 Geral':'🏀 General')
-    : (() => {
-        const parts = activeChannel.split('_')
-        const otherId = parts.find(p => p !== myTeamId) || ''
-        return getTeamName(otherId)
-      })()
+    : getTeamName(activeChannelOtherId || '')
 
   const contacts = teams.filter(t => t.id !== myTeamId)
 
@@ -344,7 +343,11 @@ export default function ChatPage() {
         {/* CHAT AREA */}
         <div className="flex-1 flex flex-col" style={{background:'#faf8f5'}}>
           <div className="px-5 py-3 flex items-center gap-3" style={{borderBottom:'1px solid #d4cdc5',background:'#f5f1eb'}}>
-            <div className="font-bold text-sm" style={{color:'#1a1512'}}>{activeChannelName}</div>
+            <div className="font-bold text-sm" style={{color:'#1a1512'}}>
+              {activeChannelOtherId && activeChannelOtherId !== 'commissioner'
+                ? <Link href={`/team/${activeChannelOtherId}`} className="hover:underline" style={{color:'inherit'}}>{activeChannelName}</Link>
+                : activeChannelName}
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto px-5 py-4">

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import { buildComplaintText, buildProgressText, buildResolutionText } from '@/lib/interaction-constants'
@@ -116,7 +117,9 @@ export default function PlayerInteractions({ teamId, teamColor }: { teamId: stri
                       </div>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm" style={{color:'#1a1612'}}>{player?.name||'...'}</div>
+                  <div className="font-bold text-sm" style={{color:'#1a1612'}}>
+                    {player ? <Link href={`/player/${row.player_id}`} className="hover:underline" style={{color:'inherit'}}>{player.name}</Link> : '...'}
+                  </div>
                   <div className="text-xs" style={{color:accent}}>{row.status==='monitoring'?(isPT?'A monitorizar':'Monitoring'):(isPT?'Aguarda resposta':'Awaiting response')}</div>
                 </div>
               </div>
@@ -154,7 +157,9 @@ export default function PlayerInteractions({ teamId, teamColor }: { teamId: stri
               const delta = (row.moral_after ?? 0) - (row.moral_before ?? 0)
               return (
                 <div key={row.id} className="flex items-center gap-3 px-4 py-2.5 rounded-lg" style={{background:'#f0ece5',border:'1px solid #ddd8d0'}}>
-                  <span className="text-xs font-bold flex-1" style={{color:'#3d3731'}}>{player?.name||'...'}</span>
+                  <span className="text-xs font-bold flex-1" style={{color:'#3d3731'}}>
+                    {player ? <Link href={`/player/${row.player_id}`} className="hover:underline" style={{color:'inherit'}}>{player.name}</Link> : '...'}
+                  </span>
                   <span className="text-xs" style={{color:'#8a8279'}}>{buildResolutionText(isPT?'pt':'en', player?.name||'', row.outcome, delta, row.reason_key)}</span>
                 </div>
               )

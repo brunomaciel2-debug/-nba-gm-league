@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
@@ -244,7 +245,7 @@ function StorylineRow({ severity, text }: { severity: string, text: string }) {
 // (used by the Sponsors checklist, whose objective types vary too much to
 // hardcode a single scale).
 function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel, valueLabel, tip, scaleMax, noBar }: {
-  achieved: boolean, description: string, currentValue: number | null, threshold: number | null, groupLabel: string, valueLabel?: string, tip?: string, scaleMax?: number, noBar?: boolean
+  achieved: boolean, description: React.ReactNode, currentValue: number | null, threshold: number | null, groupLabel: string, valueLabel?: string, tip?: string, scaleMax?: number, noBar?: boolean
 }) {
   // noBar opts out of the auto-scale fallback for values that can go
   // negative or swing wildly (money, attribute deltas) — a 0-scaleMax bar
@@ -321,20 +322,24 @@ function renderCriterionRow(c: any, group: 'fans' | 'owners', isPT: boolean, key
         currentValue={c.currentValue} threshold={0} valueLabel={c.currentValue != null ? c.currentValue.toFixed(1) : '—'} noBar
         groupLabel={isPT ? 'Desenvolvimento Jovem' : 'Youth Development'}
         tip={isPT ? TARGET_TIPS_PT.youthDevelopment : TARGET_TIPS_EN.youthDevelopment} />
-    case 'starRetention':
+    case 'starRetention': {
+      const playerLink = <Link href={`/player/${c.playerId}`} className="hover:underline" style={{color:'inherit'}}>{c.playerName}</Link>
       return <ObjectiveRow key={key} achieved={c.achieved}
         description={group === 'fans'
-          ? (isPT ? `Renovar o contrato de ${c.playerName} antes do fim da época` : `Renew ${c.playerName}'s contract before the season ends`)
-          : (isPT ? `Não perder ${c.playerName} sem retorno` : `Don't lose ${c.playerName} for nothing`)}
+          ? (isPT ? <>Renovar o contrato de {playerLink} antes do fim da época</> : <>Renew {playerLink}'s contract before the season ends</>)
+          : (isPT ? <>Não perder {playerLink} sem retorno</> : <>Don't lose {playerLink} for nothing</>)}
         currentValue={null} threshold={null}
         groupLabel={isPT ? 'Retenção de Craque' : 'Star Retention'}
         tip={isPT ? TARGET_TIPS_PT.starRetention : TARGET_TIPS_EN.starRetention} />
-    case 'rivalryWin':
+    }
+    case 'rivalryWin': {
+      const rivalLink = <Link href={`/team/${c.rivalTeamId}`} className="hover:underline" style={{color:'inherit'}}>{c.rivalName}</Link>
       return <ObjectiveRow key={key} achieved={c.achieved}
-        description={isPT ? `Vencer o ${c.rivalName} pelo menos uma vez esta época` : `Beat the ${c.rivalName} at least once this season`}
+        description={isPT ? <>Vencer o {rivalLink} pelo menos uma vez esta época</> : <>Beat the {rivalLink} at least once this season</>}
         currentValue={null} threshold={null}
         groupLabel={isPT ? 'Rivalidade' : 'Rivalry'}
         tip={isPT ? TARGET_TIPS_PT.rivalryWin : TARGET_TIPS_EN.rivalryWin} />
+    }
     case 'facilityInvestment':
       return <ObjectiveRow key={key} achieved={c.achieved}
         description={isPT ? 'Concluir pelo menos 1 melhoria de instalações esta época' : 'Complete at least 1 facility upgrade this season'}

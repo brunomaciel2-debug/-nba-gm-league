@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
@@ -87,7 +88,7 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
                           </span>
                           {!isOwnPick&&origTeam&&(
                             <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{background:'#fef3c7',color:'#b45309'}}>
-                              via {origTeam.name}
+                              via <Link href={`/team/${pick.original_team_id}`} className="no-underline" style={{color:'inherit'}}>{origTeam.name}</Link>
                             </span>
                           )}
                           {isOwnPick&&(
@@ -101,7 +102,8 @@ export default function DraftPicksTable({ teamId }: { teamId: string }) {
                         )}
                         {!isOwnPick&&origTeam&&(
                           <div className="text-xs mt-0.5" style={{color:'#6b5f4e'}}>
-                            {isPT?`Qualidade determinada pela classificação final dos ${origTeam.name}`:`Quality determined by ${origTeam.name}'s final standing`}
+                            {isPT ? <>Qualidade determinada pela classificação final dos <Link href={`/team/${pick.original_team_id}`} className="hover:underline" style={{color:'inherit'}}>{origTeam.name}</Link></>
+                                  : <>Quality determined by <Link href={`/team/${pick.original_team_id}`} className="hover:underline" style={{color:'inherit'}}>{origTeam.name}</Link>'s final standing</>}
                           </div>
                         )}
                       </div>
