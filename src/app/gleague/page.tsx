@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
@@ -9,7 +9,20 @@ import { useTranslation } from '@/components/I18nProvider'
 type Tab = 'teams'|'standings'|'schedule'|'leaders'|'playoffs'
 const VALID_TABS: Tab[] = ['teams','standings','schedule','leaders','playoffs']
 
+// useSearchParams() (added for the navbar's new G-League dropdown deep
+// links, e.g. ?tab=playoffs) requires a Suspense boundary around any
+// component that calls it, or static generation fails at build time for
+// a plain route like this one with no dynamic segments — Next.js bails
+// out to client rendering for whatever's inside Suspense instead.
 export default function GLeaguePage() {
+  return (
+    <Suspense fallback={null}>
+      <GLeaguePageInner />
+    </Suspense>
+  )
+}
+
+function GLeaguePageInner() {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const searchParams = useSearchParams()
