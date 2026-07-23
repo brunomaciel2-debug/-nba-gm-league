@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 
 const TYPE_ICONS: Record<string,string> = {
-  system:'🤖', application:'📋', preseason_request:'🏀', preseason_accepted:'✅',
+  welcome:'🏀', system:'🤖', application:'📋', preseason_request:'🏀', preseason_accepted:'✅',
   preseason_declined:'❌', injury:'🏥', trade:'🔄', contract:'📝', award:'🏆',
   sponsor:'🎯', results:'📊', standings:'📍', streak:'🔥', rivalry:'⚔️',
   development:'📈', morale:'😟', construction:'🏗️', reminder:'⏰', gleague:'⬆️',
@@ -12,14 +12,14 @@ const TYPE_ICONS: Record<string,string> = {
 }
 
 const TYPE_COLORS: Record<string,string> = {
-  injury:'#dc2626', results:'#1d4ed8', standings:'#b45309', streak:'#b45309',
+  welcome:'#c8102e', injury:'#dc2626', results:'#1d4ed8', standings:'#b45309', streak:'#b45309',
   rivalry:'#7c3aed', development:'#15803d', morale:'#dc2626', construction:'#b45309',
   reminder:'#6b7280', sponsor:'#15803d', award:'#b45309', gleague:'#1d4ed8',
   contract:'#7c3aed', trade:'#1d4ed8', fa:'#15803d', training:'#7c3aed', scouting:'#0e7490',
 }
 
 const TYPE_LABELS_PT: Record<string,string> = {
-  all:'Todos', unread:'Não Lidos', injury:'Lesões', results:'Resultados', standings:'Classificação',
+  welcome:'Boas-vindas', all:'Todos', unread:'Não Lidos', injury:'Lesões', results:'Resultados', standings:'Classificação',
   streak:'Séries', rivalry:'Rivalidade', development:'Desenvolvimento', morale:'Moral',
   construction:'Construção', reminder:'Lembretes', sponsor:'Patrocínio', award:'Prémios',
   gleague:'G-League', contract:'Contratos', trade:'Trades', fa:'Free Agency',

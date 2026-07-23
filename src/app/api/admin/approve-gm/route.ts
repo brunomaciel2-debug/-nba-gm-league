@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { getTeamLang, notifWelcome } from '@/lib/notifications-helpers'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -106,6 +107,21 @@ export async function POST(req: NextRequest) {
       .select('name')
       .eq('id', team_id)
       .single()
+
+    // 4b. Limpar a inbox da equipa (mensagens de quem lá esteve antes / da
+    // vaga) e dar as boas-vindas ao novo GM com uma única mensagem — ver
+    // pedido do Bruno: "quando um GM entra no jogo deve ter a inbox limpa".
+    await supabaseAdmin.from('inbox_messages').delete().eq('to_team_id', team_id)
+    const lang = await getTeamLang(team_id)
+    const welcome = notifWelcome(lang, team?.name || team_id)
+    await supabaseAdmin.from('inbox_messages').insert({
+      to_team_id: team_id,
+      type: 'welcome',
+      subject: welcome.subject,
+      body: welcome.body,
+      read: false,
+      metadata: {},
+    })
 
     // 5. Enviar email de aprovação
     await sendEmail(

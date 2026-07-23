@@ -28,6 +28,15 @@ export function clearLangCache() {
   Object.keys(langCache).forEach(k => delete langCache[k])
 }
 
+export function notifWelcome(lang: 'en'|'pt', teamName: string) {
+  return {
+    subject: lang === 'pt' ? `🏀 Bem-vindo aos ${teamName}!` : `🏀 Welcome to the ${teamName}!`,
+    body: lang === 'pt'
+      ? `A Direção deseja-te as boas-vindas à liga. Antes da próxima simulação, escolhe os teus patrocinadores no separador Patrocínios, define as tuas ordens semanais e explora a tua equipa. Boa sorte!`
+      : `Ownership welcomes you to the league. Before the next simulation, pick your sponsors in the Sponsors tab, set your weekly orders, and explore your team. Good luck!`,
+  }
+}
+
 // ── Notification text generators ────────────────────────
 // Each function returns subject + body in the correct language
 

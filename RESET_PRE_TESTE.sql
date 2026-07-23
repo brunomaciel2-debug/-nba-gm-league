@@ -126,7 +126,9 @@ INSERT INTO profiles SELECT * FROM profiles_preteste;
 INSERT INTO contracts SELECT * FROM contracts_preteste;
 INSERT INTO contract_extension_offers SELECT * FROM contract_extension_offers_preteste;
 INSERT INTO gm_orders SELECT * FROM gm_orders_preteste;
-INSERT INTO inbox_messages SELECT * FROM inbox_messages_preteste;
+-- inbox_messages fica de propósito por preencher: cada reset é um recomeço
+-- limpo, ninguém deve herdar mensagens (nem sequer as tuas) de um ciclo de
+-- testes anterior. Ver o welcome message dado a cada GM em approve-gm/route.ts.
 INSERT INTO attribute_development SELECT * FROM attribute_development_preteste;
 INSERT INTO injury_log SELECT * FROM injury_log_preteste;
 INSERT INTO player_interactions SELECT * FROM player_interactions_preteste;

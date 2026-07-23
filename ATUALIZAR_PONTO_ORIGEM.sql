@@ -29,7 +29,6 @@ TRUNCATE TABLE profiles_preteste CASCADE;
 TRUNCATE TABLE contracts_preteste CASCADE;
 TRUNCATE TABLE contract_extension_offers_preteste CASCADE;
 TRUNCATE TABLE gm_orders_preteste CASCADE;
-TRUNCATE TABLE inbox_messages_preteste CASCADE;
 TRUNCATE TABLE attribute_development_preteste CASCADE;
 TRUNCATE TABLE injury_log_preteste CASCADE;
 TRUNCATE TABLE player_interactions_preteste CASCADE;
@@ -117,7 +116,8 @@ INSERT INTO profiles_preteste SELECT * FROM profiles;
 INSERT INTO contracts_preteste SELECT * FROM contracts;
 INSERT INTO contract_extension_offers_preteste SELECT * FROM contract_extension_offers;
 INSERT INTO gm_orders_preteste SELECT * FROM gm_orders;
-INSERT INTO inbox_messages_preteste SELECT * FROM inbox_messages;
+-- inbox_messages não tem cópia de segurança de propósito — ver
+-- RESET_PRE_TESTE.sql (o reset deixa sempre a inbox limpa).
 INSERT INTO attribute_development_preteste SELECT * FROM attribute_development;
 INSERT INTO injury_log_preteste SELECT * FROM injury_log;
 INSERT INTO player_interactions_preteste SELECT * FROM player_interactions;
