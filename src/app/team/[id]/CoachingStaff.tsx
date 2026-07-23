@@ -157,8 +157,8 @@ export default function CoachingStaff({ staff, socialMediaFollowers }: { staff: 
           const info = ROLE_INFO[c.role] || {label:c.role,color:'#5c554e',icon:'👤'}
           const initials = c.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2).toUpperCase()
           return (
-            <Link key={c.id} href={`/staff/${c.id}`} className="no-underline group">
-              <div className="rounded-xl p-4 h-full transition-all group-hover:brightness-95"
+            <Link key={c.id} href={`/staff/${c.id}`} className="no-underline group/card">
+              <div className="rounded-xl p-4 h-full transition-all group-hover/card:brightness-95"
                    style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:'3px solid '+info.color}}>
                 <div className="flex items-start gap-3 mb-3">
                   <div className="flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden flex items-center justify-center"
