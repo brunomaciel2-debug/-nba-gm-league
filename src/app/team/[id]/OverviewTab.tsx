@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
+import { formatSimMonthName } from '@/lib/season-week-helper'
 
 const STAT_CONFIG = [
   { key: 'pts', per: 'ppg', labelEn: 'PPG', labelPt: 'PPG', icon: '🏀' },
@@ -130,6 +131,7 @@ export default function OverviewTab({ teamId, teamColor, players, games }: {
 
   const netFinance = (finance?.revenue || 0) - (finance?.expense || 0)
   const maxBar = Math.max(finance?.revenue || 0, finance?.expense || 0, 1)
+  const monthName = finance ? formatSimMonthName(finance.monthNum, isPT ? 'pt-PT' : 'en-US') : ''
 
   return (
     <div>
@@ -227,7 +229,7 @@ export default function OverviewTab({ teamId, teamColor, players, games }: {
             </div>
           </Card>
 
-          <Card title={isPT ? `Balanço — Mês ${finance?.monthNum ?? ''}` : `Balance — Month ${finance?.monthNum ?? ''}`} icon="📊">
+          <Card title={isPT ? `Balanço — ${monthName}` : `Balance — ${monthName}`} icon="📊">
             <div style={{display:'flex', flexDirection:'column', gap:10}}>
               {[
                 { label: isPT ? 'Receita' : 'Revenue', value: finance?.revenue || 0, color: '#15803d' },
