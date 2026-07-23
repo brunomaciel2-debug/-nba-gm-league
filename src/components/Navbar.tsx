@@ -223,15 +223,14 @@ export default function Navbar() {
     { href: '/preseason',          label: 'Friendlies (per team)', icon: 'ti-calendar-event' },
   ]
 
+  // Trade Center, Free Agents and Contracts already live elsewhere (League
+  // dropdown / the team page's own tabs), and GM Chat + Inbox already have
+  // their own icon buttons in the navbar — keeping them here too was pure
+  // duplication (Bruno's call).
   const GM_LINKS = [
     { href: `/team/${teamId}`,           label: isPT ? 'A Minha Franquia'  : 'My Franchise',      icon: 'ti-building' },
     { href: `/gm/orders/${teamId}`,      label: isPT ? 'Ordens Semanais'   : 'Weekly Orders',     icon: 'ti-clipboard-check' },
-    { href: `/trade-center`,             label: isPT ? 'Trade Center'      : 'Trade Center',      icon: 'ti-switch-horizontal' },
-    { href: `/free-agents`,              label: isPT ? 'Free Agents'       : 'Free Agents',       icon: 'ti-user-plus' },
     { href: `/preseason`,                label: isPT ? 'Agendar Amigável'  : 'Schedule Friendly', icon: 'ti-calendar-event' },
-    { href: `/team/${teamId}#contracts`, label: isPT ? 'Contratos'         : 'Contracts',         icon: 'ti-file-dollar' },
-    { href: `/chat`,                     label: 'GM Chat',                                        icon: 'ti-message-circle' },
-    { href: `/inbox`,                    label: isPT ? 'Caixa de Entrada'  : 'Inbox',             icon: 'ti-mail' },
   ]
 
   // Same grouping as the desktop dropdowns (League, Events, Rules & Info)
