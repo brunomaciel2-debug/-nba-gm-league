@@ -13,11 +13,11 @@ ALTER TABLE gleague_player_stats ADD COLUMN IF NOT EXISTS fouls integer NOT NULL
 ALTER TABLE gleague_player_stats ADD COLUMN IF NOT EXISTS double_doubles integer NOT NULL DEFAULT 0;
 ALTER TABLE gleague_player_stats ADD COLUMN IF NOT EXISTS triple_doubles integer NOT NULL DEFAULT 0;
 
-ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS off_reb integer;
-ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS def_reb integer;
-ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS turnovers integer;
-ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS fouls integer;
-ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS double_doubles integer;
-ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS triple_doubles integer;
+ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS off_reb integer NOT NULL DEFAULT 0;
+ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS def_reb integer NOT NULL DEFAULT 0;
+ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS turnovers integer NOT NULL DEFAULT 0;
+ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS fouls integer NOT NULL DEFAULT 0;
+ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS double_doubles integer NOT NULL DEFAULT 0;
+ALTER TABLE gleague_player_stats_preteste ADD COLUMN IF NOT EXISTS triple_doubles integer NOT NULL DEFAULT 0;
 
 SELECT 'Colunas adicionadas a gleague_player_stats!' as resultado;

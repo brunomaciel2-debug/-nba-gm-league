@@ -6,7 +6,7 @@
 -- Distingue jogos de playoff dos da época regular na G League, tal como já
 -- acontece na tabela "games" da NBA.
 ALTER TABLE gleague_games ADD COLUMN IF NOT EXISTS game_type text NOT NULL DEFAULT 'regular';
-ALTER TABLE gleague_games_preteste ADD COLUMN IF NOT EXISTS game_type text;
+ALTER TABLE gleague_games_preteste ADD COLUMN IF NOT EXISTS game_type text NOT NULL DEFAULT 'regular';
 
 -- Bracket de playoffs da G League — mesmo desenho da tabela "playoff_series"
 -- já usada pela NBA, só que mais simples (jogo único por ronda em vez de

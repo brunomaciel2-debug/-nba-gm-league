@@ -33,9 +33,9 @@ CREATE TABLE IF NOT EXISTS rising_stars_roster_preteste (
 ALTER TABLE allstar_config ADD COLUMN IF NOT EXISTS rising_stars_announced boolean NOT NULL DEFAULT false;
 ALTER TABLE allstar_config ADD COLUMN IF NOT EXISTS rising_stars_played boolean NOT NULL DEFAULT false;
 ALTER TABLE allstar_config ADD COLUMN IF NOT EXISTS all_star_game_played boolean NOT NULL DEFAULT false;
-ALTER TABLE allstar_config_preteste ADD COLUMN IF NOT EXISTS rising_stars_announced boolean;
-ALTER TABLE allstar_config_preteste ADD COLUMN IF NOT EXISTS rising_stars_played boolean;
-ALTER TABLE allstar_config_preteste ADD COLUMN IF NOT EXISTS all_star_game_played boolean;
+ALTER TABLE allstar_config_preteste ADD COLUMN IF NOT EXISTS rising_stars_announced boolean NOT NULL DEFAULT false;
+ALTER TABLE allstar_config_preteste ADD COLUMN IF NOT EXISTS rising_stars_played boolean NOT NULL DEFAULT false;
+ALTER TABLE allstar_config_preteste ADD COLUMN IF NOT EXISTS all_star_game_played boolean NOT NULL DEFAULT false;
 
 -- As semanas guardadas aqui sao so um espelho informativo (nenhum codigo as
 -- le - as reais estao em src/lib/allstar-constants.ts) mas mantemos em sincronia

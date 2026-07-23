@@ -8,6 +8,6 @@
 -- ============================================
 
 ALTER TABLE games ADD COLUMN IF NOT EXISTS season text NOT NULL DEFAULT '2025-26';
-ALTER TABLE games_preteste ADD COLUMN IF NOT EXISTS season text;
+ALTER TABLE games_preteste ADD COLUMN IF NOT EXISTS season text NOT NULL DEFAULT '2025-26';
 
 SELECT 'Coluna season adicionada a games!' as resultado;

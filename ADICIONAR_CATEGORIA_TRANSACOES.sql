@@ -7,6 +7,6 @@
 -- ============================================
 
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'player';
-ALTER TABLE transactions_preteste ADD COLUMN IF NOT EXISTS category text;
+ALTER TABLE transactions_preteste ADD COLUMN IF NOT EXISTS category text NOT NULL DEFAULT 'player';
 
 SELECT 'Coluna category adicionada a transactions!' as resultado;
