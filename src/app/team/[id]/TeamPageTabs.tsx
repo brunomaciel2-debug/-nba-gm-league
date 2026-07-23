@@ -24,7 +24,7 @@ import TransactionsTab from './TransactionsTab'
 import PsychologyOfficeTab from './PsychologyOfficeTab'
 import { useTranslation } from '@/components/I18nProvider'
 
-type Tab = 'roster' | 'injuries' | 'schedule' | 'contracts' | 'draft' | 'transactions' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'satisfaction' | 'scouting' | 'interactions' | 'social_media' | 'psychology'
+type Tab = 'roster' | 'staff' | 'injuries' | 'schedule' | 'contracts' | 'draft' | 'transactions' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'satisfaction' | 'scouting' | 'interactions' | 'social_media' | 'psychology'
 
 function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: boolean }) {
   return (
@@ -45,7 +45,7 @@ export default function TeamPageTabs({
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const searchParams = useSearchParams()
-  const VALID_TABS: Tab[] = ['roster','injuries','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media','psychology']
+  const VALID_TABS: Tab[] = ['roster','staff','injuries','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media','psychology']
   const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'roster'
   const [tab, setTab] = useState<Tab>(initialTab)
 
@@ -54,6 +54,7 @@ export default function TeamPageTabs({
   // Bruno since the flat 17-item list had become hard to scan.
   const TABS: { key: Tab, label: string, icon: string, group: 'info' | 'action' }[] = [
     { key: 'roster',     label: isPT ? 'Plantel'         : 'Roster',      icon: '👥', group: 'info' },
+    { key: 'staff',      label: isPT ? 'Equipa Técnica'  : 'Staff',       icon: '🧑‍💼', group: 'info' },
     { key: 'injuries',   label: isPT ? 'Lesões'          : 'Injuries',    icon: '🏥', group: 'info' },
     { key: 'schedule',   label: isPT ? 'Calendário'      : 'Schedule',    icon: '📅', group: 'info' },
     { key: 'contracts',  label: isPT ? 'Contratos'       : 'Contracts',   icon: '📄', group: 'info' },
@@ -239,13 +240,11 @@ export default function TeamPageTabs({
 
       {/* CONTENT */}
       <div style={{flex:1, minWidth:0}}>
-        {tab === 'roster' && (
-          <>
-            <RosterTable players={[...players, ...(injuredPlayers||[])]} teamColor={teamColor} />
-            <div className="mt-6 rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
-              <CoachingStaff staff={coaches} socialMediaFollowers={socialMediaFollowers} />
-            </div>
-          </>
+        {tab === 'roster' && <RosterTable players={[...players, ...(injuredPlayers||[])]} teamColor={teamColor} />}
+        {tab === 'staff' && (
+          <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>
+            <CoachingStaff staff={coaches} socialMediaFollowers={socialMediaFollowers} />
+          </div>
         )}
         {tab === 'injuries' && <InjuryReport injuries={injuries} players={[...players, ...(injuredPlayers||[])]} teamId={teamId} />}
         {tab === 'schedule'   && <TeamSchedule games={games} teamId={teamId} teams={teamsMap} />}
