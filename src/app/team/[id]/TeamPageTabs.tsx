@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import RosterTable from './RosterTable'
 import TeamSchedule from './TeamSchedule'
 import ContractsTable from './ContractsTable'
@@ -82,6 +83,56 @@ export default function TeamPageTabs({
 
   const activeInjuryCount = injuries.filter((i:any) => i.status === 'active').length
 
+  // Red "action needed" dots — computed here (not inside each tab) because
+  // only the currently-selected tab is ever mounted below, so a tab's own
+  // component can't report its pending state while the GM is looking at a
+  // different tab.
+  const [alerts, setAlerts] = useState<Partial<Record<Tab, boolean>>>({})
+  useEffect(() => {
+    (async () => {
+      const [
+        { data: pool }, { data: contracts },
+        { data: cfg },
+        { data: interactions },
+        { data: scoutProgress },
+        { data: trainingSlots },
+        { data: psychSlots },
+      ] = await Promise.all([
+        supabase.from('sponsor_pool').select('tier,chosen').eq('team_id', teamId).eq('season', '2025-26'),
+        supabase.from('sponsor_contracts').select('tier').eq('team_id', teamId).eq('season', '2025-26').eq('status', 'active'),
+        supabase.from('season_config').select('current_week').eq('id', 1).single(),
+        supabase.from('player_interactions').select('id').eq('team_id', teamId).neq('status', 'resolved'),
+        supabase.from('scout_progress').select('points,lifetime_points').eq('team_id', teamId).eq('season', '2025-26').maybeSingle(),
+        supabase.from('training_slots').select('player_id').eq('team_id', teamId),
+        supabase.from('psychology_slots').select('player_id').eq('team_id', teamId),
+      ])
+
+      const activeTiers = new Set((contracts || []).map((c: any) => c.tier))
+      const sponsorsPending = ['jersey', 'court', 'panels'].some(tier =>
+        !activeTiers.has(tier) && (pool || []).some((p: any) => p.tier === tier && !p.chosen))
+
+      const week = (cfg as any)?.current_week || 0
+      const { data: order } = await supabase.from('gm_orders').select('atk_style').eq('team_id', teamId).eq('week_number', week).maybeSingle()
+      const activeSystem = (order as any)?.atk_style || 'motion'
+      const { data: focusRows } = await supabase.from('tactical_focus').select('system,node_id').eq('team_id', teamId)
+      const tacticalPending = !(focusRows || []).some((f: any) => f.system === activeSystem)
+
+      const scoutingPending = (scoutProgress?.lifetime_points || 0) >= 100 && (scoutProgress?.points || 0) >= 10
+
+      const trainingPending = !trainingSlots || trainingSlots.length === 0 || trainingSlots.some((s: any) => !s.player_id)
+      const psychologyPending = (psychSlots || []).filter((s: any) => s.player_id).length < 3
+
+      setAlerts({
+        sponsors: sponsorsPending,
+        tactical: tacticalPending,
+        interactions: (interactions || []).length > 0,
+        scouting: scoutingPending,
+        training: trainingPending,
+        psychology: psychologyPending,
+      })
+    })()
+  }, [teamId])
+
   const badges: Partial<Record<Tab, string>> = {
     roster:    `${players.length}`,
     schedule:  `${played}/${played + upcoming}`,
@@ -113,6 +164,12 @@ export default function TeamPageTabs({
               }}>
               <span style={{fontSize:14}}>{t.icon}</span>
               {t.label}
+              {alerts[t.key] && (
+                <span title={isPT ? 'Ação pendente' : 'Action needed'}
+                  style={{width:13,height:13,borderRadius:'50%',flexShrink:0,
+                    background:'#dc2626', color:'#fff', fontSize:9, fontWeight:800,
+                    display:'inline-flex', alignItems:'center', justifyContent:'center'}}>!</span>
+              )}
               {badges[t.key] && (
                 <span style={{fontSize:9,padding:'1px 4px',borderRadius:4,
                   background: active ? teamColor+'33' : '#e8e2d8',
@@ -161,6 +218,12 @@ export default function TeamPageTabs({
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}>
                 <span style={{fontSize:15,flexShrink:0}}>{t.icon}</span>
                 <span style={{flex:1}}>{t.label}</span>
+                {alerts[t.key] && (
+                  <span title={isPT ? 'Ação pendente' : 'Action needed'}
+                    style={{width:14,height:14,borderRadius:'50%',flexShrink:0,
+                      background:'#dc2626', color:'#fff', fontSize:9, fontWeight:800,
+                      display:'inline-flex', alignItems:'center', justifyContent:'center'}}>!</span>
+                )}
                 {badges[t.key] && (
                   <span style={{fontSize:10,padding:'1px 5px',borderRadius:4,flexShrink:0,
                     background: active ? teamColor+'33' : '#e8e2d8',
