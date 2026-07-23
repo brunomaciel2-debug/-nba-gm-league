@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
       catch (interErr) { console.warn('Interaction cleanup after trade failed', interErr) }
 
       // Notify destination team of arrival
-      await notifyPlayerArrival(destTeamId, player?.name || 'A player', teamNameMap[teamEntry.team_id] || teamEntry.team_id)
+      await notifyPlayerArrival(destTeamId, player?.name || 'A player', teamNameMap[teamEntry.team_id] || teamEntry.team_id, Number(playerId), teamEntry.team_id)
     }
 
     // Move draft picks

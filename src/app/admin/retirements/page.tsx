@@ -40,7 +40,7 @@ export default function RetirementsAdminPage() {
       await supabase.from('transactions').insert({
         type: 'extension', category: 'player',
         description: `${d.players?.name} returns for one more season with ${d.teams?.name || d.team_id}`,
-        teams: [d.team_id], players: [d.players?.name], status: 'completed', week_number: currentWeek,
+        teams: [d.team_id], players: [d.players?.name], player_ids: [d.player_id], status: 'completed', week_number: currentWeek,
       })
       await supabase.from('inbox_messages').insert({
         to_team_id: d.team_id, type: 'contract',
@@ -64,7 +64,7 @@ export default function RetirementsAdminPage() {
       await supabase.from('transactions').insert({
         type: 'retirement', category: 'player',
         description: `${d.players?.name} announces his retirement after ${d.players?.nba_experience ?? '?'} season${d.players?.nba_experience === 1 ? '' : 's'} in the league`,
-        teams: [d.team_id], players: [d.players?.name], status: 'completed', week_number: currentWeek,
+        teams: [d.team_id], players: [d.players?.name], player_ids: [d.player_id], status: 'completed', week_number: currentWeek,
       })
       await supabase.from('inbox_messages').insert({
         to_team_id: d.team_id, type: 'contract',

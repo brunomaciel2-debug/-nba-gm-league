@@ -301,7 +301,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     }
     for (const [teamId, expiring] of Object.entries(expiringByTeam)) {
       const names = expiring.map((p:any) => `${p.name} — ${fmt(p.salary)}`).join('\n')
-      await notify(teamId, 'contract', `📝 Contracts expiring at end of season`, `The following players will be free agents after this season:\n\n${names}\n\nConsider extending them now before they hit the open market.`, { count: expiring.length })
+      await notify(teamId, 'contract', `📝 Contracts expiring at end of season`, `The following players will be free agents after this season:\n\n${names}\n\nConsider extending them now before they hit the open market.`, { count: expiring.length, player_ids: expiring.map((p:any) => p.id) })
     }
   }
 
@@ -526,23 +526,24 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     const label = lang === 'pt' ? (AWARD_LABELS_PT[award.award_type] || award.award_type) : (AWARD_LABELS_EN[award.award_type] || award.award_type)
     const isAllStar = award.award_type.startsWith('all_star')
     const notif = notifAward(lang, playerName, label, isAllStar)
-    await notify(playerTeamId, 'awards', notif.subject, notif.body, { player_name: playerName, award_type: award.award_type })
+    await notify(playerTeamId, 'awards', notif.subject, notif.body, { player_id: award.player_id, player_name: playerName, award_type: award.award_type })
   }
 
   // ── 15. DRAFT PICKS MADE ───────────────────────────────
   const { data: recentPicks } = await supabase
     .from('draft_results')
-    .select('team_id,pick_number,round,prospects(name)')
+    .select('team_id,pick_number,round,prospect_id,prospects(name,resulting_player_id)')
     .gte('created_at', new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString())
 
   for (const pick of (recentPicks||[])) {
     const prospectName = (pick.prospects as any)?.name || 'A prospect'
+    const resultingPlayerId = (pick.prospects as any)?.resulting_player_id
     const lang = await getTeamLang(pick.team_id)
     const subject = lang === 'pt' ? `🎓 Escolha do Draft #${pick.pick_number}: ${prospectName}` : `🎓 Draft Pick #${pick.pick_number}: ${prospectName}`
     const body = lang === 'pt'
       ? `Com a escolha #${pick.pick_number} (Ronda ${pick.round}), a tua equipa selecionou o ${prospectName}. Já foi adicionado ao teu plantel — verifica a sua página de jogador para veres os atributos completos.`
       : `With the #${pick.pick_number} pick (Round ${pick.round}), your team has selected ${prospectName}. They've been added to your roster — check their full attribute breakdown on their player page.`
-    await notify(pick.team_id, 'fa', subject, body, { pick_number: pick.pick_number, round: pick.round, prospect_name: prospectName })
+    await notify(pick.team_id, 'fa', subject, body, { pick_number: pick.pick_number, round: pick.round, prospect_name: prospectName, prospect_id: pick.prospect_id, player_id: resultingPlayerId })
   }
 
   // ── 16. CAP SPACE WARNINGS ──────────────────────────────
@@ -660,17 +661,20 @@ export async function notifyFALosers(
 export async function notifyTradeProposed(
   proposalId: string,
   teamId: string,
+  initiatorTeamId: string,
   initiatorTeamName: string,
   sendNames: string,
   recvNames: string,
-  notes?: string
+  notes?: string,
+  sendIds?: (string|number)[],
+  recvIds?: (string|number)[]
 ) {
   await notify(
     teamId,
     'trade',
     `🔄 Trade proposal from ${initiatorTeamName}`,
     `${initiatorTeamName} has proposed a trade.\n→ You send: ${sendNames || 'picks only'}\n← You receive: ${recvNames || 'picks only'}${notes ? `\n\n"${notes}"` : ''}\n\nReview and respond from the Trade Center.`,
-    { proposal_id: proposalId }
+    { proposal_id: proposalId, initiator_team_id: initiatorTeamId, player_ids: [...(sendIds||[]), ...(recvIds||[])] }
   )
 }
 
@@ -685,7 +689,7 @@ export async function notifyTradeAccepted(
     'trade',
     `✅ Trade accepted by ${respondingTeamName}`,
     `Your trade proposal has been accepted by ${respondingTeamName}. The trade has been processed — check your roster for the updated players.`,
-    { proposal_id: proposalId }
+    { proposal_id: proposalId, responding_team_id: respondingTeamId }
   )
 }
 
@@ -701,21 +705,23 @@ export async function notifyTradeRejected(
     'trade',
     `❌ Trade rejected by ${respondingTeamName}`,
     `Your trade proposal has been rejected by ${respondingTeamName}.${reason ? `\n\nReason: ${reason}` : ''}\n\nYou can submit a revised offer or look for other trade partners.`,
-    { proposal_id: proposalId }
+    { proposal_id: proposalId, responding_team_id: respondingTeamId }
   )
 }
 
 export async function notifyPlayerArrival(
   teamId: string,
   playerName: string,
-  fromTeamName: string
+  fromTeamName: string,
+  playerId?: number,
+  fromTeamId?: string
 ) {
   await notify(
     teamId,
     'trade',
     `🤝 ${playerName} has joined your team!`,
     `${playerName} has arrived via trade from ${fromTeamName}. They're now on your active roster — review your depth chart to integrate them into your rotation.`,
-    { player_name: playerName }
+    { player_name: playerName, player_id: playerId, from_team_id: fromTeamId }
   )
 }
 

@@ -145,7 +145,7 @@ export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
       await supabaseAdmin.from('transactions').insert({
         type: 'injury', category: 'player',
         description: `${p.name} (${p.team_id}) — ${chosen.name}. Est. ${gamesOut} games out.`,
-        teams: [p.team_id], players: [p.name], status: 'completed', week_number: week,
+        teams: [p.team_id], players: [p.name], player_ids: [p.id], status: 'completed', week_number: week,
       })
     }
 

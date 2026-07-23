@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import { formatSimDate } from '@/lib/season-week-helper'
@@ -25,13 +26,22 @@ export default function TransactionsPage() {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const [txs,setTxs] = useState<any[]>([])
+  const [teamNames,setTeamNames] = useState<Record<string,string>>({})
   const [loading,setLoading] = useState(true)
 
   useEffect(()=>{
     // Injuries have their own dedicated Injury Center (/injuries) now — this
     // feed is only about roster/staff movement (entries, exits, trades).
-    supabase.from('transactions').select('*').neq('type','injury').order('created_at',{ascending:false}).limit(100)
-      .then(({data})=>{setTxs(data||[]);setLoading(false)})
+    Promise.all([
+      supabase.from('transactions').select('*').neq('type','injury').order('created_at',{ascending:false}).limit(100),
+      supabase.from('teams').select('id,name'),
+    ]).then(([{data},{data:teams}])=>{
+      setTxs(data||[])
+      const map: Record<string,string> = {}
+      ;(teams||[]).forEach((t:any)=>{ map[t.id]=t.name })
+      setTeamNames(map)
+      setLoading(false)
+    })
   },[])
 
   const TYPE_LABELS_PT: Record<string,string> = {
@@ -71,10 +81,27 @@ export default function TransactionsPage() {
                   <div className="flex-1">
                     <p className="text-sm font-medium" style={{color:'#1a1512'}}>{tx.description}</p>
                     {tx.teams&&tx.teams.length>0&&(
-                      <p className="text-xs mt-1" style={{color:'#6b5f4e'}}>{isPT?'Equipas':'Teams'}: {tx.teams.join(' · ')}</p>
+                      <p className="text-xs mt-1" style={{color:'#6b5f4e'}}>
+                        {isPT?'Equipas':'Teams'}: {tx.teams.map((tid:string,i:number)=>(
+                          <span key={tid+i}>
+                            {i>0&&' · '}
+                            <Link href={`/team/${tid}`} className="hover:underline" style={{color:'inherit'}}>{teamNames[tid]||tid}</Link>
+                          </span>
+                        ))}
+                      </p>
                     )}
                     {tx.players&&tx.players.length>0&&(
-                      <p className="text-xs mt-0.5" style={{color:'#6b5f4e'}}>{isPT?'Jogadores':'Players'}: {tx.players.join(', ')}</p>
+                      <p className="text-xs mt-0.5" style={{color:'#6b5f4e'}}>
+                        {isPT?'Jogadores':'Players'}: {tx.players.map((name:string,i:number)=>{
+                          const pid = tx.player_ids?.[i]
+                          return (
+                            <span key={i}>
+                              {i>0&&', '}
+                              {pid ? <Link href={`/player/${pid}`} className="hover:underline" style={{color:'inherit'}}>{name}</Link> : name}
+                            </span>
+                          )
+                        })}
+                      </p>
                     )}
                   </div>
                   <span className="text-xs flex-shrink-0 text-right" style={{color:'#9c8e7a'}}>

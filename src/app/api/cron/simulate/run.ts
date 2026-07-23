@@ -635,7 +635,7 @@ suspended_games_remaining: (pl.suspended_games_remaining||0) + crossings,
 await supabaseAdmin.from('transactions').insert({
 type:'suspension', category:'player',
 description:`${pl.name} (${pl.team_id}) — ${totalTechs} technical fouls (${isPostseasonWeek?'postseason':'regular season'}). Suspended ${crossings} game${crossings!==1?'s':''}.`,
-teams:[pl.team_id], players:[pl.name], status:'completed', week_number: week,
+teams:[pl.team_id], players:[pl.name], player_ids:[pl.id], status:'completed', week_number: week,
 })
 }
 
@@ -826,7 +826,7 @@ if (chosen.severity!=='minor') {
 await supabaseAdmin.from('transactions').insert({
 type:'injury', category:'player',
 description:`${p.name} (${p.team_id}) — ${chosen.name}. Est. ${gamesOut} games out.`,
-teams:[p.team_id], players:[p.name], status:'completed', week_number: week,
+teams:[p.team_id], players:[p.name], player_ids:[p.id], status:'completed', week_number: week,
 })
 }
 } else {

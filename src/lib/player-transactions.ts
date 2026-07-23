@@ -61,6 +61,7 @@ export async function recordPlayerTransaction(
       description,
       teams: [args.fromTeamId, args.toTeamId].filter(Boolean),
       players: [playerName],
+      player_ids: [args.playerId],
       status: 'completed',
       week_number: args.week ?? null,
     })
@@ -107,6 +108,7 @@ export async function recordTradeLegacyTransaction(admin: SupabaseClient, propos
       description: parts.join(' · '),
       teams: teamIds,
       players: allPlayerIds.map((id: any) => playerNameMap[id]).filter(Boolean),
+      player_ids: allPlayerIds,
       status: 'completed',
       week_number: week ?? null,
     })

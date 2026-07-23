@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
     const sendNames = t.players_out.map(id => playerNameMap[id]).filter(Boolean).join(', ')
     const recvNames = t.players_in.map(id => playerNameMap[id]).filter(Boolean).join(', ')
     try {
-      await notifyTradeProposed(proposal.id, t.team_id, teamNameMap[initiatorTeamId] || initiatorTeamId, sendNames, recvNames, notes)
+      await notifyTradeProposed(proposal.id, t.team_id, initiatorTeamId, teamNameMap[initiatorTeamId] || initiatorTeamId, sendNames, recvNames, notes, t.players_out, t.players_in)
     } catch (notifErr) { console.warn('Trade proposal notification failed', notifErr) }
   }
 

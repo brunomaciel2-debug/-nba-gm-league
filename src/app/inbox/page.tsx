@@ -37,11 +37,26 @@ export default function InboxPage() {
   const [expanded, setExpanded] = useState<string|null>(null)
   const [processing, setProcessing] = useState<string|null>(null)
   const [actionMsg, setActionMsg] = useState('')
+  const [playerNames, setPlayerNames] = useState<Record<number,string>>({})
 
   const loadMessages = async (tid: string) => {
     const { data } = await supabase.from('inbox_messages').select('*').eq('to_team_id', tid)
       .order('created_at',{ascending:false}).limit(200)
     setMessages(data||[])
+
+    // Resolve real names for the "View Player ->" chips below, instead of
+    // showing a bare numeric id.
+    const ids = new Set<number>()
+    for (const m of (data||[])) {
+      if (m.metadata?.player_id) ids.add(m.metadata.player_id)
+      if (Array.isArray(m.metadata?.player_ids)) m.metadata.player_ids.forEach((id: number) => ids.add(id))
+    }
+    if (ids.size) {
+      const { data: players } = await supabase.from('players').select('id,name').in('id', Array.from(ids))
+      const map: Record<number,string> = {}
+      ;(players||[]).forEach((p:any) => { map[p.id] = p.name })
+      setPlayerNames(map)
+    }
   }
 
   useEffect(() => {
@@ -275,7 +290,7 @@ export default function InboxPage() {
                         {msg.metadata?.player_id ? (
                           <a href={`/player/${msg.metadata.player_id}`}
                              style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#f0ece5',color:'#1a1512',textDecoration:'none',border:'1px solid #d4cdc5'}}>
-                            {isPT?'Ver Jogador →':'View Player →'}
+                            {isPT?'Ver':'View'} {playerNames[msg.metadata.player_id] || (isPT?'Jogador':'Player')} →
                           </a>
                         ) : msg.metadata?.prospect_id ? (
                           <a href={`/prospect/${msg.metadata.prospect_id}`}
@@ -289,18 +304,27 @@ export default function InboxPage() {
                             {isPT?'Ver Staff →':'View Staff →'}
                           </a>
                         )}
-                        {msg.metadata?.rival_id&&(
-                          <a href={`/team/${msg.metadata.rival_id}`}
+                        {([
+                          ['rival_id', isPT?'Ver Equipa →':'View Team →'],
+                          ['winning_team_id', isPT?'Ver Equipa Vencedora →':'View Winning Team →'],
+                          ['initiator_team_id', isPT?'Ver Equipa Proponente →':'View Initiating Team →'],
+                          ['responding_team_id', isPT?'Ver Equipa →':'View Team →'],
+                          ['from_team_id', isPT?'Ver Equipa de Origem →':'View Origin Team →'],
+                        ] as const).map(([key,label]) => msg.metadata?.[key] && (
+                          <a key={key} href={`/team/${msg.metadata[key]}`}
                              style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#f0ece5',color:'#1a1512',textDecoration:'none',border:'1px solid #d4cdc5'}}>
-                            {isPT?'Ver Equipa →':'View Team →'}
+                            {label}
                           </a>
-                        )}
-                        {msg.metadata?.winning_team_id&&(
-                          <a href={`/team/${msg.metadata.winning_team_id}`}
+                        ))}
+                        {/* Bulk notices (e.g. contracts expiring) list several
+                            players at once — one small link per id instead of
+                            a single chip. */}
+                        {Array.isArray(msg.metadata?.player_ids) && msg.metadata.player_ids.map((pid: number) => (
+                          <a key={pid} href={`/player/${pid}`}
                              style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#f0ece5',color:'#1a1512',textDecoration:'none',border:'1px solid #d4cdc5'}}>
-                            {isPT?'Ver Equipa Vencedora →':'View Winning Team →'}
+                            {isPT?'Ver':'View'} {playerNames[pid] || `#${pid}`} →
                           </a>
-                        )}
+                        ))}
                       </div>
                     </div>
                     {msg.type==='injury'&&msg.metadata?.specialist_eligible&&!msg.metadata?.specialist_used&&(
