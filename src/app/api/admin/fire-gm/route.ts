@@ -41,6 +41,13 @@ export async function POST(req: NextRequest) {
         .eq('team_id', team_id).is('ended_week', null)
     }
 
+    // 1c. Trade Block guarda quem adicionou cada jogador (added_by) sem
+    // cascade — apagar a conta com essa referência ainda por limpar viola
+    // a foreign key e falha (aconteceu de verdade: "Database error deleting
+    // user" / trade_block_added_by_fkey). As entradas em si continuam
+    // válidas para a equipa, só deixam de saber quem as pôs lá.
+    await supabaseAdmin.from('trade_block').update({ added_by: null }).eq('added_by', user_id)
+
     // 2. Apagar perfil GM
     const { error: profileErr } = await supabaseAdmin
       .from('gm_profiles')
