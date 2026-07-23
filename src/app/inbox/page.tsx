@@ -251,18 +251,57 @@ export default function InboxPage() {
                   <div style={{background:'#fdfcfb',borderTop:'1px solid #ddd8d0'}}>
                     <div className="px-6 py-4">
                       <p className="text-sm" style={{color:'#2a231e',lineHeight:1.8,whiteSpace:'pre-wrap'}}>{msg.body}</p>
-                      {msg.metadata?.game_id&&(
-                        <a href={`/game/${msg.metadata.game_id}`}
-                           style={{display:'inline-block',marginTop:10,fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#1d4ed8',color:'#fff',textDecoration:'none'}}>
-                          {isPT?'Ver Box Score →':'View Box Score →'}
-                        </a>
-                      )}
-                      {msg.type==='trade'&&msg.metadata?.proposal_id&&(
-                        <a href={`/trade-center?proposal=${msg.metadata.proposal_id}`}
-                           style={{display:'inline-block',marginTop:10,fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#1d4ed8',color:'#fff',textDecoration:'none'}}>
-                          {isPT?'Rever Troca →':'Review Trade →'}
-                        </a>
-                      )}
+                      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:10}}>
+                        {msg.metadata?.game_id&&(
+                          <a href={`/game/${msg.metadata.game_id}`}
+                             style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#1d4ed8',color:'#fff',textDecoration:'none'}}>
+                            {isPT?'Ver Box Score →':'View Box Score →'}
+                          </a>
+                        )}
+                        {msg.type==='trade'&&msg.metadata?.proposal_id&&(
+                          <a href={`/trade-center?proposal=${msg.metadata.proposal_id}`}
+                             style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#1d4ed8',color:'#fff',textDecoration:'none'}}>
+                            {isPT?'Rever Troca →':'Review Trade →'}
+                          </a>
+                        )}
+                        {/* Whatever entity this notification is about — same
+                            "quiet chip" pattern as Box Score/Review Trade
+                            above, added here instead of turning the body text
+                            itself into a link (the name is free text baked
+                            into `body`, not a discrete element we can safely
+                            wrap). Player takes priority over prospect since a
+                            drafted pick's message carries both once the real
+                            player row exists. */}
+                        {msg.metadata?.player_id ? (
+                          <a href={`/player/${msg.metadata.player_id}`}
+                             style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#f0ece5',color:'#1a1512',textDecoration:'none',border:'1px solid #d4cdc5'}}>
+                            {isPT?'Ver Jogador →':'View Player →'}
+                          </a>
+                        ) : msg.metadata?.prospect_id ? (
+                          <a href={`/prospect/${msg.metadata.prospect_id}`}
+                             style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#f0ece5',color:'#1a1512',textDecoration:'none',border:'1px solid #d4cdc5'}}>
+                            {isPT?'Ver Prospect →':'View Prospect →'}
+                          </a>
+                        ) : null}
+                        {msg.metadata?.coach_id&&(
+                          <a href={`/staff/${msg.metadata.coach_id}`}
+                             style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#f0ece5',color:'#1a1512',textDecoration:'none',border:'1px solid #d4cdc5'}}>
+                            {isPT?'Ver Staff →':'View Staff →'}
+                          </a>
+                        )}
+                        {msg.metadata?.rival_id&&(
+                          <a href={`/team/${msg.metadata.rival_id}`}
+                             style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#f0ece5',color:'#1a1512',textDecoration:'none',border:'1px solid #d4cdc5'}}>
+                            {isPT?'Ver Equipa →':'View Team →'}
+                          </a>
+                        )}
+                        {msg.metadata?.winning_team_id&&(
+                          <a href={`/team/${msg.metadata.winning_team_id}`}
+                             style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#f0ece5',color:'#1a1512',textDecoration:'none',border:'1px solid #d4cdc5'}}>
+                            {isPT?'Ver Equipa Vencedora →':'View Winning Team →'}
+                          </a>
+                        )}
+                      </div>
                     </div>
                     {msg.type==='injury'&&msg.metadata?.specialist_eligible&&!msg.metadata?.specialist_used&&(
                       <div className="px-6 py-3 flex items-center gap-3 flex-wrap"
