@@ -34,6 +34,8 @@ const PT_BY_EN: Record<string, string> = {
   'Win streak of 7+ consecutive games': 'Série de 7+ vitórias consecutivas',
   'Win 42 or more regular season games': 'Vencer 42 ou mais jogos da época regular',
   'Defeat 3+ top-5 teams in the standings': 'Derrotar 3+ equipas do top-5 da classificação',
+  'Average home attendance above 82%': 'Assistência média em casa acima de 82%',
+  'Win streak of 5+ consecutive games': 'Série de 5+ vitórias consecutivas',
 }
 
 export function translateObjectiveDescription(description: string, isPT: boolean): string {
