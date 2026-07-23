@@ -68,6 +68,18 @@ export default function TeamPageTabs({
     router.replace(`/team/${teamId}?tab=${tab}`, { scroll: false })
   }, [tab])
 
+  // The other direction: Next's client router cache can restore this page
+  // from an EARLIER cached snapshot on Back/Forward (e.g. from right after
+  // the initial page load) instead of remounting fresh from the address
+  // bar — so the address bar can already read the right ?tab= while the
+  // component itself is still stuck showing a stale one. Re-derive `tab`
+  // straight from the live URL any time it changes underneath us, so a
+  // stale cached instance can never win out over what the URL actually says.
+  useEffect(() => {
+    const urlTab = searchParams.get('tab')
+    if (urlTab && (VALID_TABS as string[]).includes(urlTab) && urlTab !== tab) setTab(urlTab as Tab)
+  }, [searchParams])
+
   // Split into two groups: pages the GM merely consults (Informação) vs
   // pages where the GM makes decisions/takes action (Gestão). Requested by
   // Bruno since the flat 17-item list had become hard to scan.
