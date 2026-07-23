@@ -24,7 +24,15 @@ function NavDropdown({ label, icon, items, onNavigate }: {
   label: string, icon: string, items: any[], onNavigate: () => void
 }) {
   const [open, setOpen] = useState(false)
+  // Sub-groups (Rules & Info's Roster & Contracts/On the Court/etc.) start
+  // collapsed — Bruno: even grouped, a 21-item list still meant "muito
+  // scroll down" just to open the dropdown. Clicking a group heading
+  // toggles just that section instead of showing everything at once.
+  // League/Events items have no `group` field, so this never engages for
+  // them — they still render as a plain flat list, unchanged.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const ref = useRef<HTMLDivElement>(null)
+  const hasGroups = items.some((item: any) => item.group)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -52,25 +60,34 @@ function NavDropdown({ label, icon, items, onNavigate }: {
                       boxShadow: '0 8px 32px rgba(0,0,0,0.2)', marginTop: 8 }}>
           {items.map((item: any, i: number) => {
             const showGroup = item.group && item.group !== items[i - 1]?.group
+            if (hasGroups && item.group && !showGroup && !openGroups[item.group]) return null
             return (
               <div key={item.href}>
                 {showGroup && (
-                  <div style={{
-                    margin: i === 0 ? '4px 14px 4px' : '10px 14px 4px',
-                    fontSize: 10, fontWeight: 700, letterSpacing: '0.5px',
-                    textTransform: 'uppercase', color: '#8a8279',
-                  }}>{item.group}</div>
+                  <button type="button" onClick={() => setOpenGroups(prev => ({ ...prev, [item.group]: !prev[item.group] }))}
+                    className="w-full flex items-center justify-between"
+                    style={{
+                      margin: i === 0 ? '4px 8px 2px' : '10px 8px 2px', padding: '4px 6px',
+                      fontSize: 10, fontWeight: 700, letterSpacing: '0.5px',
+                      textTransform: 'uppercase', color: '#8a8279',
+                      background: 'transparent', border: 'none', cursor: 'pointer', width: 'calc(100% - 16px)',
+                    }}>
+                    {item.group}
+                    <i className={`ti ti-chevron-${openGroups[item.group] ? 'up' : 'down'}`} style={{ fontSize: 11 }}></i>
+                  </button>
                 )}
                 {showGroup && i !== 0 && <div style={{ height: 1, background: '#d6d0c6', margin: '0 12px 4px' }} />}
-                <Link href={item.href}
-                  onClick={() => { setOpen(false); onNavigate() }}
-                  className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
-                  style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <i className={`ti ${item.icon}`} style={{ fontSize: 14, color: '#c8102e' }}></i>
-                  {item.label}
-                </Link>
+                {(!hasGroups || openGroups[item.group]) && (
+                  <Link href={item.href}
+                    onClick={() => { setOpen(false); onNavigate() }}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
+                    style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <i className={`ti ${item.icon}`} style={{ fontSize: 14, color: '#c8102e' }}></i>
+                    {item.label}
+                  </Link>
+                )}
               </div>
             )
           })}
