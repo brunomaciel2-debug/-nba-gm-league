@@ -1,16 +1,24 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 
 type Tab = 'teams'|'standings'|'schedule'|'leaders'|'playoffs'
+const VALID_TABS: Tab[] = ['teams','standings','schedule','leaders','playoffs']
 
 export default function GLeaguePage() {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
-  const [tab,setTab]=useState<Tab>('teams')
+  const searchParams = useSearchParams()
+  // Lets the new G-League dropdown in the navbar deep-link straight to a
+  // tab (e.g. /gleague?tab=playoffs), same pattern the team page already
+  // uses — previously this tab only ever changed via clicking inside the
+  // page itself, so there was no page to link a nav dropdown item to.
+  const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'teams'
+  const [tab,setTab]=useState<Tab>(initialTab)
   const [teams,setTeams]=useState<any[]>([])
   const [games,setGames]=useState<any[]>([])
   const [leaders,setLeaders]=useState<any[]>([])

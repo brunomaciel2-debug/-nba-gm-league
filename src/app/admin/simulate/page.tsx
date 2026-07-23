@@ -1,9 +1,21 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useTranslation } from '@/components/I18nProvider'
 import { supabase } from '@/lib/supabase'
-import { formatHalfWeekRange, formatWeekRange } from '@/lib/season-week-helper'
+import { formatHalfWeekRange, formatWeekRange, getHalfWeekDates, getWeekDates } from '@/lib/season-week-helper'
+
+function Tooltip({ text }: { text: string }) {
+  return (
+    <span className="relative group inline-flex ml-1 cursor-help align-middle">
+      <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:14, height:14, borderRadius:'50%', background:'rgba(255,255,255,0.5)', color:'inherit', fontSize:10, fontWeight:700, lineHeight:1 }}>i</span>
+      <span className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 z-50 px-2.5 py-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+        style={{ background:'#1a1512', color:'#f5f1eb', width:220, whiteSpace:'normal', lineHeight:1.5, fontWeight:400, boxShadow:'0 4px 12px rgba(0,0,0,0.2)' }}>
+        {text}
+      </span>
+    </span>
+  )
+}
 
 // How long to wait for /api/admin/simulate's own HTTP response before
 // falling back to polling the database directly. A real incident: a week
@@ -35,6 +47,30 @@ export default function AdminSimulatePage() {
     const { data } = await supabase.from('season_config').select('current_week,next_sim_half').eq('id',1).single()
     return { week: data?.current_week as number, half: (data?.next_sim_half === 2 ? 2 : 1) as 1 | 2 }
   }
+
+  // Real dates for each button — Bruno wants to see exactly what "1 Day" /
+  // "Complete Block" / "Full Week" will simulate before clicking, so he can
+  // tell at a glance whether things line up once he's done a partial step.
+  const [preview, setPreview] = useState<{ nextDayDate: Date | null, blockStart: Date, blockEnd: Date, weekStart: Date, weekEnd: Date } | null>(null)
+
+  const loadPreview = async () => {
+    const { week, half } = await getSeasonState()
+    const nextWeek = week + 1
+    const { start: blockStart, end: blockEnd } = nextWeek > 0 ? getHalfWeekDates(nextWeek, half) : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
+    const { start: weekStart, end: weekEnd } = nextWeek > 0 ? getWeekDates(nextWeek) : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
+    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    // The actual earliest still-scheduled day in this block — not just the
+    // block's start date, since a previous partial "1 Day" run may have
+    // already used up the first day or two.
+    const { data: nextGame } = await supabase.from('games').select('scheduled_date')
+      .eq('week_number', nextWeek).eq('status', 'scheduled')
+      .gte('scheduled_date', ymd(blockStart)).lte('scheduled_date', ymd(blockEnd))
+      .order('scheduled_date').limit(1).maybeSingle()
+    const nextDayDate = nextGame?.scheduled_date ? new Date(nextGame.scheduled_date + 'T12:00:00') : null
+    setPreview({ nextDayDate, blockStart, blockEnd, weekStart, weekEnd })
+  }
+
+  useEffect(() => { loadPreview() }, [])
 
   // One /api/admin/simulate call = one "half" of a week (one block). If the
   // direct response is late, this confirms against season_config instead of
@@ -128,6 +164,7 @@ export default function AdminSimulatePage() {
       setLog(prev => [...prev, msg])
       setResult({ error: e.message })
     }
+    await loadPreview()
     setLoading(false)
   }
 
@@ -158,6 +195,7 @@ export default function AdminSimulatePage() {
       setLog(prev => [...prev, `❌ ${e.message}`])
       setResult({ error: e.message })
     }
+    await loadPreview()
     setLoading(false)
   }
 
@@ -189,6 +227,7 @@ export default function AdminSimulatePage() {
       setLog(prev => [...prev, `❌ ${e.message}`])
       setResult({ error: e.message })
     }
+    await loadPreview()
     setLoading(false)
   }
 
@@ -251,33 +290,56 @@ export default function AdminSimulatePage() {
       <div className="text-xs font-bold uppercase tracking-widest mb-2" style={{color:'#5c554e'}}>
         {isPT ? 'Simular' : 'Simulate'}
       </div>
-      <div className="flex flex-col gap-2 mb-6">
-        {[
-          { onClick: simulateOneDay, icon: '🌅', color: '#1d4ed8',
-            labelPT: '1 Dia', labelEN: '1 Day',
-            descPT: 'Simula só o próximo dia com jogos por realizar no bloco atual, e para aí.',
-            descEN: 'Simulates just the next day of games in the current block, then stops.' },
-          { onClick: () => simulate(1), icon: '✅', color: '#c8102e',
-            labelPT: 'Completar Bloco (3-4 dias)', labelEN: 'Complete Block (3-4 days)',
-            descPT: 'Termina todos os jogos que faltam no bloco atual (novo ou a meio).',
-            descEN: 'Finishes every game still left in the current block (fresh or mid-way).' },
-          { onClick: simulateOneWeek, icon: '📅', color: '#15803d',
-            labelPT: '1 Semana Completa', labelEN: 'Full Week',
-            descPT: 'Simula a semana atual até ao fim (1 ou 2 blocos, conforme o ponto onde vai).',
-            descEN: 'Simulates the current week to completion (1 or 2 blocks, depending on where it is right now).' },
-        ].map(opt => (
-          <button
-            key={opt.labelEN}
-            onClick={opt.onClick}
-            disabled={loading}
-            className="w-full py-3 rounded-xl font-bold text-sm disabled:opacity-40 text-left px-4"
-            style={{background:'#faf8f5', border:'1px solid #d4cdc5', borderLeft:`4px solid ${opt.color}`, color:'#1a1512'}}>
-            <span style={{color:opt.color}}>{opt.icon} {isPT ? opt.labelPT : opt.labelEN}</span>
-            <div className="text-xs font-normal mt-0.5" style={{color:'#8a8279'}}>
-              {isPT ? opt.descPT : opt.descEN}
-            </div>
-          </button>
-        ))}
+      <div className="flex flex-col sm:flex-row gap-2 mb-6">
+        {(() => {
+          const fmtDate = (d: Date) => d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+          const dayDateLabel = preview
+            ? (preview.nextDayDate ? fmtDate(preview.nextDayDate) : (isPT ? 'sem jogos' : 'no games'))
+            : '…'
+          // Start from whichever day is actually still unsimulated (same one
+          // "1 Day" would target), not the block's nominal start date — if
+          // a previous partial run already finished the first day or two,
+          // "Mar 16 – Mar 19" would wrongly read as "will redo the 16th too".
+          const blockDateLabel = preview
+            ? `${fmtDate(preview.nextDayDate || preview.blockStart)} – ${fmtDate(preview.blockEnd)}`
+            : '…'
+          // Same reasoning as blockDateLabel — if this week's first half is
+          // already done (we're now on half 2), the remaining range starts
+          // at the current block's next unsimulated day, not the week's
+          // nominal day 1.
+          const weekDateLabel = preview
+            ? `${fmtDate(preview.nextDayDate || preview.weekStart)} – ${fmtDate(preview.weekEnd)}`
+            : '…'
+          return [
+            { onClick: simulateOneDay, icon: '🌅', color: '#1d4ed8', dateLabel: dayDateLabel,
+              labelPT: '1 Dia', labelEN: '1 Day',
+              descPT: 'Simula só o próximo dia com jogos por realizar no bloco atual, e para aí.',
+              descEN: 'Simulates just the next day of games in the current block, then stops.' },
+            { onClick: () => simulate(1), icon: '✅', color: '#c8102e', dateLabel: blockDateLabel,
+              labelPT: 'Completar Bloco', labelEN: 'Complete Block',
+              descPT: 'Termina todos os jogos que faltam no bloco atual (3-4 dias, novo ou a meio).',
+              descEN: 'Finishes every game still left in the current block (3-4 days, fresh or mid-way).' },
+            { onClick: simulateOneWeek, icon: '📅', color: '#15803d', dateLabel: weekDateLabel,
+              labelPT: '1 Semana', labelEN: '1 Week',
+              descPT: 'Simula a semana atual até ao fim (1 ou 2 blocos, conforme o ponto onde vai).',
+              descEN: 'Simulates the current week to completion (1 or 2 blocks, depending on where it is right now).' },
+          ].map(opt => (
+            <button
+              key={opt.labelEN}
+              onClick={opt.onClick}
+              disabled={loading}
+              className="flex-1 py-2.5 px-3 rounded-xl font-bold text-sm disabled:opacity-40 text-center"
+              style={{background:'#faf8f5', border:'1px solid #d4cdc5', borderTop:`3px solid ${opt.color}`, color:'#1a1512'}}>
+              <div style={{color:opt.color}} className="flex items-center justify-center">
+                {opt.icon} {isPT ? opt.labelPT : opt.labelEN}
+                <Tooltip text={isPT ? opt.descPT : opt.descEN} />
+              </div>
+              <div className="text-xs font-semibold mt-1" style={{color:'#5c554e'}}>
+                {opt.dateLabel}
+              </div>
+            </button>
+          ))
+        })()}
       </div>
 
       {/* Advanced: bulk-skip several blocks at once (testing) */}

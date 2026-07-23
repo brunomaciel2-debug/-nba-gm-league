@@ -120,18 +120,18 @@ export default function Navbar() {
       label: isPT ? 'Liga' : 'League',
       icon: 'ti-ball-basketball',
       items: [
-        { label: isPT ? 'Margem Salarial'  : 'Cap Space',       href: '/cap-space',      icon: 'ti-cash' },
-        { label: isPT ? 'Free Agents'      : 'Free Agents',     href: '/free-agents',    icon: 'ti-user-plus' },
-        { label: isPT ? 'Líderes da Liga'  : 'League Leaders',  href: '/league-leaders', icon: 'ti-trophy' },
-        { label: isPT ? 'Power Rankings'   : 'Power Rankings',  href: '/power-rankings', icon: 'ti-trending-up' },
-        { label: isPT ? 'Recordes'         : 'Records',         href: '/records',        icon: 'ti-clipboard-list' },
-        { label: isPT ? 'Ranking de Arbitragem' : 'Officials Ranking', href: '/officials-ranking', icon: 'ti-gavel' },
-        { label: isPT ? 'Calendário'       : 'Schedule',        href: '/schedule',       icon: 'ti-calendar' },
-        { label: isPT ? 'Classificação'    : 'Standings',       href: '/standings',      icon: 'ti-list-numbers' },
-        { label: isPT ? 'Equipas'          : 'Teams',           href: '/teams',          icon: 'ti-users' },
-        { label: isPT ? 'Trade Center'     : 'Trade Center',    href: '/trade-center',   icon: 'ti-switch-horizontal' },
-        { label: isPT ? 'Lesões'           : 'Injuries',        href: '/injuries',       icon: 'ti-first-aid-kit' },
-        { label: isPT ? 'Transações'       : 'Transactions',    href: '/transactions',   icon: 'ti-arrows-exchange' },
+        { label: isPT ? 'Classificação'    : 'Standings',       href: '/standings',      icon: 'ti-list-numbers', group: isPT ? 'Classificação & Calendário' : 'Standings & Schedule' },
+        { label: isPT ? 'Equipas'          : 'Teams',           href: '/teams',          icon: 'ti-users', group: isPT ? 'Classificação & Calendário' : 'Standings & Schedule' },
+        { label: isPT ? 'Calendário'       : 'Schedule',        href: '/schedule',       icon: 'ti-calendar', group: isPT ? 'Classificação & Calendário' : 'Standings & Schedule' },
+        { label: isPT ? 'Margem Salarial'  : 'Cap Space',       href: '/cap-space',      icon: 'ti-cash', group: isPT ? 'Transações' : 'Transactions' },
+        { label: isPT ? 'Free Agents'      : 'Free Agents',     href: '/free-agents',    icon: 'ti-user-plus', group: isPT ? 'Transações' : 'Transactions' },
+        { label: isPT ? 'Trade Center'     : 'Trade Center',    href: '/trade-center',   icon: 'ti-switch-horizontal', group: isPT ? 'Transações' : 'Transactions' },
+        { label: isPT ? 'Lesões'           : 'Injuries',        href: '/injuries',       icon: 'ti-first-aid-kit', group: isPT ? 'Transações' : 'Transactions' },
+        { label: isPT ? 'Transações'       : 'Transactions',    href: '/transactions',   icon: 'ti-arrows-exchange', group: isPT ? 'Transações' : 'Transactions' },
+        { label: isPT ? 'Líderes da Liga'  : 'League Leaders',  href: '/league-leaders', icon: 'ti-trophy', group: isPT ? 'Estatísticas & Rankings' : 'Stats & Rankings' },
+        { label: isPT ? 'Power Rankings'   : 'Power Rankings',  href: '/power-rankings', icon: 'ti-trending-up', group: isPT ? 'Estatísticas & Rankings' : 'Stats & Rankings' },
+        { label: isPT ? 'Recordes'         : 'Records',         href: '/records',        icon: 'ti-clipboard-list', group: isPT ? 'Estatísticas & Rankings' : 'Stats & Rankings' },
+        { label: isPT ? 'Ranking de Arbitragem' : 'Officials Ranking', href: '/officials-ranking', icon: 'ti-gavel', group: isPT ? 'Estatísticas & Rankings' : 'Stats & Rankings' },
       ],
     },
     {
@@ -143,6 +143,20 @@ export default function Navbar() {
         { label: 'Draft',                                  href: '/draft',     icon: 'ti-clipboard-list' },
         { label: 'Summer League',                          href: '/summer-league', icon: 'ti-sun' },
         { label: 'Playoffs',                               href: '/playoffs',  icon: 'ti-tournament' },
+      ],
+    },
+    {
+      // Used to be a single plain link — G-League's own page already has 5
+      // internal tabs (Teams/Standings/Schedule/Leaders/Playoffs) with
+      // nothing in the navbar pointing at them directly.
+      label: 'G-League',
+      icon: 'ti-ball-basketball',
+      items: [
+        { label: isPT ? 'Equipas'          : 'Teams',          href: '/gleague?tab=teams',     icon: 'ti-users' },
+        { label: isPT ? 'Classificação'    : 'Standings',      href: '/gleague?tab=standings', icon: 'ti-list-numbers' },
+        { label: isPT ? 'Calendário'       : 'Schedule',       href: '/gleague?tab=schedule',  icon: 'ti-calendar' },
+        { label: isPT ? 'Líderes'          : 'League Leaders', href: '/gleague?tab=leaders',   icon: 'ti-trophy' },
+        { label: 'Playoffs',                                   href: '/gleague?tab=playoffs',  icon: 'ti-tournament' },
       ],
     },
   ]
@@ -167,10 +181,10 @@ export default function Navbar() {
       { label: isPT ? 'Regras da G-League'         : 'G-League Rules',      href: '/rules/gleague',  icon: 'ti-ball-basketball', group: isPT ? 'Em Campo' : 'On the Court' },
       { label: isPT ? 'Regras de Prémios'          : 'Awards Rules',        href: '/rules/awards',   icon: 'ti-trophy', group: isPT ? 'Em Campo' : 'On the Court' },
       { label: isPT ? 'Regras de Líderes da Liga'  : 'League Leaders Rules',href: '/rules/league-leaders', icon: 'ti-chart-bar', group: isPT ? 'Em Campo' : 'On the Court' },
-      // 3. Player Development
-      { label: isPT ? 'Regras de Treino'           : 'Training Rules',      href: '/rules/training', icon: 'ti-barbell', group: isPT ? 'Desenvolvimento' : 'Player Development' },
-      { label: isPT ? 'Familiaridade Tática'      : 'Tactical Familiarity', href: '/rules/tactical-systems', icon: 'ti-brain', group: isPT ? 'Desenvolvimento' : 'Player Development' },
-      { label: isPT ? 'Guia de Scouting'          : 'Scouting Guide',       href: '/rules/scouting', icon: 'ti-search', group: isPT ? 'Desenvolvimento' : 'Player Development' },
+      // 3. Player & Team Development (renamed from "Player Development")
+      { label: isPT ? 'Regras de Treino'           : 'Training Rules',      href: '/rules/training', icon: 'ti-barbell', group: isPT ? 'Desenvolvimento de Jogador & Equipa' : 'Player & Team Development' },
+      { label: isPT ? 'Familiaridade Tática'      : 'Tactical Familiarity', href: '/rules/tactical-systems', icon: 'ti-brain', group: isPT ? 'Desenvolvimento de Jogador & Equipa' : 'Player & Team Development' },
+      { label: isPT ? 'Guia de Scouting'          : 'Scouting Guide',       href: '/rules/scouting', icon: 'ti-search', group: isPT ? 'Desenvolvimento de Jogador & Equipa' : 'Player & Team Development' },
       // 4. Team Management
       { label: isPT ? 'Guia das Ordens Semanais'  : 'Weekly Orders Guide',  href: '/rules/orders',   icon: 'ti-clipboard-list', group: isPT ? 'Gestão de Equipa' : 'Team Management' },
       { label: isPT ? 'Moral e Interações'          : 'Morale & Interactions', href: '/rules/interactions', icon: 'ti-message-circle', group: isPT ? 'Gestão de Equipa' : 'Team Management' },
@@ -183,10 +197,6 @@ export default function Navbar() {
       { label: isPT ? 'Regras de Merchandising'   : 'Merchandising Rules',  href: '/rules/merchandising', icon: 'ti-shirt', group: isPT ? 'Negócio' : 'Business' },
     ],
   }
-
-  const NAV_LINKS_STATIC = [
-    { label: 'G-League', href: '/gleague', icon: 'ti-ball-basketball' },
-  ]
 
   // Job Openings sits on the right, next to Rules & Info — same reasoning.
   const NAV_LINKS_RIGHT = [
@@ -256,17 +266,6 @@ export default function Navbar() {
 
             {NAV_DROPDOWNS.map(d => (
               <NavDropdown key={d.label} label={d.label} icon={d.icon} items={d.items} onNavigate={() => {}} />
-            ))}
-
-            {NAV_LINKS_STATIC.map(item => (
-              <Link key={item.href} href={item.href}
-                className="flex items-center gap-1 no-underline transition-all"
-                style={navBtnStyle}
-                onMouseEnter={navBtnHover}
-                onMouseLeave={e => navBtnLeave(e, false)}>
-                <i className={`ti ${item.icon}`} style={{ fontSize: 14 }}></i>
-                {item.label}
-              </Link>
             ))}
 
             {/* Separates primary league navigation from reference material
@@ -442,7 +441,7 @@ export default function Navbar() {
               )
             })}
 
-            {[...NAV_LINKS_STATIC, ...NAV_LINKS_RIGHT].map(item => (
+            {NAV_LINKS_RIGHT.map(item => (
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm no-underline"
                 style={{ color: '#c9d1d9' }}
