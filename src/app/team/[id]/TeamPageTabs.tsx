@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import OverviewTab from './OverviewTab'
 import RosterTable from './RosterTable'
 import TeamSchedule from './TeamSchedule'
 import ContractsTable from './ContractsTable'
@@ -24,7 +25,7 @@ import TransactionsTab from './TransactionsTab'
 import PsychologyOfficeTab from './PsychologyOfficeTab'
 import { useTranslation } from '@/components/I18nProvider'
 
-type Tab = 'roster' | 'staff' | 'injuries' | 'schedule' | 'contracts' | 'draft' | 'transactions' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'satisfaction' | 'scouting' | 'interactions' | 'social_media' | 'psychology'
+type Tab = 'overview' | 'roster' | 'staff' | 'injuries' | 'schedule' | 'contracts' | 'draft' | 'transactions' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'satisfaction' | 'scouting' | 'interactions' | 'social_media' | 'psychology'
 
 function ComingSoon({ label, icon, isPT }: { label: string, icon: string, isPT: boolean }) {
   return (
@@ -45,14 +46,15 @@ export default function TeamPageTabs({
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const searchParams = useSearchParams()
-  const VALID_TABS: Tab[] = ['roster','staff','injuries','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media','psychology']
-  const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'roster'
+  const VALID_TABS: Tab[] = ['overview','roster','staff','injuries','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media','psychology']
+  const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'overview'
   const [tab, setTab] = useState<Tab>(initialTab)
 
   // Split into two groups: pages the GM merely consults (Informação) vs
   // pages where the GM makes decisions/takes action (Gestão). Requested by
   // Bruno since the flat 17-item list had become hard to scan.
   const TABS: { key: Tab, label: string, icon: string, group: 'info' | 'action' }[] = [
+    { key: 'overview',   label: isPT ? 'Vista Geral'     : 'Overview',    icon: '🏠', group: 'info' },
     { key: 'roster',     label: isPT ? 'Plantel'         : 'Roster',      icon: '👥', group: 'info' },
     { key: 'staff',      label: isPT ? 'Equipa Técnica'  : 'Staff',       icon: '🧑‍💼', group: 'info' },
     { key: 'injuries',   label: isPT ? 'Lesões'          : 'Injuries',    icon: '🏥', group: 'info' },
@@ -240,6 +242,7 @@ export default function TeamPageTabs({
 
       {/* CONTENT */}
       <div style={{flex:1, minWidth:0}}>
+        {tab === 'overview' && <OverviewTab teamId={teamId} teamColor={teamColor} players={players} games={games} />}
         {tab === 'roster' && <RosterTable players={[...players, ...(injuredPlayers||[])]} teamColor={teamColor} />}
         {tab === 'staff' && (
           <div className="rounded-xl p-4" style={{background:'#e8e2d6',border:'1px solid #d4cdc5'}}>

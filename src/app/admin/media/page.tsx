@@ -109,7 +109,59 @@ function SponsorImageRow({ teamId, tier, option, existing, onSave, saving, saved
   )
 }
 
-type MainTab = 'logos'|'photos'|'jerseys'
+function ArenaPhotoRow({ item, onSave, saving, saved, isPT }: {
+  item:any, onSave:(id:string,url:string)=>void, saving:string|null, saved:string|null, isPT:boolean
+}) {
+  const [url, setUrl] = React.useState(item.arena_photo_url||'')
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:16,padding:16,background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12}}>
+      <div style={{width:80,height:56,borderRadius:10,flexShrink:0,overflow:'hidden',background:'#f0ece5',border:'2px solid #d4cdc5',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        {url?<img src={url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>(e.currentTarget.style.display='none')}/>
+          :<span style={{fontSize:20}}>🏟️</span>}
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:700,color:'#1a1512',marginBottom:2}}>{item.name}</div>
+        <div style={{fontSize:11,color:'#8a8279',marginBottom:6}}>{item.arena||'—'}</div>
+        <input value={url} onChange={e=>setUrl(e.target.value)}
+          placeholder={isPT?'Cola o URL da foto do pavilhão...':'Paste arena photo URL...'}
+          style={{width:'100%',fontSize:11,padding:'6px 10px',borderRadius:8,boxSizing:'border-box' as const,background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
+      </div>
+      <button onClick={()=>onSave(item.id,url)} disabled={saving===item.id}
+        style={{fontSize:11,fontWeight:700,padding:'8px 16px',borderRadius:8,flexShrink:0,minWidth:80,border:'none',cursor:'pointer',opacity:saving===item.id?0.4:1,background:saved===item.id?'#15803d':'#1d4ed8',color:'#fff'}}>
+        {saving===item.id?(isPT?'A guardar...':'Saving...'):saved===item.id?'✔ '+(isPT?'Guardado':'Saved'):(isPT?'Guardar':'Save')}
+      </button>
+    </div>
+  )
+}
+
+function GMPhotoRow({ item, onSave, saving, saved, isPT }: {
+  item:any, onSave:(id:string,url:string)=>void, saving:string|null, saved:string|null, isPT:boolean
+}) {
+  const [url, setUrl] = React.useState(item.photo_url||'')
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:16,padding:12,background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12}}>
+      <div style={{width:48,height:48,borderRadius:'50%',flexShrink:0,overflow:'hidden',background:'#d4cdc5',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        {url?<img src={url} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+          :<span style={{fontSize:13,fontWeight:900,color:'#6b5f4e'}}>{(item.display_name||'?').split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</span>}
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+          <span style={{fontSize:13,fontWeight:600,color:'#1a1512'}}>{item.display_name}</span>
+          <span style={{fontSize:10,padding:'2px 6px',borderRadius:4,background:'#d4cdc5',color:'#5c554e'}}>{item.team_name || item.team_id}</span>
+        </div>
+        <input value={url} onChange={e=>setUrl(e.target.value)}
+          placeholder={isPT?'Cola o URL da foto...':'Paste photo URL...'}
+          style={{width:'100%',fontSize:11,padding:'5px 8px',borderRadius:6,boxSizing:'border-box' as const,background:'#f0ece5',border:'1px solid #d4cdc5',color:'#1a1512',outline:'none'}}/>
+      </div>
+      <button onClick={()=>onSave(item.id,url)} disabled={saving===item.id}
+        style={{fontSize:11,fontWeight:700,padding:'6px 14px',borderRadius:8,flexShrink:0,minWidth:72,border:'none',cursor:'pointer',opacity:saving===item.id?0.4:1,background:saved===item.id?'#15803d':'#1d4ed8',color:'#fff'}}>
+        {saving===item.id?'...':saved===item.id?'✔':(isPT?'Guardar':'Save')}
+      </button>
+    </div>
+  )
+}
+
+type MainTab = 'logos'|'photos'|'jerseys'|'arenas'|'gms'
 type LogoSection = 'nba'|'gleague'|'world'|'others'
 type PhotoSection = 'players'|'staff'|'referees'
 
@@ -134,13 +186,15 @@ export default function AdminMediaPage() {
   const [prospectItems,setProspectItems]=useState<any[]>([])
   const [refereeItems,setRefereeItems]=useState<any[]>([])
   const [sponsorImages,setSponsorImages]=useState<any[]>([])
+  const [gmItems,setGmItems]=useState<any[]>([])
 
   useEffect(()=>{
-    supabase.from('teams').select('id,name,logo_url').order('name').then(({data})=>{if(data)setNbaTeams(data)})
+    supabase.from('teams').select('id,name,logo_url,arena,arena_photo_url').order('name').then(({data})=>{if(data)setNbaTeams(data)})
     supabase.from('gleague_teams').select('id,name,logo_url').order('name').then(({data})=>{if(data)setGlTeams(data)})
     supabase.from('world_teams').select('id,name,logo_url,continent').order('continent').order('name').then(({data})=>{if(data)setWorldTeams(data)})
     supabase.from('prospects').select('id,name,pos,age,college,photo_url,season').eq('season','2027').order('name').then(({data})=>{if(data)setProspectItems(data)})
     supabase.from('referees').select('id,name,photo_url').order('name').then(({data})=>{if(data)setRefereeItems(data)})
+    supabase.from('gm_profiles').select('id,team_id,display_name,photo_url').eq('role','gm').order('display_name').then(({data})=>{if(data)setGmItems(data)})
   },[])
 
   useEffect(()=>{
@@ -204,6 +258,20 @@ export default function AdminMediaPage() {
     if(ok){setSaved(id);setTimeout(()=>setSaved(null),1500)}
   }
 
+  const saveArenaPhoto=async(id:string,url:string)=>{
+    if(!url.trim())return; setSaving(id)
+    await supabase.from('teams').update({arena_photo_url:url}).eq('id',id)
+    setNbaTeams(tt=>tt.map((x:any)=>x.id===id?{...x,arena_photo_url:url}:x))
+    setSaving(null);setSaved(id);setTimeout(()=>setSaved(null),1500)
+  }
+
+  const saveGMPhoto=async(id:string,url:string)=>{
+    if(!url.trim())return; setSaving(id)
+    await supabase.from('gm_profiles').update({photo_url:url}).eq('id',id)
+    setGmItems(gg=>gg.map((x:any)=>x.id===id?{...x,photo_url:url}:x))
+    setSaving(null);setSaved(id);setTimeout(()=>setSaved(null),1500)
+  }
+
   const saveSponsorImage=async(teamId:string,tier:string,option:number,companyName:string,url:string,description:string)=>{
     const key=`${teamId}_${tier}_${option}`; setSaving(key)
     const existing=sponsorImages.find(j=>j.option_number===option&&j.tier===tier)
@@ -224,8 +292,8 @@ export default function AdminMediaPage() {
     ? {ALL:'All-Stars Este',RVS:'All-Stars Oeste',ROO:'Equipa Caloiros',SOP:'Equipa Veteranos'}
     : {ALL:'All-Stars East',RVS:'All-Stars West',ROO:'Rookie Team',SOP:'Sophomore Team'}
 
-  const TAB_LABELS_EN = {logos:'🏀 Logos', photos:'👤 Personnel Photos', jerseys:'🤝 Sponsors'}
-  const TAB_LABELS_PT = {logos:'🏀 Logos', photos:'👤 Fotos de Pessoal', jerseys:'🤝 Patrocinadores'}
+  const TAB_LABELS_EN = {logos:'🏀 Logos', photos:'👤 Personnel Photos', jerseys:'🤝 Sponsors', arenas:'🏟️ Arenas', gms:'🧑‍💼 GMs'}
+  const TAB_LABELS_PT = {logos:'🏀 Logos', photos:'👤 Fotos de Pessoal', jerseys:'🤝 Patrocinadores', arenas:'🏟️ Arenas', gms:'🧑‍💼 GMs'}
   const TAB_LABELS = isPT ? TAB_LABELS_PT : TAB_LABELS_EN
 
   const LOGO_SEC_EN = {nba:'NBA Teams', gleague:'G-League', world:'Rest of the World', others:'Others'}
@@ -247,7 +315,7 @@ export default function AdminMediaPage() {
       </p>
 
       <div style={{display:'flex',gap:8,marginBottom:24,borderBottom:'2px solid #d4cdc5',paddingBottom:0}}>
-        {(['logos','photos','jerseys'] as const).map(tb=>(
+        {(['logos','photos','jerseys','arenas','gms'] as const).map(tb=>(
           <button key={tb} onClick={()=>setMainTab(tb)} style={{...btnStyle(mainTab===tb),borderBottom:mainTab===tb?'3px solid #c8102e':'3px solid transparent',borderRadius:0,marginBottom:-2,background:'transparent',color:mainTab===tb?'#1a1512':'#5c554e',fontWeight:mainTab===tb?700:500}}>
             {TAB_LABELS[tb]}
           </button>
@@ -397,6 +465,21 @@ export default function AdminMediaPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ARENAS TAB */}
+      {mainTab==='arenas'&&(
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          {nbaRegular.map((tt:any)=><ArenaPhotoRow key={tt.id} item={tt} onSave={saveArenaPhoto} saving={saving} saved={saved} isPT={isPT}/>)}
+        </div>
+      )}
+
+      {/* GMS TAB */}
+      {mainTab==='gms'&&(
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {gmItems.length===0&&<div style={{textAlign:'center',padding:32,color:'#8a8279',fontSize:13,background:'#faf8f5',borderRadius:10,border:'1px solid #d4cdc5'}}>{isPT?'Nenhum GM ativo de momento':'No active GMs right now'}</div>}
+          {gmItems.map(g=><GMPhotoRow key={g.id} item={{...g, team_name: nbaRegular.find((tt:any)=>tt.id===g.team_id)?.name || g.team_id}} onSave={saveGMPhoto} saving={saving} saved={saved} isPT={isPT}/>)}
         </div>
       )}
     </div>

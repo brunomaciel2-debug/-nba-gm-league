@@ -228,7 +228,7 @@ export default function Navbar() {
   // their own icon buttons in the navbar — keeping them here too was pure
   // duplication (Bruno's call).
   const GM_LINKS = [
-    { href: `/team/${teamId}`,           label: isPT ? 'A Minha Franquia'  : 'My Franchise',      icon: 'ti-building' },
+    { href: `/team/${teamId}?tab=overview`, label: isPT ? 'A Minha Franquia' : 'My Franchise',    icon: 'ti-building' },
     { href: `/gm/orders/${teamId}`,      label: isPT ? 'Ordens Semanais'   : 'Weekly Orders',     icon: 'ti-clipboard-check' },
     { href: `/preseason`,                label: isPT ? 'Agendar Amigável'  : 'Schedule Friendly', icon: 'ti-calendar-event' },
   ]
