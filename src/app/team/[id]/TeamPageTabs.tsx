@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import OverviewTab from './OverviewTab'
 import RosterTable from './RosterTable'
@@ -54,9 +54,19 @@ export default function TeamPageTabs({
   // so it never flashes visible for a moment to someone unauthorized.
   const isGM = !authLoading && ((profile as any)?.team_id === teamId || profile?.role === 'commissioner')
   const searchParams = useSearchParams()
+  const router = useRouter()
   const VALID_TABS: Tab[] = ['overview','roster','staff','injuries','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media','psychology']
   const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'overview'
   const [tab, setTab] = useState<Tab>(initialTab)
+
+  // Keep the URL's ?tab= in sync with the selected tab (replace, not push —
+  // switching tabs shouldn't pile up back-button stops). Without this, the
+  // URL only ever reflected whichever tab was open on the initial page
+  // load, so following a link out (e.g. clicking a player from Roster) and
+  // then pressing Back always landed back on Overview instead of Roster.
+  useEffect(() => {
+    router.replace(`/team/${teamId}?tab=${tab}`, { scroll: false })
+  }, [tab])
 
   // Split into two groups: pages the GM merely consults (Informação) vs
   // pages where the GM makes decisions/takes action (Gestão). Requested by
