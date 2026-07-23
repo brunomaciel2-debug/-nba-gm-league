@@ -174,7 +174,7 @@ export default function OverviewTab({ teamId, teamColor, players, games }: {
       {/* TWO COLUMNS */}
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
         <div style={{display:'flex', flexDirection:'column', gap:14}}>
-          <Card title={isPT ? 'Gerente Geral' : 'General Manager'} icon="🧑‍💼">
+          <Card title="General Manager" icon="🧑‍💼">
             <div style={{display:'flex', alignItems:'center', gap:12}}>
               <div style={{width:52, height:52, borderRadius:'50%', flexShrink:0, overflow:'hidden', background: teamColor+'22', border:`2px solid ${teamColor}44`, display:'flex', alignItems:'center', justifyContent:'center'}}>
                 {gm?.photo_url
@@ -183,7 +183,7 @@ export default function OverviewTab({ teamId, teamColor, players, games }: {
               </div>
               <div>
                 <div style={{fontSize:15, fontWeight:800, color:'#1a1512'}}>{gm?.display_name || (isPT ? 'Sem GM' : 'No GM')}</div>
-                <div style={{fontSize:11, color:'#8a8279'}}>{isPT ? 'General Manager' : 'General Manager'}</div>
+                <div style={{fontSize:11, color:'#8a8279'}}>General Manager</div>
               </div>
             </div>
           </Card>
