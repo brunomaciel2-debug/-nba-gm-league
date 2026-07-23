@@ -24,6 +24,7 @@ import SatisfactionTab from './SatisfactionTab'
 import TransactionsTab from './TransactionsTab'
 import PsychologyOfficeTab from './PsychologyOfficeTab'
 import { useTranslation } from '@/components/I18nProvider'
+import { useAuth } from '@/components/AuthProvider'
 
 type Tab = 'overview' | 'roster' | 'staff' | 'injuries' | 'schedule' | 'contracts' | 'draft' | 'transactions' | 'training' | 'facilities' | 'finances' | 'merchandising' | 'tactical' | 'sponsors' | 'goals' | 'satisfaction' | 'scouting' | 'interactions' | 'social_media' | 'psychology'
 
@@ -45,6 +46,13 @@ export default function TeamPageTabs({
 }) {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
+  const { profile, loading: authLoading } = useAuth()
+  // "Gestão" holds decisions/internal info a rival GM has no business seeing
+  // (training plans, sponsor deals, tactical prep, etc.) — hidden entirely
+  // (not just gated once opened) from everyone except this team's own GM
+  // and the Commissioner. Defaults to hidden while auth is still resolving,
+  // so it never flashes visible for a moment to someone unauthorized.
+  const isGM = !authLoading && ((profile as any)?.team_id === teamId || profile?.role === 'commissioner')
   const searchParams = useSearchParams()
   const VALID_TABS: Tab[] = ['overview','roster','staff','injuries','schedule','contracts','draft','transactions','training','facilities','finances','merchandising','tactical','sponsors','goals','satisfaction','scouting','interactions','social_media','psychology']
   const initialTab = (VALID_TABS as string[]).includes(searchParams.get('tab') || '') ? (searchParams.get('tab') as Tab) : 'overview'
@@ -144,6 +152,15 @@ export default function TeamPageTabs({
     ...(activeInjuryCount > 0 ? { injuries: `${activeInjuryCount}` } : {}),
   }
 
+  const visibleTabs = isGM ? TABS : TABS.filter(t => t.group === 'info')
+
+  // A shared ?tab=sponsors link (or one typed in by a rival GM) shouldn't
+  // silently render a Management tab just because it's not in the sidebar —
+  // bounce back to Overview once we know for sure they're not authorized.
+  useEffect(() => {
+    if (!authLoading && !isGM && TABS.find(t => t.key === tab)?.group === 'action') setTab('overview')
+  }, [authLoading, isGM, tab])
+
   return (
     <div className="flex flex-col md:flex-row" style={{ gap: 16 }}>
       {/* MOBILE TAB STRIP — the desktop sidebar below is a fixed 180px
@@ -153,7 +170,7 @@ export default function TeamPageTabs({
           viewport). Below md, this horizontally-scrollable pill row
           replaces it entirely so content gets the full screen width. */}
       <div className="flex md:hidden overflow-x-auto gap-1.5 pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
-        {TABS.map(t => {
+        {visibleTabs.map(t => {
           const active = tab === t.key
           return (
             <button key={t.key} type="button" onClick={() => setTab(t.key)}
@@ -191,9 +208,9 @@ export default function TeamPageTabs({
         border: '1px solid #d4cdc5', borderRadius: 14, padding: '8px 0',
         position: 'sticky', top: 80,
       }}>
-        {TABS.map((t, i) => {
+        {visibleTabs.map((t, i) => {
           const active = tab === t.key
-          const showGroupLabel = i === 0 || t.group !== TABS[i - 1].group
+          const showGroupLabel = i === 0 || t.group !== visibleTabs[i - 1].group
           const groupLabel = t.group === 'info' ? (isPT ? 'Informação' : 'Information') : (isPT ? 'Gestão' : 'Management')
           return (
             <div key={t.key}>

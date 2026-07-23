@@ -470,8 +470,15 @@ export default function AdminMediaPage() {
 
       {/* ARENAS TAB */}
       {mainTab==='arenas'&&(
-        <div style={{display:'flex',flexDirection:'column',gap:10}}>
-          {nbaRegular.map((tt:any)=><ArenaPhotoRow key={tt.id} item={tt} onSave={saveArenaPhoto} saving={saving} saved={saved} isPT={isPT}/>)}
+        <div>
+          <p style={{fontSize:11,color:'#8a8279',marginBottom:14}}>
+            {isPT
+              ? 'Recomendado: 1600×400px (foto larga e baixa) · JPG ou PNG — aparece como banner no separador Vista Geral e é sempre ajustada/cortada automaticamente, não precisa de ser exata.'
+              : 'Recommended: 1600×400px (wide, short photo) · JPG or PNG — shown as a banner in the Overview tab and is always auto-cropped to fit, doesn\'t need to be exact.'}
+          </p>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {nbaRegular.map((tt:any)=><ArenaPhotoRow key={tt.id} item={tt} onSave={saveArenaPhoto} saving={saving} saved={saved} isPT={isPT}/>)}
+          </div>
         </div>
       )}
 
