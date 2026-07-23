@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
+import { useTranslation } from '@/components/I18nProvider'
+import { translateObjectiveDescription, RIVAL_PLACEHOLDER_PATTERN } from '@/lib/sponsor-objective-i18n'
 
 type Objective = {
   id: string
@@ -24,15 +26,24 @@ type Tracking = {
 type Contract = {
   id: string
   tier: string
+  template_id: string
   fixed_monthly: number
   template?: { company_name: string, sector: string } | { company_name: string, sector: string }[]
   trackings?: Tracking[]
 }
 
-const TIER_CONFIG: Record<string, { label: string, icon: string, color: string, bg: string }> = {
+type PoolEntry = { tier: string, template_id: string }
+type JerseyImage = { option_number: number, tier: string, company_name: string }
+
+const TIER_CONFIG_EN: Record<string, { label: string, icon: string, color: string, bg: string }> = {
   jersey:  { label: 'Jersey Patch',      icon: '👕', color: '#1d4ed8', bg: '#dbeafe' },
   court:   { label: 'Court Logo',        icon: '🏀', color: '#b45309', bg: '#fef3c7' },
   panels:  { label: 'Courtside Panels',  icon: '📺', color: '#15803d', bg: '#dcfce7' },
+}
+const TIER_CONFIG_PT: Record<string, { label: string, icon: string, color: string, bg: string }> = {
+  jersey:  { label: 'Patch da Camisola', icon: '👕', color: '#1d4ed8', bg: '#dbeafe' },
+  court:   { label: 'Logótipo do Campo', icon: '🏀', color: '#b45309', bg: '#fef3c7' },
+  panels:  { label: 'Painéis Courtside', icon: '📺', color: '#15803d', bg: '#dcfce7' },
 }
 
 const OBJECTIVE_ICONS: Record<string, string> = {
@@ -100,10 +111,15 @@ function ProgressBar({ current, threshold, achieved }: { current: number, thresh
 }
 
 export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamColor: string }) {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
+  const TIER_CONFIG = isPT ? TIER_CONFIG_PT : TIER_CONFIG_EN
   const { profile } = useAuth()
   const isGM = (profile as any)?.team_id === teamId || profile?.role === 'commissioner'
 
   const [contracts, setContracts] = useState<Contract[]>([])
+  const [pool, setPool] = useState<PoolEntry[]>([])
+  const [jerseys, setJerseys] = useState<JerseyImage[]>([])
   const [rivalName, setRivalName] = useState('')
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'achieved'>('all')
@@ -112,7 +128,7 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
     Promise.all([
       supabase.from('sponsor_contracts')
         .select(`
-          id, tier, fixed_monthly, status,
+          id, tier, template_id, fixed_monthly, status,
           template:sponsor_templates(company_name, sector),
           trackings:sponsor_objective_tracking(
             id, objective_id, achieved, current_value, paid, achieved_at,
@@ -122,9 +138,13 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
         .eq('team_id', teamId)
         .eq('season', '2025-26')
         .eq('status', 'active'),
+      supabase.from('sponsor_pool').select('tier,template_id').eq('team_id', teamId).eq('season', '2025-26'),
+      supabase.from('sponsor_jersey_images').select('option_number,tier,company_name').eq('team_id', teamId).eq('season', '2025-26'),
       supabase.from('teams').select('rival_team_id').eq('id', teamId).single(),
-    ]).then(([{ data: c }, { data: t }]) => {
+    ]).then(([{ data: c }, { data: p }, { data: j }, { data: t }]) => {
       setContracts(c || [])
+      setPool(p || [])
+      setJerseys(j || [])
       if (t?.rival_team_id) {
         supabase.from('teams').select('name').eq('id', t.rival_team_id).single()
           .then(({ data: r }) => { if (r?.name) setRivalName(r.name) })
@@ -133,19 +153,31 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
     })
   }, [teamId])
 
+  // The sponsor's real-world branded name (Disney, Advent Health, ...) lives
+  // in sponsor_jersey_images, keyed by that team's pool position for the
+  // tier (option_number) — not on the template itself, which only holds a
+  // generic placeholder name shared by every team ("Sponsor A3"). Same
+  // lookup SponsorsTab.tsx uses so the two tabs always agree on the name.
+  const displayName = (contract: Contract): string => {
+    const tierPool = pool.filter(p => p.tier === contract.tier)
+    const idx = tierPool.findIndex(p => p.template_id === contract.template_id)
+    const img = idx >= 0 ? jerseys.find(j => j.option_number === idx + 1 && j.tier === contract.tier) : undefined
+    return img?.company_name || getTemplate(contract)?.company_name || '—'
+  }
+
   if (!isGM) return (
     <div style={{padding:40,textAlign:'center',color:'#b0a89e',fontSize:13}}>
-      🔒 Goals are private to the franchise GM.
+      🔒 {isPT ? 'Os objetivos são privados, só o GM da franquia os vê.' : 'Goals are private to the franchise GM.'}
     </div>
   )
 
-  if (loading) return <div style={{color:'#8a8279',padding:20}}>Loading goals...</div>
+  if (loading) return <div style={{color:'#8a8279',padding:20}}>{isPT ? 'A carregar objetivos...' : 'Loading goals...'}</div>
 
   if (!contracts.length) return (
     <div style={{padding:48,textAlign:'center',background:'#faf8f5',border:'1px dashed #d4cdc5',borderRadius:12}}>
       <div style={{fontSize:32,marginBottom:12}}>🎯</div>
-      <div style={{fontSize:14,fontWeight:700,color:'#1a1512',marginBottom:6}}>No active sponsor contracts</div>
-      <div style={{fontSize:12,color:'#8a8279'}}>Sign sponsor deals in the Sponsors tab to unlock objectives.</div>
+      <div style={{fontSize:14,fontWeight:700,color:'#1a1512',marginBottom:6}}>{isPT ? 'Sem contratos de patrocínio ativos' : 'No active sponsor contracts'}</div>
+      <div style={{fontSize:12,color:'#8a8279'}}>{isPT ? 'Assina acordos de patrocínio no separador Patrocinadores para desbloquear objetivos.' : 'Sign sponsor deals in the Sponsors tab to unlock objectives.'}</div>
     </div>
   )
 
@@ -163,10 +195,10 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
       {/* Summary header */}
       <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10,marginBottom:16}}>
         {[
-          { label:'Monthly fixed',     val:fmt(monthlyFixed),         color:'#15803d', tip:'Guaranteed monthly income from all active contracts' },
-          { label:'Bonus potential',   val:fmt(totalPotential),       color:'#1d4ed8', tip:'Maximum bonus if all objectives are achieved' },
-          { label:'Bonus earned',      val:fmt(earnedBonus),          color:'#b45309', tip:'Bonuses already achieved and credited' },
-          { label:'Goals progress',    val:`${achievedGoals}/${totalGoals}`, color:teamColor, tip:'Objectives achieved vs total' },
+          { label: isPT ? 'Fixo mensal' : 'Monthly fixed',       val:fmt(monthlyFixed),         color:'#15803d', tip: isPT ? 'Receita mensal garantida de todos os contratos ativos' : 'Guaranteed monthly income from all active contracts' },
+          { label: isPT ? 'Potencial de bónus' : 'Bonus potential',   val:fmt(totalPotential),       color:'#1d4ed8', tip: isPT ? 'Bónus máximo se todos os objetivos forem alcançados' : 'Maximum bonus if all objectives are achieved' },
+          { label: isPT ? 'Bónus ganho' : 'Bonus earned',      val:fmt(earnedBonus),          color:'#b45309', tip: isPT ? 'Bónus já alcançados e creditados' : 'Bonuses already achieved and credited' },
+          { label: isPT ? 'Progresso dos objetivos' : 'Goals progress',    val:`${achievedGoals}/${totalGoals}`, color:teamColor, tip: isPT ? 'Objetivos alcançados vs total' : 'Objectives achieved vs total' },
         ].map(item => (
           <div key={item.label} style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`3px solid ${item.color}`,borderRadius:10,padding:12}}>
             <div style={{fontSize:10,color:'#8a8279',marginBottom:4}}>{item.label}</div>
@@ -177,7 +209,10 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
 
       {/* Filter */}
       <div style={{display:'flex',gap:6,marginBottom:14}}>
-        {([['all','All'],['pending','Pending'],['achieved','Achieved']] as const).map(([k,l]) => (
+        {(isPT
+          ? ([['all','Todos'],['pending','Pendentes'],['achieved','Alcançados']] as const)
+          : ([['all','All'],['pending','Pending'],['achieved','Achieved']] as const)
+        ).map(([k,l]) => (
           <button key={k} onClick={() => setFilter(k)}
             style={{
               padding:'5px 14px', fontSize:11, fontWeight:600, borderRadius:20, cursor:'pointer',
@@ -208,11 +243,11 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
               <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',background:tier.bg+'66',borderBottom:`1px solid ${tier.color}22`}}>
                 <span style={{fontSize:20}}>{tier.icon}</span>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:13,fontWeight:700,color:'#1a1512'}}>{getTemplate(contract)?.company_name || '—'}</div>
-                  <div style={{fontSize:11,color:'#8a8279'}}>{tier.label} · {fmt(contract.fixed_monthly)}/mo guaranteed</div>
+                  <div style={{fontSize:13,fontWeight:700,color:'#1a1512'}}>{displayName(contract)}</div>
+                  <div style={{fontSize:11,color:'#8a8279'}}>{tier.label} · {fmt(contract.fixed_monthly)}/{isPT ? 'mês garantido' : 'mo guaranteed'}</div>
                 </div>
                 <div style={{textAlign:'right'}}>
-                  <div style={{fontSize:10,color:'#8a8279'}}>Objectives</div>
+                  <div style={{fontSize:10,color:'#8a8279'}}>{isPT ? 'Objetivos' : 'Objectives'}</div>
                   <div style={{fontSize:13,fontWeight:700,color:tier.color}}>
                     {(contract.trackings||[]).filter(t=>t.achieved).length}/{(contract.trackings||[]).length}
                   </div>
@@ -225,9 +260,10 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
                   const obj = getObjective(tracking)
                   if (!obj) return null
                   const icon = OBJECTIVE_ICONS[obj.objective_type] || '🎯'
+                  const translated = translateObjectiveDescription(obj.description, isPT)
                   const desc = rivalName && obj.objective_type === 'wins_rivalry'
-                    ? obj.description.replace(/your divisional rival|your rival/gi, rivalName)
-                    : obj.description
+                    ? translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalName)
+                    : translated
                   const showProgress = !tracking.achieved && tracking.current_value > 0 && obj.threshold > 1
 
                   return (
@@ -264,8 +300,8 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
                         )}
                         {tracking.achieved && tracking.achieved_at && (
                           <div style={{fontSize:10,color:'#15803d',marginTop:3}}>
-                            ✓ Achieved {new Date(tracking.achieved_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
-                            {tracking.paid && ' · Credited'}
+                            ✓ {isPT ? 'Alcançado' : 'Achieved'} {new Date(tracking.achieved_at).toLocaleDateString(isPT ? 'pt-PT' : 'en-US',{month:'short',day:'numeric'})}
+                            {tracking.paid && (isPT ? ' · Creditado' : ' · Credited')}
                           </div>
                         )}
                       </div>
@@ -276,7 +312,7 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
                         </div>
                         {tracking.achieved && (
                           <div style={{fontSize:9,fontWeight:600,color: tracking.paid ? '#15803d' : '#b45309'}}>
-                            {tracking.paid ? '✓ Paid' : '⏳ Pending'}
+                            {tracking.paid ? (isPT ? '✓ Pago' : '✓ Paid') : (isPT ? '⏳ Pendente' : '⏳ Pending')}
                           </div>
                         )}
                       </div>
