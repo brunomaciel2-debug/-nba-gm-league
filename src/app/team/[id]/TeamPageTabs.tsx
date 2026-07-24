@@ -169,8 +169,6 @@ export default function TeamPageTabs({
   const badges: Partial<Record<Tab, string>> = {
     roster:    `${players.length}`,
     schedule:  `${played}/${played + upcoming}`,
-    contracts: isPT ? 'Multi-ano' : 'Multi-yr',
-    draft:     '5 yrs',
     ...(activeInjuryCount > 0 ? { injuries: `${activeInjuryCount}` } : {}),
   }
 
