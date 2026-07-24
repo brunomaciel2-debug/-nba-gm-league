@@ -123,15 +123,30 @@ export default function PreseasonPage() {
       setSaving(false);return
     }
 
-    const{error}=await supabase.from('preseason_games').insert({
+    const{data:inserted,error}=await supabase.from('preseason_games').insert({
       season:'2025-26',home_team:homeTeam,away_team:awayTeam,
       home_type:isHome?'nba':opponentType,away_type:isHome?opponentType:'nba',
       requested_by:myTeamId,status:isWorldGame?'scheduled':'pending',
       scheduled_date:isoDate(selectedDate),notes,
-    })
+    }).select().single()
     if(error){setMsg(`${isPT?'Erro':'Error'}: `+error.message)}
     else{
       setMsg(isWorldGame?(isPT?'✅ Jogo agendado!':'✅ Game scheduled!'):(isPT?'✅ Pedido enviado! Aguarda aceitação.':'✅ Request sent! Waiting for opponent to accept.'))
+      // Only real NBA-vs-NBA requests need the other GM to actually respond —
+      // world-team games are auto-confirmed above with no one to notify.
+      if(!isWorldGame&&inserted){
+        const myName=getTeamName(myTeamId,'nba')
+        await supabase.from('inbox_messages').insert({
+          to_team_id:selectedOpponent,
+          type:'preseason_request',
+          subject:isPT?`🏀 Pedido de amigável de ${myName}`:`🏀 Friendly request from ${myName}`,
+          body:isPT
+            ?`${myName} quer marcar um jogo amigável contigo para ${fmtDate(isoDate(selectedDate))}. Vai ao separador Calendário para aceitar ou recusar.`
+            :`${myName} wants to schedule a friendly against you for ${fmtDate(isoDate(selectedDate))}. Go to the Schedule tab to accept or decline.`,
+          read:false,
+          metadata:{game_id:inserted.id},
+        })
+      }
       await loadData()
       setTimeout(()=>{setShowModal(false);setMsg('');setSelectedOpponent('');setNotes('')},2000)
     }
@@ -139,7 +154,25 @@ export default function PreseasonPage() {
   }
 
   const handleRespond=async(gameId:string,accept:boolean)=>{
+    const game=allGames.find(g=>g.id===gameId)
     await supabase.from('preseason_games').update({status:accept?'scheduled':'declined',updated_at:new Date().toISOString()}).eq('id',gameId)
+    if(game&&myTeamId){
+      const otherTeamId=game.home_team===myTeamId?game.away_team:game.home_team
+      const myName=getTeamName(myTeamId,'nba')
+      const dateLabel=fmtDate(game.scheduled_date)
+      await supabase.from('inbox_messages').insert({
+        to_team_id:otherTeamId,
+        type:accept?'preseason_accepted':'preseason_declined',
+        subject:accept
+          ?(isPT?`✅ Amigável aceite por ${myName}`:`✅ Friendly accepted by ${myName}`)
+          :(isPT?`❌ Amigável recusado por ${myName}`:`❌ Friendly declined by ${myName}`),
+        body:accept
+          ?(isPT?`${myName} aceitou o teu pedido de amigável para ${dateLabel}. Já está no teu calendário.`:`${myName} accepted your friendly request for ${dateLabel}. It's now on your schedule.`)
+          :(isPT?`${myName} recusou o teu pedido de amigável para ${dateLabel}.`:`${myName} declined your friendly request for ${dateLabel}.`),
+        read:false,
+        metadata:{game_id:gameId},
+      })
+    }
     await loadData()
   }
 

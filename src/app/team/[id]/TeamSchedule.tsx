@@ -117,6 +117,26 @@ export default function TeamSchedule({
   const teamHref = (id:string) => worldTeamIds.has(id) ? `/world/${id}` : `/team/${id}`
   const fmtDate = (iso:string) => new Date(iso).toLocaleDateString(isPT?'pt-PT':'en-US',{weekday:'short',month:'short',day:'numeric'})
   const fmtTime = (iso:string) => new Date(iso).toLocaleTimeString(isPT?'pt-PT':'en-US',{hour:'numeric',minute:'2-digit',timeZone:'Europe/Lisbon'})
+  // Tells the requesting team whether their friendly was accepted/declined —
+  // same notification preseason/page.tsx sends, needed here too since this
+  // widget is a second, independent place a GM can respond to a request.
+  const notifyPreseasonResponse = async (g: any, accept: boolean) => {
+    const otherTeamId = g.home_team === teamId ? g.away_team : g.home_team
+    const myName = teams[teamId]?.name || teamId
+    const dateLabel = g.scheduled_date ? fmtDate(g.scheduled_date+'T12:00:00') : ''
+    await supabase.from('inbox_messages').insert({
+      to_team_id: otherTeamId,
+      type: accept ? 'preseason_accepted' : 'preseason_declined',
+      subject: accept
+        ? (isPT?`✅ Amigável aceite por ${myName}`:`✅ Friendly accepted by ${myName}`)
+        : (isPT?`❌ Amigável recusado por ${myName}`:`❌ Friendly declined by ${myName}`),
+      body: accept
+        ? (isPT?`${myName} aceitou o teu pedido de amigável para ${dateLabel}. Já está no teu calendário.`:`${myName} accepted your friendly request for ${dateLabel}. It's now on your schedule.`)
+        : (isPT?`${myName} recusou o teu pedido de amigável para ${dateLabel}.`:`${myName} declined your friendly request for ${dateLabel}.`),
+      read: false,
+      metadata: { game_id: g.id },
+    })
+  }
   const myActivePS = preseasonGames.filter(g=>['pending','accepted','scheduled','final'].includes(g.status))
   const canSchedule = myTeamId && isPreseasonPeriod && myActivePS.length < MAX_PRESEASON
   const myBusyDates = new Set(
@@ -276,6 +296,7 @@ export default function TeamSchedule({
                     <div className="flex gap-2">
                       <button onClick={async () => {
                         await supabase.from('preseason_games').update({status:'scheduled'}).eq('id',g.id)
+                        await notifyPreseasonResponse(g, true)
                         const {data:pg} = await supabase.from('preseason_games').select('*').eq('season','2025-26').order('scheduled_date')
                         setAllPreseasonGames(pg||[])
                         setPreseasonGames((pg||[]).filter((x:any)=>x.home_team===teamId||x.away_team===teamId))
@@ -284,6 +305,7 @@ export default function TeamSchedule({
                       </button>
                       <button onClick={async () => {
                         await supabase.from('preseason_games').update({status:'declined'}).eq('id',g.id)
+                        await notifyPreseasonResponse(g, false)
                         const {data:pg} = await supabase.from('preseason_games').select('*').eq('season','2025-26').order('scheduled_date')
                         setAllPreseasonGames(pg||[])
                         setPreseasonGames((pg||[]).filter((x:any)=>x.home_team===teamId||x.away_team===teamId))
