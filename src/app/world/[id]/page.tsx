@@ -180,8 +180,10 @@ export default function WorldTeamPage({ params }: { params: { id: string } }) {
               {team.city && <span> · {team.city}</span>}
               {team.founded && <span> · {isPT?'Fundado em':'Est.'} {team.founded}</span>}
             </div>
-            {team.description && (
-              <p style={{fontSize:12,color:'#5c554e',marginTop:8,lineHeight:1.5,maxWidth:560}}>{team.description}</p>
+            {(isPT ? (team.description_pt || team.description) : team.description) && (
+              <p style={{fontSize:12,color:'#5c554e',marginTop:8,lineHeight:1.5,maxWidth:560}}>
+                {isPT ? (team.description_pt || team.description) : team.description}
+              </p>
             )}
           </div>
           <FriendlyButton worldTeamId={team.id} worldTeamName={team.name} />

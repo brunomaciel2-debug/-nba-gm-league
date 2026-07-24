@@ -1,10 +1,14 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { useTranslation } from '@/components/I18nProvider'
 
 export default function FriendlyButton({ worldTeamId, worldTeamName }: {
   worldTeamId: string, worldTeamName: string
 }) {
+  const { t } = useTranslation()
+  const isPT = t('common.save') === 'Guardar'
   const [user, setUser]         = useState<any>(null)
   const [myTeam, setMyTeam]     = useState<any>(null)
   const [showPicker, setShowPicker] = useState(false)
@@ -43,7 +47,9 @@ export default function FriendlyButton({ worldTeamId, worldTeamName }: {
       .lte('scheduled_date', dayAfter.toISOString().slice(0,10))
 
     if (conflicts && conflicts.length > 0) {
-      setError(`${worldTeamName} is already booked on or near that date (they need a rest day before and after each game).`)
+      setError(isPT
+        ? `${worldTeamName} já tem um jogo agendado nessa data ou perto dela (precisam de um dia de descanso antes e depois de cada jogo).`
+        : `${worldTeamName} is already booked on or near that date (they need a rest day before and after each game).`)
       setSaving(false)
       return
     }
@@ -58,7 +64,7 @@ export default function FriendlyButton({ worldTeamId, worldTeamName }: {
       .lte('scheduled_date', dayAfter.toISOString().slice(0,10))
 
     if (nbaConflicts && nbaConflicts.length > 0) {
-      setError(`Your team already has a friendly on or near that date.`)
+      setError(isPT ? 'A tua equipa já tem um amigável agendado nessa data ou perto dela.' : 'Your team already has a friendly on or near that date.')
       setSaving(false)
       return
     }
@@ -70,7 +76,7 @@ export default function FriendlyButton({ worldTeamId, worldTeamName }: {
       status: 'confirmed',
     })
 
-    if (err) { setError('Failed to schedule. Try again.'); setSaving(false); return }
+    if (err) { setError(isPT ? 'Falha ao agendar. Tenta outra vez.' : 'Failed to schedule. Try again.'); setSaving(false); return }
     setSaving(false)
     setDone(true)
     setShowPicker(false)
@@ -79,21 +85,21 @@ export default function FriendlyButton({ worldTeamId, worldTeamName }: {
   if (!user) return (
     <div style={{padding:'12px 20px',borderRadius:10,background:'#f0ece5',border:'1px solid #d4cdc5',
                  textAlign:'center',fontSize:12,color:'#8a8279'}}>
-      <Link href="/login" style={{color:'#c8102e',fontWeight:600,textDecoration:'none'}}>Sign in</Link> to propose a friendly
+      <Link href="/login" style={{color:'#c8102e',fontWeight:600,textDecoration:'none'}}>{isPT ? 'Entra' : 'Sign in'}</Link> {isPT ? 'para propor um amigável' : 'to propose a friendly'}
     </div>
   )
 
   if (!myTeam) return (
     <div style={{padding:'12px 20px',borderRadius:10,background:'#f0ece5',border:'1px solid #d4cdc5',
                  textAlign:'center',fontSize:12,color:'#8a8279'}}>
-      You need to manage an NBA team to propose a friendly.
+      {isPT ? 'Precisas de gerir uma equipa da NBA para propor um amigável.' : 'You need to manage an NBA team to propose a friendly.'}
     </div>
   )
 
   if (done) return (
     <div style={{padding:'12px 20px',borderRadius:10,background:'#dcfce7',border:'1px solid #15803d',
                  textAlign:'center',fontSize:13,fontWeight:600,color:'#15803d'}}>
-      ✓ Friendly confirmed! Check your team's schedule.
+      {isPT ? "✓ Amigável confirmado! Consulta o calendário da tua equipa." : "✓ Friendly confirmed! Check your team's schedule."}
     </div>
   )
 
@@ -103,15 +109,15 @@ export default function FriendlyButton({ worldTeamId, worldTeamName }: {
         <button onClick={() => setShowPicker(true)}
           style={{padding:'12px 24px',borderRadius:10,background:'#c8102e',color:'#fff',
                   border:'none',cursor:'pointer',fontSize:14,fontWeight:700}}>
-          📅 Propose Friendly
+          📅 {isPT ? 'Propor Amigável' : 'Propose Friendly'}
         </button>
       ) : (
         <div style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderRadius:12,padding:16,minWidth:280}}>
           <div style={{fontSize:13,fontWeight:700,color:'#1a1512',marginBottom:8}}>
-            Schedule friendly vs {worldTeamName}
+            {isPT ? `Agendar amigável vs ${worldTeamName}` : `Schedule friendly vs ${worldTeamName}`}
           </div>
           <div style={{fontSize:11,color:'#5c554e',marginBottom:12}}>
-            Select a pre-season date. The team needs rest on the day before and after.
+            {isPT ? 'Escolhe uma data de pré-época. A equipa precisa de descanso no dia anterior e no dia seguinte.' : 'Select a pre-season date. The team needs rest on the day before and after.'}
           </div>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             min="2025-09-01" max="2025-10-20"
@@ -126,12 +132,12 @@ export default function FriendlyButton({ worldTeamId, worldTeamName }: {
               style={{flex:1,padding:'8px',borderRadius:8,background:saving?'#8a8279':'#c8102e',
                       color:'#fff',border:'none',cursor:saving?'default':'pointer',
                       fontSize:13,fontWeight:700}}>
-              {saving ? 'Saving...' : 'Confirm'}
+              {saving ? (isPT ? 'A guardar...' : 'Saving...') : (isPT ? 'Confirmar' : 'Confirm')}
             </button>
             <button onClick={() => { setShowPicker(false); setError('') }}
               style={{padding:'8px 16px',borderRadius:8,background:'#f0ece5',
                       color:'#5c554e',border:'1px solid #d4cdc5',cursor:'pointer',fontSize:13}}>
-              Cancel
+              {isPT ? 'Cancelar' : 'Cancel'}
             </button>
           </div>
         </div>
@@ -139,6 +145,3 @@ export default function FriendlyButton({ worldTeamId, worldTeamName }: {
     </div>
   )
 }
-
-// Need Link import
-import Link from 'next/link'
