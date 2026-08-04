@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
-import { getStatusForWeek, getHalfWeekDates, formatSimDate, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
+import { getStatusForWeek, getWeekDates, getHalfWeekDates, formatSimDate, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
 import GlobalSearch from './GlobalSearch'
 
 export default function SimulatorBanner() {
@@ -51,19 +51,17 @@ export default function SimulatorBanner() {
         // (Jul 2025 - Jun 2026) — comparing against real wall-clock "today"
         // (as this used to) drifts further wrong every real day that passes
         // without a matching sim day, until eventually every event silently
-        // reads as already past and "Next:" just stops showing anything.
-        // Anchored to the same precise lastSimDay as the day badge above —
-        // it used to reuse the coarser week-start date instead, which could
-        // sit BEFORE an event that had already started (e.g. still reading
-        // "Next: Pre-Season Games · Oct 2" days after that date had passed).
+        // reads as already past and "Next event" just stops showing anything.
+        // Anchored to the same precise lastSimDay as the day badge above.
+        // Only genuinely upcoming events (start_date strictly after today) —
+        // the CURRENT phase (Pre-Season, Regular Season, etc.) and when it
+        // ends is already shown separately, in the "Now:" pill, so an
+        // already-started event like "Pre-Season Games" shouldn't also show
+        // up here as if it were still ahead of us.
         const simTodayStr = `${lastSimDay.getFullYear()}-${String(lastSimDay.getMonth() + 1).padStart(2, '0')}-${String(lastSimDay.getDate()).padStart(2, '0')}`
-        // Most single-day milestones (draft, trade deadline, playoffs-begin,
-        // etc.) store no end_date at all — a plain .gte('end_date', ...)
-        // silently drops every one of them (NULL fails any comparison). This
-        // treats a NULL end_date as "ends the day it starts" instead.
         supabase.from('season_events')
           .select('*').eq('season', '2025-26')
-          .or(`end_date.gte.${simTodayStr},and(end_date.is.null,start_date.gte.${simTodayStr})`)
+          .gt('start_date', simTodayStr)
           .order('start_date').limit(1).single()
           .then(({ data: ev }) => setNextEvent(ev))
       })
@@ -111,6 +109,18 @@ export default function SimulatorBanner() {
     ? (isPT ? SEASON_STATUS_LABELS[nextStatus].pt : SEASON_STATUS_LABELS[nextStatus].en)
     : nextStatus
 
+  // When does the CURRENT phase (Pre-Season, Regular Season, etc.) actually
+  // end? Walk forward week by week until the status changes, then take that
+  // last matching week's end date — same status-boundary logic
+  // getStatusForWeek already encodes, just run forward instead of guessing
+  // a fixed range.
+  const phaseEndWeek = (() => {
+    let w = week
+    while (getStatusForWeek(w + 1) === status) w++
+    return w
+  })()
+  const phaseEnd = getWeekDates(phaseEndWeek).end
+
   const SIM_DAY_PT: Record<string, string> = {
     Monday: 'Segunda', Tuesday: 'Terça', Wednesday: 'Quarta',
     Thursday: 'Quinta', Friday: 'Sexta', Saturday: 'Sábado', Sunday: 'Domingo',
@@ -118,23 +128,12 @@ export default function SimulatorBanner() {
   const simDay = (d: string) => isPT ? (SIM_DAY_PT[d] ?? d) : d
   const isActive = ['regular-season', 'playoffs', 'play-in', 'pre-season', 'summer-league', 'free-agency'].includes(status)
 
-  // Whether the event has already started (a multi-day one like Pre-Season
-  // Games or a playoff round) as of the precise last-simulated day — an
-  // "ongoing" event needs different wording than a genuinely upcoming one,
-  // otherwise it keeps reading "Next: X · <a date already in the past>"
-  // for its entire multi-week span.
-  const eventOngoing = !!(nextEvent && currentDay && new Date(nextEvent.start_date + 'T00:00:00') <= currentDay)
-
-  // A major event (All-Star Weekend, etc.) 2 sim-weeks out or closer — or
-  // already happening — gets its own loud, colored, pulsing badge next to
-  // the status pill — not just buried in the small muted "Next:" text on
-  // the right, which is easy to miss and says nothing beyond "some event
-  // is coming eventually". This is the actual "an event of this magnitude
-  // is approaching" notice Bruno asked for, distinct from the routine
-  // week-by-week sim info.
+  // The next event is always strictly upcoming now (see the .gt('start_date',
+  // ...) query above) — no more "already ongoing" case to word differently.
+  // It still gets a louder, pulsing treatment once it's close, so a
+  // genuinely imminent milestone still stands out from routine info.
   const eventSoon = (() => {
     if (!nextEvent || !currentDay) return false
-    if (eventOngoing) return true
     const evStart = new Date(nextEvent.start_date + 'T00:00:00')
     const daysUntil = Math.round((evStart.getTime() - currentDay.getTime()) / 86400000)
     return daysUntil <= 14
@@ -153,22 +152,25 @@ export default function SimulatorBanner() {
               boxShadow: `0 0 6px ${sc.dot}`,
               animation: isActive ? 'pulse 2s infinite' : 'none',
             }} />
-            {label}{week > 0 && currentDay ? `: ${fmtDate(currentDay)}` : ''}
+            {isPT ? 'Agora' : 'Now'}{week > 0 && currentDay ? `: ${fmtDate(currentDay)}` : ''}
+            {week > 0 && (
+              <span style={{ fontWeight: 400, opacity: 0.85 }}>
+                {' '}({isPT ? `a decorrer: ${label.toLowerCase()} até ${fmtDate(phaseEnd)}` : `ongoing ${label.toLowerCase()} until ${fmtDate(phaseEnd)}`})
+              </span>
+            )}
           </span>
-          {/* The next/ongoing event — a GM should always be able to see this
-              (Free Agency, Trade Deadline, All-Star, etc.), not just when
-              it's imminent, so this is no longer gated behind eventSoon.
-              It only gets the loud pulsing treatment once it's actually
-              close or already happening — otherwise it stays calm/muted so
-              it doesn't compete with the status pill for attention. */}
+          {/* The next event — a GM should always be able to see this (Free
+              Agency, Trade Deadline, All-Star, etc.), not just when it's
+              imminent, so this is not gated behind eventSoon. It only gets
+              the loud pulsing treatment once it's actually close —
+              otherwise it stays calm/muted so it doesn't compete with the
+              status pill for attention. */}
           {nextEvent && (
             <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
               style={eventSoon
                 ? { background: nextEvent.color || '#b45309', color: '#fff', animation: 'pulse 2s infinite' }
                 : { background: 'transparent', color: '#8a8279', border: '1px solid #2a3441' }}>
-              {nextEvent.icon} {nextEvent.event_name} · {eventOngoing
-                ? (isPT ? `a decorrer até ${fmtEventDate(nextEvent.end_date)}` : `ongoing until ${fmtEventDate(nextEvent.end_date)}`)
-                : fmtEventDate(nextEvent.start_date)}
+              {nextEvent.icon} {isPT ? 'Próximo evento' : 'Next event'}: {nextEvent.event_name} · {fmtEventDate(nextEvent.start_date)}
             </span>
           )}
           {nextWeek > 0 ? (
