@@ -103,6 +103,17 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
   const activeFocusValid = !!activeFocusNode && (progressByNodeId[`${activeSystem}|${activeFocusNode.id}`] || 0) < 100 && isNodeUnlocked(activeFocusNode, activeProgressMap)
 
   const setFocus = async (node: TechNode) => {
+    // Picking a focus isn't reversible until it's mastered (every other
+    // node in the system stays blocked meanwhile), and the click itself
+    // gave no feedback beyond a highlight appearing a moment later — easy
+    // to read as "nothing happened". A plain confirm makes the click
+    // register immediately and states the commitment being made.
+    const name = isPT ? node.namePt : node.nameEn
+    const confirmMsg = isPT
+      ? `Focar o desenvolvimento em "${name}"? Só progride enquanto este sistema estiver ativo nas ordens semanais, e as outras techs ficam bloqueadas até esta ficar dominada.`
+      : `Focus development on "${name}"? It only progresses while this system is active in your weekly orders, and every other tech stays locked until this one is mastered.`
+    if (!window.confirm(confirmMsg)) return
+
     setSaving(true); setMsg('')
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { setMsg(isPT ? 'Não estás autenticado' : 'Not logged in'); setSaving(false); return }
