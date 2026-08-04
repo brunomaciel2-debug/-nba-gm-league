@@ -165,6 +165,11 @@ export default function AdminSimulatePage() {
       setResult({ error: e.message })
     }
     await loadPreview()
+    // SimulatorBanner lives in the root layout's Navbar and stays mounted
+    // across client-side navigation, so it can't tell on its own that a
+    // simulation just ran on this page — this tells it to refetch now,
+    // not just whenever the user happens to navigate elsewhere.
+    window.dispatchEvent(new Event('sim-updated'))
     setLoading(false)
   }
 
@@ -196,6 +201,11 @@ export default function AdminSimulatePage() {
       setResult({ error: e.message })
     }
     await loadPreview()
+    // SimulatorBanner lives in the root layout's Navbar and stays mounted
+    // across client-side navigation, so it can't tell on its own that a
+    // simulation just ran on this page — this tells it to refetch now,
+    // not just whenever the user happens to navigate elsewhere.
+    window.dispatchEvent(new Event('sim-updated'))
     setLoading(false)
   }
 
@@ -228,6 +238,11 @@ export default function AdminSimulatePage() {
       setResult({ error: e.message })
     }
     await loadPreview()
+    // SimulatorBanner lives in the root layout's Navbar and stays mounted
+    // across client-side navigation, so it can't tell on its own that a
+    // simulation just ran on this page — this tells it to refetch now,
+    // not just whenever the user happens to navigate elsewhere.
+    window.dispatchEvent(new Event('sim-updated'))
     setLoading(false)
   }
 

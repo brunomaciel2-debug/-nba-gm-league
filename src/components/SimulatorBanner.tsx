@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
 import { getStatusForWeek, getHalfWeekDates, formatSimDate, getSimDate, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
@@ -8,6 +9,12 @@ import GlobalSearch from './GlobalSearch'
 export default function SimulatorBanner() {
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
+  // Lives in Navbar, which is part of the root layout — Next.js keeps it
+  // mounted across client-side navigations, so a mount-only fetch goes
+  // stale the moment a simulation runs on another page (e.g. admin/simulate)
+  // and never updates again until a hard reload. Re-fetching on every
+  // pathname change means arriving at any new page picks up the latest state.
+  const pathname = usePathname()
   const [config, setConfig] = useState<any>(null)
   const [nextEvent, setNextEvent] = useState<any>(null)
   // The exact real day the simulation is currently sitting on — not just the
@@ -21,43 +28,51 @@ export default function SimulatorBanner() {
   const [currentDay, setCurrentDay] = useState<Date | null>(null)
 
   useEffect(() => {
-    supabase.from('season_config').select('*').eq('id', 1).single().then(async ({ data: cfg }) => {
-      setConfig(cfg)
-      const week = cfg?.current_week || 0
-      const nextWeek = week + 1
-      const nextHalf: 1 | 2 = cfg?.next_sim_half === 2 ? 2 : 1
-      const { start: blockStart, end: blockEnd } = nextWeek > 0
-        ? getHalfWeekDates(nextWeek, nextHalf)
-        : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
-      const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      const { data: nextGame } = await supabase.from('games').select('scheduled_date')
-        .eq('week_number', nextWeek).eq('status', 'scheduled')
-        .gte('scheduled_date', ymd(blockStart)).lte('scheduled_date', ymd(blockEnd))
-        .order('scheduled_date').limit(1).maybeSingle()
-      const nextDayDate = nextGame?.scheduled_date ? new Date(nextGame.scheduled_date + 'T12:00:00') : blockStart
-      const lastSimDay = new Date(nextDayDate)
-      lastSimDay.setDate(lastSimDay.getDate() - 1)
-      setCurrentDay(lastSimDay)
+    const load = () => {
+      supabase.from('season_config').select('*').eq('id', 1).single().then(async ({ data: cfg }) => {
+        setConfig(cfg)
+        const week = cfg?.current_week || 0
+        const nextWeek = week + 1
+        const nextHalf: 1 | 2 = cfg?.next_sim_half === 2 ? 2 : 1
+        const { start: blockStart, end: blockEnd } = nextWeek > 0
+          ? getHalfWeekDates(nextWeek, nextHalf)
+          : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
+        const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        const { data: nextGame } = await supabase.from('games').select('scheduled_date')
+          .eq('week_number', nextWeek).eq('status', 'scheduled')
+          .gte('scheduled_date', ymd(blockStart)).lte('scheduled_date', ymd(blockEnd))
+          .order('scheduled_date').limit(1).maybeSingle()
+        const nextDayDate = nextGame?.scheduled_date ? new Date(nextGame.scheduled_date + 'T12:00:00') : blockStart
+        const lastSimDay = new Date(nextDayDate)
+        lastSimDay.setDate(lastSimDay.getDate() - 1)
+        setCurrentDay(lastSimDay)
 
-      // season_events rows are dated within the SIMULATED season calendar
-      // (Jul 2025 - Jun 2026) — comparing against real wall-clock "today"
-      // (as this used to) drifts further wrong every real day that passes
-      // without a matching sim day, until eventually every event silently
-      // reads as already past and "Next:" just stops showing anything. The
-      // simulated "today" (this week's start date) is the correct anchor.
-      const simToday = getSimDate(cfg?.current_week || 1)
-      const simTodayStr = `${simToday.getFullYear()}-${String(simToday.getMonth() + 1).padStart(2, '0')}-${String(simToday.getDate()).padStart(2, '0')}`
-      // Most single-day milestones (draft, trade deadline, playoffs-begin,
-      // etc.) store no end_date at all — a plain .gte('end_date', ...)
-      // silently drops every one of them (NULL fails any comparison). This
-      // treats a NULL end_date as "ends the day it starts" instead.
-      supabase.from('season_events')
-        .select('*').eq('season', '2025-26')
-        .or(`end_date.gte.${simTodayStr},and(end_date.is.null,start_date.gte.${simTodayStr})`)
-        .order('start_date').limit(1).single()
-        .then(({ data: ev }) => setNextEvent(ev))
-    })
-  }, [])
+        // season_events rows are dated within the SIMULATED season calendar
+        // (Jul 2025 - Jun 2026) — comparing against real wall-clock "today"
+        // (as this used to) drifts further wrong every real day that passes
+        // without a matching sim day, until eventually every event silently
+        // reads as already past and "Next:" just stops showing anything. The
+        // simulated "today" (this week's start date) is the correct anchor.
+        const simToday = getSimDate(cfg?.current_week || 1)
+        const simTodayStr = `${simToday.getFullYear()}-${String(simToday.getMonth() + 1).padStart(2, '0')}-${String(simToday.getDate()).padStart(2, '0')}`
+        // Most single-day milestones (draft, trade deadline, playoffs-begin,
+        // etc.) store no end_date at all — a plain .gte('end_date', ...)
+        // silently drops every one of them (NULL fails any comparison). This
+        // treats a NULL end_date as "ends the day it starts" instead.
+        supabase.from('season_events')
+          .select('*').eq('season', '2025-26')
+          .or(`end_date.gte.${simTodayStr},and(end_date.is.null,start_date.gte.${simTodayStr})`)
+          .order('start_date').limit(1).single()
+          .then(({ data: ev }) => setNextEvent(ev))
+      })
+    }
+    load()
+    // Covers the case where the GM never navigates away from the page that
+    // triggered the simulation (e.g. clicking "Simulate" repeatedly on
+    // admin/simulate) — the pathname alone wouldn't change there.
+    window.addEventListener('sim-updated', load)
+    return () => window.removeEventListener('sim-updated', load)
+  }, [pathname])
 
   if (!config) return null
 
