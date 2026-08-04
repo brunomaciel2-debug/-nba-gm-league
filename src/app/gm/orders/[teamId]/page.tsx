@@ -216,7 +216,25 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
               const { data: prevOrd } = await supabase.from('gm_orders').select('*')
                 .eq('team_id',teamId).lt('week_number',week)
                 .order('week_number',{ascending:false}).limit(1).maybeSingle()
-              if(prevOrd) applyOrder(prevOrd, false)
+              if(prevOrd) {
+                applyOrder(prevOrd, false)
+                // Persist the carry-forward immediately, not just on the
+                // form — every OTHER system reads this week's atk_style
+                // straight from gm_orders (tactical development, familiarity
+                // mods, etc.), so leaving it unsaved until the GM next hits
+                // Save made those read a stale/default 'motion' while the
+                // Orders page itself already showed the real carried-forward
+                // style, e.g. the Systems tab flagging "Fast Break" as not
+                // active/eroding even though it plainly was this week's style.
+                await supabase.from('gm_orders').upsert({
+                  team_id:teamId, week_number:week,
+                  priority_1:prevOrd.priority_1, priority_2:prevOrd.priority_2, priority_3:prevOrd.priority_3,
+                  clutch_player:prevOrd.clutch_player, pace:prevOrd.pace, three_rate:prevOrd.three_rate,
+                  atk_style:prevOrd.atk_style, def_style:prevOrd.def_style, special_assignments:prevOrd.special_assignments,
+                  depth_chart:prevOrd.depth_chart,
+                  training_intensity:prevOrd.training_intensity,
+                },{onConflict:'team_id,week_number'})
+              }
               setOrdersLoaded(true)
               return
             }
