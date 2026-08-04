@@ -834,6 +834,67 @@ await supabaseAdmin.from('players').update({ health:newHealth }).eq('id',pid)
 }
 }
 
+// Calendar days in this half, capped by dayLimit the same way the
+// regular-season game filter above is — shared by the friendly-games step
+// and the daily-tick step just below, so "Simulate 1 Day" during
+// pre-season (friendlies + health/playoff ticks, no regular games at all)
+// actually stops after one day instead of silently completing the whole
+// 3-4 day half regardless of what was asked for. Deliberately computed and
+// checked BEFORE season_config gets marked complete below — checking
+// afterward (as an earlier version of this fix did) let the week counter
+// advance regardless of the partial response, exactly the "1 day turned
+// into 3" bug this exists to prevent.
+const ymdDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const { start: dayRangeStart, end: dayRangeEnd } = getHalfWeekDates(week, half)
+const halfDates: string[] = []
+for (const d = new Date(dayRangeStart); d <= dayRangeEnd; d.setDate(d.getDate()+1)) halfDates.push(ymdDay(d))
+const cappedDates = dayLimit ? halfDates.slice(0, dayLimit) : halfDates
+
+// ── FRIENDLY / PRE-SEASON GAMES ────────────────────────
+// Friendlies have their own scheduled_date (set by whichever GM booked
+// them) and are simulated strictly within the half whose date range
+// actually contains that date — same rule as real games, no retroactive
+// catch-up. A friendly whose date has already been passed by current_week
+// stays unresolved until the commissioner explicitly rewinds current_week
+// to revisit that interval; it is never silently swept into a later,
+// unrelated half just because it's overdue.
+try {
+const { data: pendingFriendlies } = await supabaseAdmin
+.from('preseason_games').select('id').eq('season','2025-26').in('status',['scheduled','accepted'])
+.in('scheduled_date', cappedDates)
+for (const pf of (pendingFriendlies||[])) {
+const r = await simulatePreseasonGame(pf.id, week)
+if (r.success) friendliesSimulated++
+}
+} catch(friendlyErr) { console.warn('Friendly games step failed:', friendlyErr) }
+
+// ── DAILY TICKS (health recovery + playoff-day resolution) ──────
+// Runs for every calendar day in THIS half, on every call — health
+// recovery always applies regardless of phase (see src/lib/daily-tick.ts
+// for why this moved off the old once-a-week cadence), and playoff-day
+// resolution is a cheap no-op outside play-in/playoffs. This has to sit
+// before the half-1 early return just below, unlike the old once-per-week
+// HEALTH RECOVERY/PLAYOFF BRACKET steps it replaces.
+try {
+const tickResult = await resolveDailyTicks(cappedDates)
+if (tickResult.playoffGamesProcessed > 0) console.log(`Playoff bracket — games simulated: ${tickResult.playoffGamesProcessed}`)
+} catch (tickErr) { console.warn('Daily ticks failed:', tickErr) }
+
+// A capped call that didn't cover every day in this half yet (pre-season
+// friendlies/ticks have no other way to detect "still more to do" the way
+// the regular-season games check above does, since preseason has no
+// `games` rows of its own to count) stops here — BEFORE season_config or
+// gm_orders get touched — same partial-completion contract as the
+// regular-season check: the half isn't done until every one of its
+// calendar days has actually been processed.
+if (dayLimit && cappedDates.length < halfDates.length) {
+return NextResponse.json({
+success: true, partial: true, week, half, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated,
+days_remaining: halfDates.length - cappedDates.length,
+message: `${formatWeekRange(week,'pt-PT')} — dia simulado, ${halfDates.length - cappedDates.length} dia(s) por simular neste bloco.`,
+})
+}
+
 // Keep season_config.status consistent with the same calendar the UI shows.
 // Half 1 of any week does NOT advance current_week yet — the week isn't
 // done until half 2 (the remaining 4 days) also completes. Must be the full
@@ -847,45 +908,6 @@ if (half !== 1) {
 await supabaseAdmin.from('season_config').update({ current_week: week, status: newStatus, next_sim_half: 1 }).eq('id',1)
 }
 await supabaseAdmin.from('gm_orders').update({ locked: true }).eq('week_number', week)
-
-// ── FRIENDLY / PRE-SEASON GAMES ────────────────────────
-// Friendlies have their own scheduled_date (set by whichever GM booked
-// them) and are simulated strictly within the half whose date range
-// actually contains that date — same rule as real games, no retroactive
-// catch-up. A friendly whose date has already been passed by current_week
-// stays unresolved until the commissioner explicitly rewinds current_week
-// to revisit that interval; it is never silently swept into a later,
-// unrelated half just because it's overdue.
-try {
-const ymdFriendly = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-const { start: friendlyStart, end: friendlyEnd } = getHalfWeekDates(week, half)
-const { data: pendingFriendlies } = await supabaseAdmin
-.from('preseason_games').select('id').eq('season','2025-26').in('status',['scheduled','accepted'])
-.gte('scheduled_date', ymdFriendly(friendlyStart)).lte('scheduled_date', ymdFriendly(friendlyEnd))
-for (const pf of (pendingFriendlies||[])) {
-const r = await simulatePreseasonGame(pf.id, week)
-if (r.success) friendliesSimulated++
-}
-} catch(friendlyErr) { console.warn('Friendly games step failed:', friendlyErr) }
-
-// ── DAILY TICKS (health recovery + playoff-day resolution) ──────
-// Runs for every calendar day in THIS half, on every call — health
-// recovery always applies regardless of phase (see src/lib/daily-tick.ts
-// for why this moved off the old once-a-week cadence), and playoff-day
-// resolution is a cheap no-op outside play-in/playoffs. This has to sit
-// before the half-1 early return just below, unlike the old once-per-week
-// HEALTH RECOVERY/PLAYOFF BRACKET steps it replaces. Capped by dayLimit
-// the same way the regular-season game filter above is, so "Simulate 1
-// Day" only advances these by one day too.
-try {
-const { start: tickStart, end: tickEnd } = getHalfWeekDates(week, half)
-const ymdTick = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-const tickDates: string[] = []
-for (const d = new Date(tickStart); d <= tickEnd; d.setDate(d.getDate()+1)) tickDates.push(ymdTick(d))
-const cappedTickDates = dayLimit ? tickDates.slice(0, dayLimit) : tickDates
-const tickResult = await resolveDailyTicks(cappedTickDates)
-if (tickResult.playoffGamesProcessed > 0) console.log(`Playoff bracket — games simulated: ${tickResult.playoffGamesProcessed}`)
-} catch (tickErr) { console.warn('Daily ticks failed:', tickErr) }
 
 if (half === 1) {
 // Half 1 done — give GMs a recap of just these games now (half 2 will
