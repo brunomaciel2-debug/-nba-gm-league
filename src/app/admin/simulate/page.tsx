@@ -54,19 +54,28 @@ export default function AdminSimulatePage() {
   const [preview, setPreview] = useState<{ nextDayDate: Date | null, blockStart: Date, blockEnd: Date, weekStart: Date, weekEnd: Date } | null>(null)
 
   const loadPreview = async () => {
-    const { week, half } = await getSeasonState()
+    const { data: cfg } = await supabase.from('season_config').select('current_week,next_sim_half,last_sim_day').eq('id',1).single()
+    const week = cfg?.current_week || 0
+    const half = (cfg?.next_sim_half === 2 ? 2 : 1) as 1 | 2
     const nextWeek = week + 1
     const { start: blockStart, end: blockEnd } = nextWeek > 0 ? getHalfWeekDates(nextWeek, half) : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
     const { start: weekStart, end: weekEnd } = nextWeek > 0 ? getWeekDates(nextWeek) : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
-    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-    // The actual earliest still-scheduled day in this block — not just the
-    // block's start date, since a previous partial "1 Day" run may have
-    // already used up the first day or two.
-    const { data: nextGame } = await supabase.from('games').select('scheduled_date')
-      .eq('week_number', nextWeek).eq('status', 'scheduled')
-      .gte('scheduled_date', ymd(blockStart)).lte('scheduled_date', ymd(blockEnd))
-      .order('scheduled_date').limit(1).maybeSingle()
-    const nextDayDate = nextGame?.scheduled_date ? new Date(nextGame.scheduled_date + 'T12:00:00') : null
+    // The actual next day "1 Day" will simulate is last_sim_day + 1 (same
+    // rule as run.ts's cappedDates and SimulatorBanner's "Now") — NOT the
+    // earliest still-scheduled row in the `games` table. That table only
+    // holds regular-season/playoff games, so during pre-season (friendlies
+    // live in `preseason_games`) it never found a match and always fell
+    // back to "no games", even on a day with a real friendly on the
+    // calendar (e.g. Oct 11 ORL vs TOR).
+    let nextDayDate: Date | null = blockStart
+    if (cfg?.last_sim_day) {
+      const afterLastSim = new Date(cfg.last_sim_day + 'T12:00:00')
+      afterLastSim.setDate(afterLastSim.getDate() + 1)
+      // Only meaningful if it actually falls inside THIS block — a stale
+      // value from an earlier block/week must never leak in here.
+      if (afterLastSim >= blockStart && afterLastSim <= blockEnd) nextDayDate = afterLastSim
+      else if (afterLastSim > blockEnd) nextDayDate = null
+    }
     setPreview({ nextDayDate, blockStart, blockEnd, weekStart, weekEnd })
   }
 
