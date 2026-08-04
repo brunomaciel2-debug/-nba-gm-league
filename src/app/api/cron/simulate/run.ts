@@ -2344,10 +2344,18 @@ console.log(`Psychology Office — processed: ${psychResult.processed}, cleared:
 } catch(psychErr) { console.warn('Psychology Office resolution failed:', psychErr) }
 
 // ── SPONSOR OBJECTIVES ────────────────────────────────
+// Pre-season is a tactics/rotations sandbox — nothing here should count
+// toward standings, stats, or awards (same rule Awards/Weekly Highlights
+// above already follow), so objectives shouldn't be checkable/payable yet
+// either. This was unguarded: a "no player misses 20+ games" objective
+// could — and did — get credited during pre-season just because no long
+// injury had happened YET, well before any real game was ever played.
+if (!isPreseason) {
 try {
 const sponsorResult = await checkSponsorObjectives()
 console.log(`Sponsor objectives — checked: ${sponsorResult.checked}, achieved: ${sponsorResult.achieved}`)
 } catch(sponsorErr) { console.warn('Sponsor objectives check failed:', sponsorErr) }
+}
 
 // ── POWER RANKINGS ────────────────────────────────────
 try {

@@ -305,8 +305,12 @@ export async function checkSponsorObjectives() {
       case 'no_major_injury': {
         const { data: roster } = await supabase.from('players').select('id').eq('team_id',teamId)
         const rosterIds = new Set((roster||[]).map((p:any)=>p.id))
+        // Only injuries from real games (regular season + playoffs) count —
+        // preseason friendlies, practice, and off-court incidents aren't
+        // "official" per Bruno, and used to sneak this objective past teams
+        // whose only long-term injury happened in a friendly.
         const { data: injuries } = await supabase.from('injury_log')
-          .select('games_out,player_id').eq('season','2025-26')
+          .select('games_out,player_id').eq('season','2025-26').eq('occurred_in','game')
         const major = (injuries||[]).filter(i=>rosterIds.has(i.player_id)&&i.games_out>=obj.threshold)
         isAchieved = major.length === 0
         currentValue = isAchieved ? 1 : 0
