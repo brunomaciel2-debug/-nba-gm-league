@@ -7,6 +7,16 @@
 
 SET session_replication_role = replica;
 
+-- FASE 0: guardar as fotos de arena antes de tudo ser apagado.
+-- Fotos de arena (teams.arena_photo_url) sao cosmeticas, coladas a mao pelo
+-- Comissario no Media Manager -- nunca fizeram parte da "fotografia" do
+-- Ponto de Origem (so teams_preteste.arena_photo_url e' que conta para o
+-- resto do reset). Sem isto, um TRUNCATE+restore normal apagava-as sempre
+-- que o Ponto de Origem tinha sido gravado antes de as fotos serem postas.
+-- Guardadas aqui e repostas no fim, para sobreviverem a qualquer reset.
+CREATE TEMP TABLE _arena_photos_backup AS
+SELECT id, arena_photo_url FROM teams WHERE arena_photo_url IS NOT NULL;
+
 -- FASE 1: limpar tudo
 TRUNCATE TABLE box_scores CASCADE;
 TRUNCATE TABLE play_by_play CASCADE;
@@ -194,6 +204,10 @@ INSERT INTO site_config SELECT * FROM site_config_preteste;
 INSERT INTO injury_types SELECT * FROM injury_types_preteste;
 INSERT INTO player_interaction_types SELECT * FROM player_interaction_types_preteste;
 INSERT INTO season_config SELECT * FROM season_config_preteste;
+
+-- Repor as fotos de arena guardadas no inicio deste script (ver FASE 0).
+UPDATE teams t SET arena_photo_url = b.arena_photo_url
+FROM _arena_photos_backup b WHERE t.id = b.id;
 
 SET session_replication_role = DEFAULT;
 
