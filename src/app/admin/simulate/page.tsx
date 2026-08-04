@@ -51,7 +51,7 @@ export default function AdminSimulatePage() {
   // Real dates for each button — Bruno wants to see exactly what "1 Day" /
   // "Complete Block" / "Full Week" will simulate before clicking, so he can
   // tell at a glance whether things line up once he's done a partial step.
-  const [preview, setPreview] = useState<{ nextDayDate: Date | null, blockStart: Date, blockEnd: Date, weekStart: Date, weekEnd: Date } | null>(null)
+  const [preview, setPreview] = useState<{ nextDayDate: Date | null, nextDayGameCount: number, blockStart: Date, blockEnd: Date, weekStart: Date, weekEnd: Date } | null>(null)
 
   const loadPreview = async () => {
     const { data: cfg } = await supabase.from('season_config').select('current_week,next_sim_half,last_sim_day').eq('id',1).single()
@@ -76,7 +76,19 @@ export default function AdminSimulatePage() {
       if (afterLastSim >= blockStart && afterLastSim <= blockEnd) nextDayDate = afterLastSim
       else if (afterLastSim > blockEnd) nextDayDate = null
     }
-    setPreview({ nextDayDate, blockStart, blockEnd, weekStart, weekEnd })
+    // How many games "1 Day" will actually play that day — real games
+    // (regular season/playoffs) plus pre-season friendlies, since either
+    // (or both, in principle) can land on the same calendar day.
+    let nextDayGameCount = 0
+    if (nextDayDate) {
+      const ymd = `${nextDayDate.getFullYear()}-${String(nextDayDate.getMonth()+1).padStart(2,'0')}-${String(nextDayDate.getDate()).padStart(2,'0')}`
+      const [{ count: realCount }, { count: friendlyCount }] = await Promise.all([
+        supabase.from('games').select('id', { count: 'exact', head: true }).eq('scheduled_date', ymd).eq('status', 'scheduled'),
+        supabase.from('preseason_games').select('id', { count: 'exact', head: true }).eq('scheduled_date', ymd).in('status', ['scheduled', 'accepted']),
+      ])
+      nextDayGameCount = (realCount || 0) + (friendlyCount || 0)
+    }
+    setPreview({ nextDayDate, nextDayGameCount, blockStart, blockEnd, weekStart, weekEnd })
   }
 
   useEffect(() => { loadPreview() }, [])
@@ -318,7 +330,9 @@ export default function AdminSimulatePage() {
         {(() => {
           const fmtDate = (d: Date) => d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
           const dayDateLabel = preview
-            ? (preview.nextDayDate ? fmtDate(preview.nextDayDate) : (isPT ? 'sem jogos' : 'no games'))
+            ? (preview.nextDayDate
+                ? `${fmtDate(preview.nextDayDate)} (${preview.nextDayGameCount} ${isPT ? (preview.nextDayGameCount === 1 ? 'jogo' : 'jogos') : (preview.nextDayGameCount === 1 ? 'game' : 'games')})`
+                : (isPT ? 'sem jogos' : 'no games'))
             : '…'
           // Start from whichever day is actually still unsimulated (same one
           // "1 Day" would target), not the block's nominal start date — if
