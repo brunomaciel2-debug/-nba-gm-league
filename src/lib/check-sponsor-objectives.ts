@@ -45,6 +45,15 @@ export async function checkSponsorObjectives() {
   const teamMap: Record<string, any> = {}
   ;(allTeams||[]).forEach((t:any) => teamMap[t.id] = t)
 
+  // Shared by wins_vs_top5 below — every final game this season, in date
+  // order, so "was this opponent top-5 at the time" can be computed instead
+  // of against today's standings. Fetched once here (not per-team inside
+  // the loop) since it's the same league-wide log for everyone.
+  const { data: allSeasonGames } = await supabase.from('games')
+    .select('home_team,away_team,home_score,away_score,scheduled_date')
+    .eq('season','2025-26').eq('status','final')
+    .order('scheduled_date')
+
   // reach_playoffs/top_conference/top_division are FINAL-standings
   // objectives — "current rank right now" is meaningless (and was getting
   // credited) while the regular season still has months left to shuffle
@@ -135,20 +144,33 @@ export async function checkSponsorObjectives() {
       }
 
       case 'wins_vs_top5': {
-        // Top 5 teams by wins
-        const sorted = (allTeams||[])
-          .filter((t:any)=>!['ALL','RVS','ROO','SOP'].includes(t.id)&&t.id!==teamId)
-          .sort((a:any,b:any)=>b.wins-a.wins).slice(0,5).map((t:any)=>t.id)
+        // "Top 5" used to mean today's standings applied retroactively to
+        // every game all season — a team that was briefly top-5 in week 3
+        // and fell to 15th by week 20 kept counting forever, AND (the
+        // reverse bug) a team that only climbed into the top 5 much later
+        // credited a win against them back when they weren't good yet.
+        // Rebuilt as a running per-team win total advanced strictly in
+        // scheduled_date order, so each of THIS team's wins is checked
+        // against the standings as they genuinely were on that date.
+        const allTeamIds = (allTeams||[]).filter((t:any)=>!['ALL','RVS','ROO','SOP'].includes(t.id)).map((t:any)=>t.id)
+        const winsAsOf: Record<string, number> = {}
         let winsVsTop = 0
-        for (const oppId of sorted) {
-          const { data: games } = await supabase.from('games')
-            .select('home_score,away_score,home_team,away_team')
-            .eq('season','2025-26').eq('status','final')
-            .or(`and(home_team.eq.${teamId},away_team.eq.${oppId}),and(home_team.eq.${oppId},away_team.eq.${teamId})`)
-          winsVsTop += (games||[]).filter(g=>
-            (g.home_team===teamId&&g.home_score>g.away_score)||
-            (g.away_team===teamId&&g.away_score>g.home_score)
-          ).length
+        for (const g of (allSeasonGames||[])) {
+          if (g.home_team === teamId || g.away_team === teamId) {
+            const won = (g.home_team===teamId && g.home_score>g.away_score) || (g.away_team===teamId && g.away_score>g.home_score)
+            if (won) {
+              const oppId = g.home_team===teamId ? g.away_team : g.home_team
+              const rankedAsOf = allTeamIds
+                .filter((id:string)=>id!==teamId)
+                .map((id:string)=>({ id, wins: winsAsOf[id]||0 }))
+                .sort((a,b)=>b.wins-a.wins)
+                .slice(0,5)
+                .map((t:any)=>t.id)
+              if (rankedAsOf.includes(oppId)) winsVsTop++
+            }
+          }
+          const winnerId = g.home_score > g.away_score ? g.home_team : g.away_team
+          winsAsOf[winnerId] = (winsAsOf[winnerId]||0) + 1
         }
         currentValue = winsVsTop
         isAchieved = currentValue >= obj.threshold
@@ -359,7 +381,11 @@ export async function checkSponsorObjectives() {
         const { data: ff } = await supabase.from('franchise_finances')
           .select('fan_satisfaction').eq('team_id',teamId).single()
         currentValue = ff?.fan_satisfaction || 0
-        isAchieved = currentValue >= obj.threshold
+        // Unlike wins (only ever go up), satisfaction drifts both ways —
+        // touching the target for one moment and then sliding back down
+        // shouldn't lock in the reward forever, same reasoning as
+        // reach_playoffs/top_conference/no_major_injury above.
+        isAchieved = regularSeasonOver && currentValue >= obj.threshold
         break
       }
 
