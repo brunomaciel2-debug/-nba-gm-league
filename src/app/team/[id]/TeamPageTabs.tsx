@@ -160,7 +160,14 @@ export default function TeamPageTabs({
       // an unlocked slot sitting on unspent credits, same idea as Scouting's
       // "points to spend" check below.
       const trainingPending = (trainingSlots || []).some((s: any) => !s.locked && (s.credits_available || 0) > 0)
-      const psychologyPending = (psychSlots || []).filter((s: any) => s.player_id).length < 3
+      // Only worth flagging when there's actually someone to help — an empty
+      // slot alone means nothing if every player's morale is already fine
+      // (sessions exist specifically to bring players below 60 morale back
+      // up, per PsychologyOfficeTab/psychology-office-constants.ts).
+      const psychAssignedIds = new Set((psychSlots || []).map((s: any) => s.player_id).filter(Boolean))
+      const psychHasEmptySlot = (psychSlots || []).filter((s: any) => s.player_id).length < 3
+      const psychNeedsHelp = players.some((p: any) => (p.moral ?? 80) < 60 && !psychAssignedIds.has(p.id))
+      const psychologyPending = psychHasEmptySlot && psychNeedsHelp
 
       setAlerts({
         sponsors: sponsorsPending,
