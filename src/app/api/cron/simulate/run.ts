@@ -880,6 +880,15 @@ const tickResult = await resolveDailyTicks(cappedDates)
 if (tickResult.playoffGamesProcessed > 0) console.log(`Playoff bracket — games simulated: ${tickResult.playoffGamesProcessed}`)
 } catch (tickErr) { console.warn('Daily ticks failed:', tickErr) }
 
+// Record the exact last day actually processed, regardless of whether
+// this call goes on to finish the whole half or stops partway through —
+// SimulatorBanner reads this directly instead of re-deriving a guess from
+// the games table, which never had the right data for pre-season anyway
+// (friendlies live in preseason_games, not games).
+if (cappedDates.length > 0) {
+await supabaseAdmin.from('season_config').update({ last_sim_day: cappedDates[cappedDates.length - 1] }).eq('id', 1)
+}
+
 // A capped call that didn't cover every day in this half yet (pre-season
 // friendlies/ticks have no other way to detect "still more to do" the way
 // the regular-season games check above does, since preseason has no

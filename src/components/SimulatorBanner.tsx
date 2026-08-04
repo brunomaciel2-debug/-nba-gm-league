@@ -19,12 +19,15 @@ export default function SimulatorBanner() {
   const [nextEvent, setNextEvent] = useState<any>(null)
   // The exact real day the simulation is currently sitting on — not just the
   // week/half range. Bruno's rule: whenever a block/day is simulated, "today"
-  // becomes the LAST day actually simulated. With 1-day-at-a-time simulation
-  // now possible, that can land mid-block, so it's derived the same way
-  // admin/simulate/page.tsx's preview does — the earliest still-'scheduled'
-  // game in the upcoming half, minus one day. With no games in that half at
-  // all (e.g. deep pre-season/off-season), that reduces to "the day before
-  // the upcoming block starts", i.e. the last day of the block just finished.
+  // becomes the LAST day actually simulated. This used to be GUESSED from
+  // the games table (earliest still-scheduled game in the upcoming half,
+  // minus a day), which only worked for the regular season — pre-season
+  // friendlies have no scheduled_date of their own in that table, so once
+  // "Simulate 1 Day" started correctly stopping after a single day instead
+  // of the whole block, this guess had no way to reflect that a day had
+  // actually been processed until the WHOLE block finished. Now read
+  // directly from season_config.last_sim_day, written by the simulator
+  // itself every time it processes a day — no more guessing.
   const [currentDay, setCurrentDay] = useState<Date | null>(null)
 
   useEffect(() => {
@@ -33,18 +36,25 @@ export default function SimulatorBanner() {
         setConfig(cfg)
         const week = cfg?.current_week || 0
         const nextWeek = week + 1
-        const nextHalf: 1 | 2 = cfg?.next_sim_half === 2 ? 2 : 1
-        const { start: blockStart, end: blockEnd } = nextWeek > 0
-          ? getHalfWeekDates(nextWeek, nextHalf)
-          : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
-        const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-        const { data: nextGame } = await supabase.from('games').select('scheduled_date')
-          .eq('week_number', nextWeek).eq('status', 'scheduled')
-          .gte('scheduled_date', ymd(blockStart)).lte('scheduled_date', ymd(blockEnd))
-          .order('scheduled_date').limit(1).maybeSingle()
-        const nextDayDate = nextGame?.scheduled_date ? new Date(nextGame.scheduled_date + 'T12:00:00') : blockStart
-        const lastSimDay = new Date(nextDayDate)
-        lastSimDay.setDate(lastSimDay.getDate() - 1)
+        let lastSimDay: Date
+        if (cfg?.last_sim_day) {
+          lastSimDay = new Date(cfg.last_sim_day + 'T12:00:00')
+        } else {
+          // Fallback for a state predating this column (or before any
+          // simulation has ever run) — same guess as before.
+          const nextHalf: 1 | 2 = cfg?.next_sim_half === 2 ? 2 : 1
+          const { start: blockStart, end: blockEnd } = nextWeek > 0
+            ? getHalfWeekDates(nextWeek, nextHalf)
+            : { start: new Date('2025-10-01'), end: new Date('2025-10-07') }
+          const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          const { data: nextGame } = await supabase.from('games').select('scheduled_date')
+            .eq('week_number', nextWeek).eq('status', 'scheduled')
+            .gte('scheduled_date', ymd(blockStart)).lte('scheduled_date', ymd(blockEnd))
+            .order('scheduled_date').limit(1).maybeSingle()
+          const nextDayDate = nextGame?.scheduled_date ? new Date(nextGame.scheduled_date + 'T12:00:00') : blockStart
+          lastSimDay = new Date(nextDayDate)
+          lastSimDay.setDate(lastSimDay.getDate() - 1)
+        }
         setCurrentDay(lastSimDay)
 
         // season_events rows are dated within the SIMULATED season calendar
