@@ -163,8 +163,18 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
         : ''
       const detail = inj.notes ? `\n${inj.notes}` : ''
       const bodyPart = lang === 'pt' ? `Zona afetada: ${inj.body_part}${detail}\nRecuperação estimada: ${inj.games_out} jogos (aprox. ${Math.ceil(inj.games_out/4)} semanas)${recurring}` : `Body part: ${inj.body_part}${detail}\nEstimated recovery: ${inj.games_out} games (approx. ${Math.ceil(inj.games_out/4)} weeks)${recurring}`
+
+      // Idempotency guard — this section's query matches by week_number,
+      // which is shared between this week's two simulation halves (and any
+      // re-run of the same half), so without this an injury from the first
+      // call would get re-notified on every later call that still sees it
+      // as 'active'.
+      const { data: alreadySent } = await supabase.from('inbox_messages').select('id')
+        .eq('to_team_id', teamId).eq('type', 'injury').contains('metadata', { injury_log_id: inj.id }).maybeSingle()
+      if (alreadySent) continue
+
       await notify(teamId, 'injury', `${emoji} ${notif.subject.replace('🏥 Injury — ', '').replace('🏥 Lesão — ', '')}`, `${notif.body}\n\n${bodyPart}${medLine}${specialistLine}`, {
-        player_id: inj.player_id, injury_type: inj.injury_type, severity, games_out: inj.games_out,
+        injury_log_id: inj.id, player_id: inj.player_id, injury_type: inj.injury_type, severity, games_out: inj.games_out,
         specialist_eligible: eligible, specialist_cost: specialistCost, specialist_used: false,
         game_id: inj.game_id || undefined,
       })
@@ -353,8 +363,13 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   }
 
   // ── 10. WEEKLY ORDERS DEADLINE REMINDER ───────────────
-  for (const team of (teams||[])) {
-    if (week % 2 === 0) {
+  if (week % 2 === 0) {
+    // Skip teams that already submitted orders for next week — this used to
+    // nag every team regardless, including GMs who'd already done it.
+    const { data: nextWeekOrders } = await supabase.from('gm_orders').select('team_id').eq('week_number', week + 1)
+    const teamsWithOrders = new Set((nextWeekOrders||[]).map((o:any) => o.team_id))
+    for (const team of (teams||[])) {
+      if (teamsWithOrders.has(team.id)) continue
       const lang = await getTeamLang(team.id)
       const notif = notifOrdersReminder(lang)
       await notify(team.id, 'reminder', notif.subject, notif.body, { week: week + 1 })
@@ -522,6 +537,14 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     const playerTeamId = (award.players as any)?.team_id || award.team_id
     const playerName = (award.players as any)?.name || 'A player'
     if (!playerTeamId) continue
+    // Idempotency guard — recentAwards is scoped by a rolling 4-day
+    // created_at window, not by this call's own results, so a simulation
+    // re-run inside that window (routine when testing) would otherwise
+    // re-send an award notification already delivered.
+    const { data: alreadySent } = await supabase.from('inbox_messages').select('id')
+      .eq('to_team_id', playerTeamId).eq('type', 'awards')
+      .contains('metadata', { player_id: award.player_id, award_type: award.award_type }).maybeSingle()
+    if (alreadySent) continue
     const lang = await getTeamLang(playerTeamId)
     const label = lang === 'pt' ? (AWARD_LABELS_PT[award.award_type] || award.award_type) : (AWARD_LABELS_EN[award.award_type] || award.award_type)
     const isAllStar = award.award_type.startsWith('all_star')
@@ -538,6 +561,12 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   for (const pick of (recentPicks||[])) {
     const prospectName = (pick.prospects as any)?.name || 'A prospect'
     const resultingPlayerId = (pick.prospects as any)?.resulting_player_id
+    // Idempotency guard — same rolling-window issue as the awards section
+    // above; a pick already announced shouldn't be re-sent on a later call.
+    const { data: alreadySent } = await supabase.from('inbox_messages').select('id')
+      .eq('to_team_id', pick.team_id).eq('type', 'fa')
+      .contains('metadata', { pick_number: pick.pick_number, round: pick.round }).maybeSingle()
+    if (alreadySent) continue
     const lang = await getTeamLang(pick.team_id)
     const subject = lang === 'pt' ? `🎓 Escolha do Draft #${pick.pick_number}: ${prospectName}` : `🎓 Draft Pick #${pick.pick_number}: ${prospectName}`
     const body = lang === 'pt'

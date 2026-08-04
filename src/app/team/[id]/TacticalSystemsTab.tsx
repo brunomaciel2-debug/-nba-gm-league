@@ -38,7 +38,13 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
 
   const load = async () => {
     const { data: sc } = await supabase.from('season_config').select('current_week').eq('id', 1).single()
-    const week = (sc as any)?.current_week || 0
+    // Orders are always submitted (and stored) under current_week + 1 — the
+    // upcoming week, never the one that just simulated — so that's the row
+    // that reflects the system actually queued to run next. Querying
+    // current_week directly almost never finds a match and silently falls
+    // back to 'motion', which let a GM pick a focus for a system that isn't
+    // really active (this is what the notification check queries too).
+    const week = ((sc as any)?.current_week || 0) + 1
     const { data: order } = await supabase.from('gm_orders').select('atk_style').eq('team_id', teamId).eq('week_number', week).maybeSingle()
     const sys: OffSystem = (order as any)?.atk_style || 'motion'
     setActiveSystem(sys)

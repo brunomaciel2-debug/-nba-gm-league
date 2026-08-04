@@ -1,5 +1,7 @@
 'use client'
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from './AuthProvider'
 import en from './messages/en'
 import pt from './messages/pt'
 
@@ -38,6 +40,7 @@ function interpolate(str: string, vars?: Record<string, string | number>): strin
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
+  const { profile } = useAuth()
   const [locale, setLocaleState] = useState<Locale>('en')
 
   useEffect(() => {
@@ -46,6 +49,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       setLocaleState(cached)
     }
   }, [])
+
+  // The site's language toggle only ever lived in localStorage — server-side
+  // notifications read gm_profiles.language instead, which no code path ever
+  // wrote, so it silently stayed 'en' for everyone. Mirror it here whenever
+  // it's out of sync so generated notifications match what the GM sees.
+  useEffect(() => {
+    if (profile?.team_id && profile.language !== locale) {
+      supabase.from('gm_profiles').update({ language: locale }).eq('team_id', profile.team_id)
+    }
+  }, [profile?.team_id, profile?.language, locale])
 
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale)
