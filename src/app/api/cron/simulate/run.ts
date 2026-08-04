@@ -588,23 +588,18 @@ double_doubles: isDD?1:0,
 }
 } // end if (!isPreseason) — random round-robin block
 
-// A capped call (dayLimit) that still left games 'scheduled' in this half
-// stops right here — every step below assumes the half is actually done
-// (weekly highlights, awards, training, notifications, advancing
-// next_sim_half/current_week), and running any of it against a half that's
-// only partly simulated would be wrong, not just early. The remaining
-// games stay untouched for the next "Simulate 1 Day" / "Complete Block" call.
-if (dayLimit && !isPreseason) {
-const { count: stillScheduled } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true })
-.eq('week_number', week).eq('status', 'scheduled')
-.in('scheduled_date', halfDates)
-if (stillScheduled && stillScheduled > 0) {
-return NextResponse.json({
-success: true, partial: true, week, half, games_simulated: gamesSimulated, games_remaining: stillScheduled,
-message: `${formatWeekRange(week,'pt-PT')} — ${gamesSimulated} jogo(s) simulado(s), ${stillScheduled} por simular neste bloco.`,
-})
-}
-}
+// The OLDER partial-completion check used to live here, returning early
+// whenever ANY game elsewhere in this half was still 'scheduled' — correct
+// in spirit (a capped call that left work behind shouldn't run the
+// once-per-half aftermath), but it ran BEFORE last_sim_day ever gets
+// recorded further down. Every day-capped call after the very first one in
+// a half hit this early return, so a day that had genuinely just finished
+// (e.g. Oct 24, with a later day like Oct 26 still scheduled) never
+// actually got written to last_sim_day — "Simulate 1 Day" looked
+// permanently stuck on the same day no matter how many times it ran. The
+// cappedDates-based check further below (after last_sim_day IS recorded)
+// already covers this exact condition — same half-not-done signal, right
+// order — so this earlier, redundant check was removed rather than moved.
 
 // ── TECHNICAL FOUL SUSPENSIONS ────────────────────────
 // Real NBA rule: 16 technicals in a regular season = 1-game suspension,
