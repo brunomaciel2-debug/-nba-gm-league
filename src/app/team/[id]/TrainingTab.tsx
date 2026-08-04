@@ -324,7 +324,7 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
       )}
 
       <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
-        <div style={{flex:1,minWidth:0,borderRadius:12,overflow:'hidden',border:'1px solid #d4cdc5'}}>
+        <div style={{flex:1,minWidth:0,borderRadius:12,overflow:'visible',border:'1px solid #d4cdc5'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
             <thead>
               <tr style={{background:'#f0ece5',borderBottom:'2px solid #d4cdc5'}}>
@@ -333,7 +333,7 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
                 {activeAttrs.length>0
                   ? activeAttrs.map(key=>{
                       const a=activeCfg?.attrs.find(x=>x.key===key)
-                      return <th key={key} style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:activeCfg?.color,fontSize:10,whiteSpace:'nowrap'}}>{a?.label||key}<AttrTip attrKey={key} isPT={isPT}/></th>
+                      return <th key={key} style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:activeCfg?.color,fontSize:10,whiteSpace:'nowrap'}}>{a?.label||key}<AttrTip attrKey={key} isPT={isPT} align="right"/></th>
                     })
                   : <th style={{padding:'8px 6px',textAlign:'center',fontWeight:400,color:'#b0a89e',fontSize:10}}>← {isPT?'Seleciona um slot':'Select a slot'}</th>
                 }
