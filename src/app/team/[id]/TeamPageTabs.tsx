@@ -144,7 +144,12 @@ export default function TeamPageTabs({
       const sponsorsPending = ['jersey', 'court', 'panels'].some(tier =>
         !activeTiers.has(tier) && (pool || []).some((p: any) => p.tier === tier && !p.chosen))
 
-      const week = (cfg as any)?.current_week || 0
+      // Orders are always submitted (and stored) under current_week + 1 — see
+      // the same gotcha explained in TacticalSystemsTab.tsx. Querying
+      // current_week directly found no row, silently fell back to 'motion',
+      // and compared THAT against tactical_focus — so the alert kept firing
+      // even after picking a focus for whichever system was actually active.
+      const week = ((cfg as any)?.current_week || 0) + 1
       const { data: order } = await supabase.from('gm_orders').select('atk_style').eq('team_id', teamId).eq('week_number', week).maybeSingle()
       const activeSystem = (order as any)?.atk_style || 'motion'
       const { data: focusRows } = await supabase.from('tactical_focus').select('system,node_id').eq('team_id', teamId)
