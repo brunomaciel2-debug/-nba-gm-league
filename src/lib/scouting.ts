@@ -42,6 +42,11 @@ export const SCOUT_TIERS = {
   },
 }
 
+// Hard ceiling on spendable scouting credits (scout_progress.points) — a
+// fixed cap regardless of tier, above the cost of even a Tier 3 session
+// (20cr) so there's always a little headroom, but not unlimited banking.
+export const SCOUT_CREDIT_CAP = 24
+
 function getCurrentTier(points: number): number {
   if (points >= SCOUT_TIERS[3].pointsRequired) return 3
   if (points >= SCOUT_TIERS[2].pointsRequired) return 2
@@ -81,8 +86,12 @@ export async function generateWeeklyScoutPoints(week?: number) {
       .eq('season', '2025-26')
       .maybeSingle()
 
+    // Spendable credits are capped at SCOUT_CREDIT_CAP — otherwise they'd
+    // accumulate forever week over week with nothing to spend them on fast
+    // enough, letting a team bank hundreds of credits far beyond what any
+    // tier's session actually costs (max is Tier 3 at 20/session).
     const currentPoints = progress?.points || 0
-    const newPoints = currentPoints + weeklyPoints
+    const newPoints = Math.min(SCOUT_CREDIT_CAP, currentPoints + weeklyPoints)
     const oldTier = getCurrentTier(progress?.lifetime_points || 0)
     const newLifetimePoints = (progress?.lifetime_points || 0) + weeklyPoints
     const newTier = getCurrentTier(newLifetimePoints)
@@ -97,7 +106,7 @@ export async function generateWeeklyScoutPoints(week?: number) {
       await supabase.from('scout_progress').insert({
         team_id: scout.team_id,
         season: '2025-26',
-        points: newPoints,
+        points: Math.min(SCOUT_CREDIT_CAP, weeklyPoints),
         lifetime_points: weeklyPoints,
       })
     }
