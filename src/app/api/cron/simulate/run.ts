@@ -1393,7 +1393,9 @@ console.warn(`Player/Rookie of the Month failed for ${monthKey}:`, oneMonthErr)
 // of data, just an earlier, provisional look mid-week.
 if (!isPreseason) {
 try {
-const { data: weekGameRows } = await supabaseAdmin.from('games').select('id').eq('week_number',week).eq('status','final')
+// game_type='regular' required — same gap as Player/Rookie of the Week
+// below, this would otherwise also pull in playoff games sharing the week.
+const { data: weekGameRows } = await supabaseAdmin.from('games').select('id').eq('week_number',week).eq('status','final').eq('game_type','regular')
 const weekGameIds = (weekGameRows||[]).map((g:any)=>g.id)
 const weekBoxes2 = await fetchAllRows<any>((from,to) => supabaseAdmin
 .from('box_scores').select('player_id,game_id,team_id,mins,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers')
@@ -1759,9 +1761,12 @@ const isEndOfSeason = week === 40 // last week of the Regular Season (see season
 // retry only creates the remaining games, so gamesCreated-scoping would
 // compute Player/Rookie of the Week from an incomplete slice of the week
 // missing the first attempt's box scores entirely.
+// game_type='regular' explicitly required — without it this would also
+// pick up playoff games sharing the same week_number (Player/Rookie of
+// the Month already had this filter; the Week versions didn't).
 const { data: weekGamesData } = await supabaseAdmin
 .from('games').select('id,home_team,away_team,home_score,away_score')
-.eq('week_number', week).eq('status','final')
+.eq('week_number', week).eq('status','final').eq('game_type','regular')
 const weekGameIdsAw = (weekGamesData||[]).map((g:any)=>g.id)
 
 const weekBoxesAw = weekGameIdsAw.length > 0 ? await fetchAllRows<any>((from,to) => supabaseAdmin
