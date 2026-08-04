@@ -1,8 +1,21 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { simulateGame } from '@/lib/game-simulator'
 import { getRefereeAvgRatings, pickTopTierReferee, rateRefereePerformance } from '@/lib/referees'
+import { getWeekForDate } from '@/lib/season-week-helper'
 
 const SEASON = '2025-26'
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+// Local Y-M-D math, matching schedule-generator.ts's ymd() convention (NOT
+// toISOString(), which converts to UTC and can roll the date back a day).
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function dayOfWeekFor(dateStr: string): string {
+  return WEEKDAY_NAMES[new Date(dateStr + 'T12:00:00').getDay()]
+}
 
 type AdvanceTarget = { seriesType: string, slot: 'team_high' | 'team_low' }
 
@@ -120,15 +133,52 @@ async function advanceWinner(seriesType: string, winnerId: string, loserId: stri
   if (advance.loserTo) await fillSeriesSlot(advance.loserTo.seriesType, advance.loserTo.slot, loserId)
 }
 
-// Advances the playoff bracket by exactly one game per still-open series,
-// per call — same idempotent, call-repeatedly-per-tick shape as
-// src/lib/summer-league.ts and src/lib/referees.ts. Creates real `games` +
+// A team's most recent FINAL game date, any game_type — the anchor used to
+// work out when their next game is allowed. Chains regular season → play-in
+// → each playoff round uniformly, with no special-casing per transition.
+async function mostRecentGameDate(teamId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin.from('games').select('scheduled_date')
+    .or(`home_team.eq.${teamId},away_team.eq.${teamId}`).eq('status', 'final')
+    .not('scheduled_date', 'is', null)
+    .order('scheduled_date', { ascending: false }).limit(1).maybeSingle()
+  return data?.scheduled_date || null
+}
+
+// A fresh series (no games played yet) needs BOTH teams rested — 2 full
+// rest days off since whatever they last played (regular season, play-in,
+// or a previous round), so the next game is the 3rd day after (e.g. last
+// game Apr 17 -> Apr 18/19 off -> next game Apr 20) — so it opens on
+// whichever team is ready later. A series already underway continues its
+// own "day yes, day no" cadence from its own last game (a rest day in
+// between, so +2 — e.g. Apr 20 -> Apr 21 off -> Apr 22); both teams share
+// that same last game, so no max needed.
+async function computeNextGameDate(s: any): Promise<string | null> {
+  if ((s.wins_high || 0) + (s.wins_low || 0) === 0) {
+    const [highDate, lowDate] = await Promise.all([mostRecentGameDate(s.team_high), mostRecentGameDate(s.team_low)])
+    if (!highDate || !lowDate) return null
+    const readyDate = highDate > lowDate ? highDate : lowDate
+    return addDays(readyDate, 3)
+  }
+  const lastDate = await mostRecentGameDate(s.team_high)
+  return lastDate ? addDays(lastDate, 2) : null
+}
+
+// Advances the playoff bracket by at most one game per still-open series
+// that's actually due on simDate — called once per simulated calendar day
+// (see src/lib/daily-tick.ts), not once per week. A series plays every
+// other day within itself, and waits 2 full rest days before its first
+// game against a freshly-arrived opponent. Creates real `games` +
 // `box_scores` rows via the same simulateGame() used everywhere else, so a
 // playoff game is simulated exactly like a regular-season one (decisive
 // flag always on, near-full arenas) — nothing special-cased in the engine.
-export async function resolvePlayoffSeries(week: number): Promise<{ processed: number }> {
+// Deliberately not gated on getStatusForWeek() — an unusually long bracket
+// keeps resolving regardless of what the nominal week's phase label says,
+// rather than freezing mid-series once the week counter moves on.
+export async function resolvePlayoffDay(simDate: string): Promise<{ processed: number }> {
   const { data: series } = await supabaseAdmin.from('playoff_series').select('*').eq('season', SEASON).neq('status', 'completed')
   if (!series?.length) return { processed: 0 }
+
+  const week = getWeekForDate(simDate)
 
   // Officials Ranking — every playoff/play-in game is decisive by
   // definition, so it always draws from the top tier of rated referees
@@ -148,11 +198,21 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
       // normally happen since we mark it the moment it's decided below.
       const winnerId = s.wins_high > s.wins_low ? s.team_high : s.team_low
       const loserId = s.wins_high > s.wins_low ? s.team_low : s.team_high
-      await supabaseAdmin.from('playoff_series').update({ status: 'completed' }).eq('id', s.id)
+      await supabaseAdmin.from('playoff_series').update({ status: 'completed', next_game_date: null }).eq('id', s.id)
       await advanceWinner(s.series_type, winnerId, loserId)
       if (s.series_type === 'nba_finals') { await resolveFinalsMVP(winnerId, loserId); await recordChampionship(winnerId, loserId) }
       continue
     }
+
+    // Work out (or compute, the first time) when this series' next game is
+    // due, then skip it if that's not today.
+    let nextGameDate: string | null = s.next_game_date
+    if (!nextGameDate) {
+      nextGameDate = await computeNextGameDate(s)
+      if (!nextGameDate) continue // one team's last game date isn't known yet — shouldn't normally happen
+      await supabaseAdmin.from('playoff_series').update({ next_game_date: nextGameDate }).eq('id', s.id)
+    }
+    if (nextGameDate > simDate) continue // not due yet
 
     const gameNumber = (s.wins_high || 0) + (s.wins_low || 0) + 1
     // Play-in is a single game (higher seed always hosts); best-of-7 uses
@@ -165,14 +225,18 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
       supabaseAdmin.from('players').select('*').eq('team_id', homeTeamId).eq('status', 'active'),
       supabaseAdmin.from('players').select('*').eq('team_id', awayTeamId).eq('status', 'active'),
       supabaseAdmin.from('teams').select('*').in('id', [homeTeamId, awayTeamId]),
-      supabaseAdmin.from('gm_orders').select('*').eq('week_number', week).in('team_id', [homeTeamId, awayTeamId]),
+      supabaseAdmin.from('gm_orders').select('*').in('team_id', [homeTeamId, awayTeamId]).order('week_number', { ascending: false }).limit(2),
     ])
     if (!hp?.length || !ap?.length) continue
     const ht = teamsData?.find((t: any) => t.id === homeTeamId)
     const at = teamsData?.find((t: any) => t.id === awayTeamId)
     if (!ht || !at) continue
+    // Most recent order per team (orders queried newest-first above) — a
+    // playoff game isn't necessarily tied to "this week's" submitted
+    // orders the way a regular-season one is, so this just uses whatever
+    // each team last set.
     const orderMap: Record<string, any> = {}
-    ;(orders || []).forEach((o: any) => { orderMap[o.team_id] = o })
+    ;(orders || []).forEach((o: any) => { if (!orderMap[o.team_id]) orderMap[o.team_id] = o })
 
     // Every playoff game is decisive by definition, and arenas are as full
     // as they get — same attRate/decisive plumbing the regular season uses.
@@ -187,6 +251,7 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
       week_number: week, game_number: gameNumber, home_team: homeTeamId, away_team: awayTeamId,
       home_score: result.homeScore, away_score: result.awayScore, status: 'final', season: SEASON,
       played_at: new Date().toISOString(), game_type: 'playoff',
+      scheduled_date: nextGameDate, day_of_week: dayOfWeekFor(nextGameDate),
       attendance: Math.round((ht.arena_capacity || 18000) * 0.97), is_rivalry: false,
       referee_id: refereeId, referee_rating: refereeRating,
       period_scores: result.periods,
@@ -203,15 +268,18 @@ export async function resolvePlayoffSeries(week: number): Promise<{ processed: n
     const homeWon = result.homeScore > result.awayScore
     const newWinsHigh = (s.wins_high || 0) + (homeIsHigh ? (homeWon ? 1 : 0) : (homeWon ? 0 : 1))
     const newWinsLow = (s.wins_low || 0) + (homeIsHigh ? (homeWon ? 0 : 1) : (homeWon ? 1 : 0))
-    await supabaseAdmin.from('playoff_series').update({ wins_high: newWinsHigh, wins_low: newWinsLow }).eq('id', s.id)
     processed++
 
     if (newWinsHigh >= majorityNeeded || newWinsLow >= majorityNeeded) {
       const winnerId = newWinsHigh > newWinsLow ? s.team_high : s.team_low
       const loserId = newWinsHigh > newWinsLow ? s.team_low : s.team_high
-      await supabaseAdmin.from('playoff_series').update({ status: 'completed' }).eq('id', s.id)
+      await supabaseAdmin.from('playoff_series').update({ wins_high: newWinsHigh, wins_low: newWinsLow, status: 'completed', next_game_date: null }).eq('id', s.id)
       await advanceWinner(s.series_type, winnerId, loserId)
       if (s.series_type === 'nba_finals') { await resolveFinalsMVP(winnerId, loserId); await recordChampionship(winnerId, loserId) }
+    } else {
+      // Series continues — "day yes, day no": one rest day in between, so
+      // the next game is 2 days after this one.
+      await supabaseAdmin.from('playoff_series').update({ wins_high: newWinsHigh, wins_low: newWinsLow, next_game_date: addDays(nextGameDate, 2) }).eq('id', s.id)
     }
   }
   return { processed }

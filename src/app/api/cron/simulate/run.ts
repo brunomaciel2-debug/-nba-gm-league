@@ -10,10 +10,10 @@ import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
 import { rookieOptionSalary } from '@/lib/draft-constants'
-import { medicalCostAfterInsurance, physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
+import { medicalCostAfterInsurance, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
 import { resolveSummerLeague } from '@/lib/summer-league'
-import { resolvePlayoffSeries } from '@/lib/playoff-resolver'
+import { resolveDailyTicks } from '@/lib/daily-tick'
 import { assignRefereesToScheduledGames, rateRefereePerformance } from '@/lib/referees'
 import { resolveMonthlyMerchandising } from '@/lib/merchandising'
 import { resolveAllStarWeekend, resolveRisingStars } from '@/lib/allstar-resolver'
@@ -868,6 +868,25 @@ if (r.success) friendliesSimulated++
 }
 } catch(friendlyErr) { console.warn('Friendly games step failed:', friendlyErr) }
 
+// ── DAILY TICKS (health recovery + playoff-day resolution) ──────
+// Runs for every calendar day in THIS half, on every call — health
+// recovery always applies regardless of phase (see src/lib/daily-tick.ts
+// for why this moved off the old once-a-week cadence), and playoff-day
+// resolution is a cheap no-op outside play-in/playoffs. This has to sit
+// before the half-1 early return just below, unlike the old once-per-week
+// HEALTH RECOVERY/PLAYOFF BRACKET steps it replaces. Capped by dayLimit
+// the same way the regular-season game filter above is, so "Simulate 1
+// Day" only advances these by one day too.
+try {
+const { start: tickStart, end: tickEnd } = getHalfWeekDates(week, half)
+const ymdTick = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const tickDates: string[] = []
+for (const d = new Date(tickStart); d <= tickEnd; d.setDate(d.getDate()+1)) tickDates.push(ymdTick(d))
+const cappedTickDates = dayLimit ? tickDates.slice(0, dayLimit) : tickDates
+const tickResult = await resolveDailyTicks(cappedTickDates)
+if (tickResult.playoffGamesProcessed > 0) console.log(`Playoff bracket — games simulated: ${tickResult.playoffGamesProcessed}`)
+} catch (tickErr) { console.warn('Daily ticks failed:', tickErr) }
+
 if (half === 1) {
 // Half 1 done — give GMs a recap of just these games now (half 2 will
 // send its own recap when the week actually finishes), then stop here.
@@ -1108,18 +1127,6 @@ await checkForNewInteractions(week)
 // (roster gen, then each round) advances per tick; see src/lib/summer-league.ts.
 if (getStatusForWeek(week) === 'summer-league') {
   try { await resolveSummerLeague() } catch (slErr) { console.warn('Summer League step failed', slErr) }
-}
-
-// ── PLAYOFF BRACKET ────────────────────────────────────
-// The bracket page/playoff_series rows already existed as a live-updating
-// PREVIEW of seeding — nothing ever actually created real playoff games or
-// advanced the bracket. Advances every still-open series by one game per
-// tick (play-in included); see src/lib/playoff-resolver.ts.
-if (['play-in', 'playoffs'].includes(getStatusForWeek(week))) {
-  try {
-    const poResult = await resolvePlayoffSeries(week)
-    console.log(`Playoff bracket — games simulated: ${poResult.processed}`)
-  } catch (poErr) { console.warn('Playoff bracket step failed', poErr) }
 }
 
 // ── TRAINING SLOT FILL + UNLOCK ───────────────────────
@@ -2165,30 +2172,14 @@ await supabaseAdmin.from('players').update(update).eq('id', r.id)
 } catch(rookieErr) { console.warn('Rookie option progression failed:', rookieErr) }
 }
 
-// ── HEALTH RECOVERY ────────────────────────────────────
-// Includes 'injured' players too — previously only 'active' players ever
-// got health back, so a player who crossed into 'injured' (health<50) was
-// stuck there forever with no way back to 'active'. The Physio's rehab_speed
-// now genuinely speeds this up (or slows it down), only for the injured.
+// ── MORALE DRIFT ────────────────────────────────────────
+// Health recovery (and the injury_log resolution it used to trigger here)
+// moved to a per-simulated-day tick — see src/lib/daily-tick.ts — since
+// health is the real recovery trigger and used to only be checked once a
+// week. This step keeps the once-per-week cadence Bruno didn't ask to
+// change and now only handles morale.
 try {
-const isMonday = new Date().getDay() === 1
-const recDays = isMonday ? 3 : 2
-const { data: allP2 } = await supabaseAdmin.from('players').select('id,health,moral,durability,team_id,status,usage').in('status',['active','injured'])
-const { data: ords2 } = await supabaseAdmin.from('gm_orders').select('team_id,training_intensity').eq('week_number',week)
-const iMap: Record<string,string> = {}
-;(ords2||[]).forEach((o:any) => iMap[o.team_id]=o.training_intensity||'normal')
-const IMOD: Record<string,number> = {rest:1.5,light:1.25,normal:1.0,intense:0.5,very_intense:0.25}
-
-const { data: physios } = await supabaseAdmin.from('coaches').select('team_id,rehab_speed').eq('role','physio')
-const physioMap: Record<string,number> = {}
-;(physios||[]).forEach((c:any) => physioMap[c.team_id]=c.rehab_speed)
-
-// Practice Facility grade's "Recovery" bonus (previously a purely decorative
-// UI number) — a real, secondary multiplier on top of intensity/durability,
-// same role a good Physio already plays.
-const { data: facilitiesForRecovery } = await supabaseAdmin.from('practice_facilities').select('team_id,gym_grade')
-const facilityRecoveryMap: Record<string,number> = {}
-;(facilitiesForRecovery||[]).forEach((f:any) => facilityRecoveryMap[f.team_id] = getGymGradeBonus(f.gym_grade).recovery)
+const { data: allP2 } = await supabaseAdmin.from('players').select('id,moral,team_id,status,usage').in('status',['active','injured'])
 
 // Mental Coach — morale_management now scales how fast a player's morale
 // drifts toward what it actually "deserves" each week (see moraleTarget()
@@ -2263,63 +2254,26 @@ target += Math.max(-12, Math.min(12, (recentAvgPts / seasonAvg - 1) * 30))
 return Math.max(15, Math.min(92, target))
 }
 
-const injuredIds = (allP2||[]).filter((p:any) => p.status==='injured').map((p:any) => p.id)
-const { data: openInjuries } = injuredIds.length > 0 ? await supabaseAdmin
-.from('injury_log').select('player_id,severity,specialist_used').eq('status','active').in('player_id',injuredIds) : { data: [] as any[] }
-const boostMap: Record<string,number> = {}
-;(openInjuries||[]).forEach((inj:any) => {
-if (inj.specialist_used) boostMap[inj.player_id] = SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY[inj.severity as InjurySeverity] || 1
-})
-
 // Same sequential-award-per-player trap as the Attribute Development step
-// above — with ~1150+ active players getting a health/moral update almost
-// every single week (health regen and morale drift both move by a
-// non-zero amount nearly always), this was the other dominant cost behind
-// a "2 minutes, zero games simulated" offseason week. Math stays in
-// memory per player; writes go out in batches of 50 concurrently.
-const recoveryUpdates: { id:string, fields:Record<string,any>, recovered:boolean }[] = []
+// above — with ~1150+ active players getting a morale update almost every
+// single week (morale drift moves by a non-zero amount nearly always),
+// this was part of the same cost behind a "2 minutes, zero games
+// simulated" offseason week. Math stays in memory per player; writes go
+// out in batches of 50 concurrently.
+const moraleUpdates: { id:string, moral:number }[] = []
 for (const p of (allP2||[])) {
-const mod = IMOD[iMap[p.team_id]||'normal']||1.0
-const durB = ((p.durability||75)-75)/100*0.5
-const facilityRecoveryB = (facilityRecoveryMap[p.team_id]||0)/100
-let hGain = 3*recDays*mod*(1+durB)*(1+facilityRecoveryB)
-if (p.status==='injured') hGain *= physioRecoveryMultiplier(physioMap[p.team_id]) * (boostMap[p.id]||1)
 const moraleMgmt = moraleMgmtMap[p.team_id] ?? 60
 const driftRate = Math.min(0.22, Math.max(0.06, 0.10 * (0.6 + moraleMgmt/100*0.8)))
 const target = moraleTarget(p)
-const nh = Math.min(100, Math.round((p.health||100)+hGain))
 const nm = Math.max(0, Math.min(100, Math.round((p.moral||80) + (target-(p.moral||80))*driftRate)))
-const recovered = p.status==='injured' && nh>=50
-if (nh!==(p.health||100)||nm!==(p.moral||80)||recovered) {
-recoveryUpdates.push({ id:p.id, fields:{ health:nh, moral:nm, ...(recovered?{status:'active'}:{}) }, recovered })
-}
+if (nm!==(p.moral||80)) moraleUpdates.push({ id:p.id, moral:nm })
 }
 
-for (let i = 0; i < recoveryUpdates.length; i += 50) {
-const chunk = recoveryUpdates.slice(i, i + 50)
-await Promise.all(chunk.map(u => supabaseAdmin.from('players').update(u.fields).eq('id', u.id)))
+for (let i = 0; i < moraleUpdates.length; i += 50) {
+const chunk = moraleUpdates.slice(i, i + 50)
+await Promise.all(chunk.map(u => supabaseAdmin.from('players').update({moral:u.moral}).eq('id', u.id)))
 }
-
-const recoveredIds = recoveryUpdates.filter(u => u.recovered).map(u => u.id)
-if (recoveredIds.length > 0) {
-// A player's `status` is single-valued — he can only be "injured" from one
-// thing at a time — so once he's back to 'active', every injury_log row
-// still marked 'active' for him is stale, not just the most recent one.
-// Closing only the latest (the old behavior) left older rows stuck
-// 'active' forever whenever a player had picked up a second injury before
-// the first one's row got closed, or a stale row survived an earlier
-// buggy pass — this is what silently piled up to 170 permanently-'active'
-// rows league-wide after a season of recoveries, crowding out real,
-// currently-injured players from any query capped with a .limit().
-const { data: openInjs } = await supabaseAdmin.from('injury_log').select('id')
-.in('player_id', recoveredIds).eq('status','active')
-const injIds: string[] = (openInjs||[]).map((inj:any) => inj.id)
-for (let i = 0; i < injIds.length; i += 50) {
-const chunk = injIds.slice(i, i + 50)
-await Promise.all(chunk.map((id:string) => supabaseAdmin.from('injury_log').update({ status:'resolved', healed_at:new Date().toISOString(), healed_week:week }).eq('id', id)))
-}
-}
-} catch(e) { console.warn('Recovery step failed',e) }
+} catch(e) { console.warn('Morale drift step failed',e) }
 
 // ── PSYCHOLOGY OFFICE ──────────────────────────────────
 // Runs after the recovery step above so it reads each player's
