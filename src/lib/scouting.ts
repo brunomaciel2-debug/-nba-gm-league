@@ -10,17 +10,20 @@ const supabase = createClient(
 )
 
 // ── TIER CONFIGURATION ──────────────────────────────────
-// Credit cost per reveal IMPROVES at higher tiers (better ratio),
-// rewarding patience. Maintenance is a recurring weekly cost that
-// increases the longer a team holds a higher tier — representing
-// the overhead of a larger scouting operation (extra staff, travel,
-// equipment), independent of whether sessions are actually used.
+// This is a single resettable progress meter (scout_progress.points), not
+// three separate cumulative pools. It climbs weekly and, once it crosses a
+// tier's pointsRequired threshold, that tier's revealCount becomes the
+// team's current available credits — replacing whatever the previous tier
+// offered, not adding to it. The GM can keep waiting for a bigger payout
+// (higher tiers cost more in weekly maintenance while unspent, rewarding
+// patience but not for free) or cash out early. Spending resets the whole
+// meter back to 0 regardless of how many of the available credits were
+// actually used — there's no partial carryover ("sem troco").
 export const SCOUT_TIERS = {
   1: {
     label: 'Tier 1',
     pointsRequired: 100,
     revealCount: 6,
-    creditCost: 10,           // ~1.7 credits per attribute
     weeklyMaintenance: 0,
     description: 'Local scouting network — college games, combine reports',
   },
@@ -28,7 +31,6 @@ export const SCOUT_TIERS = {
     label: 'Tier 2',
     pointsRequired: 250,
     revealCount: 14,
-    creditCost: 15,           // ~1.1 credits per attribute — better ratio than Tier 1
     weeklyMaintenance: 15_000,
     description: 'Regional travel — in-person workouts, deeper film study',
   },
@@ -36,16 +38,10 @@ export const SCOUT_TIERS = {
     label: 'Tier 3',
     pointsRequired: 400,
     revealCount: 24,
-    creditCost: 20,           // ~0.8 credits per attribute — best ratio
     weeklyMaintenance: 40_000,
     description: 'International scouting — private workouts, full team of evaluators',
   },
 }
-
-// Hard ceiling on spendable scouting credits (scout_progress.points) — a
-// fixed cap regardless of tier, above the cost of even a Tier 3 session
-// (20cr) so there's always a little headroom, but not unlimited banking.
-export const SCOUT_CREDIT_CAP = 24
 
 function getCurrentTier(points: number): number {
   if (points >= SCOUT_TIERS[3].pointsRequired) return 3
@@ -56,7 +52,8 @@ function getCurrentTier(points: number): number {
 
 // ── WEEKLY POINTS GENERATION + MAINTENANCE BILLING ──────
 // Called by the weekly cron — adds scouting points based on scout quality,
-// and bills weekly maintenance cost for whatever tier the team currently holds.
+// and bills weekly maintenance cost for whatever tier the current cycle has
+// reached.
 export async function generateWeeklyScoutPoints(week?: number) {
   const { data: scouts } = await supabase
     .from('coaches')
@@ -86,15 +83,15 @@ export async function generateWeeklyScoutPoints(week?: number) {
       .eq('season', '2025-26')
       .maybeSingle()
 
-    // Spendable credits are capped at SCOUT_CREDIT_CAP — otherwise they'd
-    // accumulate forever week over week with nothing to spend them on fast
-    // enough, letting a team bank hundreds of credits far beyond what any
-    // tier's session actually costs (max is Tier 3 at 20/session).
+    // The cycle meter pauses once it reaches Tier 3's threshold — same
+    // "stop once maxed out until spent" idea as training_slots' fill_pct —
+    // instead of climbing forever with no further benefit.
     const currentPoints = progress?.points || 0
-    const newPoints = Math.min(SCOUT_CREDIT_CAP, currentPoints + weeklyPoints)
-    const oldTier = getCurrentTier(progress?.lifetime_points || 0)
+    const newPoints = Math.min(SCOUT_TIERS[3].pointsRequired, currentPoints + weeklyPoints)
+    const oldTier = getCurrentTier(currentPoints)
+    const newTier = getCurrentTier(newPoints)
+    // Kept purely as a historical/lifetime stat — no longer gates anything.
     const newLifetimePoints = (progress?.lifetime_points || 0) + weeklyPoints
-    const newTier = getCurrentTier(newLifetimePoints)
 
     if (progress) {
       await supabase.from('scout_progress').update({
@@ -106,16 +103,16 @@ export async function generateWeeklyScoutPoints(week?: number) {
       await supabase.from('scout_progress').insert({
         team_id: scout.team_id,
         season: '2025-26',
-        points: Math.min(SCOUT_CREDIT_CAP, weeklyPoints),
+        points: newPoints,
         lifetime_points: weeklyPoints,
       })
     }
 
-    // Notify if tier increased
+    // Notify if tier increased this cycle
     if (newTier > oldTier) {
       const tierInfo = SCOUT_TIERS[newTier as 1|2|3]
       const lang = await getTeamLang(scout.team_id)
-      const notif = notifScoutTier(lang, scout.name, newTier, tierInfo.revealCount, tierInfo.creditCost, tierInfo.weeklyMaintenance)
+      const notif = notifScoutTier(lang, scout.name, newTier, tierInfo.revealCount, tierInfo.weeklyMaintenance)
       await supabase.from('inbox_messages').insert({
         to_team_id: scout.team_id, type: 'scouting',
         subject: notif.subject, body: notif.body, read: false,
@@ -123,7 +120,7 @@ export async function generateWeeklyScoutPoints(week?: number) {
       })
     }
 
-    // ── Weekly maintenance billing for current tier ──────
+    // ── Weekly maintenance billing for the current cycle's tier ──
     if (newTier > 0) {
       const tierInfo = SCOUT_TIERS[newTier as 1|2|3]
       if (tierInfo.weeklyMaintenance > 0) {
@@ -159,21 +156,17 @@ export async function generateWeeklyScoutPoints(week?: number) {
   return { updated }
 }
 
-// ── REVEAL ATTRIBUTES (spend a session) ─────────────────
-// Note: creditCost is the ONLY per-session cost. There is no additional
-// money cost per session — money is billed separately as weekly maintenance.
+// ── REVEAL ATTRIBUTES (spend the current cycle) ─────────
+// The tier — and therefore how many credits are available — is derived
+// server-side from the team's current progress, never trusted from the
+// client. Spending always resets progress to 0, even if fewer than the
+// available credits were actually used.
 export async function revealAttributes(
   teamId: string,
-  tier: 1 | 2 | 3,
   reveals: { prospectId: string, attribute: string }[]
 ): Promise<{ success: boolean, error?: string }> {
-  const tierConfig = SCOUT_TIERS[tier]
-
   if (reveals.length === 0) {
     return { success: false, error: 'No attributes selected' }
-  }
-  if (reveals.length > tierConfig.revealCount) {
-    return { success: false, error: `Tier ${tier} allows up to ${tierConfig.revealCount} reveals per session` }
   }
 
   const { data: progress } = await supabase
@@ -186,16 +179,21 @@ export async function revealAttributes(
   if (!progress) {
     return { success: false, error: 'No scouting progress found for this team' }
   }
-  if ((progress.lifetime_points || 0) < tierConfig.pointsRequired) {
-    return { success: false, error: `Team has not reached Tier ${tier} yet (${progress.lifetime_points || 0}/${tierConfig.pointsRequired} lifetime points)` }
-  }
-  if ((progress.points ?? 0) < tierConfig.creditCost) {
-    return { success: false, error: `Not enough scouting credits — this session costs ${tierConfig.creditCost} credits, you have ${progress.points ?? 0}` }
+
+  const currentTier = getCurrentTier(progress.points || 0)
+  if (currentTier === 0) {
+    return { success: false, error: `Not enough scouting progress yet — ${progress.points || 0}/${SCOUT_TIERS[1].pointsRequired} points to your first credits` }
   }
 
-  // Deduct credits balance (only cost — no per-session money charge)
+  const tierConfig = SCOUT_TIERS[currentTier as 1|2|3]
+  if (reveals.length > tierConfig.revealCount) {
+    return { success: false, error: `You have ${tierConfig.revealCount} credits available — can't reveal more than that` }
+  }
+
+  // Spend the whole cycle — no partial carryover regardless of how many of
+  // the available credits were actually used.
   await supabase.from('scout_progress').update({
-    points: (progress.points ?? 0) - tierConfig.creditCost,
+    points: 0,
     updated_at: new Date().toISOString(),
   }).eq('id', progress.id)
 

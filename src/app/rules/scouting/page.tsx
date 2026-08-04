@@ -31,7 +31,7 @@ export default function ScoutingRulesPage() {
       </div>
       <div style={{ marginTop:20, padding:'16px 18px', borderRadius:12, background:'#ede9fe', border:'1px solid #c4b5fd' }}>
         <div style={{ fontSize:12, color:'#6d28d9', lineHeight:1.7 }}>
-          Tier 1: 100pts → 6 / 10cr · Tier 2: 250pts → 14 / 15cr + 15K$/sem · Tier 3: 400pts → 24 / 20cr + 40K$/sem
+          Tier 1: 100pts → 6cr · Tier 2: 250pts → 14cr + 15K$/sem · Tier 3: 400pts → 24cr + 40K$/sem · spend = reset to 0
         </div>
       </div>
       <p style={{ marginTop:12, textAlign:'center' }}>

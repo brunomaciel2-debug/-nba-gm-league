@@ -214,13 +214,13 @@ export function notifRookieOptionAutoDeclined(lang: 'en'|'pt', name: string) {
   }
 }
 
-export function notifScoutTier(lang: 'en'|'pt', scoutName: string, tier: number, revealCount: number, creditCost: number, maintenance: number) {
-  const maint = maintenance > 0 ? (lang === 'pt' ? `\n\nManter este tier custa ${maintenance/1000}K$/semana, debitados automaticamente do teu saldo.` : `\n\nHolding this tier costs $${maintenance/1000}K/week, billed automatically from your balance.`) : ''
+export function notifScoutTier(lang: 'en'|'pt', scoutName: string, tier: number, revealCount: number, maintenance: number) {
+  const maint = maintenance > 0 ? (lang === 'pt' ? `\n\nManter este tier custa ${maintenance/1000}K$/semana, debitados automaticamente do teu saldo enquanto não gastares os créditos.` : `\n\nHolding this tier costs $${maintenance/1000}K/week, billed automatically from your balance until you spend the credits.`) : ''
   return {
-    subject: lang === 'pt' ? `🔍 Tier ${tier} de Scouting desbloqueado!` : `🔍 Scouting Tier ${tier} unlocked!`,
+    subject: lang === 'pt' ? `🔍 Tier ${tier} de Scouting atingido!` : `🔍 Scouting Tier ${tier} reached!`,
     body: lang === 'pt'
-      ? `O ${scoutName} atingiu a capacidade de Tier ${tier}! Já podes revelar até ${revealCount} atributos por sessão por ${creditCost} créditos — uma melhor relação créditos/atributo do que nos tiers anteriores.${maint}\n\nVai ao separador Scouting para começar a avaliar os prospectos do draft.`
-      : `${scoutName} has reached Tier ${tier} scouting capability! You can now reveal up to ${revealCount} attributes per session for ${creditCost} credits (a better credits-per-attribute ratio than lower tiers).${maint}\n\nVisit the Scouting tab to start evaluating draft prospects.`,
+      ? `O ${scoutName} atingiu o Tier ${tier}! Tens agora ${revealCount} créditos disponíveis para revelar atributos de prospectos — usa-os já, ou continua à espera de um tier ainda maior (atenção à manutenção semanal enquanto esperas).${maint}\n\nVai ao separador Scouting para os gastar.`
+      : `${scoutName} has reached Tier ${tier}! You now have ${revealCount} credits available to reveal prospect attributes — use them now, or keep waiting for an even bigger tier (mind the weekly upkeep while you wait).${maint}\n\nVisit the Scouting tab to spend them.`,
   }
 }
 

@@ -150,7 +150,10 @@ export default function TeamPageTabs({
       const { data: focusRows } = await supabase.from('tactical_focus').select('system,node_id').eq('team_id', teamId)
       const tacticalPending = !(focusRows || []).some((f: any) => f.system === activeSystem)
 
-      const scoutingPending = (scoutProgress?.lifetime_points || 0) >= 100 && (scoutProgress?.points || 0) >= 10
+      // Scouting's progress meter (scout_progress.points) resets to 0 on
+      // spend and only ever represents the CURRENT unspent cycle — reaching
+      // 100 alone means Tier 1's credits are sitting there unused.
+      const scoutingPending = (scoutProgress?.points || 0) >= 100
 
       // training_slots has no player_id column (that was a leftover assumption
       // from a different table's shape) — the real "needs attention" signal is

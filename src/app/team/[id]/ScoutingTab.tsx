@@ -5,15 +5,26 @@ import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
 import { TOTAL_ATTRIBUTES } from '@/lib/scouting-constants'
 
+// One resettable progress meter, not three separate pools. Crossing a
+// tier's pointsRequired makes that tier's revealCount the current
+// available credits, replacing (not adding to) whatever the previous tier
+// offered. Spending resets the whole meter back to 0.
 const TIERS_EN = {
-  1: { label: 'Tier 1', pointsRequired: 100, revealCount: 6, creditCost: 10, weeklyMaintenance: 0, desc: 'Local scouting network — college games, combine reports' },
-  2: { label: 'Tier 2', pointsRequired: 250, revealCount: 14, creditCost: 15, weeklyMaintenance: 15_000, desc: 'Regional travel — in-person workouts, deeper film study' },
-  3: { label: 'Tier 3', pointsRequired: 400, revealCount: 24, creditCost: 20, weeklyMaintenance: 40_000, desc: 'International scouting — private workouts, full team of evaluators' },
+  1: { label: 'Tier 1', pointsRequired: 100, revealCount: 6, weeklyMaintenance: 0, desc: 'Local scouting network — college games, combine reports' },
+  2: { label: 'Tier 2', pointsRequired: 250, revealCount: 14, weeklyMaintenance: 15_000, desc: 'Regional travel — in-person workouts, deeper film study' },
+  3: { label: 'Tier 3', pointsRequired: 400, revealCount: 24, weeklyMaintenance: 40_000, desc: 'International scouting — private workouts, full team of evaluators' },
 }
 const TIERS_PT = {
-  1: { label: 'Nível 1', pointsRequired: 100, revealCount: 6, creditCost: 10, weeklyMaintenance: 0, desc: 'Rede de scouting local — jogos universitários, relatórios de combine' },
-  2: { label: 'Nível 2', pointsRequired: 250, revealCount: 14, creditCost: 15, weeklyMaintenance: 15_000, desc: 'Viagens regionais — treinos presenciais, estudo de vídeo mais aprofundado' },
-  3: { label: 'Nível 3', pointsRequired: 400, revealCount: 24, creditCost: 20, weeklyMaintenance: 40_000, desc: 'Scouting internacional — treinos privados, equipa completa de avaliadores' },
+  1: { label: 'Nível 1', pointsRequired: 100, revealCount: 6, weeklyMaintenance: 0, desc: 'Rede de scouting local — jogos universitários, relatórios de combine' },
+  2: { label: 'Nível 2', pointsRequired: 250, revealCount: 14, weeklyMaintenance: 15_000, desc: 'Viagens regionais — treinos presenciais, estudo de vídeo mais aprofundado' },
+  3: { label: 'Nível 3', pointsRequired: 400, revealCount: 24, weeklyMaintenance: 40_000, desc: 'Scouting internacional — treinos privados, equipa completa de avaliadores' },
+}
+
+function getCurrentTier(points: number): 0|1|2|3 {
+  if (points >= TIERS_EN[3].pointsRequired) return 3
+  if (points >= TIERS_EN[2].pointsRequired) return 2
+  if (points >= TIERS_EN[1].pointsRequired) return 1
+  return 0
 }
 
 const POS_COLOR: Record<string,string> = { PG:'#1d4ed8', SG:'#6d28d9', SF:'#15803d', PF:'#b45309', C:'#dc2626' }
@@ -61,7 +72,6 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
   const [progress, setProgress] = useState<any>(null)
   const [prospects, setProspects] = useState<any[]>([])
   const [revealedMap, setRevealedMap] = useState<Record<string, Set<string>>>({})
-  const [selectedTier, setSelectedTier] = useState<1|2|3|null>(null)
   const [cart, setCart] = useState<{prospectId:string, attribute:string}[]>([])
   const [search, setSearch] = useState('')
   const [pos, setPos] = useState('All')
@@ -97,13 +107,13 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
 
   if (loading) return <div style={{color:'#8a8279',padding:20}}>{isPT ? 'A carregar dados de scouting...' : 'Loading scouting data...'}</div>
 
-  const lifetimePoints = progress?.lifetime_points || 0
-  const spendablePoints = progress?.points || 0
-  const currentTier = lifetimePoints >= 400 ? 3 : lifetimePoints >= 250 ? 2 : lifetimePoints >= 100 ? 1 : 0
+  const cyclePoints = progress?.points || 0
+  const currentTier = getCurrentTier(cyclePoints)
+  const creditsAvailable = currentTier > 0 ? TIERS[currentTier as 1|2|3].revealCount : 0
   const nextTierInfo = currentTier < 3 ? TIERS[(currentTier + 1) as 1|2|3] : null
   const prevThreshold = currentTier === 0 ? 0 : TIERS[currentTier as 1|2|3].pointsRequired
   const tierProgress = nextTierInfo
-    ? Math.min(100, ((lifetimePoints - prevThreshold) / (nextTierInfo.pointsRequired - prevThreshold)) * 100)
+    ? Math.min(100, ((cyclePoints - prevThreshold) / (nextTierInfo.pointsRequired - prevThreshold)) * 100)
     : 100
 
   const filteredProspects = prospects
@@ -113,15 +123,15 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
   const isRevealed = (prospectId: string, attr: string) => revealedMap[prospectId]?.has(attr) || false
 
   const toggleCartItem = (prospectId: string, attribute: string) => {
-    if (!selectedTier) return
+    if (creditsAvailable === 0) return
     const exists = cart.some(c => c.prospectId === prospectId && c.attribute === attribute)
     if (exists) {
       setCart(prev => prev.filter(c => !(c.prospectId === prospectId && c.attribute === attribute)))
     } else {
-      if (cart.length >= TIERS[selectedTier].revealCount) {
+      if (cart.length >= creditsAvailable) {
         setMsg(isPT
-          ? `O Nível ${selectedTier} permite até ${TIERS[selectedTier].revealCount} revelações por sessão`
-          : `Tier ${selectedTier} allows up to ${TIERS[selectedTier].revealCount} reveals per session`)
+          ? `Só tens ${creditsAvailable} créditos disponíveis neste momento`
+          : `You only have ${creditsAvailable} credits available right now`)
         return
       }
       setCart(prev => [...prev, { prospectId, attribute }])
@@ -129,7 +139,7 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
   }
 
   const submitSession = async () => {
-    if (!selectedTier || cart.length === 0) return
+    if (creditsAvailable === 0 || cart.length === 0) return
     setSubmitting(true); setMsg('')
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { setMsg(isPT ? 'Não estás autenticado' : 'Not logged in'); setSubmitting(false); return }
@@ -137,11 +147,11 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
     const res = await fetch('/api/scouting/reveal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-      body: JSON.stringify({ tier: selectedTier, reveals: cart, teamId }),
+      body: JSON.stringify({ reveals: cart, teamId }),
     })
     const json = await res.json()
     if (res.ok) {
-      setMsg(isPT ? `✅ ${cart.length} atributos revelados!` : `✅ Revealed ${cart.length} attributes!`)
+      setMsg(isPT ? `✅ ${cart.length} atributos revelados! Progresso reiniciado.` : `✅ Revealed ${cart.length} attributes! Progress reset.`)
       const newMap = { ...revealedMap }
       for (const c of cart) {
         if (!newMap[c.prospectId]) newMap[c.prospectId] = new Set()
@@ -149,8 +159,7 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
       }
       setRevealedMap(newMap)
       setCart([])
-      setSelectedTier(null)
-      setProgress((p:any) => ({ ...p, points: (p?.points || 0) - TIERS[selectedTier].creditCost }))
+      setProgress((p:any) => ({ ...p, points: 0 }))
     } else {
       setMsg(`❌ ${json.error}`)
     }
@@ -188,7 +197,7 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
           <div style={{marginBottom:8}}>
             <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:4}}>
               <span style={{color:'#5c554e',fontWeight:600}}>{isPT ? 'Nível Atual' : 'Current Tier'}: {currentTier === 0 ? (isPT ? 'Nenhum' : 'None') : (isPT ? `Nível ${currentTier}` : `Tier ${currentTier}`)}</span>
-              {nextTierInfo && <span style={{color:'#8a8279'}}>{lifetimePoints} / {nextTierInfo.pointsRequired} {isPT ? `pts para o Nível ${currentTier+1}` : `pts to Tier ${currentTier+1}`}</span>}
+              {nextTierInfo && <span style={{color:'#8a8279'}}>{cyclePoints} / {nextTierInfo.pointsRequired} {isPT ? `pts para o Nível ${currentTier+1}` : `pts to Tier ${currentTier+1}`}</span>}
             </div>
             <div style={{height:10,borderRadius:5,background:'#e2dcd5',overflow:'hidden',display:'flex'}}>
               {[1,2,3].map(t => (
@@ -203,72 +212,82 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
             </div>
           </div>
           <div style={{display:'flex',justifyContent:'space-between',fontSize:11}}>
-            <span style={{color:'#15803d',fontWeight:700}}>💰 {isPT ? `${spendablePoints} créditos disponíveis` : `${spendablePoints} credits available`}</span>
+            <span style={{color: creditsAvailable>0 ? '#15803d' : '#8a8279',fontWeight:700}}>
+              💰 {creditsAvailable>0
+                ? (isPT ? `${creditsAvailable} créditos disponíveis` : `${creditsAvailable} credits available`)
+                : (isPT ? 'Sem créditos disponíveis ainda' : 'No credits available yet')}
+            </span>
             <span style={{color:'#8a8279'}}>+{Math.round((scout.scouting_evaluation*0.5)+(scout.scouting_experience*0.3)+(scout.scouting_network*0.2))} {isPT ? 'pts/sem. est.' : 'pts/week est.'}</span>
           </div>
         </div>
       )}
 
-      {/* Tier selector */}
+      {/* Tier ladder — informational only, not clickable. Reaching a tier
+          REPLACES the previous one's credits, it doesn't add to it, and
+          spending resets progress back to the bottom. */}
       <div style={{marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',letterSpacing:1,color:'#8a8279',marginBottom:8}}>{isPT ? 'Como Funciona o Scouting' : 'How Scouting Works'}</div>
         <div style={{marginBottom:10,padding:'10px 12px',borderRadius:8,background:'#fef3c7',border:'1px solid #fcd34d',fontSize:11,color:'#b45309',lineHeight:1.5}}>
           💡 {isPT
-            ? 'Níveis mais altos custam menos por atributo revelado — muitas vezes compensa poupar créditos e esperar por um nível mais alto em vez de gastar cedo. Mas manter o Nível 2/3 tem um custo semanal recorrente de manutenção, cobrado automaticamente do teu saldo.'
-            : 'Higher tiers cost less per attribute revealed — it often pays to save credits and wait for a higher tier rather than spending early. But holding Tier 2/3 comes with a recurring weekly maintenance cost, billed automatically from your balance.'}
+            ? 'O progresso enche sozinho todas as semanas. Ao atingir um nível, os créditos disponíveis passam a ser os desse nível (não se somam aos anteriores). Podes gastar já ou continuar à espera de um nível maior — mas manter o Nível 2/3 por gastar tem um custo semanal de manutenção. Ao gastares, usa tudo o que tens: o progresso volta sempre a 0 e o que não usares fica perdido.'
+            : 'Progress fills on its own every week. Reaching a tier replaces your available credits with that tier\'s amount (it doesn\'t add to the previous one). Spend now or keep waiting for a bigger tier — but holding an unspent Tier 2/3 comes with a weekly maintenance cost. When you spend, use everything you have: progress always resets to 0 and whatever you don\'t use is lost.'}
         </div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
           {([1,2,3] as const).map(t => {
             const info = TIERS[t]
-            const unlocked = currentTier >= t
-            const isSelected = selectedTier === t
+            const isCurrent = currentTier === t
+            const reached = currentTier >= t
             return (
-              <button key={t} disabled={!unlocked}
-                onClick={() => { setSelectedTier(isSelected ? null : t); setCart([]) }}
+              <div key={t}
                 style={{
-                  textAlign:'left', padding:14, borderRadius:12, cursor: unlocked ? 'pointer' : 'not-allowed',
-                  background: isSelected ? '#ede9fe' : unlocked ? '#faf8f5' : '#f0ece5',
-                  border: `2px solid ${isSelected ? '#7c3aed' : unlocked ? '#d4cdc5' : '#e2dcd5'}`,
-                  opacity: unlocked ? 1 : 0.6,
+                  textAlign:'left', padding:14, borderRadius:12,
+                  background: isCurrent ? '#ede9fe' : '#faf8f5',
+                  border: `2px solid ${isCurrent ? '#7c3aed' : '#d4cdc5'}`,
+                  opacity: reached ? 1 : 0.7,
                 }}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
-                  <span style={{fontSize:13,fontWeight:800,color: unlocked ? '#1a1512' : '#8a8279'}}>{info.label}</span>
-                  {!unlocked && <span style={{fontSize:10}}>🔒</span>}
+                  <span style={{fontSize:13,fontWeight:800,color:'#1a1512'}}>{info.label}</span>
+                  {isCurrent && <span style={{fontSize:9,fontWeight:700,padding:'2px 6px',borderRadius:10,background:'#7c3aed',color:'#fff'}}>{isPT?'ATUAL':'CURRENT'}</span>}
                 </div>
                 <div style={{fontSize:11,color:'#5c554e',marginBottom:8,lineHeight:1.4}}>{info.desc}</div>
-                <div style={{fontSize:11,color:'#5c554e'}}>{isPT ? <>Revela até <strong>{info.revealCount}</strong> atributos</> : <>Reveals up to <strong>{info.revealCount}</strong> attributes</>}</div>
+                <div style={{fontSize:11,color:'#5c554e'}}>{isPT ? <>Dá <strong>{info.revealCount}</strong> créditos</> : <>Gives <strong>{info.revealCount}</strong> credits</>}</div>
                 <div style={{fontSize:11,color:'#5c554e',marginTop:2}}>
-                  {isPT ? 'Custo' : 'Cost'}: <strong>{info.creditCost} {isPT ? 'créditos' : 'credits'}</strong> <span style={{color:'#8a8279'}}>({(info.creditCost/info.revealCount).toFixed(1)}/attr)</span>
+                  {isPT ? 'Precisa de' : 'Needs'}: <strong>{info.pointsRequired} {isPT ? 'pts' : 'pts'}</strong>
                 </div>
                 {info.weeklyMaintenance > 0 && (
                   <div style={{fontSize:11,color:'#b45309',marginTop:4,fontWeight:600}}>
                     🏷️ {fmt(info.weeklyMaintenance)}/{isPT ? 'sem. de manutenção' : 'week upkeep'}
                   </div>
                 )}
-              </button>
+              </div>
             )
           })}
         </div>
       </div>
 
       {/* Cart status */}
-      {selectedTier && (
+      {creditsAvailable > 0 && (
         <div style={{marginBottom:16,padding:14,borderRadius:12,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10,background:'#ede9fe',border:'1px solid #c4b5fd'}}>
           <div style={{fontSize:13,fontWeight:700,color:'#5b21b6'}}>
             {isPT
-              ? `Sessão de ${TIERS[selectedTier].label} — ${cart.length}/${TIERS[selectedTier].revealCount} atributos selecionados`
-              : `${TIERS[selectedTier].label} session — ${cart.length}/${TIERS[selectedTier].revealCount} attributes selected`}
+              ? `${cart.length}/${creditsAvailable} atributos selecionados`
+              : `${cart.length}/${creditsAvailable} attributes selected`}
+            {cart.length > 0 && cart.length < creditsAvailable && (
+              <span style={{display:'block',fontSize:11,fontWeight:600,color:'#b45309',marginTop:2}}>
+                ⚠️ {isPT ? `Vais desperdiçar ${creditsAvailable - cart.length} créditos não usados` : `You'll waste ${creditsAvailable - cart.length} unused credits`}
+              </span>
+            )}
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={() => { setCart([]); setSelectedTier(null) }}
-              style={{fontSize:11,fontWeight:600,padding:'6px 12px',borderRadius:8,border:'1px solid #c4b5fd',background:'#fff',color:'#5b21b6',cursor:'pointer'}}>
-              {isPT ? 'Cancelar' : 'Cancel'}
+            <button onClick={() => setCart([])} disabled={cart.length===0}
+              style={{fontSize:11,fontWeight:600,padding:'6px 12px',borderRadius:8,border:'1px solid #c4b5fd',background:'#fff',color:'#5b21b6',cursor:cart.length?'pointer':'not-allowed',opacity:cart.length?1:0.5}}>
+              {isPT ? 'Limpar' : 'Clear'}
             </button>
             <button onClick={submitSession} disabled={cart.length === 0 || submitting}
               style={{fontSize:11,fontWeight:700,padding:'6px 16px',borderRadius:8,border:'none',background:'#6d28d9',color:'#fff',cursor:'pointer',opacity: cart.length===0?0.5:1}}>
               {submitting
                 ? (isPT ? 'A submeter...' : 'Submitting...')
-                : (isPT ? `Confirmar Sessão (${TIERS[selectedTier].creditCost} créditos)` : `Confirm Session (${TIERS[selectedTier].creditCost} credits)`)}
+                : (isPT ? `Confirmar e Gastar Tudo` : `Confirm and Spend Everything`)}
             </button>
           </div>
         </div>
@@ -334,15 +353,15 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
                     const inCart = cart.some(c => c.prospectId === p.id && c.attribute === attr)
                     return (
                       <button key={attr}
-                        disabled={attrRevealed || !selectedTier}
+                        disabled={attrRevealed || creditsAvailable === 0}
                         onClick={() => toggleCartItem(p.id, attr)}
                         style={{
                           fontSize:11, fontWeight:600, padding:'5px 10px', borderRadius:8,
                           border: `1px solid ${attrRevealed ? '#bbf7d0' : inCart ? '#7c3aed' : '#d4cdc5'}`,
                           background: attrRevealed ? '#f0fdf4' : inCart ? '#ede9fe' : '#f5f1eb',
                           color: attrRevealed ? '#15803d' : inCart ? '#6d28d9' : '#5c554e',
-                          cursor: attrRevealed ? 'default' : selectedTier ? 'pointer' : 'not-allowed',
-                          opacity: !selectedTier && !attrRevealed ? 0.5 : 1,
+                          cursor: attrRevealed ? 'default' : creditsAvailable>0 ? 'pointer' : 'not-allowed',
+                          opacity: creditsAvailable===0 && !attrRevealed ? 0.5 : 1,
                         }}>
                         {ATTR_LABELS[attr]} {attrRevealed && '✓'}
                       </button>
