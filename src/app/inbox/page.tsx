@@ -273,6 +273,12 @@ export default function InboxPage() {
                             {isPT?'Ver Box Score →':'View Box Score →'}
                           </a>
                         )}
+                        {msg.type==='development'&&msg.metadata?.month_key&&(
+                          <a href={`/team/${msg.to_team_id}/development-report/${msg.metadata.month_key}`}
+                             style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#15803d',color:'#fff',textDecoration:'none'}}>
+                            {isPT?'Ver Relatório →':'View Report →'}
+                          </a>
+                        )}
                         {msg.type==='trade'&&msg.metadata?.proposal_id&&(
                           <a href={`/trade-center?proposal=${msg.metadata.proposal_id}`}
                              style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#1d4ed8',color:'#fff',textDecoration:'none'}}>

@@ -5,7 +5,7 @@ import { generatePowerRankings } from '@/lib/generate-power-rankings'
 import { runPostSimNotifications } from '@/lib/notifications'
 import { generateWeeklyScoutPoints } from '@/lib/scouting'
 import { homeWinProb, updateElo } from '@/lib/elo-helper'
-import { getStatusForWeek, getHalfWeekDates, formatSimMonthName, formatWeekRange, formatHalfWeekRange } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates, getWeekDates, getWeekForDate, SEASON_WEEK_START, formatSimMonthName, formatWeekRange, formatHalfWeekRange } from '@/lib/season-week-helper'
 import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
@@ -1432,6 +1432,84 @@ console.warn(`Player/Rookie of the Month failed for ${monthKey}:`, oneMonthErr)
 }
 }
 } catch(potmErr) { console.warn('Player/Rookie of the Month step failed:', potmErr) }
+}
+
+// ── MONTHLY DEVELOPMENT REPORT ────────────────────────
+// On the first call where a full calendar month has finished, sends every
+// team's GM an inbox message linking to a report page — the page itself
+// recomputes the exact per-player, per-attribute detail table live from
+// attribute_development, so this notification only needs to remember
+// WHICH month, not carry the data. Same self-healing sweep shape as
+// Player/Rookie of the Month above (re-swept every call; a quick "already
+// sent this team this month" check skips everything past that once done).
+// A week counts toward whichever month contains that week's own FIRST
+// day — the simplest rule that never double- or zero-counts a week
+// straddling two calendar months.
+if (!isPreseason) {
+try {
+const { end: devHalfEnd } = getHalfWeekDates(week, half)
+const devMonthsToCheck: {year:number,month:number}[] = []
+{
+let cursor = new Date(SEASON_WEEK_START.getFullYear(), SEASON_WEEK_START.getMonth(), 1)
+const limit = new Date(devHalfEnd.getFullYear(), devHalfEnd.getMonth(), 1)
+while (cursor <= limit) {
+const lastDayOfCursorMonth = new Date(cursor.getFullYear(), cursor.getMonth()+1, 0)
+if (lastDayOfCursorMonth <= devHalfEnd) devMonthsToCheck.push({year: cursor.getFullYear(), month: cursor.getMonth()})
+cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1)
+}
+}
+const MONTH_NAMES_DEV = ['January','February','March','April','May','June','July','August','September','October','November','December']
+const MONTH_NAMES_DEV_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+
+for (const {year: devYear, month: devMonth} of devMonthsToCheck) {
+const devMonthKey = `${devYear}-${String(devMonth+1).padStart(2,'0')}`
+try {
+const ymdLocalDev = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const firstWeek = getWeekForDate(ymdLocalDev(new Date(devYear, devMonth, 1)))
+const lastWeek = getWeekForDate(ymdLocalDev(new Date(devYear, devMonth+1, 0)))
+const devWeeks: number[] = []
+for (let w = Math.max(1, firstWeek); w <= lastWeek; w++) {
+const wStart = getWeekDates(w).start
+if (wStart.getFullYear() === devYear && wStart.getMonth() === devMonth) devWeeks.push(w)
+}
+if (!devWeeks.length) continue
+
+// Skip teams that already got this month's message — no need to
+// touch attribute_development for them again.
+const { data: alreadySent } = await supabaseAdmin.from('inbox_messages')
+.select('to_team_id').eq('type','development')
+.contains('metadata', { month_key: devMonthKey })
+const alreadySentTeams = new Set((alreadySent||[]).map((m:any)=>m.to_team_id))
+const { data: devTeams } = await supabaseAdmin.from('teams').select('id').not('id','in','(ALL,RVS,ROO,SOP)')
+const pendingTeamIds = new Set((devTeams||[]).map((t:any)=>t.id).filter((id:string)=>!alreadySentTeams.has(id)))
+if (!pendingTeamIds.size) continue
+
+const devRows = await fetchAllRows<any>((from,to) => supabaseAdmin
+.from('attribute_development').select('player_id').in('week_number', devWeeks).range(from,to))
+if (!devRows.length) continue
+const { data: devPlayers } = await supabaseAdmin.from('players').select('id,team_id')
+.in('id', Array.from(new Set(devRows.map((r:any)=>r.player_id))))
+const changedTeams = new Set<string>()
+;(devPlayers||[]).forEach((p:any) => { if (p.team_id && pendingTeamIds.has(p.team_id)) changedTeams.add(p.team_id) })
+
+for (const teamId of Array.from(changedTeams)) {
+const lang = await getTeamLang(teamId)
+const monthLabel = lang === 'pt' ? `${MONTH_NAMES_DEV_PT[devMonth]} ${devYear}` : `${MONTH_NAMES_DEV[devMonth]} ${devYear}`
+await supabaseAdmin.from('inbox_messages').insert({
+to_team_id: teamId, type: 'development',
+subject: lang === 'pt' ? `📈 Relatório de Desenvolvimento — ${monthLabel}` : `📈 Player Development Report — ${monthLabel}`,
+body: lang === 'pt'
+? `Vê como os atributos do teu plantel evoluíram durante ${monthLabel} — treino e desenvolvimento passivo combinados.\n\nClica abaixo para veres o relatório completo.`
+: `See how your roster's attributes changed during ${monthLabel} — training and passive development combined.\n\nClick below to view the full report.`,
+read: false,
+metadata: { month_key: devMonthKey },
+})
+}
+} catch (oneDevMonthErr) {
+console.warn(`Monthly development report failed for ${devMonthKey}:`, oneDevMonthErr)
+}
+}
+} catch (devReportErr) { console.warn('Monthly development report step failed:', devReportErr) }
 }
 
 // ── WEEKLY HIGHLIGHTS ─────────────────────────
