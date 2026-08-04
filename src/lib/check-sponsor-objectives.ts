@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getStatusForWeek } from './season-week-helper'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,6 +44,14 @@ export async function checkSponsorObjectives() {
   const { data: allTeams } = await supabase.from('teams').select('id,name,rival_team_id,wins,losses,division')
   const teamMap: Record<string, any> = {}
   ;(allTeams||[]).forEach((t:any) => teamMap[t.id] = t)
+
+  // reach_playoffs/top_conference/top_division are FINAL-standings
+  // objectives — "current rank right now" is meaningless (and was getting
+  // credited) while the regular season still has months left to shuffle
+  // the standings. Only conclusive once the regular season has actually
+  // ended (getStatusForWeek moves past 'regular-season' into play-in).
+  const { data: seasonCfg } = await supabase.from('season_config').select('current_week').eq('id', 1).single()
+  const regularSeasonOver = getStatusForWeek((seasonCfg?.current_week || 0) + 1) !== 'regular-season'
 
   let achieved = 0
 
@@ -201,7 +210,9 @@ export async function checkSponsorObjectives() {
           .sort((a:any,b:any)=>b.wins-a.wins)
         const rank = confTeams.findIndex((t:any)=>t.id===teamId) + 1
         currentValue = rank || 99
-        isAchieved = rank > 0 && rank <= obj.threshold
+        // Current standing shown as progress either way, but only a FINAL
+        // standing (regular season actually over) can mark this achieved.
+        isAchieved = regularSeasonOver && rank > 0 && rank <= obj.threshold
         break
       }
 
@@ -213,7 +224,7 @@ export async function checkSponsorObjectives() {
           .sort((a:any,b:any)=>b.wins-a.wins)
         const rank = divTeams.findIndex((t:any)=>t.id===teamId) + 1
         currentValue = rank || 99
-        isAchieved = rank > 0 && rank <= obj.threshold
+        isAchieved = regularSeasonOver && rank > 0 && rank <= obj.threshold
         break
       }
 
@@ -224,7 +235,7 @@ export async function checkSponsorObjectives() {
           .filter((t:any)=>t.conference===conf&&!['ALL','RVS','ROO','SOP'].includes(t.id))
           .sort((a:any,b:any)=>b.wins-a.wins)
         const rank = confTeams.findIndex((t:any)=>t.id===teamId) + 1
-        isAchieved = rank > 0 && rank <= 8
+        isAchieved = regularSeasonOver && rank > 0 && rank <= 8
         currentValue = isAchieved ? 1 : 0
         break
       }
@@ -312,7 +323,12 @@ export async function checkSponsorObjectives() {
         const { data: injuries } = await supabase.from('injury_log')
           .select('games_out,player_id').eq('season','2025-26').eq('occurred_in','game')
         const major = (injuries||[]).filter(i=>rosterIds.has(i.player_id)&&i.games_out>=obj.threshold)
-        isAchieved = major.length === 0
+        // Same reasoning as reach_playoffs/top_conference/top_division above
+        // — "no one's hit 20+ games out YET" is trivially true after a
+        // handful of games just because there hasn't been enough season
+        // left for any injury to reach that threshold. Only conclusive once
+        // the regular season is actually over.
+        isAchieved = regularSeasonOver && major.length === 0
         currentValue = isAchieved ? 1 : 0
         break
       }

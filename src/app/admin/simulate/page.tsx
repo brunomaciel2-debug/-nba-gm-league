@@ -67,14 +67,22 @@ export default function AdminSimulatePage() {
     // live in `preseason_games`) it never found a match and always fell
     // back to "no games", even on a day with a real friendly on the
     // calendar (e.g. Oct 11 ORL vs TOR).
+    // Compared as plain 'YYYY-MM-DD' strings, not Date objects — afterLastSim
+    // was built at noon (T12:00:00) while blockStart/blockEnd sit at
+    // midnight, so on the exact day the block ENDS, afterLastSim's later
+    // time-of-day made it compare as "after" blockEnd even though it was
+    // the same calendar day, wrongly nulling out the last day of every
+    // block (e.g. Oct 30 in a block ending Oct 30) into "no games".
+    const ymdOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
     let nextDayDate: Date | null = blockStart
     if (cfg?.last_sim_day) {
       const afterLastSim = new Date(cfg.last_sim_day + 'T12:00:00')
       afterLastSim.setDate(afterLastSim.getDate() + 1)
+      const afterLastSimYmd = ymdOf(afterLastSim)
       // Only meaningful if it actually falls inside THIS block — a stale
       // value from an earlier block/week must never leak in here.
-      if (afterLastSim >= blockStart && afterLastSim <= blockEnd) nextDayDate = afterLastSim
-      else if (afterLastSim > blockEnd) nextDayDate = null
+      if (afterLastSimYmd >= ymdOf(blockStart) && afterLastSimYmd <= ymdOf(blockEnd)) nextDayDate = afterLastSim
+      else if (afterLastSimYmd > ymdOf(blockEnd)) nextDayDate = null
     }
     // How many games "1 Day" will actually play that day — real games
     // (regular season/playoffs) plus pre-season friendlies, since either
