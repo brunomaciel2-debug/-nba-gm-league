@@ -940,6 +940,30 @@ coachBonus[c.team_id].conditioning = Math.max(coachBonus[c.team_id].conditioning
 }
 }
 
+// Decline risk inputs — "didn't play" is measured across the WHOLE week's
+// final games (both simulation halves), not just whichever half this call's
+// own `gamesCreated` covers, the same fix already applied to the win/loss
+// streak check above (a single half never has enough of the picture).
+const { data: weekFinalGames } = await supabaseAdmin.from('games').select('id,home_team,away_team').eq('week_number', week).eq('status','final')
+const weekGameIds = (weekFinalGames||[]).map((g:any) => g.id)
+const teamsWithGamesThisWeek = new Set<string>()
+;(weekFinalGames||[]).forEach((g:any) => { teamsWithGamesThisWeek.add(g.home_team); teamsWithGamesThisWeek.add(g.away_team) })
+const minsByPlayerThisWeek: Record<string, number> = {}
+if (weekGameIds.length > 0) {
+const weekBoxesForDev = await fetchAllRows<any>((from,to) => supabaseAdmin
+.from('box_scores').select('player_id,mins').in('game_id', weekGameIds).range(from,to))
+;(weekBoxesForDev||[]).forEach((b:any) => { minsByPlayerThisWeek[b.player_id] = (minsByPlayerThisWeek[b.player_id]||0) + (b.mins||0) })
+}
+
+// A player can only carry one open injury at a time (same guard used when
+// injuries are generated), so this is a simple 1:1 lookup. days_out is the
+// one duration field reliably populated on every injury_log row (unlike
+// week_number/return_week, which are frequently null) — used here as the
+// injury's predicted total length, converted to weeks.
+const { data: activeInjuriesForDev } = await supabaseAdmin.from('injury_log').select('player_id,days_out').eq('status','active')
+const injuryWeeksOutByPlayer: Record<string, number> = {}
+;(activeInjuriesForDev||[]).forEach((inj:any) => { injuryWeeksOutByPlayer[inj.player_id] = (inj.days_out||0) / 7 })
+
 const TRAIN_DEV: Record<string,number> = {rest:-0.5,light:0.5,normal:1.0,intense:1.5,very_intense:1.8}
 
 const ATTRS = ['three','layup','dunk','mid','ft','siq','draw_foul','blk','stl',
@@ -983,14 +1007,34 @@ const ageFactor = p.age <= 22 ? 1.5 : p.age <= 25 ? 1.2 : p.age <= 28 ? 1.0 : p.
 const healthMod = (p.health||100) < 60 ? 0 : (p.health||100) < 80 ? 0.5 : 1.0
 const devRate = (p.dev_rate||1.0) * ageFactor * healthMod
 
+// Decline risk — four independent triggers, rolled per attribute per
+// week, and can stack (a player can be hit by more than one the same
+// week). "Didn't play" and "low morale" scale up sharply from age 28 via
+// an exponential multiplier (1.18x compounding per year over 28) — a
+// young player carries only the flat base risk, an old one much more.
+// Old-age decline (34+) is unchanged, pre-existing, and not part of this
+// multiplier.
+const ageDeclineMult = p.age >= 28 ? Math.pow(1.18, p.age - 28) : 1.0
+const teamPlayedThisWeek = teamsWithGamesThisWeek.has(p.team_id)
+const didntPlayThisWeek = teamPlayedThisWeek && (minsByPlayerThisWeek[p.id]||0) === 0 && healthMod > 0
+const hasLowMorale = (p.moral||80) < 40
+
+// Injury decline — separate exponential, scaled by the injury's own
+// predicted length rather than age: a knee tweak that keeps someone out a
+// few extra days barely matters, but a multi-week injury compounds fast
+// (1.18x per week of absence beyond the first).
+const injuryWeeksOut = injuryWeeksOutByPlayer[p.id] || 0
+const isLongTermInjured = injuryWeeksOut > 1
+const injuryDeclineMult = isLongTermInjured ? Math.pow(1.18, injuryWeeksOut - 1) : 1.0
+
 const updates: Record<string,number> = {}
 const devLogs: any[] = []
 
 for (const attr of ATTRS) {
 const curr = (p as any)[attr] || 0
 const pot = (p as any)[`pot_${attr}`] || curr
-if (curr >= pot) continue
 
+if (curr < pot) {
 let growthChance = 0.15 * trainMod * (1 + coachDevMod) * devRate
 
 const specialty = Object.entries(coach.specialties).find(([sp]) => SPECIALTY_MAP[sp]?.includes(attr))
@@ -1010,12 +1054,23 @@ updates[attr] = newVal
 devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:attr, old_value:curr, new_value:newVal, change:newVal-curr, reason:`training_${ord.training_intensity||'normal'}` })
 }
 }
+}
 
-if (p.age > 34 && Math.random() < 0.08) {
-const newVal = Math.max(30, curr - 1)
-if (newVal < curr) {
+// Decline checks run independently of the potential cap above — an
+// attribute already at potential can still erode from age, disuse, or
+// unhappiness, same as real aging curves.
+let declineHits = 0
+const declineReasons: string[] = []
+if (p.age > 34 && Math.random() < 0.08) { declineHits++; declineReasons.push('age') }
+if (didntPlayThisWeek && Math.random() < 0.04 * ageDeclineMult) { declineHits++; declineReasons.push('no_playing_time') }
+if (hasLowMorale && Math.random() < 0.04 * ageDeclineMult) { declineHits++; declineReasons.push('low_morale') }
+if (isLongTermInjured && Math.random() < 0.04 * injuryDeclineMult) { declineHits++; declineReasons.push('long_term_injury') }
+if (declineHits > 0) {
+const base = (updates[attr] ?? curr)
+const newVal = Math.max(30, base - declineHits)
+if (newVal < base) {
 updates[attr] = newVal
-devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:attr, old_value:curr, new_value:newVal, change:-1, reason:'age_decline' })
+devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:attr, old_value:curr, new_value:newVal, change:newVal-curr, reason:declineReasons.join('+') })
 }
 }
 }
@@ -1076,7 +1131,7 @@ if (['play-in', 'playoffs'].includes(getStatusForWeek(week))) {
 // — represent their specific focus), while the Trainer leads Physical and
 // Recovery (their actual domain) with the Head Coach as a smaller
 // secondary contributor everywhere via general oversight. At 100% the
-// slot pays out 10 credits (per TrainingTab.tsx's UI copy) and rolls over
+// slot pays out 5 credits (per TrainingTab.tsx's UI copy) and rolls over
 // any overflow into the next fill cycle. Locked slots unlock once their
 // facility/coach requirement is actually met.
 try {
@@ -1153,7 +1208,7 @@ if ((slot.credits_available||0) > 0) continue
 const gain = trainingFillRate(slot.slot_type, slot.team_id)
 const rawFill = (slot.fill_pct||0) + gain
 const newFill = Math.min(100, rawFill)
-const newCredits = rawFill >= 100 ? 10 : (slot.credits_available||0)
+const newCredits = rawFill >= 100 ? 5 : (slot.credits_available||0)
 if (newFill !== slot.fill_pct || newCredits !== slot.credits_available) {
 await supabaseAdmin.from('training_slots').update({ fill_pct: newFill, credits_available: newCredits }).eq('id', slot.id)
 }

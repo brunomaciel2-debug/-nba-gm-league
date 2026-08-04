@@ -49,7 +49,10 @@ const STAFF_LABEL_PT: Record<string,string> = {
   shooting:'60% Head Coach + 40% Assistant Coach', analytics:'60% Head Coach + 40% Assistant Coach',
 }
 
-function costForOnePoint(v:number):number { if(v<=60)return 0.5; if(v<=75)return 1; if(v<=90)return 2; return 3 }
+// Flat 1 credit = 1 attribute point. Balancing comes entirely from the caps
+// (max 3 credits per player, max 1 credit per attribute, both per week,
+// across every slot) rather than from a rising per-tier cost.
+function costForOnePoint(v:number):number { return 1 }
 function attrColor(v:number):string { if(v>=85)return'#b45309'; if(v>=75)return'#15803d'; if(v>=65)return'#1d4ed8'; return'#8a8279' }
 
 function StaffTip({text,isPT}:{text:string,isPT:boolean}){
@@ -80,21 +83,53 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
   const [loading,setLoading]           = useState(true)
   const [saving,setSaving]             = useState(false)
   const [msg,setMsg]                   = useState('')
+  const [currentWeek,setCurrentWeek]   = useState<number|null>(null)
+  // Credits already spent on the selected player THIS WEEK, across every
+  // slot (not just the one currently selected) — a player is capped at 3
+  // credits total per week no matter which slot they come from, so this has
+  // to be tracked globally rather than per-slot. Broken down per attribute
+  // too, for the separate 1-credit-per-attribute cap (an attribute like 3PT
+  // that's trainable from both Offense and Shooting Lab must share one cap
+  // across both).
+  const [priorSpent,setPriorSpent]     = useState(0)
+  const [priorSpentByAttr,setPriorSpentByAttr] = useState<Record<string,number>>({})
 
   useEffect(()=>{
     supabase.from('training_slots').select('*').eq('team_id',teamId).order('locked')
       .then(({data})=>{setSlots(data||[]);setLoading(false)})
+    supabase.from('season_config').select('current_week').eq('id',1).single()
+      .then(({data})=>setCurrentWeek(data?.current_week||0))
   },[teamId])
+
+  useEffect(()=>{
+    if(!selectedPlayer||currentWeek==null){setPriorSpent(0);setPriorSpentByAttr({});return}
+    let cancelled=false
+    supabase.from('training_log').select('attribute,credits_used')
+      .eq('team_id',teamId).eq('player_id',selectedPlayer.id).eq('week_number',currentWeek)
+      .then(({data})=>{
+        if(cancelled)return
+        const rows=data||[]
+        setPriorSpent(rows.reduce((s,l:any)=>s+(l.credits_used||0),0))
+        const byAttr:Record<string,number>={}
+        rows.forEach((l:any)=>{byAttr[l.attribute]=(byAttr[l.attribute]||0)+(l.credits_used||0)})
+        setPriorSpentByAttr(byAttr)
+      })
+    return ()=>{cancelled=true}
+  },[selectedPlayer?.id,currentWeek,teamId])
 
   const activeCfg = selectedSlot ? SLOT_CONFIG[selectedSlot.slot_type] : hoveredSlot ? SLOT_CONFIG[hoveredSlot.slot_type] : null
   const activeAttrs = activeCfg?.attrs.map(a=>a.key) || []
 
+  // Per-attribute session spend uses the same base-value tier snapshot as
+  // the log entry handleSpend will actually write, so this stays consistent
+  // with priorSpentByAttr (which sums real credits_used rows).
+  const sessionSpentByAttr = (key:string) => (allocation[key]||0)*costForOnePoint(selectedPlayer?.[key]||0)
   const creditsSpent = selectedPlayer && selectedSlot ? SLOT_CONFIG[selectedSlot.slot_type]?.attrs.reduce((t,a)=>{
     const pts=allocation[a.key]||0; if(!pts)return t; return t+pts*costForOnePoint(selectedPlayer[a.key]||0)
   },0)||0 : 0
   const creditsLeft = selectedSlot ? selectedSlot.credits_available - creditsSpent : 0
   const totalPts = Object.values(allocation).reduce((a,b)=>a+b,0)
-  const playerAtMax = creditsSpent >= 3
+  const playerAtMax = priorSpent + creditsSpent >= 3
 
   const handleAdd = (key:string,potKey:string)=>{
     if(!selectedPlayer||!selectedSlot)return
@@ -102,7 +137,8 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
     const pot=selectedPlayer[potKey]||99
     if(cur>=pot||cur>=99)return
     const cost=costForOnePoint(cur)
-    if(creditsLeft<cost||creditsSpent+cost>3)return
+    const attrTotal=(priorSpentByAttr[key]||0)+sessionSpentByAttr(key)
+    if(creditsLeft<cost||priorSpent+creditsSpent+cost>3||attrTotal+cost>1)return
     setAllocation(p=>({...p,[key]:(p[key]||0)+1}))
   }
   const handleRemove=(key:string)=>{
@@ -117,7 +153,7 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
     for(const[k,pts] of Object.entries(allocation)){
       if(pts>0){
         upd[k]=Math.min(99,(selectedPlayer[k]||0)+pts)
-        logs.push({team_id:teamId,player_id:selectedPlayer.id,slot_type:selectedSlot.slot_type,attribute:k,points_added:pts,credits_used:pts*costForOnePoint(selectedPlayer[k]||0),season:'2025-26'})
+        logs.push({team_id:teamId,player_id:selectedPlayer.id,slot_type:selectedSlot.slot_type,attribute:k,points_added:pts,credits_used:pts*costForOnePoint(selectedPlayer[k]||0),season:'2025-26',week_number:currentWeek})
       }
     }
     await supabase.from('players').update(upd).eq('id',selectedPlayer.id)
@@ -276,14 +312,14 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
               <div style={{height:6,background:'#e2dcd5',borderRadius:3,overflow:'hidden',marginBottom:6}}>
                 <div style={{height:'100%',width:selectedSlot.fill_pct+'%',background:activeCfg?.color+'88',borderRadius:3}}/>
               </div>
-              <p style={{fontSize:11,color:'#8a8279',lineHeight:1.5}}>{Math.round(selectedSlot.fill_pct)}% — {isPT?'precisa de 100% para ganhar 10 créditos.':'needs 100% to earn 10 credits.'}</p>
+              <p style={{fontSize:11,color:'#8a8279',lineHeight:1.5}}>{Math.round(selectedSlot.fill_pct)}% — {isPT?'precisa de 100% para ganhar 5 créditos.':'needs 100% to earn 5 credits.'}</p>
             </>
           ):!selectedPlayer?(
             <>
               <div style={{fontSize:13,fontWeight:700,color:activeCfg?.color,marginBottom:6}}>{activeCfg?.icon} {activeCfg?.label}</div>
-              <div style={{fontSize:11,color:'#8a8279',marginBottom:8}}>{selectedSlot.credits_available} {isPT?'créditos · máx 3/jogador':'credits · max 3/player'}</div>
+              <div style={{fontSize:11,color:'#8a8279',marginBottom:8}}>{selectedSlot.credits_available} {isPT?'créditos · máx 3/jogador/semana · máx 1/atributo':'credits · max 3/player/week · max 1/attribute'}</div>
               <div style={{background:'#f0ece5',borderRadius:6,padding:'5px 8px',fontSize:10,color:'#5c554e',lineHeight:1.6}}>
-                {isPT?'0-60: 0.5cr/pt · 61-75: 1cr/pt\n76-90: 2cr/pt · 91-99: 3cr/pt':'0-60: 0.5cr/pt · 61-75: 1cr/pt\n76-90: 2cr/pt · 91-99: 3cr/pt'}
+                {isPT?'1 crédito = 1 ponto de atributo':'1 credit = 1 attribute point'}
               </div>
               <p style={{fontSize:11,color:'#8a8279',marginTop:8}}>{isPT?'Clica num jogador no plantel para treinar.':'Click a player in the roster to train.'}</p>
             </>
@@ -297,18 +333,24 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
               <div style={{fontSize:12,fontWeight:600,color:'#1a1512',marginBottom:8,padding:'4px 8px',background:teamColor+'18',borderRadius:6}}>
                 {selectedPlayer.name}
               </div>
+              {priorSpent>0 && <div style={{fontSize:10,color:playerAtMax?'#dc2626':'#8a8279',marginBottom:6}}>
+                {isPT?`${priorSpent.toFixed(1)}/3 créditos já usados neste jogador esta semana (qualquer slot)`:`${priorSpent.toFixed(1)}/3 credits already used on this player this week (any slot)`}
+              </div>}
               {playerAtMax && <div style={{fontSize:10,color:'#dc2626',marginBottom:6}}>{isPT?'Máximo de 3 créditos atingido para este jogador':'Max 3 credits reached for this player'}</div>}
               <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:10}}>
                 {activeCfg?.attrs.map(attr=>{
                   const cur=selectedPlayer[attr.key]||0; const pot=selectedPlayer[attr.potKey]||99
                   const added=allocation[attr.key]||0; const curWithAdded=cur+added; const atCap=curWithAdded>=pot
-                  const cost=costForOnePoint(cur); const canAdd=!atCap&&creditsLeft>=cost&&!playerAtMax&&curWithAdded<99
+                  const cost=costForOnePoint(cur)
+                  const attrTotal=(priorSpentByAttr[attr.key]||0)+sessionSpentByAttr(attr.key)
+                  const attrCapped=attrTotal>=1
+                  const canAdd=!atCap&&!attrCapped&&creditsLeft>=cost&&!playerAtMax&&curWithAdded<99
                   return (
                     <div key={attr.key} style={{display:'flex',alignItems:'center',gap:4}}>
-                      <span style={{flex:1,fontSize:11,color:atCap&&!added?'#b0a89e':'#5c554e'}}>{attr.label}</span>
+                      <span style={{flex:1,fontSize:11,color:(atCap||attrCapped)&&!added?'#b0a89e':'#5c554e'}}>{attr.label}</span>
                       <span style={{fontSize:10,color:'#8a8279',minWidth:18,textAlign:'right'}}>{cur}</span>
-                      {atCap&&!added
-                        ? <span style={{fontSize:9,color:'#b0a89e',padding:'1px 4px',background:'#f0ece5',borderRadius:3}}>{isPT?'limite':'cap'}</span>
+                      {(atCap||attrCapped)&&!added
+                        ? <span style={{fontSize:9,color:'#b0a89e',padding:'1px 4px',background:'#f0ece5',borderRadius:3}}>{atCap?(isPT?'limite':'cap'):'1cr'}</span>
                         : <div style={{display:'flex',alignItems:'center',gap:2}}>
                             <button onClick={()=>handleRemove(attr.key)} disabled={!added}
                               style={{width:18,height:18,borderRadius:3,border:'1px solid #d4cdc5',background:'#f0ece5',cursor:added?'pointer':'not-allowed',fontSize:12,color:'#5c554e',lineHeight:1}}>−</button>
@@ -338,8 +380,8 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
 
       <div style={{marginTop:12,padding:'8px 12px',background:'#f0ece5',borderRadius:8,fontSize:10,color:'#6b5f4e',lineHeight:1.5}}>
         {isPT
-          ? 'Slots enchem automaticamente por semana, a uma velocidade que depende do staff técnico certo para cada área (passa o rato sobre o ⓘ) · Slot cheio = 10 créditos · Máx 3 créditos por jogador por ciclo · Atributos limitados pelo potencial individual'
-          : 'Slots fill automatically each week, at a speed that depends on the right staff member for each area (hover the ⓘ) · Full slot = 10 credits · Max 3 credits per player per cycle · Attributes capped at individual potential'}
+          ? 'Slots enchem automaticamente por semana, a uma velocidade que depende do staff técnico certo para cada área (passa o rato sobre o ⓘ) · Slot cheio = 5 créditos (1 crédito = 1 ponto) · Máx 3 créditos por jogador por semana, em qualquer slot · Máx 1 crédito por atributo · Atributos limitados pelo potencial individual'
+          : 'Slots fill automatically each week, at a speed that depends on the right staff member for each area (hover the ⓘ) · Full slot = 5 credits (1 credit = 1 point) · Max 3 credits per player per week, across every slot · Max 1 credit per attribute · Attributes capped at individual potential'}
       </div>
     </div>
   )
