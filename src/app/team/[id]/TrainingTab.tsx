@@ -49,6 +49,60 @@ const STAFF_LABEL_PT: Record<string,string> = {
   shooting:'60% Head Coach + 40% Assistant Coach', analytics:'60% Head Coach + 40% Assistant Coach',
 }
 
+// Same wording as PlayerPageClient.tsx's ATTR_GROUPS tips — kept in sync by
+// hand rather than shared, matching how SLOT_CONFIG_EN/PT above are also
+// each defined locally instead of imported from one shared source.
+const ATTR_TIP_EN: Record<string,string> = {
+  three:'Three Point — shooting ability from beyond the arc.',
+  layup:'Layup — finishing ability at the rim.',
+  dunk:'Dunk — ability to finish with power above the rim.',
+  mid:'Mid-Range — ability to score from mid-range.',
+  ft:'Free Throws — free throw shooting accuracy.',
+  siq:'Shot IQ — decision-making on shot selection.',
+  draw_foul:'Draw Foul — quality of the contact he draws when attacking the basket.',
+  blk:'Block — ability to block opponent shots.',
+  stl:'Steal — ability to strip the ball or intercept passes.',
+  idef:'Interior Defense — ability to defend in the paint.',
+  pdef:'Perimeter Defense — ability to guard on the perimeter.',
+  def_reb:'Defensive Rebound — ability to secure rebounds after opponent misses.',
+  off_reb:'Offensive Rebound — ability to recover missed shots offensively.',
+  stamina:'Stamina — endurance across a game.',
+  durability:'Durability — resistance to injuries.',
+  ball_hdl:'Ball Handling — ability to dribble under pressure.',
+  pass_vis:'Pass Vision — helps decide who gets credited with the real assist when this player is on the floor.',
+  pass_iq:'Pass IQ — decision-making when passing.',
+  assist_role:'Assist Role — how naturally this player fits into a pass-first role.',
+  pressure:'Clutch/Pressure — performance in high-pressure moments.',
+  consistency:'Consistency — game-to-game variance in performance.',
+  crowd_effect:'Crowd Effect — how much crowd noise affects this player.',
+  streaky:'Streaky — tendency to have hot and cold streaks.',
+}
+const ATTR_TIP_PT: Record<string,string> = {
+  three:'3 Pontos — capacidade de lançamento além da linha.',
+  layup:'Layup — capacidade de finalizar perto do cesto.',
+  dunk:'Afundanço — capacidade de finalizar com potência acima do cesto.',
+  mid:'Meia Distância — capacidade de pontuar de meia distância.',
+  ft:'Lances Livres — precisão na linha de lance livre.',
+  siq:'Shot IQ — capacidade de decisão no lançamento.',
+  draw_foul:'Provoca Falta — qualidade do contacto que provoca quando ataca o cesto.',
+  blk:'Desarme de Lançamento — capacidade de travar lançamentos adversários.',
+  stl:'Roubo de Bola — capacidade de recuperar a bola.',
+  idef:'Defesa Interior — capacidade de defender na zona do garrafão.',
+  pdef:'Defesa de Perímetro — capacidade de defender no exterior.',
+  def_reb:'Ressalto Defensivo — capacidade de recuperar ressaltos após falhanços adversários.',
+  off_reb:'Ressalto Ofensivo — capacidade de recuperar lançamentos falhados da própria equipa.',
+  stamina:'Resistência — aguenta bem ao longo de um jogo.',
+  durability:'Durabilidade — resistência a lesões.',
+  ball_hdl:'Drible — capacidade de driblar sob pressão.',
+  pass_vis:'Visão de Jogo — ajuda a decidir quem fica com a assistência real quando este jogador está em campo.',
+  pass_iq:'Pass IQ — capacidade de decisão ao passar.',
+  assist_role:'Perfil de Assistência — como este jogador se encaixa num sistema focado em passes.',
+  pressure:'Clutch/Pressão — desempenho em momentos de alta pressão.',
+  consistency:'Consistência — variação de jogo a jogo.',
+  crowd_effect:'Influência do Público — o quanto o barulho do público afecta este jogador.',
+  streaky:'Irregular — tendência para fases quentes e frias.',
+}
+
 // Flat 1 credit = 1 attribute point. Balancing comes entirely from the caps
 // (max 3 credits per player, max 1 credit per attribute, both per week,
 // across every slot) rather than from a rising per-tier cost.
@@ -62,6 +116,23 @@ function StaffTip({text,isPT}:{text:string,isPT:boolean}){
       <span className="absolute left-0 top-full mt-1 z-50 px-2.5 py-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
         style={{background:'#1a1512',color:'#f5f1eb',width:190,whiteSpace:'normal',lineHeight:1.5,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
         {isPT?'Quem enche este slot: ':'Who fills this slot: '}{text}
+      </span>
+    </span>
+  )
+}
+
+// Explains what an abbreviated attribute column (e.g. "CLU", "PDEF") stands
+// for — those short codes on their own gave no way to tell what's actually
+// being trained.
+function AttrTip({attrKey,isPT,align}:{attrKey:string,isPT:boolean,align?:'left'|'right'}){
+  const text = (isPT?ATTR_TIP_PT:ATTR_TIP_EN)[attrKey]
+  if (!text) return null
+  return (
+    <span className="relative group inline-flex ml-1 cursor-help align-middle">
+      <span style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:13,height:13,borderRadius:'50%',background:'#d4cdc5',color:'#5c554e',fontSize:9,fontWeight:700,lineHeight:1}}>i</span>
+      <span className={`absolute top-full mt-1 z-50 px-2.5 py-2 rounded-lg text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity ${align==='right'?'right-0':'left-0'}`}
+        style={{background:'#1a1512',color:'#f5f1eb',width:190,whiteSpace:'normal',lineHeight:1.5,fontWeight:400,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}}>
+        {text}
       </span>
     </span>
   )
@@ -262,7 +333,7 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
                 {activeAttrs.length>0
                   ? activeAttrs.map(key=>{
                       const a=activeCfg?.attrs.find(x=>x.key===key)
-                      return <th key={key} style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:activeCfg?.color,fontSize:10,whiteSpace:'nowrap'}}>{a?.label||key}</th>
+                      return <th key={key} style={{padding:'8px 6px',textAlign:'center',fontWeight:700,color:activeCfg?.color,fontSize:10,whiteSpace:'nowrap'}}>{a?.label||key}<AttrTip attrKey={key} isPT={isPT}/></th>
                     })
                   : <th style={{padding:'8px 6px',textAlign:'center',fontWeight:400,color:'#b0a89e',fontSize:10}}>← {isPT?'Seleciona um slot':'Select a slot'}</th>
                 }
@@ -347,7 +418,7 @@ export default function TrainingTab({teamId,teamColor,players}:{teamId:string,te
                   const canAdd=!atCap&&!attrCapped&&creditsLeft>=cost&&!playerAtMax&&curWithAdded<99
                   return (
                     <div key={attr.key} style={{display:'flex',alignItems:'center',gap:4}}>
-                      <span style={{flex:1,fontSize:11,color:(atCap||attrCapped)&&!added?'#b0a89e':'#5c554e'}}>{attr.label}</span>
+                      <span style={{flex:1,fontSize:11,color:(atCap||attrCapped)&&!added?'#b0a89e':'#5c554e'}}>{attr.label}<AttrTip attrKey={attr.key} isPT={isPT}/></span>
                       <span style={{fontSize:10,color:'#8a8279',minWidth:18,textAlign:'right'}}>{cur}</span>
                       {(atCap||attrCapped)&&!added
                         ? <span style={{fontSize:9,color:'#b0a89e',padding:'1px 4px',background:'#f0ece5',borderRadius:3}}>{atCap?(isPT?'limite':'cap'):'1cr'}</span>
