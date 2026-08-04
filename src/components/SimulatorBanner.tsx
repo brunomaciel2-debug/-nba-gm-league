@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
-import { getStatusForWeek, getHalfWeekDates, formatSimDate, getSimDate, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
+import { getStatusForWeek, getHalfWeekDates, formatSimDate, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
 import GlobalSearch from './GlobalSearch'
 
 export default function SimulatorBanner() {
@@ -51,10 +51,12 @@ export default function SimulatorBanner() {
         // (Jul 2025 - Jun 2026) — comparing against real wall-clock "today"
         // (as this used to) drifts further wrong every real day that passes
         // without a matching sim day, until eventually every event silently
-        // reads as already past and "Next:" just stops showing anything. The
-        // simulated "today" (this week's start date) is the correct anchor.
-        const simToday = getSimDate(cfg?.current_week || 1)
-        const simTodayStr = `${simToday.getFullYear()}-${String(simToday.getMonth() + 1).padStart(2, '0')}-${String(simToday.getDate()).padStart(2, '0')}`
+        // reads as already past and "Next:" just stops showing anything.
+        // Anchored to the same precise lastSimDay as the day badge above —
+        // it used to reuse the coarser week-start date instead, which could
+        // sit BEFORE an event that had already started (e.g. still reading
+        // "Next: Pre-Season Games · Oct 2" days after that date had passed).
+        const simTodayStr = `${lastSimDay.getFullYear()}-${String(lastSimDay.getMonth() + 1).padStart(2, '0')}-${String(lastSimDay.getDate()).padStart(2, '0')}`
         // Most single-day milestones (draft, trade deadline, playoffs-begin,
         // etc.) store no end_date at all — a plain .gte('end_date', ...)
         // silently drops every one of them (NULL fails any comparison). This
@@ -116,17 +118,25 @@ export default function SimulatorBanner() {
   const simDay = (d: string) => isPT ? (SIM_DAY_PT[d] ?? d) : d
   const isActive = ['regular-season', 'playoffs', 'play-in', 'pre-season', 'summer-league', 'free-agency'].includes(status)
 
-  // A major event (All-Star Weekend, etc.) 2 sim-weeks out or closer gets its
-  // own loud, colored, pulsing badge next to the status pill — not just
-  // buried in the small muted "Next:" text on the right, which is easy to
-  // miss and says nothing beyond "some event is coming eventually". This is
-  // the actual "an event of this magnitude is approaching" notice Bruno
-  // asked for, distinct from the routine week-by-week sim info.
+  // Whether the event has already started (a multi-day one like Pre-Season
+  // Games or a playoff round) as of the precise last-simulated day — an
+  // "ongoing" event needs different wording than a genuinely upcoming one,
+  // otherwise it keeps reading "Next: X · <a date already in the past>"
+  // for its entire multi-week span.
+  const eventOngoing = !!(nextEvent && currentDay && new Date(nextEvent.start_date + 'T00:00:00') <= currentDay)
+
+  // A major event (All-Star Weekend, etc.) 2 sim-weeks out or closer — or
+  // already happening — gets its own loud, colored, pulsing badge next to
+  // the status pill — not just buried in the small muted "Next:" text on
+  // the right, which is easy to miss and says nothing beyond "some event
+  // is coming eventually". This is the actual "an event of this magnitude
+  // is approaching" notice Bruno asked for, distinct from the routine
+  // week-by-week sim info.
   const eventSoon = (() => {
-    if (!nextEvent) return false
-    const simToday = getSimDate(week || 1)
+    if (!nextEvent || !currentDay) return false
+    if (eventOngoing) return true
     const evStart = new Date(nextEvent.start_date + 'T00:00:00')
-    const daysUntil = Math.round((evStart.getTime() - simToday.getTime()) / 86400000)
+    const daysUntil = Math.round((evStart.getTime() - currentDay.getTime()) / 86400000)
     return daysUntil <= 14
   })()
 
@@ -148,7 +158,9 @@ export default function SimulatorBanner() {
           {eventSoon && nextEvent && (
             <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
               style={{ background: nextEvent.color || '#b45309', color: '#fff', animation: 'pulse 2s infinite' }}>
-              {nextEvent.icon} {nextEvent.event_name} · {fmtEventDate(nextEvent.start_date)}
+              {nextEvent.icon} {nextEvent.event_name} · {eventOngoing
+                ? (isPT ? `a decorrer até ${fmtEventDate(nextEvent.end_date)}` : `ongoing until ${fmtEventDate(nextEvent.end_date)}`)
+                : fmtEventDate(nextEvent.start_date)}
             </span>
           )}
           {nextWeek > 0 ? (
@@ -179,12 +191,16 @@ export default function SimulatorBanner() {
         <div className="flex items-center gap-4">
           {nextEvent && (
             <span className="text-xs" style={{ color: '#8a8279' }}>
-              {isPT ? 'Próximo:' : 'Next:'}{' '}
+              {eventOngoing ? (isPT ? 'A decorrer:' : 'Ongoing:') : (isPT ? 'Próximo:' : 'Next:')}{' '}
               <span style={{ color: '#d4cdc5', fontWeight: 600 }}>
                 {nextEvent.icon} {nextEvent.event_name}
               </span>
               {' · '}
-              <span style={{ color: '#8a8279' }}>{fmtEventDate(nextEvent.start_date)}</span>
+              <span style={{ color: '#8a8279' }}>
+                {eventOngoing
+                  ? (isPT ? `até ${fmtEventDate(nextEvent.end_date)}` : `until ${fmtEventDate(nextEvent.end_date)}`)
+                  : fmtEventDate(nextEvent.start_date)}
+              </span>
             </span>
           )}
           <span className="text-xs" style={{ color: '#8a8279' }}>
