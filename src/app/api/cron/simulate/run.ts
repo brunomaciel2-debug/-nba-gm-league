@@ -23,7 +23,7 @@ import { simulateRisingStarsGame, simulateAllStarGame } from '@/lib/allstar-even
 import { buildTeamBox } from '@/lib/gleague-simulator'
 import { resolveGLeaguePlayoffs } from '@/lib/gleague-playoff-resolver'
 import { resolveRetirementWarnings, queueRetirementDecisions } from '@/lib/retirement-resolver'
-import { resolveWeeklyTacticalDevelopment, getAllTeamsTacticalState } from '@/lib/tactical-resolver'
+import { getAllTeamsTacticalState } from '@/lib/tactical-resolver'
 import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 import { computeRosterQuality, normalizeRosterQuality } from '@/lib/roster-quality'
@@ -219,17 +219,15 @@ orderMap[c.team_id].cohesion = c.team_cohesion
 orderMap[c.team_id].composure = c.composure_coaching
 })
 
-// Tactical System Familiarity — weekly tech-tree fill/decay per team (see
-// src/lib/tactical-resolver.ts), then attach each team's CURRENT active
-// system's familiarity + mastered-node effects onto orderMap so they flow
-// into simP() the same way cohesion/composure do above. The actual weekly
-// tick only runs on half 1 (the invocation that starts a new week) — it
-// used to fire on BOTH halves of every week (and even during phases with
-// no games at all), silently applying two weeks' worth of progress/decay
-// for one real week. The read below still runs every invocation so both
-// halves' games see the current state.
+// Tactical System Familiarity — the actual fill/decay tick now runs once
+// per SIMULATED DAY (resolveDailyTacticalDevelopment, called from
+// resolveDailyTicks above, before this half-1 early return) rather than
+// once a week — see tactical-resolver.ts for why. This just reads the
+// current state and attaches each team's CURRENT active system's
+// familiarity + mastered-node effects onto orderMap so they flow into
+// simP() the same way cohesion/composure do above — runs every invocation
+// so both halves' games see up-to-date state.
 try {
-if (half === 1) await resolveWeeklyTacticalDevelopment(week)
 const tacticalState = await getAllTeamsTacticalState()
 for (const teamId of Object.keys(orderMap)) {
 const activeSystem: OffSystem = orderMap[teamId]?.atk_style || 'motion'

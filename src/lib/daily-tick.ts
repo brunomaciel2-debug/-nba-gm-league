@@ -3,6 +3,7 @@ import { getWeekForDate } from '@/lib/season-week-helper'
 import { getGymGradeBonus } from '@/lib/facility-constants'
 import { physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from '@/lib/injury-constants'
 import { resolvePlayoffDay } from '@/lib/playoff-resolver'
+import { resolveDailyTacticalDevelopment } from '@/lib/tactical-resolver'
 
 // Health recovery used to run once per simulated WEEK (really once per
 // half-2 call), gated by an odd `isMonday = new Date().getDay()===1` check
@@ -88,6 +89,12 @@ export async function resolveDailyTicks(dates: string[]): Promise<{ playoffGames
       const { processed } = await resolvePlayoffDay(simDate)
       playoffGamesProcessed += processed
     } catch (e) { console.warn(`Playoff day resolution failed for ${simDate}:`, e) }
+    // Tactical System Familiarity — see tactical-resolver.ts for why this
+    // moved from a once-a-week tick to once a day (a weekly tick could only
+    // ever land the full 15-node tree on a multiple of 15 weeks; Bruno
+    // wanted 15/20/25 depending on staff quality, which needed the finer
+    // daily granularity).
+    try { await resolveDailyTacticalDevelopment(simDate) } catch (e) { console.warn(`Daily tactical development failed for ${simDate}:`, e) }
   }
   return { playoffGamesProcessed }
 }
