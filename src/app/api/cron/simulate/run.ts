@@ -848,7 +848,17 @@ const ymdDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStar
 const { start: dayRangeStart, end: dayRangeEnd } = getHalfWeekDates(week, half)
 const halfDates: string[] = []
 for (const d = new Date(dayRangeStart); d <= dayRangeEnd; d.setDate(d.getDate()+1)) halfDates.push(ymdDay(d))
-const cappedDates = dayLimit ? halfDates.slice(0, dayLimit) : halfDates
+// current_week/next_sim_half only change once the WHOLE half is done, so
+// week/half (and therefore halfDates) are IDENTICAL on every partial call
+// within the same half — slicing from index 0 would keep re-picking the
+// same first day(s) forever instead of advancing. last_sim_day (only
+// meaningful if it actually falls inside THIS half — a stale value from a
+// previous half must never leak in here) marks how far a previous partial
+// call already got; only dates strictly after it are still remaining.
+const remainingDates = (cfg?.last_sim_day && halfDates.includes(cfg.last_sim_day))
+? halfDates.filter(d => d > cfg.last_sim_day)
+: halfDates
+const cappedDates = dayLimit ? remainingDates.slice(0, dayLimit) : remainingDates
 
 // ── FRIENDLY / PRE-SEASON GAMES ────────────────────────
 // Friendlies have their own scheduled_date (set by whichever GM booked
@@ -896,11 +906,11 @@ await supabaseAdmin.from('season_config').update({ last_sim_day: cappedDates[cap
 // gm_orders get touched — same partial-completion contract as the
 // regular-season check: the half isn't done until every one of its
 // calendar days has actually been processed.
-if (dayLimit && cappedDates.length < halfDates.length) {
+if (dayLimit && cappedDates.length < remainingDates.length) {
 return NextResponse.json({
 success: true, partial: true, week, half, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated,
-days_remaining: halfDates.length - cappedDates.length,
-message: `${formatWeekRange(week,'pt-PT')} — dia simulado, ${halfDates.length - cappedDates.length} dia(s) por simular neste bloco.`,
+days_remaining: remainingDates.length - cappedDates.length,
+message: `${formatWeekRange(week,'pt-PT')} — dia simulado, ${remainingDates.length - cappedDates.length} dia(s) por simular neste bloco.`,
 })
 }
 
