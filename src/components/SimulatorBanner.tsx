@@ -18,16 +18,21 @@ export default function SimulatorBanner() {
   const [config, setConfig] = useState<any>(null)
   const [nextEvent, setNextEvent] = useState<any>(null)
   // The exact real day the simulation is currently sitting on — not just the
-  // week/half range. Bruno's rule: whenever a block/day is simulated, "today"
-  // becomes the LAST day actually simulated. This used to be GUESSED from
-  // the games table (earliest still-scheduled game in the upcoming half,
-  // minus a day), which only worked for the regular season — pre-season
-  // friendlies have no scheduled_date of their own in that table, so once
-  // "Simulate 1 Day" started correctly stopping after a single day instead
-  // of the whole block, this guess had no way to reflect that a day had
-  // actually been processed until the WHOLE block finished. Now read
-  // directly from season_config.last_sim_day, written by the simulator
-  // itself every time it processes a day — no more guessing.
+  // week/half range. Bruno's rule: "Now" is the day the GM is currently on,
+  // BEFORE that day's games happen — clicking "Simulate 1 Day" plays that
+  // day's games and moves "Now" to the following morning. So this is always
+  // season_config.last_sim_day (the last day whose games actually ran) PLUS
+  // one — last_sim_day itself was tried first and read as a contradiction
+  // ("Now: Oct 5" while Oct 5's games already show as final in the
+  // calendar), since last_sim_day by definition already happened.
+  // last_sim_day used to be GUESSED from the games table (earliest
+  // still-scheduled game in the upcoming half, minus a day), which only
+  // worked for the regular season — pre-season friendlies have no
+  // scheduled_date of their own in that table, so once "Simulate 1 Day"
+  // started correctly stopping after a single day instead of the whole
+  // block, this guess had no way to reflect that a day had actually been
+  // processed until the WHOLE block finished. Now read directly from the
+  // column, written by the simulator itself every time it processes a day.
   const [currentDay, setCurrentDay] = useState<Date | null>(null)
 
   useEffect(() => {
@@ -55,20 +60,24 @@ export default function SimulatorBanner() {
           lastSimDay = new Date(nextDayDate)
           lastSimDay.setDate(lastSimDay.getDate() - 1)
         }
-        setCurrentDay(lastSimDay)
+        // "Now" is the day AFTER the last one actually simulated — see the
+        // comment on the currentDay state above.
+        const today = new Date(lastSimDay)
+        today.setDate(today.getDate() + 1)
+        setCurrentDay(today)
 
         // season_events rows are dated within the SIMULATED season calendar
         // (Jul 2025 - Jun 2026) — comparing against real wall-clock "today"
         // (as this used to) drifts further wrong every real day that passes
         // without a matching sim day, until eventually every event silently
         // reads as already past and "Next event" just stops showing anything.
-        // Anchored to the same precise lastSimDay as the day badge above.
-        // Only genuinely upcoming events (start_date strictly after today) —
-        // the CURRENT phase (Pre-Season, Regular Season, etc.) and when it
-        // ends is already shown separately, in the "Now:" pill, so an
+        // Anchored to the same "today" as the day badge above. Only
+        // genuinely upcoming events (start_date strictly after today) — the
+        // CURRENT phase (Pre-Season, Regular Season, etc.) and when it ends
+        // is already shown separately, in the "Now:" pill, so an
         // already-started event like "Pre-Season Games" shouldn't also show
         // up here as if it were still ahead of us.
-        const simTodayStr = `${lastSimDay.getFullYear()}-${String(lastSimDay.getMonth() + 1).padStart(2, '0')}-${String(lastSimDay.getDate()).padStart(2, '0')}`
+        const simTodayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
         supabase.from('season_events')
           .select('*').eq('season', '2025-26')
           .gt('start_date', simTodayStr)
