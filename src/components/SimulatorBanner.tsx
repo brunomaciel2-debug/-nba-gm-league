@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
-import { getStatusForWeek, getWeekDates, getHalfWeekDates, formatSimDate, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
+import { getStatusForWeek, getWeekForDate, getWeekDates, getHalfWeekDates, formatSimDate, SEASON_STATUS_COLORS, SEASON_STATUS_LABELS } from '@/lib/season-week-helper'
 import GlobalSearch from './GlobalSearch'
 
 export default function SimulatorBanner() {
@@ -89,11 +89,20 @@ export default function SimulatorBanner() {
   const week = config.current_week || 0
   const nextWeek = week + 1
   // The badge/label describes the week we're actually IN right now (the last
-  // one simulated), not the upcoming one — those can differ right at a phase
-  // boundary (e.g. the week Pre-Season ends and Regular Season begins), and
-  // showing the wrong one here is exactly what made "Week 14" read as "we're
-  // in week 14" when it actually meant "week 14 hasn't been simulated yet".
-  const status = getStatusForWeek(week)
+  // day simulated, i.e. currentDay/last_sim_day) — not current_week, which
+  // only advances once a WHOLE week finishes. "Simulate 1 Day" can push
+  // last_sim_day into the next week (even across a phase boundary) well
+  // before current_week catches up, so using current_week here produced
+  // exactly this contradiction: "Now: Oct 4 (ongoing off-season until
+  // Oct 2)" — Oct 4 is already past the claimed end of the phase, because
+  // current_week (13, offseason) hadn't advanced to what last_sim_day (Oct
+  // 4, already week 14 / pre-season) actually reflected. nextWeek stays
+  // current_week-based on purpose — it drives the "Next sim" date range,
+  // which must match what the next Simulate call will really process.
+  const displayWeek = currentDay
+    ? getWeekForDate(`${currentDay.getFullYear()}-${String(currentDay.getMonth() + 1).padStart(2, '0')}-${String(currentDay.getDate()).padStart(2, '0')}`)
+    : week
+  const status = getStatusForWeek(displayWeek)
   const nextStatus = getStatusForWeek(nextWeek)
   const locale = isPT ? 'pt-PT' : 'en-US'
 
@@ -125,7 +134,7 @@ export default function SimulatorBanner() {
   // getStatusForWeek already encodes, just run forward instead of guessing
   // a fixed range.
   const phaseEndWeek = (() => {
-    let w = week
+    let w = displayWeek
     while (getStatusForWeek(w + 1) === status) w++
     return w
   })()
