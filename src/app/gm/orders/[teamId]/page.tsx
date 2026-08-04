@@ -183,26 +183,44 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
             return { teamId:oppId, teamName:ot?.name||oppId, players:ops||[] }
           })).then(groups=>{ setOppGroups(groups); if(groups.length) setActiveOppTab(prev=>prev||groups[0].teamId) })
         })
+        // Restore all saved values from an order row — used both for this
+        // week's own saved order, and (when there isn't one yet) as a
+        // carry-forward template from the last week actually submitted.
+        const applyOrder = (ord:any, includeLocked:boolean) => {
+          setPris([ord.priority_1||'',ord.priority_2||'',ord.priority_3||''])
+          setClutch(ord.clutch_player||'')
+          setPace(ord.pace||70)
+          setThreeRate(ord.three_rate||47)
+          setAtkStyle(ord.atk_style||'motion')
+          setDefStyle(ord.def_style||'man')
+          setTrainIntensity(ord.training_intensity||'normal')
+          setSpecialAssignments(ord.special_assignments||{})
+          if (includeLocked) setLocked(ord.locked||false)
+          if(ord.depth_chart) {
+            // Extract ball_roles separately from depth_chart
+            const { ball_roles, ...dcOnly } = ord.depth_chart as any
+            setDc({...emptyDC, ...dcOnly})
+            if(ball_roles) setBallRoles(ball_roles)
+          }
+          if(ord.ball_roles) setBallRoles(ord.ball_roles)
+        }
         supabase.from('gm_orders').select('*').eq('team_id',teamId).eq('week_number',week).single()
-          .then(({data:ord})=>{
-            if(!ord){ setOrdersLoaded(true); return }
-            // Restore all saved values
-            setPris([ord.priority_1||'',ord.priority_2||'',ord.priority_3||''])
-            setClutch(ord.clutch_player||'')
-            setPace(ord.pace||70)
-            setThreeRate(ord.three_rate||47)
-            setAtkStyle(ord.atk_style||'motion')
-            setDefStyle(ord.def_style||'man')
-            setTrainIntensity(ord.training_intensity||'normal')
-            setSpecialAssignments(ord.special_assignments||{})
-            setLocked(ord.locked||false)
-            if(ord.depth_chart) {
-              // Extract ball_roles separately from depth_chart
-              const { ball_roles, ...dcOnly } = ord.depth_chart as any
-              setDc({...emptyDC, ...dcOnly})
-              if(ball_roles) setBallRoles(ball_roles)
+          .then(async ({data:ord})=>{
+            if(!ord){
+              // Nothing saved for this week yet — start from the most
+              // recently SUBMITTED week's setup instead of a blank form, so
+              // the GM doesn't have to rebuild the whole depth chart,
+              // priorities, and pace from scratch every single week. Never
+              // carries `locked` forward — a new week must never start
+              // pre-locked just because an older one was.
+              const { data: prevOrd } = await supabase.from('gm_orders').select('*')
+                .eq('team_id',teamId).lt('week_number',week)
+                .order('week_number',{ascending:false}).limit(1).maybeSingle()
+              if(prevOrd) applyOrder(prevOrd, false)
+              setOrdersLoaded(true)
+              return
             }
-            if(ord.ball_roles) setBallRoles(ord.ball_roles)
+            applyOrder(ord, true)
             setOrdersLoaded(true)
           })
       })
