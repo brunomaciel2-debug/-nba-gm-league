@@ -14,6 +14,7 @@ import { medicalCostAfterInsurance, recurrenceWindowWeeks, recurrenceBodyPartWei
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
 import { resolveSummerLeague } from '@/lib/summer-league'
 import { resolveDailyTicks } from '@/lib/daily-tick'
+import { resolvePendingDecisions } from '@/lib/resolve-pending-decisions'
 import { assignRefereesToScheduledGames, rateRefereePerformance } from '@/lib/referees'
 import { resolveMonthlyMerchandising } from '@/lib/merchandising'
 import { resolveAllStarWeekend, resolveRisingStars } from '@/lib/allstar-resolver'
@@ -72,6 +73,16 @@ return all
 export async function runWeeklySimulation(opts?: { dayLimit?: number }) {
 const dayLimit = opts?.dayLimit
 try {
+// Pending GM decisions (flat-rate FA pickups, staff-offer hiring, Free
+// Agency week negotiation, Draft rounds/lottery, expired confirmations)
+// used to resolve only on a real-world daily cron — tied to actual UTC
+// midnight, not the simulated calendar. A GM who submits an offer and then
+// simulates several SIMULATED days forward in one sitting saw nothing
+// resolve, because real time barely moved. Resolving them here means every
+// simulate action (including "Simulate 1 Day") also advances anything a GM
+// is waiting on, regardless of dayLimit/phase/half below.
+try { await resolvePendingDecisions() } catch (e) { console.warn('resolvePendingDecisions failed:', e) }
+
 const { data: cfg } = await supabaseAdmin.from('season_config').select('*').eq('id',1).single()
 const week = (cfg?.current_week || 0) + 1
 // The season is only truly "done" once every week has been simulated —
@@ -96,6 +107,36 @@ const isPreseason = getStatusForWeek(week) === 'pre-season'
 // Free Agency, Draft, etc.) have no day-scoped games of their own — half 1
 // for those is simply a quick pass with nothing to simulate yet.
 const half: 1 | 2 = cfg.next_sim_half === 2 ? 2 : 1
+
+// Calendar days in this half, capped by dayLimit — the SAME day window used
+// both for filtering which real games/friendlies get simulated THIS call
+// and for the last_sim_day the banner reads as "Now". These used to be two
+// independent calculations: this one (a pure calendar-day slice, respecting
+// last_sim_day) and a separate one further down that picked games by their
+// FIRST distinct scheduled_date regardless of calendar position. When a
+// half's calendar range includes a day with zero scheduled games (routine
+// for the regular season, which plays every other day, not every half's
+// every day), those two pickers disagreed: "Simulate 1 Day" would tick
+// last_sim_day forward to the empty day while actually simulating a whole
+// day's worth of REAL games on a later date in the same call — so the
+// banner showed "Now: Oct 23" while Oct 24's games were already final.
+// Computing the day window once, up here, and using it everywhere below
+// keeps "one day" meaning the same calendar day for every subsystem.
+const ymdDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const { start: dayRangeStart, end: dayRangeEnd } = getHalfWeekDates(week, half)
+const halfDates: string[] = []
+for (const d = new Date(dayRangeStart); d <= dayRangeEnd; d.setDate(d.getDate()+1)) halfDates.push(ymdDay(d))
+// current_week/next_sim_half only change once the WHOLE half is done, so
+// week/half (and therefore halfDates) are IDENTICAL on every partial call
+// within the same half — slicing from index 0 would keep re-picking the
+// same first day(s) forever instead of advancing. last_sim_day (only
+// meaningful if it actually falls inside THIS half — a stale value from a
+// previous half must never leak in here) marks how far a previous partial
+// call already got; only dates strictly after it are still remaining.
+const remainingDates = (cfg?.last_sim_day && halfDates.includes(cfg.last_sim_day))
+? halfDates.filter(d => d > cfg.last_sim_day)
+: halfDates
+const cappedDates = dayLimit ? remainingDates.slice(0, dayLimit) : remainingDates
 
 let gamesSimulated = 0
 let friendliesSimulated = 0
@@ -256,20 +297,17 @@ const marquee = getMarqueeWeekInfo(week)
 // next (see half above), so a single invocation only ever has to simulate
 // ~half the week's games. Harmless for phases with no day-scoped games at
 // all (Free Agency, Draft, etc.) — the filter just matches nothing there.
-const ymdLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
 const { data: weekGamesAll } = await supabaseAdmin.from('games').select('*').eq('week_number', week).eq('status','scheduled')
-.gte('scheduled_date', ymdLocal(halfStart)).lte('scheduled_date', ymdLocal(halfEnd))
+.in('scheduled_date', halfDates)
 .order('scheduled_date').order('game_number')
-// dayLimit only ever takes games from the FIRST few distinct calendar dates
-// still scheduled in this half (in date order) — the rest stay 'scheduled'
-// for a later call, same games, same half, nothing skipped or reordered.
-let weekGames = weekGamesAll || []
-if (dayLimit) {
-const distinctDates = Array.from(new Set(weekGames.map((g: any) => g.scheduled_date))).sort()
-const allowedDates = new Set(distinctDates.slice(0, dayLimit))
-weekGames = weekGames.filter((g: any) => allowedDates.has(g.scheduled_date))
-}
+// Filtered by cappedDates (computed once, above) instead of this game
+// list's own "first N distinct dates" — the regular season plays every
+// other day, so a half's calendar range routinely includes empty days with
+// no games at all. Picking days from the game list directly used to let
+// this jump straight to the next date WITH games while the calendar
+// tracker (last_sim_day) advanced only one plain calendar day at a time —
+// same day window, same source of truth, everywhere in this function now.
+const weekGames = (weekGamesAll || []).filter((g: any) => cappedDates.includes(g.scheduled_date))
 
 for (const sg of (weekGames||[])) {
 const ht = teamMap[sg.home_team], at = teamMap[sg.away_team]
@@ -559,11 +597,9 @@ double_doubles: isDD?1:0,
 // only partly simulated would be wrong, not just early. The remaining
 // games stay untouched for the next "Simulate 1 Day" / "Complete Block" call.
 if (dayLimit && !isPreseason) {
-const ymdLocal2 = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-const { start: halfStart2, end: halfEnd2 } = getHalfWeekDates(week, half)
 const { count: stillScheduled } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true })
 .eq('week_number', week).eq('status', 'scheduled')
-.gte('scheduled_date', ymdLocal2(halfStart2)).lte('scheduled_date', ymdLocal2(halfEnd2))
+.in('scheduled_date', halfDates)
 if (stillScheduled && stillScheduled > 0) {
 return NextResponse.json({
 success: true, partial: true, week, half, games_simulated: gamesSimulated, games_remaining: stillScheduled,
@@ -834,31 +870,10 @@ await supabaseAdmin.from('players').update({ health:newHealth }).eq('id',pid)
 }
 }
 
-// Calendar days in this half, capped by dayLimit the same way the
-// regular-season game filter above is — shared by the friendly-games step
-// and the daily-tick step just below, so "Simulate 1 Day" during
-// pre-season (friendlies + health/playoff ticks, no regular games at all)
-// actually stops after one day instead of silently completing the whole
-// 3-4 day half regardless of what was asked for. Deliberately computed and
-// checked BEFORE season_config gets marked complete below — checking
-// afterward (as an earlier version of this fix did) let the week counter
-// advance regardless of the partial response, exactly the "1 day turned
-// into 3" bug this exists to prevent.
-const ymdDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-const { start: dayRangeStart, end: dayRangeEnd } = getHalfWeekDates(week, half)
-const halfDates: string[] = []
-for (const d = new Date(dayRangeStart); d <= dayRangeEnd; d.setDate(d.getDate()+1)) halfDates.push(ymdDay(d))
-// current_week/next_sim_half only change once the WHOLE half is done, so
-// week/half (and therefore halfDates) are IDENTICAL on every partial call
-// within the same half — slicing from index 0 would keep re-picking the
-// same first day(s) forever instead of advancing. last_sim_day (only
-// meaningful if it actually falls inside THIS half — a stale value from a
-// previous half must never leak in here) marks how far a previous partial
-// call already got; only dates strictly after it are still remaining.
-const remainingDates = (cfg?.last_sim_day && halfDates.includes(cfg.last_sim_day))
-? halfDates.filter(d => d > cfg.last_sim_day)
-: halfDates
-const cappedDates = dayLimit ? remainingDates.slice(0, dayLimit) : remainingDates
+// halfDates/remainingDates/cappedDates were already computed once, right
+// after `half` was determined near the top of this function — reused here
+// unchanged so the friendly-games step and the daily-tick step below stay
+// on the exact same day window as the regular-season game filter above.
 
 // ── FRIENDLY / PRE-SEASON GAMES ────────────────────────
 // Friendlies have their own scheduled_date (set by whichever GM booked
