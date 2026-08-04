@@ -136,7 +136,7 @@ export default function TeamPageTabs({
         supabase.from('season_config').select('current_week').eq('id', 1).single(),
         supabase.from('player_interactions').select('id').eq('team_id', teamId).neq('status', 'resolved'),
         supabase.from('scout_progress').select('points,lifetime_points').eq('team_id', teamId).eq('season', '2025-26').maybeSingle(),
-        supabase.from('training_slots').select('player_id').eq('team_id', teamId),
+        supabase.from('training_slots').select('locked,credits_available').eq('team_id', teamId),
         supabase.from('psychology_slots').select('player_id').eq('team_id', teamId),
       ])
 
@@ -152,7 +152,11 @@ export default function TeamPageTabs({
 
       const scoutingPending = (scoutProgress?.lifetime_points || 0) >= 100 && (scoutProgress?.points || 0) >= 10
 
-      const trainingPending = !trainingSlots || trainingSlots.length === 0 || trainingSlots.some((s: any) => !s.player_id)
+      // training_slots has no player_id column (that was a leftover assumption
+      // from a different table's shape) — the real "needs attention" signal is
+      // an unlocked slot sitting on unspent credits, same idea as Scouting's
+      // "points to spend" check below.
+      const trainingPending = (trainingSlots || []).some((s: any) => !s.locked && (s.credits_available || 0) > 0)
       const psychologyPending = (psychSlots || []).filter((s: any) => s.player_id).length < 3
 
       setAlerts({
