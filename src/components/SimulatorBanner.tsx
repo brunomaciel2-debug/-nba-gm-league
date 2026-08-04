@@ -151,11 +151,14 @@ export default function SimulatorBanner() {
 
   return (
     <div style={{ background: '#0a0f1a', borderBottom: '1px solid #1f2937', padding: '6px 0' }}>
-      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between flex-wrap gap-2">
-        {/* Left: status badge + week info */}
-        <div className="flex items-center gap-3">
+      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between flex-nowrap gap-2" style={{ overflow: 'hidden' }}>
+        {/* Left: status badge + week info. min-w-0 lets this shrink instead
+            of forcing the row to wrap; the "Next sim" text is the least
+            essential piece (Now + Next event already cover the important
+            info), so it's the one allowed to truncate under real pressure. */}
+        <div className="flex items-center gap-2" style={{ minWidth: 0, flexShrink: 1 }}>
           <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
-            style={{ background: sc.bg, color: sc.text }}>
+            style={{ background: sc.bg, color: sc.text, flexShrink: 0 }}>
             <span style={{
               width: 6, height: 6, borderRadius: '50%',
               background: sc.dot, display: 'inline-block',
@@ -178,13 +181,16 @@ export default function SimulatorBanner() {
           {nextEvent && (
             <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
               style={eventSoon
-                ? { background: nextEvent.color || '#b45309', color: '#fff', animation: 'pulse 2s infinite' }
-                : { background: 'transparent', color: '#8a8279', border: '1px solid #2a3441' }}>
+                ? { background: nextEvent.color || '#b45309', color: '#fff', animation: 'pulse 2s infinite', flexShrink: 0 }
+                : { background: 'transparent', color: '#8a8279', border: '1px solid #2a3441', flexShrink: 0 }}>
               {nextEvent.icon} {isPT ? 'Próximo evento' : 'Next event'}: {nextEvent.event_name} · {fmtEventDate(nextEvent.start_date)}
             </span>
           )}
+          {/* Least essential piece (Now + Next event above already cover
+              what matters) — the one allowed to truncate with an ellipsis
+              if the row is too narrow to fit everything on one line. */}
           {nextWeek > 0 ? (
-            <span className="text-xs" style={{ color: '#8a8279' }}>
+            <span className="text-xs" style={{ color: '#8a8279', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {isPT ? 'Próxima simulação:' : 'Next sim:'}{' '}
               <span style={{ color: '#d4cdc5' }}>
                 {nextStatus !== status ? `${nextLabel} · ` : ''}
@@ -192,7 +198,7 @@ export default function SimulatorBanner() {
               </span>
             </span>
           ) : (
-            <span className="text-xs" style={{ color: '#8a8279' }}>
+            <span className="text-xs" style={{ color: '#8a8279', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {isPT ? 'Data SIM: ' : 'SIM date: '}
               <span style={{ color: '#d4cdc5' }}>
                 {formatSimDate(nextWeek, locale)}
@@ -202,15 +208,18 @@ export default function SimulatorBanner() {
         </div>
 
         {/* Middle: global search — moved here from the top nav bar, which got
-            too cramped once it also carried the menus + account controls */}
-        <div className="hidden md:block flex-shrink-0" style={{ width: 280 }}>
+            too cramped once it also carried the menus + account controls.
+            Narrowed and allowed to shrink (instead of a rigid fixed width)
+            so it yields space rather than forcing the row to wrap; hides
+            entirely below lg since it's the least essential element here. */}
+        <div className="hidden lg:block" style={{ width: '100%', maxWidth: 200, minWidth: 120, flexShrink: 1 }}>
           <GlobalSearch compact />
         </div>
 
         {/* Right: sim days — the event itself is already shown once, as the
             pulsing badge on the left, so it isn't repeated here too. */}
-        <div className="flex items-center gap-4">
-          <span className="text-xs" style={{ color: '#8a8279' }}>
+        <div className="flex items-center" style={{ flexShrink: 0 }}>
+          <span className="text-xs" style={{ color: '#8a8279', whiteSpace: 'nowrap' }}>
             Sim:{' '}
             <span style={{ color: '#d4cdc5' }}>
               {simDay(config.sim_day_1)} & {simDay(config.sim_day_2)}
