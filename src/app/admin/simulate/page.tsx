@@ -212,8 +212,22 @@ export default function AdminSimulatePage() {
       })
       const data = await res.json()
       if (!res.ok || !data.success) throw new Error(data.error || (isPT ? 'Erro desconhecido' : 'Unknown error'))
+      // Two different partial-response shapes coexist in run.ts: the
+      // regular-season "games still scheduled" check returns games_remaining,
+      // the day-capped one (what "1 Day" actually hits during pre-season)
+      // returns days_remaining instead — reading games_remaining there is
+      // always undefined. This also ignored friendlies_simulated entirely,
+      // so a day that only played a pre-season friendly (no real games)
+      // read as "0 game(s) simulated", which isn't true.
+      const gamesPart = data.games_simulated || 0
+      const friendliesPart = data.friendlies_simulated || 0
+      const remaining = data.days_remaining ?? data.games_remaining ?? 0
+      const remainingUnitPT = data.days_remaining != null ? 'dia(s)' : 'jogo(s)'
+      const remainingUnitEN = data.days_remaining != null ? 'day(s)' : 'game(s)'
       const msg = data.partial
-        ? (isPT ? `✅ ${data.games_simulated} jogo(s) simulado(s) — ${data.games_remaining} por simular neste bloco (${formatWeekRange(data.week,locale)}).` : `✅ ${data.games_simulated} game(s) simulated — ${data.games_remaining} left in this block (${formatWeekRange(data.week,locale)}).`)
+        ? (isPT
+            ? `✅ ${gamesPart} jogo(s)${friendliesPart ? ` e ${friendliesPart} amigável(is)` : ''} simulado(s) — ${remaining} ${remainingUnitPT} por simular neste bloco (${formatWeekRange(data.week,locale)}).`
+            : `✅ ${gamesPart} game(s)${friendliesPart ? ` and ${friendliesPart} friendly(ies)` : ''} simulated — ${remaining} ${remainingUnitEN} left in this block (${formatWeekRange(data.week,locale)}).`)
         : (isPT ? `✅ Dia simulado — era o último do bloco, bloco completo (${formatWeekRange(data.week,locale)}).` : `✅ Day simulated — it was the last one in the block, block complete (${formatWeekRange(data.week,locale)}).`)
       setLog(prev => [...prev, msg])
       setResult(data)
