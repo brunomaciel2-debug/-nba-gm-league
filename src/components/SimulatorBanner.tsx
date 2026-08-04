@@ -155,9 +155,17 @@ export default function SimulatorBanner() {
             }} />
             {label}{week > 0 && currentDay ? `: ${fmtDate(currentDay)}` : ''}
           </span>
-          {eventSoon && nextEvent && (
+          {/* The next/ongoing event — a GM should always be able to see this
+              (Free Agency, Trade Deadline, All-Star, etc.), not just when
+              it's imminent, so this is no longer gated behind eventSoon.
+              It only gets the loud pulsing treatment once it's actually
+              close or already happening — otherwise it stays calm/muted so
+              it doesn't compete with the status pill for attention. */}
+          {nextEvent && (
             <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
-              style={{ background: nextEvent.color || '#b45309', color: '#fff', animation: 'pulse 2s infinite' }}>
+              style={eventSoon
+                ? { background: nextEvent.color || '#b45309', color: '#fff', animation: 'pulse 2s infinite' }
+                : { background: 'transparent', color: '#8a8279', border: '1px solid #2a3441' }}>
               {nextEvent.icon} {nextEvent.event_name} · {eventOngoing
                 ? (isPT ? `a decorrer até ${fmtEventDate(nextEvent.end_date)}` : `ongoing until ${fmtEventDate(nextEvent.end_date)}`)
                 : fmtEventDate(nextEvent.start_date)}
@@ -187,22 +195,9 @@ export default function SimulatorBanner() {
           <GlobalSearch compact />
         </div>
 
-        {/* Right: next event + sim days */}
+        {/* Right: sim days — the event itself is already shown once, as the
+            pulsing badge on the left, so it isn't repeated here too. */}
         <div className="flex items-center gap-4">
-          {nextEvent && (
-            <span className="text-xs" style={{ color: '#8a8279' }}>
-              {eventOngoing ? (isPT ? 'A decorrer:' : 'Ongoing:') : (isPT ? 'Próximo:' : 'Next:')}{' '}
-              <span style={{ color: '#d4cdc5', fontWeight: 600 }}>
-                {nextEvent.icon} {nextEvent.event_name}
-              </span>
-              {' · '}
-              <span style={{ color: '#8a8279' }}>
-                {eventOngoing
-                  ? (isPT ? `até ${fmtEventDate(nextEvent.end_date)}` : `until ${fmtEventDate(nextEvent.end_date)}`)
-                  : fmtEventDate(nextEvent.start_date)}
-              </span>
-            </span>
-          )}
           <span className="text-xs" style={{ color: '#8a8279' }}>
             Sim:{' '}
             <span style={{ color: '#d4cdc5' }}>
