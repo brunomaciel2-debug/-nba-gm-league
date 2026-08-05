@@ -89,12 +89,19 @@ export function priceFactor(price: number, comfortablePrice: number): number {
 
 export type SegmentAttendance = { segment: SegmentId, tier: TierId, count: number }
 
+// Major (researched real rivalries — historic, geographic, or recent deep
+// playoff history) hits attendance harder than Minor (real but lighter,
+// e.g. a divisional neighbor with no deep history). Replaces the old flat
+// isRivalry boolean, which treated a Bulls-Knicks game the same as any
+// randomly-paired divisional matchup.
+export type RivalryTier = 'major' | 'minor' | null
+
 export type AttendanceInput = {
   teamId: string
   popularity: number
   capacity: number
   winPct: number // this team's own win% — same real driver used today
-  isRivalry: boolean
+  rivalryTier: RivalryTier
   isMarquee: boolean
   prices: { lower: number, upper: number, courtside: number }
   randomJitter?: number // -0.03..0.03, same spread cron/simulate already applies
@@ -115,6 +122,35 @@ export type AttendanceResult = {
   segments: SegmentAttendance[]
 }
 
+// Checked both directions (A lists B, or B lists A) — a real rivalry
+// doesn't stop mattering just because only one side's researched list
+// named the other (e.g. Lakers list Clippers as Major even where the
+// Clippers' own three slots point elsewhere). Major wins if either side
+// calls it Major, since the more intense side's feelings are the real
+// ones on the floor.
+export function getRivalryTier(
+  teamA: { id: string, major_rival_team_ids?: string[] | null, minor_rival_team_ids?: string[] | null },
+  teamB: { id: string, major_rival_team_ids?: string[] | null, minor_rival_team_ids?: string[] | null },
+): RivalryTier {
+  const isMajor = (teamA.major_rival_team_ids || []).includes(teamB.id) || (teamB.major_rival_team_ids || []).includes(teamA.id)
+  if (isMajor) return 'major'
+  const isMinor = (teamA.minor_rival_team_ids || []).includes(teamB.id) || (teamB.minor_rival_team_ids || []).includes(teamA.id)
+  if (isMinor) return 'minor'
+  return null
+}
+
+// Real bump to the WINNING team's Fan Satisfaction right after a rivalry
+// win — previously isRivalry only ever touched attendance, nothing about
+// beating your rival specifically made fans happier than any other win.
+// A loss gets no penalty beyond the normal one (rivals matter more when
+// you win them, not extra-painful when you don't — Bruno's ask was
+// specifically about the win case).
+export function rivalryWinFanSatisfactionBonus(tier: RivalryTier): number {
+  if (tier === 'major') return 5
+  if (tier === 'minor') return 2
+  return 0
+}
+
 // Replaces the old baseAttRate/attRate/attendance calc in
 // cron/simulate/route.ts (previously: 0.65 + winPct*0.20 + rivalry*0.08 +
 // marquee*0.15, with ZERO price input). Same overall-interest driver as
@@ -126,8 +162,9 @@ export function computeGameAttendance(input: AttendanceInput): AttendanceResult 
   // capped log-scale bonus merchandising.ts uses for fame, small relative to
   // the existing win%/rivalry/marquee drivers (buzz brings people out, it
   // doesn't replace wanting to see a good team play).
+  const rivalryBoost = input.rivalryTier === 'major' ? 0.14 : input.rivalryTier === 'minor' ? 0.06 : 0
   const overallInterest = Math.min(0.98,
-    0.65 + input.winPct * 0.20 + (input.isRivalry ? 0.08 : 0) + (input.isMarquee ? 0.15 : 0)
+    0.65 + input.winPct * 0.20 + rivalryBoost + (input.isMarquee ? 0.15 : 0)
     + followersBonus(input.followers) * 0.05
     + (input.concessionAttendanceBonus ?? 0)
     + (input.randomJitter ?? 0))

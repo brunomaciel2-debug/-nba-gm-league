@@ -136,11 +136,11 @@ export async function assignRefereesToScheduledGames(): Promise<{ assigned: numb
   // which needs weekly-fresh standings not available this far ahead when
   // pre-assigning the whole remaining season in one pass — an honest
   // simplification, not a hidden gap.
-  const { data: teamsForRivalry } = await supabaseAdmin.from('teams').select('id,rival_team_id')
-  const rivalMap: Record<string, string> = {}
-  ;(teamsForRivalry || []).forEach((t: any) => { if (t.rival_team_id) rivalMap[t.id] = t.rival_team_id })
+  const { data: teamsForRivalry } = await supabaseAdmin.from('teams').select('id,major_rival_team_ids,minor_rival_team_ids')
+  const rivalMap: Record<string, string[]> = {}
+  ;(teamsForRivalry || []).forEach((t: any) => { rivalMap[t.id] = [...(t.major_rival_team_ids||[]), ...(t.minor_rival_team_ids||[])] })
   const isDecisiveForAssignment = (g: any): boolean => {
-    const isRivalry = rivalMap[g.home_team] === g.away_team || rivalMap[g.away_team] === g.home_team
+    const isRivalry = (rivalMap[g.home_team]||[]).includes(g.away_team) || (rivalMap[g.away_team]||[]).includes(g.home_team)
     const marquee = g.scheduled_date ? getMarqueeInfoForDate(g.scheduled_date, g.week_number).marquee : false
     return isRivalry || marquee
   }

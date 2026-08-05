@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { simulateGame } from '@/lib/game-simulator'
 import { notify } from '@/lib/notifications'
 import { getTeamLang, notifInjury } from '@/lib/notifications-helpers'
-import { computeGameAttendance } from '@/lib/audience-segments'
+import { computeGameAttendance, getRivalryTier } from '@/lib/audience-segments'
 import { rateRefereePerformance } from '@/lib/referees'
 import { getWeekForDate } from '@/lib/season-week-helper'
 import { buildAutoDepthChart } from '@/lib/auto-depth-chart'
@@ -118,12 +118,13 @@ async function computeFriendlyGameMeta(homeTeam: any, awayTeam: any, homeBox: an
     supabaseAdmin.from('franchise_config').select('ticket_lower,ticket_upper,ticket_courtside').eq('team_id', homeTeam.id).maybeSingle(),
     supabaseAdmin.from('referees').select('id'),
   ])
-  const isRivalry = homeTeam.rival_team_id === awayTeam.id || awayTeam.rival_team_id === homeTeam.id
+  const rivalryTier = getRivalryTier(homeTeam, awayTeam)
+  const isRivalry = rivalryTier !== null
   const attendanceResult = computeGameAttendance({
     teamId: homeTeam.id, popularity: homeTeam.popularity ?? 50,
     capacity: homeTeam.arena_capacity || 18000,
     winPct: (homeTeam.wins || 0) / Math.max(1, (homeTeam.wins || 0) + (homeTeam.losses || 0)),
-    isRivalry, isMarquee: false,
+    rivalryTier, isMarquee: false,
     prices: {
       lower: ticketConfig?.ticket_lower ?? 80, upper: ticketConfig?.ticket_upper ?? 45,
       courtside: ticketConfig?.ticket_courtside ?? 500,

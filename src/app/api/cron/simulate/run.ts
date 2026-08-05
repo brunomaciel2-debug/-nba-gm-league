@@ -28,7 +28,7 @@ import { getAllTeamsTacticalState } from '@/lib/tactical-resolver'
 import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 import { computeRosterQuality, normalizeRosterQuality } from '@/lib/roster-quality'
-import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, computeConcessionSupplyCost, computeGameOperationsCost, computeConcessionSynergyMultipliers, computeConcessionAttendanceBonus, computeConcessionFanSatisfactionBonus, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
+import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, computeConcessionSupplyCost, computeGameOperationsCost, computeConcessionSynergyMultipliers, computeConcessionAttendanceBonus, computeConcessionFanSatisfactionBonus, getRivalryTier, rivalryWinFanSatisfactionBonus, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
 import { getGymGradeBonus } from '@/lib/facility-constants'
 import { cityDistanceMiles, computeAwayTravelCost } from '@/lib/travel-constants'
 import { resolveWeeklySocialMedia } from '@/lib/social-media-resolver'
@@ -343,7 +343,8 @@ ap.forEach((p:any) => { p.ball_role = aBallRoles[p.name] })
 // Built as fresh objects (not mutating orderMap directly) since a team can
 // play several different opponents this same week — each game needs its
 // own attRate/isRivalry/decisive, not whatever the last game happened to set.
-const isRivalry = ht.rival_team_id === at.id || at.rival_team_id === ht.id
+const rivalryTier = getRivalryTier(ht, at)
+const isRivalry = rivalryTier !== null
 const htWinPct = (ht.wins||0) / Math.max(1, (ht.wins||0)+(ht.losses||0))
 // Per-game marquee check (falls back to the whole-week check only if this
 // row somehow has no real scheduled_date) — this is what actually fixes
@@ -366,7 +367,7 @@ const homeVariantCounts: Record<string, number> = concessionsMap[ht.id] || {}
 const attendanceResult = computeGameAttendance({
 teamId: ht.id, popularity: ht.popularity ?? 50,
 capacity: ht.arena_capacity || arenaCapacityMap[ht.id] || 18000,
-winPct: htWinPct, isRivalry, isMarquee: gMarquee.marquee,
+winPct: htWinPct, rivalryTier, isMarquee: gMarquee.marquee,
 prices: { lower: ticketPrices.ticket_lower, upper: ticketPrices.ticket_upper, courtside: ticketPrices.ticket_courtside },
 randomJitter: Math.random() * 0.06 - 0.03,
 followers: ht.social_media_followers,
@@ -433,6 +434,27 @@ gamesSimulated++
 gamesCreated.push(gameRec.id)
 weekGamesByTeam[ht.id] = (weekGamesByTeam[ht.id]||0) + 1
 weekGamesByTeam[at.id] = (weekGamesByTeam[at.id]||0) + 1
+
+// Real bump to Fan Satisfaction for winning a rivalry game — bigger for
+// Major than Minor, nothing for a non-rivalry win. Previously isRivalry
+// only ever touched attendance; beating your rival didn't make fans any
+// happier than any other win. Direct nudge to the current value (not the
+// week's drift target) — it settles back toward the win%-based target on
+// its own via the existing weekly drift step, same as any other one-off
+// mood swing.
+if (rivalryTier) {
+try {
+const winnerId = result.homeScore > result.awayScore ? ht.id : at.id
+const bump = rivalryWinFanSatisfactionBonus(rivalryTier)
+if (bump > 0) {
+const { data: fin } = await supabaseAdmin.from('franchise_finances').select('fan_satisfaction').eq('team_id', winnerId).single()
+if (fin) {
+const newSat = Math.min(100, (fin.fan_satisfaction ?? 50) + bump)
+await supabaseAdmin.from('franchise_finances').update({ fan_satisfaction: newSat }).eq('team_id', winnerId)
+}
+}
+} catch (rivalSatErr) { console.warn('Rivalry win fan satisfaction bump failed:', rivalSatErr) }
+}
 
 // box_scores.mins is an integer column — every known source of a
 // fractional p.mins (applyDC's jitter, Garbage Time reallocation) already

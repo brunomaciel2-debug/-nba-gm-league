@@ -411,7 +411,7 @@ const OWNERS_HOT_SEAT_STREAK_WEEKS = 8
 // ── WEEKLY RESOLUTION ─────────────────────────────────────────────
 export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teamsProcessed: number }> {
   const { data: teams } = await supabaseAdmin.from('teams')
-    .select('id,name,wins,losses,conference,rival_team_id,popularity,cap_used,social_media_followers')
+    .select('id,name,wins,losses,conference,major_rival_team_ids,minor_rival_team_ids,popularity,cap_used,social_media_followers')
     .not('id', 'in', '(ALL,RVS,ROO,SOP)')
   if (!teams?.length) return { teamsProcessed: 0 }
 
@@ -595,7 +595,11 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
       .sort((a: any, b: any) => (b.real_ovr || 0) - (a.real_ovr || 0))
       .slice(0, 2)
       .map((p: any) => ({ id: p.id, name: p.name, real_ovr: p.real_ovr || 0, age: p.age || 25, contract_years: p.contract_years ?? null }))
-    const rivalInfo = team.rival_team_id ? { teamId: team.rival_team_id, name: teamNameById[team.rival_team_id] || team.rival_team_id } : null
+    // The board's season "beat your rival" goal names one headline rival —
+    // prefer a Major one (what the board actually cares about) and only
+    // fall back to Minor if this team has no Major rival on record.
+    const primaryRivalId = (team.major_rival_team_ids||[])[0] || (team.minor_rival_team_ids||[])[0] || null
+    const rivalInfo = primaryRivalId ? { teamId: primaryRivalId, name: teamNameById[primaryRivalId] || primaryRivalId } : null
 
     // Lock the expectation baseline ONCE per GM tenure — a mid-season trade
     // that suddenly makes this team look like a contender or a rebuild must

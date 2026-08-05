@@ -41,7 +41,7 @@ export async function checkSponsorObjectives() {
   if (!trackings?.length) return { checked: 0, achieved: 0 }
 
   // Pre-fetch all teams for rival lookup
-  const { data: allTeams } = await supabase.from('teams').select('id,name,rival_team_id,wins,losses,division')
+  const { data: allTeams } = await supabase.from('teams').select('id,name,major_rival_team_ids,minor_rival_team_ids,wins,losses,division')
   const teamMap: Record<string, any> = {}
   ;(allTeams||[]).forEach((t:any) => teamMap[t.id] = t)
 
@@ -129,12 +129,16 @@ export async function checkSponsorObjectives() {
       }
 
       case 'wins_rivalry': {
-        const rival = teamMap[teamId]?.rival_team_id
-        if (!rival) break
+        // Counts wins against ANY researched rival, Major or Minor — the
+        // objective itself doesn't distinguish tier, just "did you beat
+        // your rival(s) enough times."
+        const rivals = [...(teamMap[teamId]?.major_rival_team_ids||[]), ...(teamMap[teamId]?.minor_rival_team_ids||[])]
+        if (!rivals.length) break
+        const rivalOr = rivals.map((r:string) => `and(home_team.eq.${teamId},away_team.eq.${r}),and(home_team.eq.${r},away_team.eq.${teamId})`).join(',')
         const { data: games } = await supabase.from('games')
           .select('home_score,away_score,home_team,away_team')
           .eq('season','2025-26').eq('status','final')
-          .or(`and(home_team.eq.${teamId},away_team.eq.${rival}),and(home_team.eq.${rival},away_team.eq.${teamId})`)
+          .or(rivalOr)
         currentValue = (games||[]).filter(g=>
           (g.home_team===teamId&&g.home_score>g.away_score)||
           (g.away_team===teamId&&g.away_score>g.home_score)

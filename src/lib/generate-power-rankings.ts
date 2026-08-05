@@ -23,7 +23,7 @@ export async function generatePowerRankings(week: number) {
   // Fetch all active teams with their data
   const { data: teams } = await supabase
     .from('teams')
-    .select('id,name,wins,losses,pts_for,pts_against,conference,division,rival_team_id,elo')
+    .select('id,name,wins,losses,pts_for,pts_against,conference,division,elo')
     .not('id', 'in', '(ALL,RVS,ROO,SOP)')
     .order('wins', { ascending: false })
 

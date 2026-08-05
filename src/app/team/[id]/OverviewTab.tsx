@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import { formatSimMonthName } from '@/lib/season-week-helper'
@@ -50,6 +51,7 @@ export default function OverviewTab({ teamId, teamColor, players, games }: {
   const [gm, setGm] = useState<any>(null)
   const [sponsorNames, setSponsorNames] = useState<Partial<Record<string,string>>>({})
   const [finance, setFinance] = useState<{ revenue: number, expense: number, monthNum: number } | null>(null)
+  const [rivals, setRivals] = useState<{ id: string, name: string, color: string, logo_url: string | null, wins: number, losses: number, tier: 'major'|'minor' }[]>([])
 
   useEffect(() => {
     (async () => {
@@ -72,6 +74,20 @@ export default function OverviewTab({ teamId, teamColor, players, games }: {
       setConfTeams(allTeams || [])
       setCapacity((sections || []).reduce((s: number, r: any) => s + (r.capacity || 0), 0))
       setGm(gmRow)
+
+      const majorIds: string[] = (teamRow as any)?.major_rival_team_ids || []
+      const minorIds: string[] = (teamRow as any)?.minor_rival_team_ids || []
+      const rivalIds = [...majorIds, ...minorIds]
+      if (rivalIds.length) {
+        const { data: rivalTeams } = await supabase.from('teams')
+          .select('id,name,color,logo_url,wins,losses').in('id', rivalIds)
+        const rivalList = rivalIds.map(id => {
+          const rt = (rivalTeams || []).find((r: any) => r.id === id)
+          if (!rt) return null
+          return { ...rt, tier: majorIds.includes(id) ? 'major' as const : 'minor' as const }
+        }).filter(Boolean) as typeof rivals
+        setRivals(rivalList)
+      }
 
       const names: Partial<Record<string,string>> = {}
       ;(contracts || []).forEach((c: any) => {
@@ -253,6 +269,43 @@ export default function OverviewTab({ teamId, teamColor, players, games }: {
           </Card>
         </div>
       </div>
+
+      {/* RIVALS */}
+      {rivals.length > 0 && (
+        <div style={{marginTop:14}}>
+          <Card title={isPT ? 'Rivalidades' : 'Rivalries'} icon="🔥">
+            <div style={{display:'grid', gridTemplateColumns:`repeat(${Math.min(rivals.length,3)},1fr)`, gap:10}}>
+              {rivals.map(r => {
+                const isMajor = r.tier === 'major'
+                const tierColor = isMajor ? '#dc2626' : '#8a8279'
+                return (
+                  <Link key={r.id} href={`/team/${r.id}`} style={{textDecoration:'none'}}>
+                    <div style={{
+                      display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10,
+                      background: isMajor ? tierColor+'0d' : '#f0ece5',
+                      border:`1px solid ${isMajor ? tierColor+'44' : '#e2dcd5'}`,
+                      cursor:'pointer',
+                    }}>
+                      <div style={{width:36, height:36, borderRadius:'50%', flexShrink:0, overflow:'hidden', background: r.color+'22', border:`2px solid ${r.color}44`, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                        {r.logo_url
+                          ? <img src={r.logo_url} alt="" style={{width:'100%', height:'100%', objectFit:'contain'}}/>
+                          : <span style={{fontSize:12, fontWeight:900, color:r.color}}>{r.id}</span>}
+                      </div>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:9, fontWeight:800, textTransform:'uppercase', letterSpacing:0.5, color:tierColor, marginBottom:1}}>
+                          {isMajor ? (isPT ? 'Rivalidade Major' : 'Major Rivalry') : (isPT ? 'Rivalidade Minor' : 'Minor Rivalry')}
+                        </div>
+                        <div style={{fontSize:13, fontWeight:700, color:'#1a1512', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.name}</div>
+                        <div style={{fontSize:10, color:'#8a8279'}}>{r.wins}-{r.losses}</div>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
@@ -121,8 +120,11 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
   const [contracts, setContracts] = useState<Contract[]>([])
   const [pool, setPool] = useState<PoolEntry[]>([])
   const [jerseys, setJerseys] = useState<JerseyImage[]>([])
-  const [rivalName, setRivalName] = useState('')
-  const [rivalTeamId, setRivalTeamId] = useState('')
+  // Joined display string ("Atlanta Hawks, Orlando Magic or Washington
+  // Wizards") — a team can now have up to 3 real rivals (Major+Minor), so
+  // the old single name+link substitution no longer fits; individual
+  // links were dropped rather than build a 3-way link-split just for this.
+  const [rivalNamesJoined, setRivalNamesJoined] = useState('')
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | 'pending' | 'achieved'>('all')
 
@@ -142,19 +144,25 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
         .eq('status', 'active'),
       supabase.from('sponsor_pool').select('tier,template_id').eq('team_id', teamId).eq('season', '2025-26'),
       supabase.from('sponsor_jersey_images').select('option_number,tier,company_name').eq('team_id', teamId).eq('season', '2025-26'),
-      supabase.from('teams').select('rival_team_id').eq('id', teamId).single(),
+      supabase.from('teams').select('major_rival_team_ids,minor_rival_team_ids').eq('id', teamId).single(),
     ]).then(([{ data: c }, { data: p }, { data: j }, { data: t }]) => {
       setContracts(c || [])
       setPool(p || [])
       setJerseys(j || [])
-      if (t?.rival_team_id) {
-        setRivalTeamId(t.rival_team_id)
-        supabase.from('teams').select('name').eq('id', t.rival_team_id).single()
-          .then(({ data: r }) => { if (r?.name) setRivalName(r.name) })
+      const rivalIds = [...(t?.major_rival_team_ids||[]), ...(t?.minor_rival_team_ids||[])]
+      if (rivalIds.length) {
+        supabase.from('teams').select('id,name').in('id', rivalIds)
+          .then(({ data: rs }) => {
+            const names = rivalIds.map(id => rs?.find((r:any) => r.id === id)?.name).filter(Boolean) as string[]
+            if (names.length) {
+              const joiner = isPT ? ' ou ' : ' or '
+              setRivalNamesJoined(names.length > 1 ? names.slice(0,-1).join(', ') + joiner + names[names.length-1] : names[0])
+            }
+          })
       }
       setLoading(false)
     })
-  }, [teamId])
+  }, [teamId, isPT])
 
   // The sponsor's real-world branded name (Disney, Advent Health, ...) lives
   // in sponsor_jersey_images, keyed by that team's pool position for the
@@ -265,11 +273,8 @@ export default function GoalsTab({ teamId, teamColor }: { teamId: string, teamCo
                   const icon = OBJECTIVE_ICONS[obj.objective_type] || '🎯'
                   const translated = translateObjectiveDescription(obj.description, isPT)
                   let desc: React.ReactNode = translated
-                  if (rivalName && obj.objective_type === 'wins_rivalry') {
-                    const parts = translated.split(RIVAL_PLACEHOLDER_PATTERN)
-                    desc = parts.length === 2
-                      ? <>{parts[0]}<Link href={`/team/${rivalTeamId}`} className="hover:underline" style={{color:'inherit'}}>{rivalName}</Link>{parts[1]}</>
-                      : translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalName)
+                  if (rivalNamesJoined && obj.objective_type === 'wins_rivalry') {
+                    desc = translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalNamesJoined)
                   }
                   const showProgress = !tracking.achieved && tracking.current_value > 0 && obj.threshold > 1
 

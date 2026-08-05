@@ -69,7 +69,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     { data: sponsorContracts },
     { data: constructions },
   ] = await Promise.all([
-    supabase.from('teams').select('id,name,wins,losses,conference,rival_team_id,cap_used').not('id','in','(ALL,RVS,ROO,SOP)'),
+    supabase.from('teams').select('id,name,wins,losses,conference,major_rival_team_ids,minor_rival_team_ids,cap_used').not('id','in','(ALL,RVS,ROO,SOP)'),
     supabase.from('games').select('*,home:teams!games_home_team_fkey(name),away:teams!games_away_team_fkey(name)').in('id', gamesCreated),
     // No status filter — a non-sidelining mental issue (see
     // mentalIssueSidelines) is inserted already 'resolved' since it never
@@ -262,18 +262,21 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     }
 
     // Rivalry win check only cares about THIS week's games, which is what
-    // the gamesCreated-scoped `games` variable correctly represents.
-    if (team.rival_team_id) {
+    // the gamesCreated-scoped `games` variable correctly represents. Any
+    // researched rival counts, Major or Minor.
+    const teamRivalIds = [...(team.major_rival_team_ids||[]), ...(team.minor_rival_team_ids||[])]
+    if (teamRivalIds.length) {
       const teamGamesThisWeek = (games||[]).filter((g:any) => g.home_team === team.id || g.away_team === team.id)
       const rivalGame = teamGamesThisWeek.find((g:any) =>
-        (g.home_team===team.id&&g.away_team===team.rival_team_id)||(g.away_team===team.id&&g.home_team===team.rival_team_id)
+        (g.home_team===team.id&&teamRivalIds.includes(g.away_team))||(g.away_team===team.id&&teamRivalIds.includes(g.home_team))
       )
       if (rivalGame) {
         const won = (rivalGame.home_team===team.id&&rivalGame.home_score>rivalGame.away_score)||(rivalGame.away_team===team.id&&rivalGame.away_score>rivalGame.home_score)
-        const rival = teamMap[team.rival_team_id]
+        const rivalId = rivalGame.home_team===team.id ? rivalGame.away_team : rivalGame.home_team
+        const rival = teamMap[rivalId]
         if (won) {
           const notif = notifRivalWin(lang, rival?.name)
-          await notify(team.id, 'rivalry', notif.subject, notif.body, { rival_id: team.rival_team_id })
+          await notify(team.id, 'rivalry', notif.subject, notif.body, { rival_id: rivalId })
         }
       }
     }

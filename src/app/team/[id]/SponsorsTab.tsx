@@ -1,6 +1,5 @@
 'use client'
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { useTranslation } from '@/components/I18nProvider'
@@ -177,19 +176,18 @@ function Tip({ text, children }: TipProps) {
   )
 }
 
-function ObjectiveRow({ obj, tracking, rivalName, rivalTeamId }: { obj: Objective, tracking?: ObjectiveTracking, rivalName?: string, rivalTeamId?: string }) {
+function ObjectiveRow({ obj, tracking, rivalNamesJoined }: { obj: Objective, tracking?: ObjectiveTracking, rivalNamesJoined?: string }) {
   const isPT = useIsPT()
   const achieved = tracking?.achieved || false
   const paid = tracking?.paid || false
   const icon = OBJECTIVE_ICONS[obj.objective_type] || '🎯'
   const translated = translateObjectiveDescription(obj.description, isPT)
-  // Replace generic rival reference with actual rival name (linked to their page)
+  // Replace generic rival reference with actual rival name(s) — up to 3
+  // real rivals (Major+Minor) now, so this is a joined string, not a
+  // single linked name like before.
   let description: React.ReactNode = translated
-  if (rivalName && obj.objective_type === 'wins_rivalry') {
-    const parts = translated.split(RIVAL_PLACEHOLDER_PATTERN)
-    description = parts.length === 2 && rivalTeamId
-      ? <>{parts[0]}<Link href={`/team/${rivalTeamId}`} className="hover:underline" style={{color:'inherit'}}>{rivalName}</Link>{parts[1]}</>
-      : translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalName)
+  if (rivalNamesJoined && obj.objective_type === 'wins_rivalry') {
+    description = translated.replace(RIVAL_PLACEHOLDER_PATTERN, rivalNamesJoined)
   }
 
   return (
@@ -323,7 +321,7 @@ function SponsorImagePreview({ jerseyUrl, companyName, label, aspect }: { jersey
 }
 
 function SponsorCard({
-  entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl, rivalName, rivalTeamId, realCompanyName, companyDescription
+  entry, objectives, isGM, teamColor, onSign, signing, hasContract, jerseyUrl, rivalNamesJoined, realCompanyName, companyDescription
 }: {
   entry: PoolEntry
   objectives: Objective[]
@@ -333,8 +331,7 @@ function SponsorCard({
   signing: boolean
   hasContract: boolean
   jerseyUrl?: string
-  rivalName?: string
-  rivalTeamId?: string
+  rivalNamesJoined?: string
   realCompanyName?: string
   companyDescription?: string
 }) {
@@ -425,7 +422,7 @@ function SponsorCard({
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:5,marginBottom:isGM && !hasContract ? 12 : 0}}>
         {objectives.map(obj => (
-          <ObjectiveRow key={obj.id} obj={obj} rivalName={rivalName} rivalTeamId={rivalTeamId}/>
+          <ObjectiveRow key={obj.id} obj={obj} rivalNamesJoined={rivalNamesJoined}/>
         ))}
       </div>
 
@@ -457,8 +454,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
   const [contracts, setContracts] = useState<Contract[]>([])
   const [objectives, setObjectives] = useState<Objective[]>([])
   const [jerseys, setJerseys] = useState<JerseyImage[]>([])
-  const [rivalName, setRivalName] = useState<string>('')
-  const [rivalTeamId, setRivalTeamId] = useState<string>('')
+  const [rivalNamesJoined, setRivalNamesJoined] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
   const [msg, setMsg] = useState('')
@@ -483,16 +479,22 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
       setLoading(false)
     })
 
-    // Fetch rival name
-    supabase.from('teams').select('rival_team_id').eq('id', teamId).single()
+    // Fetch rival name(s) — up to 3 real rivals (Major+Minor) now, joined into one string
+    supabase.from('teams').select('major_rival_team_ids,minor_rival_team_ids').eq('id', teamId).single()
       .then(({ data: t }) => {
-        if (t?.rival_team_id) {
-          setRivalTeamId(t.rival_team_id)
-          supabase.from('teams').select('name').eq('id', t.rival_team_id).single()
-            .then(({ data: r }) => { if (r?.name) setRivalName(r.name) })
+        const rivalIds = [...(t?.major_rival_team_ids||[]), ...(t?.minor_rival_team_ids||[])]
+        if (rivalIds.length) {
+          supabase.from('teams').select('id,name').in('id', rivalIds)
+            .then(({ data: rs }) => {
+              const names = rivalIds.map(id => rs?.find((r:any) => r.id === id)?.name).filter(Boolean) as string[]
+              if (names.length) {
+                const joiner = isPT ? ' ou ' : ' or '
+                setRivalNamesJoined(names.length > 1 ? names.slice(0,-1).join(', ') + joiner + names[names.length-1] : names[0])
+              }
+            })
         }
       })
-  }, [teamId])
+  }, [teamId, isPT])
 
   const handleSign = async (poolId: string, templateId: string, tier: string, fixedMonthly: number) => {
     if (!isGM) return
@@ -656,8 +658,7 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
                 signing={signing}
                 hasContract={hasContract}
                 jerseyUrl={sponsorImg?.jersey_url}
-                rivalName={rivalName}
-                rivalTeamId={rivalTeamId}
+                rivalNamesJoined={rivalNamesJoined}
                 realCompanyName={sponsorImg?.company_name}
                 companyDescription={sponsorImg?.company_description}
               />
