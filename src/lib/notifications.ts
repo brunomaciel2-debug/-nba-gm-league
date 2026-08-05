@@ -70,7 +70,14 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   ] = await Promise.all([
     supabase.from('teams').select('id,name,wins,losses,conference,rival_team_id,cap_used').not('id','in','(ALL,RVS,ROO,SOP)'),
     supabase.from('games').select('*,home:teams!games_home_team_fkey(name),away:teams!games_away_team_fkey(name)').in('id', gamesCreated),
-    supabase.from('injury_log').select('*,players!inner(name,team_id)').eq('season','2025-26').eq('status','active').eq('week_number', week),
+    // No status filter — a non-sidelining mental issue (see
+    // mentalIssueSidelines) is inserted already 'resolved' since it never
+    // actually benches the player, but the GM should still hear about it.
+    // week_number already scopes this to injuries that happened THIS week,
+    // so an older physical injury that merely finished healing this week
+    // (status flips to 'resolved' but week_number stays its original week)
+    // still can't leak back in here.
+    supabase.from('injury_log').select('*,players!inner(name,team_id)').eq('season','2025-26').eq('week_number', week),
     // NOTE: real column is "contract_years" (years REMAINING on the deal),
     // not "contract_years_left" — the wrong name here silently broke this
     // query (and the LOW MORALE + CONTRACTS EXPIRING sections below) forever.
@@ -151,9 +158,13 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
       }
       const notif = notifInjury(lang, inj.players?.name, inj.injury_type, inj.games_out, inj.occurred_in, gameContext)
       const recurring = inj.is_recurring ? (lang === 'pt' ? '\n⚠️ Esta é uma lesão recorrente.' : '\n⚠️ This is a recurring injury.') : ''
+      // games_out===0 means no medical bill was actually charged and no
+      // specialist offer applies (see mentalIssueSidelines) — both lines
+      // would otherwise misleadingly show a cost/offer that never happened.
+      const noRealInjury = inj.games_out === 0
       const medCost = medicalCostAfterInsurance(severity as InjurySeverity)
-      const medLine = lang === 'pt' ? `\n💵 Despesas médicas: $${(medCost/1000).toFixed(0)}K após seguro (já debitadas)` : `\n💵 Medical bill: $${(medCost/1000).toFixed(0)}K after insurance (already charged)`
-      const eligible = isSpecialistEligible(severity)
+      const medLine = noRealInjury ? '' : (lang === 'pt' ? `\n💵 Despesas médicas: $${(medCost/1000).toFixed(0)}K após seguro (já debitadas)` : `\n💵 Medical bill: $${(medCost/1000).toFixed(0)}K after insurance (already charged)`)
+      const eligible = !noRealInjury && isSpecialistEligible(severity)
       const specialistCost = eligible ? SPECIALIST_COST_BY_SEVERITY[severity as InjurySeverity] || 0 : 0
       const specialistBoostPct = eligible ? Math.round(((SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY[severity as InjurySeverity] || 1) - 1) * 100) : 0
       const specialistLine = eligible
@@ -162,7 +173,13 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
             : `\n\n🩺 You can send ${inj.players?.name} to an outside specialist for $${(specialistCost/1000).toFixed(0)}K to speed up his recovery by ${specialistBoostPct}% (not an instant cure) — check your team's Injury Report.`)
         : ''
       const detail = inj.notes ? `\n${inj.notes}` : ''
-      const bodyPart = lang === 'pt' ? `Zona afetada: ${inj.body_part}${detail}\nRecuperação estimada: ${inj.games_out} jogos (aprox. ${Math.ceil(inj.games_out/4)} semanas)${recurring}` : `Body part: ${inj.body_part}${detail}\nEstimated recovery: ${inj.games_out} games (approx. ${Math.ceil(inj.games_out/4)} weeks)${recurring}`
+      // games_out===0 is the non-sidelining mental-issue case — the player
+      // never actually misses anything, so "0 games out" would read as a
+      // bug rather than the intended "keeps playing through it."
+      const recoveryLine = inj.games_out > 0
+        ? (lang === 'pt' ? `\nRecuperação estimada: ${inj.games_out} jogos (aprox. ${Math.ceil(inj.games_out/4)} semanas)` : `\nEstimated recovery: ${inj.games_out} games (approx. ${Math.ceil(inj.games_out/4)} weeks)`)
+        : (lang === 'pt' ? `\nNão afeta a disponibilidade — continua a jogar normalmente.` : `\nDoesn't affect availability — he keeps playing normally.`)
+      const bodyPart = lang === 'pt' ? `Zona afetada: ${inj.body_part}${detail}${recoveryLine}${recurring}` : `Body part: ${inj.body_part}${detail}${recoveryLine}${recurring}`
 
       // Idempotency guard — this section's query matches by week_number,
       // which is shared between this week's two simulation halves (and any

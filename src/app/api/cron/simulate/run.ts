@@ -10,7 +10,7 @@ import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
 import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
 import { rookieOptionSalary } from '@/lib/draft-constants'
-import { medicalCostAfterInsurance, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, InjurySeverity } from '@/lib/injury-constants'
+import { medicalCostAfterInsurance, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, mentalIssueSidelines, InjurySeverity } from '@/lib/injury-constants'
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
 import { resolveSummerLeague } from '@/lib/summer-league'
 import { resolveDailyTicks } from '@/lib/daily-tick'
@@ -823,25 +823,35 @@ const recMod = isRec ? 1.5 : 1.0
 const daysOut = Math.round((chosen.days_min + Math.random()*(chosen.days_max-chosen.days_min))*recMod)
 const gamesOut = Math.max(1, Math.round(daysOut/3.5))
 const hImpact = Math.round(chosen.health_impact_min + Math.random()*(chosen.health_impact_max-chosen.health_impact_min))
+// A plain performance/confidence issue (Shooting Slump, pre-game nerves,
+// media pressure...) isn't a physical inability to play — see
+// mentalIssueSidelines in injury-constants.ts. Logged for history/moral
+// same as any other injury, but resolved immediately (no games_out, no
+// can_play block, health untouched) instead of sitting 'active' and
+// benching the player for weeks like a torn ligament would.
+const sidelines = mentalIssueSidelines(chosen.name, chosen.body_part)
 
 const { error: injErr } = await supabaseAdmin.from('injury_log').insert({
 player_id:pid, season:'2025-26', week_number:week,
 injury_type:chosen.name, injury_category:chosen.category,
 body_part:chosen.body_part, severity:chosen.severity, notes:chosen.notes,
 occurred_in:'game', game_id:lastGameIdByPlayer[pid]||null, health_at_injury:newHealth,
-health_impact:hImpact, moral_impact:chosen.moral_impact||0,
-days_out:daysOut, games_out:gamesOut,
-return_week:week+Math.ceil(gamesOut/2),
-is_recurring:isRec, can_play:newHealth>=50,
-play_risk:newHealth<65?75:newHealth<75?40:15, status:'active'
+health_impact:sidelines?hImpact:0, moral_impact:chosen.moral_impact||0,
+days_out:sidelines?daysOut:0, games_out:sidelines?gamesOut:0,
+return_week:sidelines?week+Math.ceil(gamesOut/2):week,
+is_recurring:isRec, can_play:sidelines?newHealth>=50:true,
+play_risk:sidelines?(newHealth<65?75:newHealth<75?40:15):0,
+status:sidelines?'active':'resolved',
+...(sidelines?{}:{healed_at:new Date().toISOString(), healed_week:week}),
 })
 if (injErr) console.warn('injury_log insert (game) failed:', injErr.message)
 
 // Medical bill — team only pays its share after Insurance's 75% coverage
 // (see medicalCostAfterInsurance/INSURANCE_COVERAGE_RATE in
 // injury-constants.ts) — the whole point of the mandatory monthly Insurance
-// premium is that it actually covers most of this cost.
-const medicalCost = medicalCostAfterInsurance(chosen.severity as InjurySeverity)
+// premium is that it actually covers most of this cost. Skipped for a
+// non-sidelining mental issue — nobody actually sought medical treatment.
+const medicalCost = sidelines ? medicalCostAfterInsurance(chosen.severity as InjurySeverity) : 0
 if (medicalCost > 0 && p.team_id) {
 const { data: fin } = await supabaseAdmin.from('franchise_finances')
 .select('balance').eq('team_id',p.team_id).single()
@@ -855,16 +865,15 @@ season:'2025-26', week_number:week,
 }
 }
 
-const injHealth = Math.max(0, newHealth-hImpact)
+const injHealth = sidelines ? Math.max(0, newHealth-hImpact) : newHealth
 const injMoral = Math.max(0, (upd.moral||80)-(chosen.moral_impact||0))
 await supabaseAdmin.from('players').update({
 health:injHealth, moral:injMoral,
-status:injHealth<50?'injured':'active',
-injury_type:chosen.name,
-games_missed:(p.games_missed||0)+1,
+status:sidelines?(injHealth<50?'injured':'active'):'active',
+...(sidelines?{injury_type:chosen.name, games_missed:(p.games_missed||0)+1}:{}),
 }).eq('id',pid)
 
-if (chosen.severity!=='minor') {
+if (sidelines && chosen.severity!=='minor') {
 await supabaseAdmin.from('transactions').insert({
 type:'injury', category:'player',
 description:`${p.name} (${p.team_id}) — ${chosen.name}. Est. ${gamesOut} games out.`,
@@ -2491,6 +2500,19 @@ target += Math.max(-12, Math.min(12, (recentAvgPts / seasonAvg - 1) * 30))
 return Math.max(15, Math.min(92, target))
 }
 
+// A player occupying a Psychology Office slot is actively under a Mental
+// Coach's care that same week — real incident: Bruno paid for weekly
+// sessions on a benched player and saw morale barely move, because this
+// drift step (role/usage penalty for a player not playing their deserved
+// minutes) was pulling the SAME player back down by nearly as much as
+// Psychology Office's guaranteed push moved him up, net-cancelling most of
+// it. A player being professionally treated shouldn't also be subject to
+// the ordinary "he's unhappy about his role" drift the same week — the
+// guaranteed push in resolveWeeklyPsychologyOffice (called right after
+// this) is the only thing that should move his morale.
+const { data: activePsychSlots } = await supabaseAdmin.from('psychology_slots').select('player_id').not('player_id','is',null)
+const inPsychTreatmentIds = new Set((activePsychSlots||[]).map((s:any)=>s.player_id))
+
 // Same sequential-award-per-player trap as the Attribute Development step
 // above — with ~1150+ active players getting a morale update almost every
 // single week (morale drift moves by a non-zero amount nearly always),
@@ -2499,6 +2521,7 @@ return Math.max(15, Math.min(92, target))
 // out in batches of 50 concurrently.
 const moraleUpdates: { id:string, moral:number }[] = []
 for (const p of (allP2||[])) {
+if (inPsychTreatmentIds.has(p.id)) continue
 const moraleMgmt = moraleMgmtMap[p.team_id] ?? 60
 const driftRate = Math.min(0.22, Math.max(0.06, 0.10 * (0.6 + moraleMgmt/100*0.8)))
 const target = moraleTarget(p)

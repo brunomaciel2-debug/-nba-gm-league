@@ -76,3 +76,23 @@ export function recurrenceWindowWeeks(recurrenceRisk: number): number {
 export function recurrenceBodyPartWeightBoost(recurrenceRisk: number): number {
   return 1 + recurrenceRisk / 50
 }
+
+// injury_types has 15 rows with body_part='mental', all currently generated
+// and resolved through the exact same mechanic as a torn ACL: games_out,
+// can_play=false, health drops enough to flip status to 'injured'. Bruno's
+// call: only a genuine clinical condition or a real personal crisis is an
+// actual reason a player can't take the floor — a bad shooting stretch or
+// pre-game nerves is not, and shouldn't bench anyone for ~10 games like it
+// was a physical injury. Real incident: "Shooting Slump" (notes: "Confidence
+// loss") sidelined a player for 10 games.
+export const SIDELINING_MENTAL_ISSUES = new Set([
+  'Depression Episode', 'Grief / Loss', 'Family / Personal Crisis',
+  'Panic Disorder', 'Substance Dependency', 'PTSD (Post-Injury)',
+])
+
+// True for every physical injury (unaffected) and for the mental issues
+// above; false for a plain performance/confidence issue, which should never
+// take a player off the floor.
+export function mentalIssueSidelines(name: string, bodyPart: string): boolean {
+  return bodyPart !== 'mental' || SIDELINING_MENTAL_ISSUES.has(name)
+}

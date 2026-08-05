@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getGymGradeBonus } from '@/lib/facility-constants'
-import { medicalCostAfterInsurance, InjurySeverity, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost } from '@/lib/injury-constants'
+import { medicalCostAfterInsurance, InjurySeverity, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, mentalIssueSidelines } from '@/lib/injury-constants'
 
 // Same severity weighting used by the real-game injury generator in
 // cron/simulate/run.ts — one source of truth for "how common is each
@@ -106,23 +106,31 @@ export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
     const gamesOut = Math.max(1, Math.round(daysOut / 3.5))
     const hImpact = Math.round(chosen.health_impact_min + Math.random() * (chosen.health_impact_max - chosen.health_impact_min))
     const newHealth = Math.round(p.health ?? 100)
+    // A plain performance/confidence issue isn't a physical inability to
+    // play — see mentalIssueSidelines in injury-constants.ts. Logged for
+    // history/moral same as any other injury, but resolved immediately
+    // instead of benching the player for weeks like a torn ligament would.
+    const sidelines = mentalIssueSidelines(chosen.name, chosen.body_part)
 
     const { error: injErr } = await supabaseAdmin.from('injury_log').insert({
       player_id: p.id, season: '2025-26', week_number: week,
       injury_type: chosen.name, injury_category: chosen.category,
       body_part: chosen.body_part, severity: chosen.severity, notes: chosen.notes,
       occurred_in: occurredIn, health_at_injury: newHealth,
-      health_impact: hImpact, moral_impact: chosen.moral_impact || 0,
-      days_out: daysOut, games_out: gamesOut,
-      return_week: week + Math.ceil(gamesOut / 2),
-      is_recurring: isRec, can_play: newHealth >= 50,
-      play_risk: newHealth < 65 ? 75 : newHealth < 75 ? 40 : 15, status: 'active',
+      health_impact: sidelines ? hImpact : 0, moral_impact: chosen.moral_impact || 0,
+      days_out: sidelines ? daysOut : 0, games_out: sidelines ? gamesOut : 0,
+      return_week: sidelines ? week + Math.ceil(gamesOut / 2) : week,
+      is_recurring: isRec, can_play: sidelines ? newHealth >= 50 : true,
+      play_risk: sidelines ? (newHealth < 65 ? 75 : newHealth < 75 ? 40 : 15) : 0,
+      status: sidelines ? 'active' : 'resolved',
+      ...(sidelines ? {} : { healed_at: new Date().toISOString(), healed_week: week }),
     })
     if (injErr) console.warn('injury_log insert (practice/off-court) failed:', injErr.message)
 
     // Team only pays its share after Insurance's 75% coverage — see
-    // medicalCostAfterInsurance in injury-constants.ts.
-    const medicalCost = medicalCostAfterInsurance(chosen.severity as InjurySeverity)
+    // medicalCostAfterInsurance in injury-constants.ts. Skipped for a
+    // non-sidelining mental issue — nobody actually sought medical treatment.
+    const medicalCost = sidelines ? medicalCostAfterInsurance(chosen.severity as InjurySeverity) : 0
     if (medicalCost > 0 && p.team_id) {
       const { data: fin } = await supabaseAdmin.from('franchise_finances').select('balance').eq('team_id', p.team_id).single()
       if (fin) {
@@ -135,13 +143,20 @@ export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
       }
     }
 
-    const injHealth = Math.max(0, newHealth - hImpact)
+    // moral_impact used to only ever be written onto the injury_log row
+    // (fine for display) but never actually applied to the player's real
+    // moral — the real-game injury generator in cron/simulate/run.ts
+    // already does this, this just brings practice/off-court injuries in
+    // line with it.
+    const injHealth = sidelines ? Math.max(0, newHealth - hImpact) : newHealth
+    const injMoral = Math.max(0, (p.moral ?? 80) - (chosen.moral_impact || 0))
     await supabaseAdmin.from('players').update({
-      health: injHealth, status: injHealth < 50 ? 'injured' : 'active',
-      injury_type: chosen.name, games_missed: (p.games_missed || 0) + 1,
+      health: injHealth, moral: injMoral,
+      status: sidelines ? (injHealth < 50 ? 'injured' : 'active') : 'active',
+      ...(sidelines ? { injury_type: chosen.name, games_missed: (p.games_missed || 0) + 1 } : {}),
     }).eq('id', p.id)
 
-    if (chosen.severity !== 'minor') {
+    if (sidelines && chosen.severity !== 'minor') {
       await supabaseAdmin.from('transactions').insert({
         type: 'injury', category: 'player',
         description: `${p.name} (${p.team_id}) — ${chosen.name}. Est. ${gamesOut} games out.`,

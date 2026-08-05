@@ -6,6 +6,7 @@ import { computeGameAttendance } from '@/lib/audience-segments'
 import { rateRefereePerformance } from '@/lib/referees'
 import { getWeekForDate } from '@/lib/season-week-helper'
 import { buildAutoDepthChart } from '@/lib/auto-depth-chart'
+import { mentalIssueSidelines } from '@/lib/injury-constants'
 
 // Resolves a single scheduled friendly/pre-season game (a preseason_games row) —
 // NBA vs NBA, or NBA vs a "Rest of the World" team. Produces an isolated
@@ -51,22 +52,27 @@ async function applyFriendlyFatigueAndInjury(box: any[], nbaPlayerIds: Set<strin
       const daysOut = Math.round(chosen.days_min + Math.random() * (chosen.days_max - chosen.days_min))
       const gamesOut = Math.max(1, Math.round(daysOut / 3.5))
       const hImpact = Math.round(chosen.health_impact_min + Math.random() * (chosen.health_impact_max - chosen.health_impact_min))
+      // A plain performance/confidence issue isn't a physical inability to
+      // play — see mentalIssueSidelines in injury-constants.ts.
+      const sidelines = mentalIssueSidelines(chosen.name, chosen.body_part)
       const { error: injErr } = await supabaseAdmin.from('injury_log').insert({
         player_id: p.id, season: '2025-26',
         injury_type: chosen.name, injury_category: chosen.category,
         body_part: chosen.body_part, severity: chosen.severity, notes: chosen.notes,
         occurred_in: 'preseason_game', game_id: gameId, health_at_injury: newHealth,
-        health_impact: hImpact, moral_impact: chosen.moral_impact || 0,
-        days_out: daysOut, games_out: gamesOut,
-        is_recurring: false, can_play: newHealth >= 50,
-        play_risk: newHealth < 65 ? 75 : newHealth < 75 ? 40 : 15, status: 'active',
+        health_impact: sidelines ? hImpact : 0, moral_impact: chosen.moral_impact || 0,
+        days_out: sidelines ? daysOut : 0, games_out: sidelines ? gamesOut : 0,
+        is_recurring: false, can_play: sidelines ? newHealth >= 50 : true,
+        play_risk: sidelines ? (newHealth < 65 ? 75 : newHealth < 75 ? 40 : 15) : 0,
+        status: sidelines ? 'active' : 'resolved',
+        ...(sidelines ? {} : { healed_at: new Date().toISOString() }),
       })
       if (injErr) console.warn('injury_log insert (friendly) failed:', injErr.message)
-      const injHealth = Math.max(0, newHealth - hImpact)
+      const injHealth = sidelines ? Math.max(0, newHealth - hImpact) : newHealth
       await supabaseAdmin.from('players').update({
         health: injHealth, moral: Math.max(0, (p.moral ?? 80) - (chosen.moral_impact || 0)),
-        status: injHealth < 50 ? 'injured' : 'active',
-        injury_type: chosen.name,
+        status: sidelines ? (injHealth < 50 ? 'injured' : 'active') : 'active',
+        ...(sidelines ? { injury_type: chosen.name } : {}),
       }).eq('id', p.id)
 
       // Real-game injuries notify the GM (notifications.ts) but friendlies

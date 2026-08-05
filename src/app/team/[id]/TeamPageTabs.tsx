@@ -15,6 +15,7 @@ import FacilitiesTab from './FacilitiesTab'
 import FinancesTab from './FinancesTab'
 import MerchandisingTab from './MerchandisingTab'
 import TacticalSystemsTab from './TacticalSystemsTab'
+import { nodesForSystem, isNodeUnlocked } from '@/lib/tactical-constants'
 import SponsorsTab from './SponsorsTab'
 import GoalsTab from './GoalsTab'
 import ScoutingTab from './ScoutingTab'
@@ -130,6 +131,7 @@ export default function TeamPageTabs({
         { data: scoutProgress },
         { data: trainingSlots },
         { data: psychSlots },
+        { data: tacticalProgressRows },
       ] = await Promise.all([
         supabase.from('sponsor_pool').select('tier,chosen').eq('team_id', teamId).eq('season', '2025-26'),
         supabase.from('sponsor_contracts').select('tier').eq('team_id', teamId).eq('season', '2025-26').eq('status', 'active'),
@@ -138,6 +140,7 @@ export default function TeamPageTabs({
         supabase.from('scout_progress').select('points,lifetime_points').eq('team_id', teamId).eq('season', '2025-26').maybeSingle(),
         supabase.from('training_slots').select('locked,credits_available').eq('team_id', teamId),
         supabase.from('psychology_slots').select('player_id').eq('team_id', teamId),
+        supabase.from('tactical_familiarity').select('system,node_id,progress').eq('team_id', teamId),
       ])
 
       const activeTiers = new Set((contracts || []).map((c: any) => c.tier))
@@ -153,7 +156,20 @@ export default function TeamPageTabs({
       const { data: order } = await supabase.from('gm_orders').select('atk_style').eq('team_id', teamId).eq('week_number', week).maybeSingle()
       const activeSystem = (order as any)?.atk_style || 'motion'
       const { data: focusRows } = await supabase.from('tactical_focus').select('system,node_id').eq('team_id', teamId)
-      const tacticalPending = !(focusRows || []).some((f: any) => f.system === activeSystem)
+      // Used to only check whether ANY focus had ever been picked for the
+      // active system — true once, forever, even after that tech mastered
+      // and a new pick was needed. Real incident: a GM got the "choose your
+      // next tech" notification (see notifTacticalFocusNeeded) but the tab
+      // itself showed no dot, because a focus row from weeks ago still
+      // technically existed. Now mirrors the exact same validity check the
+      // notification and the daily resolver use: the picked node must still
+      // exist, be under 100%, and still be unlocked.
+      const progressByNodeId: Record<string, number> = {}
+      ;(tacticalProgressRows || []).forEach((r: any) => { if (r.system === activeSystem) progressByNodeId[r.node_id] = r.progress })
+      const focusNodeId = (focusRows || []).find((f: any) => f.system === activeSystem)?.node_id
+      const focusNode = focusNodeId ? nodesForSystem(activeSystem).find(n => n.id === focusNodeId) : null
+      const focusValid = !!focusNode && (progressByNodeId[focusNode.id] || 0) < 100 && isNodeUnlocked(focusNode, progressByNodeId)
+      const tacticalPending = !focusValid
 
       // Scouting's progress meter (scout_progress.points) resets to 0 on
       // spend and only ever represents the CURRENT unspent cycle — reaching
