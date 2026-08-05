@@ -176,7 +176,8 @@ export default function SimulatorBanner() {
             essential piece (Now + Next event already cover the important
             info), so it's the one allowed to truncate under real pressure. */}
         <div className="flex items-center gap-2" style={{ minWidth: 0, flexShrink: 1 }}>
-          <Link href="/schedule" title={isPT ? 'Ver calendário' : 'View schedule'}
+          <Link href={currentDay ? `/schedule?date=${currentDay.getFullYear()}-${String(currentDay.getMonth() + 1).padStart(2, '0')}-${String(currentDay.getDate()).padStart(2, '0')}` : '/schedule'}
+            title={isPT ? 'Ver calendário' : 'View schedule'}
             className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
             style={{ background: sc.bg, color: sc.text, flexShrink: 0, textDecoration: 'none', cursor: 'pointer' }}>
             <span style={{

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
@@ -8,6 +9,10 @@ import { useTranslation } from '@/components/I18nProvider'
 export default function SchedulePage() {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
+  const searchParams = useSearchParams()
+  // Set by SimulatorBanner's "Now" link (?date=YYYY-MM-DD) so a GM lands
+  // straight on today's games instead of having to scroll/hunt for them.
+  const jumpToDate = searchParams.get('date')
   const [games,setGames]=useState<any[]>([])
   const [teamMap,setTeamMap]=useState<Record<string,any>>({})
   const [worldTeamIds,setWorldTeamIds]=useState<Set<string>>(new Set())
@@ -97,6 +102,35 @@ export default function SchedulePage() {
   const played=games.filter(g=>g.status==='final').length
 
   const fmtDate=(iso:string)=>new Date(iso).toLocaleDateString(isPT?'pt-PT':'en-US',{weekday:'short',month:'short',day:'numeric'})
+  const ymd=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  // Which game id is the FIRST one on its calendar date — that row gets the
+  // `date-YYYY-MM-DD` anchor SimulatorBanner's "Now" link jumps to. Only one
+  // id per date, even though several games share it, so scrollIntoView has
+  // exactly one unambiguous target.
+  const firstGameIdOfDate: Record<string,string> = {}
+  games.forEach(g=>{
+    const d=dateOf(g)
+    if(!d)return
+    const key=ymd(d)
+    if(!(key in firstGameIdOfDate))firstGameIdOfDate[key]=g.id
+  })
+
+  // Runs once the page has finished loading AND rendered the games list —
+  // the target row's id doesn't exist in the DOM until then. If the exact
+  // date has no games (a real "rest day" in the day-yes-day-no schedule),
+  // falls back to the closest upcoming game date instead of silently doing
+  // nothing — landing near "today" beats landing nowhere.
+  useEffect(()=>{
+    if (loading || !jumpToDate) return
+    let target = jumpToDate
+    if (!(target in firstGameIdOfDate)) {
+      const next = Object.keys(firstGameIdOfDate).filter(k=>k>=jumpToDate).sort()[0]
+      const prev = Object.keys(firstGameIdOfDate).filter(k=>k<jumpToDate).sort().pop()
+      target = next || prev || target
+    }
+    document.getElementById(`date-${target}`)?.scrollIntoView({ behavior:'smooth', block:'start' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[loading, jumpToDate, games.length])
 
   if(loading) return <div className="max-w-5xl mx-auto px-4 py-12 text-center" style={{color:'#8a8279'}}>{t('common.loading')}</div>
 
@@ -137,8 +171,9 @@ export default function SchedulePage() {
               const typeInfo=GAME_TYPE_LABEL[g.game_type||'regular']||GAME_TYPE_LABEL.regular
               const gDate=dateOf(g)
               const hasBoxScore=isFinal&&g.isWorldFriendly&&g.box_score
+              const dateAnchor=gDate&&firstGameIdOfDate[ymd(gDate)]===g.id?`date-${ymd(gDate)}`:undefined
               return(
-                <div key={g.id} className="px-4 py-2.5 rounded-xl" style={{background:'#faf8f5',border:'1px solid #e2dcd5'}}>
+                <div key={g.id} id={dateAnchor} className="px-4 py-2.5 rounded-xl" style={{background:'#faf8f5',border:'1px solid #e2dcd5',scrollMarginTop:90}}>
                   <div className="flex items-center gap-3">
                     <div className="w-36 flex-shrink-0">
                       <div className="text-xs font-bold" style={{color:'#1a1512'}}>{gDate?fmtDate(gDate.toISOString()):'TBD'}</div>
