@@ -352,6 +352,13 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
         const oldCapacity = sec?.capacity || 0
         const delta = Math.round((oldCapacity > 0 ? oldCapacity : NEW_SECTION_BASE_SEATS) * ARENA_EXPANSION_RATE)
         await supabase.from('arena_sections').update({ under_construction: false, capacity: oldCapacity + delta }).eq('id', item.reference_id)
+        // teams.arena_capacity (what real games actually use, see run.ts) —
+        // kept in sync here too, same recompute as when construction started
+        // in build-section/route.ts. Re-queried fresh (not derived in memory)
+        // so it reflects the update just written above.
+        const { data: allSections } = await supabase.from('arena_sections').select('capacity,under_construction').eq('team_id', item.team_id)
+        const liveCapacity = (allSections || []).filter((s: any) => !s.under_construction).reduce((sum: number, s: any) => sum + (s.capacity || 0), 0)
+        await supabase.from('teams').update({ arena_capacity: liveCapacity }).eq('id', item.team_id)
       } else if (item.construction_type === 'practice_facility') {
         const { data: fac } = await supabase.from('practice_facilities').select('gym_grade').eq('id', item.reference_id).single()
         const nextGrade = fac?.gym_grade ? GYM_NEXT_GRADE[fac.gym_grade] : null

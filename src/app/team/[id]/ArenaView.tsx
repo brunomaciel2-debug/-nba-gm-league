@@ -80,7 +80,12 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
     })
   },[teamId])
 
-  const totalCurrent = BUILT_SECTIONS.reduce((s,k)=>s+(sections[k]?.capacity||0),0)
+  // A section under construction (upgrade) is out of service, same as the
+  // real game-day capacity now correctly treats it (teams.arena_capacity,
+  // kept in sync server-side — see build-section/route.ts) — this display
+  // total has to agree with that, not just add up every section's capacity
+  // regardless of whether it's actually usable right now.
+  const totalCurrent = BUILT_SECTIONS.reduce((s,k)=>s+(sections[k]?.under_construction?0:(sections[k]?.capacity||0)),0)
   const attendancePct = 0.65
   const attendance = Math.round(totalCurrent * attendancePct)
 

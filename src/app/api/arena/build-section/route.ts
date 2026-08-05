@@ -52,5 +52,15 @@ export async function POST(req: NextRequest) {
     started_at: new Date().toISOString().split('T')[0], ends_at: endsStr, status: 'in_progress',
   })
 
+  // teams.arena_capacity — not arena_sections — is what actually drives real
+  // game attendance/revenue (see run.ts). Nothing ever kept it in sync with
+  // arena_sections, so a section upgrade never affected a single real game
+  // even once finished. Recomputed here (a section mid-renovation stops
+  // counting toward capacity, same as a real construction closure) and
+  // again by the completion resolver in notifications.ts.
+  const { data: allSections } = await admin.from('arena_sections').select('capacity,under_construction').eq('team_id', teamId)
+  const liveCapacity = (allSections || []).filter(s => !s.under_construction).reduce((sum, s) => sum + (s.capacity || 0), 0)
+  await admin.from('teams').update({ arena_capacity: liveCapacity }).eq('id', teamId)
+
   return NextResponse.json({ success: true, cost, endsAt: endsStr })
 }

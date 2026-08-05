@@ -28,7 +28,7 @@ import { getAllTeamsTacticalState } from '@/lib/tactical-resolver'
 import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
 import { getMarqueeWeekInfo, getMarqueeInfoForDate } from '@/lib/marquee-dates'
 import { computeRosterQuality, normalizeRosterQuality } from '@/lib/roster-quality'
-import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, computeConcessionSupplyCost, computeGameOperationsCost, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
+import { computeGameAttendance, computeGameTicketRevenue, computeGameConcessionRevenue, computeConcessionSupplyCost, computeGameOperationsCost, computeConcessionSynergyMultipliers, computeConcessionAttendanceBonus, computeConcessionFanSatisfactionBonus, SLOT_VARIANT_KEYS } from '@/lib/audience-segments'
 import { getGymGradeBonus } from '@/lib/facility-constants'
 import { cityDistanceMiles, computeAwayTravelCost } from '@/lib/travel-constants'
 import { resolveWeeklySocialMedia } from '@/lib/social-media-resolver'
@@ -357,6 +357,12 @@ const gMarquee = sg.scheduled_date ? getMarqueeInfoForDate(sg.scheduled_date, we
 // they'd actually sit in — still collapses to one attRate/attendance number
 // so nothing downstream (simulateGame's crowd boost, etc.) needs to change.
 const ticketPrices = ticketConfigMap[ht.id] || { ticket_lower: 80, ticket_upper: 45, ticket_courtside: 500 }
+// Raw per-variant concession columns for the home team — feeds both the
+// small standing attendance nudge below and (further down, once this
+// game's real result is known) the synergy multipliers on concession
+// revenue itself. See computeConcessionSynergyMultipliers in
+// audience-segments.ts for what each one actually means.
+const homeVariantCounts: Record<string, number> = concessionsMap[ht.id] || {}
 const attendanceResult = computeGameAttendance({
 teamId: ht.id, popularity: ht.popularity ?? 50,
 capacity: ht.arena_capacity || arenaCapacityMap[ht.id] || 18000,
@@ -364,6 +370,7 @@ winPct: htWinPct, isRivalry, isMarquee: gMarquee.marquee,
 prices: { lower: ticketPrices.ticket_lower, upper: ticketPrices.ticket_upper, courtside: ticketPrices.ticket_courtside },
 randomJitter: Math.random() * 0.06 - 0.03,
 followers: ht.social_media_followers,
+concessionAttendanceBonus: computeConcessionAttendanceBonus(homeVariantCounts),
 audienceModifiers: audienceModifiersMap[ht.id] ? {
 family: audienceModifiersMap[ht.id].family_modifier, young_adult: audienceModifiersMap[ht.id].young_adult_modifier,
 loyal_fan: audienceModifiersMap[ht.id].loyal_fan_modifier, corporate: audienceModifiersMap[ht.id].corporate_modifier,
@@ -461,6 +468,17 @@ const concessionCounts: Record<string, number> = {}
 if (homeConcessions) {
 for (const [slotId, variantKeys] of Object.entries(SLOT_VARIANT_KEYS)) {
 concessionCounts[slotId] = variantKeys.reduce((s, k) => s + (homeConcessions[k] || 0), 0)
+}
+}
+// Location co-location, cross-slot combos, form/rivalry/playoffs — see
+// computeConcessionSynergyMultipliers in audience-segments.ts. Applied as
+// an adjustment to each slot's effective quantity so it composes cleanly
+// with computeGameConcessionRevenue's existing fixedPerGame*qty and
+// adoptionRate*avgSpend*qty formulas.
+if (homeConcessions) {
+const synergyMult = computeConcessionSynergyMultipliers(homeConcessions, { winPct: htWinPct, isRivalry, isPlayoffs: isPlayoffPhase })
+for (const slotId of Object.keys(concessionCounts)) {
+concessionCounts[slotId] *= synergyMult[slotId] ?? 1
 }
 }
 const concessionResult = computeGameConcessionRevenue(attendanceResult.segments, concessionCounts)
@@ -2575,6 +2593,11 @@ const { data: allTeamsForRep } = await supabaseAdmin.from('teams').select('id,wi
 const { data: allFinances } = await supabaseAdmin.from('franchise_finances').select('team_id,fan_satisfaction')
 const financeMap: Record<string,number> = {}
 ;(allFinances||[]).forEach((f:any) => { financeMap[f.team_id] = f.fan_satisfaction ?? 50 })
+// concessionsMap from the per-game revenue step above is scoped to the
+// !isPreseason block up there, not visible down here — re-fetched fresh.
+const { data: allConcessionsForRep } = await supabaseAdmin.from('arena_concessions').select('*')
+const concessionsRepMap: Record<string, any> = {}
+;(allConcessionsForRep||[]).forEach((c:any) => { concessionsRepMap[c.team_id] = c })
 
 const ranked = [...(allTeamsForRep||[])].sort((a,b) => (b.wins/(b.wins+b.losses||1)) - (a.wins/(a.wins+a.losses||1)))
 const playoffPositionSet = new Set(ranked.slice(0, Math.ceil(ranked.length/2)).map((t:any) => t.id))
@@ -2586,7 +2609,12 @@ const popTarget = Math.min(100, Math.max(0, 40 + winPct*45 + (playoffPositionSet
 const newPopularity = Math.round((t.popularity ?? 50) + (popTarget - (t.popularity ?? 50)) * 0.08)
 await supabaseAdmin.from('teams').update({ popularity: newPopularity }).eq('id', t.id)
 
-const satTarget = Math.min(100, Math.max(0, 50 + (winPct-0.5)*100))
+// Concessions' fan_xp tooltip points (see computeConcessionFanSatisfactionBonus
+// in audience-segments.ts) now actually count toward the target instead of
+// being pure flavor text — capped there at +15 so a fully-built arena can't
+// out-vote a losing record, which stays the dominant driver.
+const concessionFanXp = computeConcessionFanSatisfactionBonus(concessionsRepMap[t.id] || {})
+const satTarget = Math.min(100, Math.max(0, 50 + (winPct-0.5)*100 + concessionFanXp))
 const currentSat = financeMap[t.id] ?? 50
 const newSat = Math.round(currentSat + (satTarget - currentSat) * 0.15)
 await supabaseAdmin.from('franchise_finances').update({ fan_satisfaction: newSat }).eq('team_id', t.id)

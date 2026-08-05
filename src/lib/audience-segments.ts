@@ -100,6 +100,13 @@ export type AttendanceInput = {
   randomJitter?: number // -0.03..0.03, same spread cron/simulate already applies
   followers?: number // teams.social_media_followers — real online buzz, real curiosity to attend
   audienceModifiers?: AudienceModifiers // live arena_audience_modifiers row, if any
+  // Small permanent nudge from built concessions that ArenaBlueprint.tsx
+  // tooltips describe as temporary ("+3% attendance next 3 games" for the
+  // Jumbotron, "next game" for Franchise Store, "following week" for Fan
+  // Zone) — see computeConcessionAttendanceBonus. Modeled as a standing
+  // fraction of that temporary claim rather than building expiry-tracking
+  // infrastructure for a handful-of-games window.
+  concessionAttendanceBonus?: number
 }
 
 export type AttendanceResult = {
@@ -122,6 +129,7 @@ export function computeGameAttendance(input: AttendanceInput): AttendanceResult 
   const overallInterest = Math.min(0.98,
     0.65 + input.winPct * 0.20 + (input.isRivalry ? 0.08 : 0) + (input.isMarquee ? 0.15 : 0)
     + followersBonus(input.followers) * 0.05
+    + (input.concessionAttendanceBonus ?? 0)
     + (input.randomJitter ?? 0))
 
   const mix = getTeamSegmentMix(input.teamId, input.popularity, input.audienceModifiers)
@@ -305,6 +313,185 @@ export function computeGameConcessionRevenue(
     total += bySlot[slotId]
   }
   return { total, bySlot }
+}
+
+// ── CONCESSION SYNERGIES ─────────────────────────────────────────
+// Turns ArenaBlueprint.tsx's tooltip promises (location co-location,
+// cross-slot combos, team form/rivalry/playoffs) into a real per-slot
+// multiplier — previously every one of these lines was pure flavor text
+// with zero effect on real revenue. A handful of tooltip lines reference
+// things that don't exist anywhere else in this codebase (an "Executive
+// Chef"/"Specialist Bartender" staff specialty, a "Family Night" schedule
+// flag, suite/lounge season "renewal") — those stayed qualitative-only in
+// the tooltip rather than inventing a new system to back them.
+// "Win/loss streak" tooltip lines are approximated by this team's overall
+// season win% (already computed once per game right where this is
+// called) rather than a literal N-game consecutive streak — a real
+// rolling-streak lookup would mean extra queries inside the per-game
+// simulation loop for every team, every game, which is exactly the kind
+// of N+1 query pattern that made a full week take minutes to simulate
+// elsewhere in this codebase.
+export type ConcessionGameContext = { winPct: number, isRivalry: boolean, isPlayoffs: boolean }
+
+export function computeConcessionSynergyMultipliers(
+  variantCounts: Record<string, number>,
+  ctx: ConcessionGameContext,
+): Record<string, number> {
+  const q = (k: string) => variantCounts[k] || 0
+  const has = (k: string) => q(k) > 0
+  const inGoodForm = ctx.winPct >= 0.65
+  const inBadForm = ctx.winPct <= 0.35
+
+  const jumbotronBuilt = has('jumbotron')
+  const fanZoneBuilt = has('fan_zone')
+  const mascotBuilt = has('mascot')
+  const franchiseStoreBuilt = has('franchise_store')
+  const courtsideLoungeBuilt = has('courtside_lounge')
+  const suitesBuilt = q('corporate_suites') > 0
+  const restaurantVipBuilt = has('restaurant_vip')
+  const bothBarsBuilt = has('bar_east') && has('bar_west')
+  const clubSeatsBuilt = has('club_seats')
+
+  // "No other entertainment -> only +2% effect" vs the nominal +5% — the
+  // Jumbotron's own boost to food/drink (and its own revenue) scales down
+  // without Fan Zone/Mascot alongside it, and up further with Fan Zone.
+  let jumbotronEff = 0
+  if (jumbotronBuilt) {
+    if (fanZoneBuilt) jumbotronEff = 0.05 * 1.08
+    else if (mascotBuilt) jumbotronEff = 0.05
+    else jumbotronEff = 0.02
+  }
+
+  const mult: Record<string, number> = {}
+
+  {
+    let m = 1
+    const corridors = ['north', 'south', 'east', 'west']
+    if (corridors.filter(z => q(`food_stall_basic_${z}`) > 0).length >= 3) m *= 1.04
+    if (jumbotronBuilt) m *= 1 + jumbotronEff
+    if (inGoodForm) m *= 1.08
+    if (inBadForm) m *= 0.90
+    for (const z of ['north', 'south']) {
+      if (q(`food_stall_basic_${z}`) >= 2) m *= 0.95 // "second stall loses -10%", averaged across the pair
+      if (q(`food_stall_basic_${z}`) > 0 && q(`food_stall_premium_${z}`) > 0) m *= 0.96 // "-8%", averaged
+    }
+    mult.food_stall_basic = m
+  }
+
+  {
+    let m = 1
+    if (restaurantVipBuilt) m *= 1.05
+    if (ctx.isPlayoffs) m *= 1.15
+    for (const z of ['north', 'south']) {
+      if (q(`food_stall_premium_${z}`) > 0 && q(`food_stall_basic_${z}`) > 0) m *= 0.96
+    }
+    mult.food_stall_premium = m
+  }
+
+  {
+    let m = 1
+    if (ctx.isRivalry) m *= 1.10
+    if (clubSeatsBuilt) m *= 1.05
+    if (bothBarsBuilt) m *= 0.97
+    mult.bar = m
+  }
+
+  {
+    let m = 1
+    const corridors = ['north', 'south', 'east', 'west']
+    if (corridors.every(z => q(`vending_${z}`) > 0)) m *= 1.03
+    if (jumbotronBuilt) m *= 1 + jumbotronEff
+    mult.vending = m
+  }
+
+  {
+    let m = 1
+    if (courtsideLoungeBuilt) m *= 1.10
+    if (suitesBuilt) m *= 1.06
+    if (!courtsideLoungeBuilt && !suitesBuilt) m *= 0.94
+    if (inBadForm) m *= 0.96
+    mult.restaurant_vip = m
+  }
+
+  {
+    let m = 1
+    if (mascotBuilt) m *= 1.05
+    if (inGoodForm) m *= 1.10
+    if (ctx.isPlayoffs) m *= 1.20
+    if (inBadForm) m *= 0.92
+    mult.franchise_store = m
+  }
+
+  {
+    let m = 1
+    if (courtsideLoungeBuilt) m *= 1.15
+    mult.corporate_suites = m
+  }
+
+  { mult.club_seats = 1 } // synergies are qualitative-only (no % promised)
+
+  {
+    let m = 1
+    if (restaurantVipBuilt) m *= 1.10
+    else m *= 0.90
+    mult.courtside_lounge = m
+  }
+
+  { mult.jumbotron = jumbotronBuilt ? (1 + jumbotronEff) / 1.05 : 1 } // relative to its own nominal +5% baseline already in econ.fixedPerGame
+
+  {
+    let m = 1
+    if (jumbotronBuilt) m *= 1.08
+    if (mascotBuilt) m *= 1.06
+    mult.fan_zone = m
+  }
+
+  {
+    let m = 1
+    if (franchiseStoreBuilt) m *= 1.05
+    if (fanZoneBuilt) m *= 1.06
+    mult.mascot = m
+  }
+
+  return mult
+}
+
+// "+3% attendance next 3 games" (Jumbotron), "+2% next game" (Franchise
+// Store), "+5% following week" (Fan Zone) — modeled as a small STANDING
+// nudge instead of tracking per-item expiry windows: each fraction below
+// is that slot's peak claim spread evenly across a typical ~4-game month,
+// so the season-long total impact lands in the same range the tooltip
+// implies without new state to track.
+export function computeConcessionAttendanceBonus(variantCounts: Record<string, number>): number {
+  let bonus = 0
+  if ((variantCounts['jumbotron'] || 0) > 0) bonus += 0.0075
+  if ((variantCounts['franchise_store'] || 0) > 0) bonus += 0.005
+  if ((variantCounts['fan_zone'] || 0) > 0) bonus += 0.0125
+  if ((variantCounts['mascot'] || 0) > 0) bonus += 0.005
+  return bonus
+}
+
+// Flat per-slot-type Fan Satisfaction contribution, taken directly from
+// each slot's fan_xp tooltip text (a categorical "this exists" bonus, not
+// scaled by quantity — 3 suites aren't 3x the prestige of 1). Capped so a
+// fully-built arena can't out-vote the team's actual win% (still the
+// dominant driver — see the FAN REPUTATION DRIFT step in run.ts).
+const FAN_XP_POINTS: Record<string, number> = {
+  food_stall_premium: 3, bar: 2, vending: 1, restaurant_vip: 5, franchise_store: 3,
+  corporate_suites: 4, club_seats: 3, courtside_lounge: 6, jumbotron: 5, fan_zone: 5, mascot: 2,
+}
+// Takes the RAW per-variant columns (arena_concessions), same shape as
+// computeConcessionSynergyMultipliers — aggregates to slot level internally
+// via SLOT_VARIANT_KEYS so callers never have to remember that a multi-
+// location slot like food_stall_premium/bar/vending has no column of that
+// exact name (only its _north/_south/_east/_west variants do).
+export function computeConcessionFanSatisfactionBonus(variantCounts: Record<string, number>): number {
+  let pts = 0
+  for (const [slotId, points] of Object.entries(FAN_XP_POINTS)) {
+    const qty = (SLOT_VARIANT_KEYS[slotId] || [slotId]).reduce((s, k) => s + (variantCounts[k] || 0), 0)
+    if (qty > 0) pts += points
+  }
+  return Math.min(15, pts)
 }
 
 export function computeGameTicketRevenue(segments: SegmentAttendance[], prices: { lower: number, upper: number, courtside: number }): number {
