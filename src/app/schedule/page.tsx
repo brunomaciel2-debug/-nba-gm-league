@@ -98,10 +98,18 @@ function ScheduleContent() {
   // shown on the Pre-Season page for the exact same game.
   const dateOf=(g:any)=>g.scheduled_date?new Date(g.scheduled_date+'T12:00:00'):(g.played_at?new Date(g.played_at):null)
   const byMonth: Record<string,any[]> = {}
+  // `new Date("outubro de 2025")` can't be parsed back — the JS Date
+  // constructor only understands English month names, so sorting the
+  // localized PT month labels directly silently broke (Invalid Date -> NaN
+  // -> the comparator never actually reorders anything), and in PT mode the
+  // months rendered in whatever order they first appeared instead of
+  // chronologically. Tracked here as a separate, locale-independent sort
+  // key (first-of-month timestamp) alongside the display label.
+  const monthSortKey: Record<string,number> = {}
   games.forEach(g=>{
     const d=dateOf(g)
     const key=d?d.toLocaleDateString(isPT?'pt-PT':'en-US',{month:'long',year:'numeric'}):'TBD'
-    if(!byMonth[key])byMonth[key]=[]
+    if(!byMonth[key]){byMonth[key]=[]; monthSortKey[key]=d?new Date(d.getFullYear(),d.getMonth(),1).getTime():Infinity}
     byMonth[key].push(g)
   })
   // Games arrive from the DB ordered by `played_at` (null for anything not
@@ -112,7 +120,7 @@ function ScheduleContent() {
   Object.keys(byMonth).forEach(key=>{
     byMonth[key].sort((a,b)=>(dateOf(a)?.getTime()||0)-(dateOf(b)?.getTime()||0))
   })
-  const sortedMonths=Object.keys(byMonth).sort((a,b)=>{if(a==='TBD')return 1;if(b==='TBD')return -1;return new Date(a).getTime()-new Date(b).getTime()})
+  const sortedMonths=Object.keys(byMonth).sort((a,b)=>{if(a==='TBD')return 1;if(b==='TBD')return -1;return monthSortKey[a]-monthSortKey[b]})
   const played=games.filter(g=>g.status==='final').length
 
   const fmtDate=(iso:string)=>new Date(iso).toLocaleDateString(isPT?'pt-PT':'en-US',{weekday:'short',month:'short',day:'numeric'})
