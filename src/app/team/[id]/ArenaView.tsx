@@ -158,7 +158,7 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
 
       {/* Tab nav */}
       <div style={{display:'flex',gap:6,marginBottom:14,borderBottom:'2px solid #e2dcd5'}}>
-        {[{k:'sections',l:isPT?'🏟️ Secções':'🏟️ Sections'},{k:'concessions',l:isPT?'🍔 Bares':'🍔 Concessions'},{k:'tickets',l:isPT?'🎟️ Bilhetes':'🎟️ Tickets'}].map((t:any)=>(
+        {[{k:'sections',l:isPT?'🏟️ Secções':'🏟️ Sections'},{k:'concessions',l:isPT?'🍔 Concessões':'🍔 Concessions'},{k:'tickets',l:isPT?'🎟️ Bilhetes':'🎟️ Tickets'}].map((t:any)=>(
           <button key={t.k} onClick={()=>setTab(t.k)}
             style={{padding:'6px 14px',fontSize:12,fontWeight:600,border:'none',
                     borderBottom:`3px solid ${tab===t.k?teamColor:'transparent'}`,
