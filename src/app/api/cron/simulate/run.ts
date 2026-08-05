@@ -15,6 +15,7 @@ import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInte
 import { resolveSummerLeague } from '@/lib/summer-league'
 import { resolveDailyTicks } from '@/lib/daily-tick'
 import { resolvePendingDecisions } from '@/lib/resolve-pending-decisions'
+import { ensureWeeklyOrders } from '@/lib/auto-orders'
 import { assignRefereesToScheduledGames, rateRefereePerformance } from '@/lib/referees'
 import { resolveMonthlyMerchandising } from '@/lib/merchandising'
 import { resolveAllStarWeekend, resolveRisingStars } from '@/lib/allstar-resolver'
@@ -162,6 +163,18 @@ DET:20332,GSW:18064,HOU:18055,IND:17923,LAC:19068,LAL:19068,MEM:17794,MIA:19600,
 MIL:17341,MIN:18978,NOP:16867,NYK:19812,OKC:18203,ORL:18846,PHI:20478,PHX:18422,
 POR:19393,SAC:17583,SAS:18418,TOR:19800,UTA:18306,WAS:20356,
 }
+
+// Any team with no orders row yet this week gets one before anything below
+// reads gm_orders — carried forward from their most recent real order, or
+// a freshly generated usage-sorted lineup for a team that's genuinely
+// never had one. This used to be a manual-only admin route (see
+// /api/admin/auto-orders) that nobody actually called before every
+// simulation — a real incident: a team nobody opened the Orders page for
+// (most often one with no active GM) kept simulating on a hardcoded
+// default 'motion'/'man'/'normal' order indefinitely, no matter how many
+// weeks passed, e.g. the Tactical Systems tab kept flagging that team's
+// real chosen system as "not active this week" and eroding.
+try { await ensureWeeklyOrders(week) } catch (ordersErr) { console.warn('ensureWeeklyOrders failed:', ordersErr) }
 
 const { data: orders } = await supabaseAdmin.from('gm_orders').select('*').eq('week_number', week)
 const orderMap: Record<string, any> = {}
