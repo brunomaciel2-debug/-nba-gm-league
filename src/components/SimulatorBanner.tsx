@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
@@ -175,8 +176,9 @@ export default function SimulatorBanner() {
             essential piece (Now + Next event already cover the important
             info), so it's the one allowed to truncate under real pressure. */}
         <div className="flex items-center gap-2" style={{ minWidth: 0, flexShrink: 1 }}>
-          <span className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
-            style={{ background: sc.bg, color: sc.text, flexShrink: 0 }}>
+          <Link href="/schedule" title={isPT ? 'Ver calendário' : 'View schedule'}
+            className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full"
+            style={{ background: sc.bg, color: sc.text, flexShrink: 0, textDecoration: 'none', cursor: 'pointer' }}>
             <span style={{
               width: 6, height: 6, borderRadius: '50%',
               background: sc.dot, display: 'inline-block',
@@ -189,7 +191,7 @@ export default function SimulatorBanner() {
                 {' '}({isPT ? `a decorrer: ${label.toLowerCase()} até ${fmtDate(phaseEnd)}` : `ongoing ${label.toLowerCase()} until ${fmtDate(phaseEnd)}`})
               </span>
             )}
-          </span>
+          </Link>
           {/* The next event — a GM should always be able to see this (Free
               Agency, Trade Deadline, All-Star, etc.), not just when it's
               imminent, so this is not gated behind eventSoon. It only gets
