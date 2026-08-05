@@ -898,6 +898,142 @@ const tickResult = await resolveDailyTicks(cappedDates)
 if (tickResult.playoffGamesProcessed > 0) console.log(`Playoff bracket — games simulated: ${tickResult.playoffGamesProcessed}`)
 } catch (tickErr) { console.warn('Daily ticks failed:', tickErr) }
 
+// ── WEEKLY HIGHLIGHTS ─────────────────────────
+// Runs on EVERY call (both halves, and every partial "Simulate 1 Day"
+// call within a half), per Bruno's request for the homepage cards to feel
+// more alive rather than only refreshing once a full week/half is done.
+// MUST sit before the partial-completion early return below — it used to
+// live near the end of the function, past that return, which meant a run
+// of single-day calls (Bruno's normal workflow) never reached it until the
+// entire half finished. A real incident: Orlando's Hot Streak card stayed
+// stuck at "4-game win streak" for days of real progress (including a game
+// they LOST) because every one of those calls used dayLimit and returned
+// early long before this section. Safe to run every call because the query
+// below is scoped by week_number + status='final' (every one of the week's
+// games completed SO FAR), not by gamesCreated (only THIS call's
+// newly-created games) — the bug that originally forced this to
+// half-2-only was gamesCreated-scoping silently dropping a Player/Upset of
+// the Week candidate that fell in the other half. With the week_number
+// scoping, an earlier call just sees a partial week (whichever days have
+// been simulated so far) and a later call re-scans the now-larger week —
+// never a loss of data, just an earlier, provisional look mid-week.
+if (!isPreseason) {
+try {
+// game_type='regular' required — same gap as Player/Rookie of the Week
+// below, this would otherwise also pull in playoff games sharing the week.
+const { data: weekGameRows } = await supabaseAdmin.from('games').select('id').eq('week_number',week).eq('status','final').eq('game_type','regular')
+const weekGameIds = (weekGameRows||[]).map((g:any)=>g.id)
+const weekBoxes2 = await fetchAllRows<any>((from,to) => supabaseAdmin
+.from('box_scores').select('player_id,game_id,team_id,mins,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers')
+.in('game_id', weekGameIds).range(from,to))
+
+// Same real Game Score (GmSc) formula the box score's own "Game MVP" badge
+// uses (see gameScore() in GameBoxScore.tsx) — Bruno's call: the weekly
+// award should pick whoever actually had the best game by the standard
+// NBA metric, not a bespoke weighting nobody could reverse-engineer from
+// the stats shown on the card.
+const gameScore = (b: any) => (b.pts||0) + 0.4*(b.fgm||0) - 0.7*(b.fga||0) - 0.4*((b.fta||0)-(b.ftm||0))
++ 0.7*(b.off_reb||0) + 0.3*(b.def_reb||0) + (b.stl||0) + 0.7*(b.ast||0) + 0.7*(b.blk||0) - 0.4*(b.pf||0) - (b.turnovers||0)
+
+let potwScore = -Infinity, potwBox: any = null
+for (const box of (weekBoxes2||[])) {
+const score = gameScore(box)
+if (score > potwScore && box.mins >= 15) { potwScore = score; potwBox = box }
+}
+
+let uotwGame: any = null, uotwOdds = 0.5
+const { data: weekGames2 } = await supabaseAdmin.from('games').select('*').in('id',weekGameIds)
+const { data: eloSnap } = await supabaseAdmin.from('teams').select('id,elo')
+const eloMap: Record<string,number> = Object.fromEntries((eloSnap||[]).map((t:any)=>[t.id, t.elo||1500]))
+for (const g of (weekGames2||[])) {
+const hProb = homeWinProb(eloMap[g.home_team]||1500, eloMap[g.away_team]||1500)
+const homeWin = (g.home_score||0) > (g.away_score||0)
+const winnerProb = homeWin ? hProb : (1 - hProb)
+if (winnerProb < uotwOdds) { uotwOdds = winnerProb; uotwGame = g }
+}
+
+// Regular-season only — without this, a team's "Hot Streak" could be built
+// from preseason results mixed in with real games (preseason doesn't even
+// count toward their record), producing a streak that has nothing to do
+// with their actual current form.
+// limit was 100 — with 30 teams playing 4 games/week (60 games/week
+// league-wide), that's barely 1.5 weeks of games shared across the WHOLE
+// league, not per team. A real incident: a team with a genuine 10-game win
+// streak only had 6 of those games survive inside the window, so it lost
+// to a team whose shorter, more recent streak fit entirely inside it.
+// 600 covers a full 10 weeks league-wide, comfortably enough for any
+// realistic streak length per team.
+const { data: allRecentGames } = await supabaseAdmin.from('games').select('*').eq('status','final').eq('game_type','regular').order('played_at',{ascending:false}).limit(600)
+const streaks: Record<string,{count:number,games:string[]}> = {}
+// Process oldest -> newest (the query above fetches newest-first, so
+// reverse it here) so each team's counter reflects their CURRENT streak —
+// the one ending at their most recent game. Processing newest-first while
+// clobbering the same running counter on every one of a team's games left
+// the final value reflecting whichever game was OLDEST in the 100-game
+// window, not their actual current form.
+// games has no season column, so a season boundary is only detectable
+// indirectly: regular-season week_number always runs 17-40 within one
+// season (see getStatusForWeek in season-week-helper.ts) then wraps back to
+// 17 for the next one — a drop in week_number while scanning oldest->newest
+// IS that wrap. Without this, a team that closed last season on a winning
+// streak and opened this one the same way would have both streaks silently
+// stitched into one, crediting form that carried across an entire
+// off-season. No new-season games exist yet to have hit this in practice,
+// but the gap was real the moment a second season becomes reachable.
+let prevWeek = -Infinity
+for (const g of [...(allRecentGames||[])].reverse()) {
+if (g.week_number < prevWeek) { for (const k of Object.keys(streaks)) { streaks[k].count=0; streaks[k].games=[] } }
+prevWeek = g.week_number
+const hw = (g.home_score||0)>(g.away_score||0)
+const wt2 = hw?g.home_team:g.away_team
+const lt = hw?g.away_team:g.home_team
+if (!streaks[wt2]) streaks[wt2]={count:0,games:[]}
+if (!streaks[lt]) streaks[lt]={count:0,games:[]}
+streaks[wt2].count++
+streaks[wt2].games.push(g.id)
+streaks[lt].count=0
+streaks[lt].games=[]
+}
+// A real "Hot Streak" callout needs an actual streak — without a floor,
+// right after a reset (when most teams are still 0-0) the very first team
+// to win a single game would "win" this comparison and get badged as
+// on a hot streak for 1 win, which isn't a streak at all.
+const hotTeamRaw = Object.entries(streaks).sort((a,b)=>b[1].count-a[1].count)[0]
+const hotTeam = hotTeamRaw && hotTeamRaw[1].count>=3 ? hotTeamRaw : null
+
+if (potwBox || uotwGame || hotTeam) {
+await supabaseAdmin.from('weekly_highlights').upsert({
+season:'2025-26', week_number:week,
+potw_player_id: potwBox?.player_id || null,
+potw_game_id: potwBox?.game_id || null,
+potw_pts: potwBox?.pts || 0,
+potw_reb: potwBox?.reb || 0,
+potw_ast: potwBox?.ast || 0,
+potw_stl: potwBox?.stl || 0,
+potw_blk: potwBox?.blk || 0,
+potw_score: potwScore,
+uotw_game_id: uotwGame?.id || null,
+uotw_winner_id: uotwGame ? ((uotwGame.home_score||0)>(uotwGame.away_score||0)?uotwGame.home_team:uotwGame.away_team) : null,
+uotw_loser_id: uotwGame ? ((uotwGame.home_score||0)>(uotwGame.away_score||0)?uotwGame.away_team:uotwGame.home_team) : null,
+// Was always "home_score-away_score", but the homepage card shows the
+// WINNER on the left and loser on the right — whenever the away team was
+// actually the winner (like a real incident: away team wins 131-122, but
+// the card showed home-first "122-131" next to a winner it didn't match),
+// the two numbers read backwards from the labels right beside them.
+// Winner-first always matches the card's own left-to-right layout.
+uotw_score: uotwGame ? `${Math.max(uotwGame.home_score,uotwGame.away_score)}-${Math.min(uotwGame.home_score,uotwGame.away_score)}` : null,
+uotw_odds: uotwOdds,
+hstreak_team_id: hotTeam?.[0] || null,
+hstreak_wins: hotTeam?.[1].count || 0,
+// games[] now accumulates oldest -> newest (chronological processing
+// order above) — reverse so the saved list is most-recent-first, same
+// display order the Weekly Highlights card expects.
+hstreak_games: hotTeam?.[1].games.slice(-5).reverse() || [],
+},{onConflict:'season,week_number'})
+}
+} catch(hlErr) { console.warn('Highlights step failed', hlErr) }
+}
+
 // Record the exact last day actually processed, regardless of whether
 // this call goes on to finish the whole half or stops partway through —
 // SimulatorBanner reads this directly instead of re-deriving a guess from
@@ -1505,134 +1641,6 @@ console.warn(`Monthly development report failed for ${devMonthKey}:`, oneDevMont
 }
 }
 } catch (devReportErr) { console.warn('Monthly development report step failed:', devReportErr) }
-}
-
-// ── WEEKLY HIGHLIGHTS ─────────────────────────
-// Runs on EVERY call (both halves), per Bruno's request for the homepage
-// cards to feel more alive rather than only refreshing once a full week is
-// done. Safe to do now because the query below is scoped by week_number +
-// status='final' (every one of the week's games completed SO FAR), not by
-// gamesCreated (only THIS call's newly-created games) — the bug that
-// originally forced this to half-2-only was gamesCreated-scoping silently
-// dropping a Player/Upset of the Week candidate that fell in the other
-// half. With the week_number scoping, half 1 just sees a partial week (its
-// own days 1-3) and half 2 re-scans the now-complete week — never a loss
-// of data, just an earlier, provisional look mid-week.
-if (!isPreseason) {
-try {
-// game_type='regular' required — same gap as Player/Rookie of the Week
-// below, this would otherwise also pull in playoff games sharing the week.
-const { data: weekGameRows } = await supabaseAdmin.from('games').select('id').eq('week_number',week).eq('status','final').eq('game_type','regular')
-const weekGameIds = (weekGameRows||[]).map((g:any)=>g.id)
-const weekBoxes2 = await fetchAllRows<any>((from,to) => supabaseAdmin
-.from('box_scores').select('player_id,game_id,team_id,mins,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers')
-.in('game_id', weekGameIds).range(from,to))
-
-// Same real Game Score (GmSc) formula the box score's own "Game MVP" badge
-// uses (see gameScore() in GameBoxScore.tsx) — Bruno's call: the weekly
-// award should pick whoever actually had the best game by the standard
-// NBA metric, not a bespoke weighting nobody could reverse-engineer from
-// the stats shown on the card.
-const gameScore = (b: any) => (b.pts||0) + 0.4*(b.fgm||0) - 0.7*(b.fga||0) - 0.4*((b.fta||0)-(b.ftm||0))
-+ 0.7*(b.off_reb||0) + 0.3*(b.def_reb||0) + (b.stl||0) + 0.7*(b.ast||0) + 0.7*(b.blk||0) - 0.4*(b.pf||0) - (b.turnovers||0)
-
-let potwScore = -Infinity, potwBox: any = null
-for (const box of (weekBoxes2||[])) {
-const score = gameScore(box)
-if (score > potwScore && box.mins >= 15) { potwScore = score; potwBox = box }
-}
-
-let uotwGame: any = null, uotwOdds = 0.5
-const { data: weekGames2 } = await supabaseAdmin.from('games').select('*').in('id',weekGameIds)
-const { data: eloSnap } = await supabaseAdmin.from('teams').select('id,elo')
-const eloMap: Record<string,number> = Object.fromEntries((eloSnap||[]).map((t:any)=>[t.id, t.elo||1500]))
-for (const g of (weekGames2||[])) {
-const hProb = homeWinProb(eloMap[g.home_team]||1500, eloMap[g.away_team]||1500)
-const homeWin = (g.home_score||0) > (g.away_score||0)
-const winnerProb = homeWin ? hProb : (1 - hProb)
-if (winnerProb < uotwOdds) { uotwOdds = winnerProb; uotwGame = g }
-}
-
-// Regular-season only — without this, a team's "Hot Streak" could be built
-// from preseason results mixed in with real games (preseason doesn't even
-// count toward their record), producing a streak that has nothing to do
-// with their actual current form.
-// limit was 100 — with 30 teams playing 4 games/week (60 games/week
-// league-wide), that's barely 1.5 weeks of games shared across the WHOLE
-// league, not per team. A real incident: a team with a genuine 10-game win
-// streak only had 6 of those games survive inside the window, so it lost
-// to a team whose shorter, more recent streak fit entirely inside it.
-// 600 covers a full 10 weeks league-wide, comfortably enough for any
-// realistic streak length per team.
-const { data: allRecentGames } = await supabaseAdmin.from('games').select('*').eq('status','final').eq('game_type','regular').order('played_at',{ascending:false}).limit(600)
-const streaks: Record<string,{count:number,games:string[]}> = {}
-// Process oldest -> newest (the query above fetches newest-first, so
-// reverse it here) so each team's counter reflects their CURRENT streak —
-// the one ending at their most recent game. Processing newest-first while
-// clobbering the same running counter on every one of a team's games left
-// the final value reflecting whichever game was OLDEST in the 100-game
-// window, not their actual current form.
-// games has no season column, so a season boundary is only detectable
-// indirectly: regular-season week_number always runs 17-40 within one
-// season (see getStatusForWeek in season-week-helper.ts) then wraps back to
-// 17 for the next one — a drop in week_number while scanning oldest->newest
-// IS that wrap. Without this, a team that closed last season on a winning
-// streak and opened this one the same way would have both streaks silently
-// stitched into one, crediting form that carried across an entire
-// off-season. No new-season games exist yet to have hit this in practice,
-// but the gap was real the moment a second season becomes reachable.
-let prevWeek = -Infinity
-for (const g of [...(allRecentGames||[])].reverse()) {
-if (g.week_number < prevWeek) { for (const k of Object.keys(streaks)) { streaks[k].count=0; streaks[k].games=[] } }
-prevWeek = g.week_number
-const hw = (g.home_score||0)>(g.away_score||0)
-const wt2 = hw?g.home_team:g.away_team
-const lt = hw?g.away_team:g.home_team
-if (!streaks[wt2]) streaks[wt2]={count:0,games:[]}
-if (!streaks[lt]) streaks[lt]={count:0,games:[]}
-streaks[wt2].count++
-streaks[wt2].games.push(g.id)
-streaks[lt].count=0
-streaks[lt].games=[]
-}
-// A real "Hot Streak" callout needs an actual streak — without a floor,
-// right after a reset (when most teams are still 0-0) the very first team
-// to win a single game would "win" this comparison and get badged as
-// on a hot streak for 1 win, which isn't a streak at all.
-const hotTeamRaw = Object.entries(streaks).sort((a,b)=>b[1].count-a[1].count)[0]
-const hotTeam = hotTeamRaw && hotTeamRaw[1].count>=3 ? hotTeamRaw : null
-
-if (potwBox || uotwGame || hotTeam) {
-await supabaseAdmin.from('weekly_highlights').upsert({
-season:'2025-26', week_number:week,
-potw_player_id: potwBox?.player_id || null,
-potw_game_id: potwBox?.game_id || null,
-potw_pts: potwBox?.pts || 0,
-potw_reb: potwBox?.reb || 0,
-potw_ast: potwBox?.ast || 0,
-potw_stl: potwBox?.stl || 0,
-potw_blk: potwBox?.blk || 0,
-potw_score: potwScore,
-uotw_game_id: uotwGame?.id || null,
-uotw_winner_id: uotwGame ? ((uotwGame.home_score||0)>(uotwGame.away_score||0)?uotwGame.home_team:uotwGame.away_team) : null,
-uotw_loser_id: uotwGame ? ((uotwGame.home_score||0)>(uotwGame.away_score||0)?uotwGame.away_team:uotwGame.home_team) : null,
-// Was always "home_score-away_score", but the homepage card shows the
-// WINNER on the left and loser on the right — whenever the away team was
-// actually the winner (like a real incident: away team wins 131-122, but
-// the card showed home-first "122-131" next to a winner it didn't match),
-// the two numbers read backwards from the labels right beside them.
-// Winner-first always matches the card's own left-to-right layout.
-uotw_score: uotwGame ? `${Math.max(uotwGame.home_score,uotwGame.away_score)}-${Math.min(uotwGame.home_score,uotwGame.away_score)}` : null,
-uotw_odds: uotwOdds,
-hstreak_team_id: hotTeam?.[0] || null,
-hstreak_wins: hotTeam?.[1].count || 0,
-// games[] now accumulates oldest -> newest (chronological processing
-// order above) — reverse so the saved list is most-recent-first, same
-// display order the Weekly Highlights card expects.
-hstreak_games: hotTeam?.[1].games.slice(-5).reverse() || [],
-},{onConflict:'season,week_number'})
-}
-} catch(hlErr) { console.warn('Highlights step failed', hlErr) }
 }
 
 // ── G-LEAGUE SIMULATION ────────────────────────────────
