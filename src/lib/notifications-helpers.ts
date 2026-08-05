@@ -525,13 +525,22 @@ export function notifTacticalFocusNeeded(lang: 'en'|'pt', system: string) {
   }
 }
 
+// Deliberately scoped to just the 4 fixed recurring items (subsidy,
+// coaching salaries, utilities, insurance) — ticket revenue, sponsorships
+// and other variable income are settled elsewhere (weekly, per game) and
+// aren't part of this sweep at all. The wording used to say "Resultado
+// líquido" (net result) with no qualifier, which reads exactly like "this
+// is your month" — a real incident: Bruno saw a -$506K "Resultado líquido"
+// here and assumed the team was losing money, when the Finances tab showed
+// a real +$6.0M for the same month once ticket/sponsor income was
+// included. Now explicit that this is only the fixed-cost slice.
 export function notifMonthlySettlement(lang: 'en'|'pt', subsidy: number, coaching: number, utilities: number, insurance: number, net: number) {
   const fmt = (n: number) => '$' + (n/1000).toFixed(0) + 'K'
   return {
     subject: lang === 'pt' ? `💵 Acerto Financeiro Mensal` : `💵 Monthly Financial Settlement`,
     body: lang === 'pt'
-      ? `Acerto mensal processado:\n\n💰 Subsídio NBA: +${fmt(subsidy)}\n👔 Staff Técnico: -${fmt(coaching)}\n⚡ Utilidades: -${fmt(utilities)}\n🛡️ Seguros: -${fmt(insurance)}\n\nResultado líquido: ${net>=0?'+':''}${fmt(net)}\n\nVê o Extrato no separador Finanças para o detalhe completo.`
-      : `Monthly settlement processed:\n\n💰 NBA Subsidy: +${fmt(subsidy)}\n👔 Coaching Staff: -${fmt(coaching)}\n⚡ Utilities: -${fmt(utilities)}\n🛡️ Insurance: -${fmt(insurance)}\n\nNet result: ${net>=0?'+':''}${fmt(net)}\n\nCheck the Balance Sheet in the Finances tab for the full detail.`,
+      ? `Acerto mensal processado (subsídio + custos fixos):\n\n💰 Subsídio NBA: +${fmt(subsidy)}\n👔 Staff Técnico: -${fmt(coaching)}\n⚡ Utilidades: -${fmt(utilities)}\n🛡️ Seguros: -${fmt(insurance)}\n\nSaldo desta rubrica: ${net>=0?'+':''}${fmt(net)}\n\n⚠️ Isto cobre só o subsídio e os custos fixos — não inclui bilhetes, patrocínios nem outras receitas variáveis, por isso não é o resultado do mês todo. Vê o Extrato no separador Finanças para o quadro completo.`
+      : `Monthly settlement processed (subsidy + fixed costs):\n\n💰 NBA Subsidy: +${fmt(subsidy)}\n👔 Coaching Staff: -${fmt(coaching)}\n⚡ Utilities: -${fmt(utilities)}\n🛡️ Insurance: -${fmt(insurance)}\n\nBalance of this item: ${net>=0?'+':''}${fmt(net)}\n\n⚠️ This only covers the subsidy and fixed costs — it doesn't include ticket sales, sponsorships, or other variable income, so it isn't your whole month's result. Check the Balance Sheet in the Finances tab for the full picture.`,
   }
 }
 
