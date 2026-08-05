@@ -1,12 +1,26 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 
+// useSearchParams() (needed for the ?date= deep link from SimulatorBanner)
+// forces Next.js to bail out of static prerendering for whatever reads it —
+// without a Suspense boundary around that part, the build fails outright
+// ("useSearchParams() should be wrapped in a suspense boundary"). The actual
+// page content lives in ScheduleContent below; this default export just
+// supplies the boundary.
 export default function SchedulePage() {
+  return (
+    <Suspense fallback={<div className="max-w-5xl mx-auto px-4 py-12 text-center" style={{color:'#8a8279'}}>Loading...</div>}>
+      <ScheduleContent />
+    </Suspense>
+  )
+}
+
+function ScheduleContent() {
   const {t} = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const searchParams = useSearchParams()
