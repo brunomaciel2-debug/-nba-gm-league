@@ -25,7 +25,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       // a player with 60+ games played. Fetch every one of his box scores
       // (bounded by nature — a season is at most ~82 games) and sort by the
       // real game date in plain JS below instead.
-      supabase.from('box_scores').select('*,games(id,home_team,away_team,home_score,away_score,played_at,home:teams!games_home_team_fkey(name,color),away:teams!games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0),
+      supabase.from('box_scores').select('*,games(id,home_team,away_team,home_score,away_score,played_at,scheduled_date,home:teams!games_home_team_fkey(name,color),away:teams!games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0),
       supabase.from('season_config').select('current_week').eq('id', 1).single(),
       supabase.from('teams').select('id,name,color,logo_url'),
       supabase.from('player_transactions').select('*').eq('player_id', params.id).order('created_at', { ascending: false }),
@@ -38,8 +38,14 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       supabase.from('gleague_box_scores').select('*,game:gleague_games(id,home_team,away_team,home_score,away_score,played_at,home:gleague_teams!gleague_games_home_team_fkey(name,color),away:gleague_teams!gleague_games_away_team_fkey(name,color))').eq('player_id', params.id).gt('mins', 0).order('created_at', { ascending: false }).limit(5),
       supabase.from('draft_config').select('next_draft_season').eq('id', 1).maybeSingle(),
     ])
+  // scheduled_date is the in-game simulated date — played_at is only the
+  // real wall-clock moment the game happened to be simulated, which made
+  // every game processed in the same batch (often a whole week's worth)
+  // show the identical real-world date regardless of which simulated day
+  // it was actually played on. Sort and display both use scheduled_date
+  // now, falling back to played_at only for old rows that predate it.
   const sortedLastGames = [...(lastGames || [])]
-    .sort((a: any, b: any) => new Date(b.games?.played_at || 0).getTime() - new Date(a.games?.played_at || 0).getTime())
+    .sort((a: any, b: any) => new Date(b.games?.scheduled_date || b.games?.played_at || 0).getTime() - new Date(a.games?.scheduled_date || a.games?.played_at || 0).getTime())
     .slice(0, 5)
 
   const teamMap: Record<string, any> = {}

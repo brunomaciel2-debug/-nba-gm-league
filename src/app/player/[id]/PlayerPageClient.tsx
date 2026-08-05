@@ -462,7 +462,8 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                     const oppScore = isHome ? g.away_score : g.home_score
                     const won = (myScore||0) > (oppScore||0)
                     const oppColor = readableTeamColor(opp?.color||'#5c554e')
-                    const dateStr = g.played_at ? new Date(g.played_at).toLocaleDateString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric'}) : '—'
+                    const dateStr = g.scheduled_date ? new Date(g.scheduled_date+'T12:00:00').toLocaleDateString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric'})
+                      : g.played_at ? new Date(g.played_at).toLocaleDateString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric'}) : '—'
                     return (
                       <tr key={b.id} style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                         <td className="px-2.5 py-2.5 whitespace-nowrap" style={{color:'#8a8279'}}>{dateStr}</td>
