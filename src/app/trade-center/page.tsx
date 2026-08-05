@@ -10,7 +10,7 @@ import PendingTradesPanel from './PendingTradesPanel'
 import TradeDetailModal from './TradeDetailModal'
 
 function TradeCenterPageInner() {
-  const { user, profile, isCommissioner } = useAuth()
+  const { user, profile } = useAuth()
   const { t } = useTranslation()
   const isPT = t('common.save') === 'Guardar'
   const searchParams = useSearchParams()
@@ -21,13 +21,6 @@ function TradeCenterPageInner() {
   const [tradeBlock, setTradeBlock] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [pendingCount, setPendingCount] = useState(0)
-  // The Commissioner's own profile has no team_id, so myTeamId is always
-  // empty for them — without this, there was no way to review or act on a
-  // pending trade sent to a team that has no active GM logged in (the
-  // backend already lets the Commissioner accept/reject on any team's
-  // behalf, see /api/trade/respond, but the UI never gave them a team to
-  // do it as). Lets them pick any team and see that team's pending trades.
-  const [commTeamId, setCommTeamId] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -41,20 +34,16 @@ function TradeCenterPageInner() {
   }, [])
 
   const myTeamId = profile?.team_id
-  // For a real GM this is always their own team. For the Commissioner
-  // (no team_id of their own) it's whichever team they picked from the
-  // selector below — lets them stand in for a team with no active GM.
-  const effectiveTeamId = myTeamId || (isCommissioner ? commTeamId : '')
 
   useEffect(() => {
-    if (!effectiveTeamId) { setPendingCount(0); return }
-    supabase.from('trade_proposal_teams').select('*, trade_proposals(status,initiator_team)').eq('team_id', effectiveTeamId)
+    if (!myTeamId) return
+    supabase.from('trade_proposal_teams').select('*, trade_proposals(status,initiator_team)').eq('team_id', myTeamId)
       .then(({ data }) => {
-        const pending = (data || []).filter((e: any) => e.trade_proposals?.status === 'pending' && e.trade_proposals?.initiator_team !== effectiveTeamId)
+        const pending = (data || []).filter((e: any) => e.trade_proposals?.status === 'pending' && e.trade_proposals?.initiator_team !== myTeamId)
         setPendingCount(pending.length)
         if (pending.length > 0) setTab('pending')
       })
-  }, [effectiveTeamId])
+  }, [myTeamId])
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -75,7 +64,7 @@ function TradeCenterPageInner() {
 
       <div className="flex gap-2 mb-6 flex-wrap">
         {[
-          ...(myTeamId || isCommissioner ? [{key:'pending', labelEN:`🔔 Pending Trades${pendingCount>0?` (${pendingCount})`:''}`, labelPT:`🔔 Trocas Pendentes${pendingCount>0?` (${pendingCount})`:''}`}] : []),
+          ...(myTeamId ? [{key:'pending', labelEN:`🔔 Pending Trades${pendingCount>0?` (${pendingCount})`:''}`, labelPT:`🔔 Trocas Pendentes${pendingCount>0?` (${pendingCount})`:''}`}] : []),
           {key:'players',    labelEN:'🏀 Player Trades',  labelPT:'🏀 Trades de Jogadores'},
           {key:'tradeblock', labelEN:'📋 Trade Block',    labelPT:'📋 Trade Block'},
         ].map((t:any)=>(
@@ -93,33 +82,12 @@ function TradeCenterPageInner() {
         <div className="text-center py-12" style={{color:'#6b5f4e'}}>{t('common.loading')}</div>
       ) : (
         <>
-          {tab==='pending' && (myTeamId || isCommissioner) && (
+          {tab==='pending' && myTeamId && (
             <div>
-              {isCommissioner && !myTeamId && (
-                <div className="mb-4 p-3 rounded-xl" style={{background:'#faf8f5',border:'1px solid #d4cdc5'}}>
-                  <label className="block text-xs font-semibold mb-1.5" style={{color:'#5c554e'}}>
-                    {isPT ? 'Ver e responder em nome de:' : 'View and respond on behalf of:'}
-                  </label>
-                  <select value={commTeamId} onChange={e=>setCommTeamId(e.target.value)}
-                    className="w-full sm:w-72 px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{background:'#fff',border:'1px solid #d4cdc5',color:'#1a1512'}}>
-                    <option value="">{isPT ? '— Escolhe uma equipa —' : '— Choose a team —'}</option>
-                    {teams.map(tm => <option key={tm.id} value={tm.id}>{tm.name}</option>)}
-                  </select>
-                </div>
-              )}
               <p className="text-xs mb-4" style={{color:'#6b5f4e'}}>
-                {isCommissioner && !myTeamId
-                  ? (isPT ? 'Como Comissário, podes aceitar ou recusar trocas em nome de qualquer equipa — útil para equipas sem GM ativo.' : 'As Commissioner, you can accept or reject trades on behalf of any team — useful for teams with no active GM.')
-                  : (isPT ? 'Trocas que outras equipas te propuseram — aceita ou recusa.' : 'Trades other teams have proposed to you — accept or reject.')}
+                {isPT ? 'Trocas que outras equipas te propuseram — aceita ou recusa.' : 'Trades other teams have proposed to you — accept or reject.'}
               </p>
-              {effectiveTeamId
-                ? <PendingTradesPanel teamId={effectiveTeamId} />
-                : isCommissioner && (
-                  <div className="text-center py-8 text-sm" style={{color:'#8a8279'}}>
-                    {isPT ? 'Escolhe uma equipa acima para ver as trocas pendentes dela.' : 'Choose a team above to see its pending trades.'}
-                  </div>
-                )}
+              <PendingTradesPanel teamId={myTeamId} />
             </div>
           )}
           {tab==='players' && (
