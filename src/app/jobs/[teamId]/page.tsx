@@ -70,7 +70,7 @@ export default function TeamJobPage({ params }: { params: { teamId: string } }) 
           </div>
           <div className="text-center">
             <span className="text-sm font-bold px-4 py-2 rounded-full"
-                  style={{background:isOpen?'#0a2a10':'#2a0a0a',color:isOpen?'#15803d':'#dc2626'}}>
+                  style={{background:isOpen?'#0a2a10':'#2a0a0a',color:isOpen?'#4ade80':'#f87171'}}>
               {isOpen ? (isPT?'✅ Vaga Aberta':'✅ Position Open') : (isPT?'❌ Vaga Preenchida':'❌ Position Filled')}
             </span>
           </div>

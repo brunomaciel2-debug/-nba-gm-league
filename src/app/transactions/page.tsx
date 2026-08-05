@@ -6,12 +6,12 @@ import { useTranslation } from '@/components/I18nProvider'
 import { formatSimDate } from '@/lib/season-week-helper'
 
 const TYPE_STYLE: Record<string,{bg:string,color:string}> = {
-  trade:      {bg:'#2a2010',color:'#c2410c'},
-  signing:    {bg:'#0a2a10',color:'#166534'},
-  waiver:     {bg:'#1a0a2a',color:'#7c3aed'},
+  trade:      {bg:'#2a2010',color:'#fb923c'},
+  signing:    {bg:'#0a2a10',color:'#4ade80'},
+  waiver:     {bg:'#1a0a2a',color:'#c4b5fd'},
   suspension: {bg:'#1a1a00',color:'#ffcc00'},
   extension:  {bg:'#0a2030',color:'#0ea5e9'},
-  retirement: {bg:'#2a1808',color:'#b45309'},
+  retirement: {bg:'#2a1808',color:'#fbbf24'},
 }
 
 // The "Player(s)"/"Staff" tag at the start of each row — orthogonal to the

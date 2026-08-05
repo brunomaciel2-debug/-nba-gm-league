@@ -373,7 +373,7 @@ function ProposeTradePage() {
       <div className="flex justify-center mb-6">
         <button onClick={() => { setShow3(!show3); if (show3) { setTeam3Id(''); setTeam3(null); setT3Recv([]); setT3PicksRecv([]); setT3SendDest({}) } }}
           className="text-xs px-4 py-2 rounded-lg font-semibold"
-          style={{ background: show3 ? '#2a0a0a' : '#1e3a5f', color: show3 ? '#dc2626' : '#1d4ed8', border: '1px solid ' + (show3 ? '#5a1a1a' : '#1e3a5f') }}>
+          style={{ background: show3 ? '#2a0a0a' : '#1e3a5f', color: show3 ? '#f87171' : '#60a5fa', border: '1px solid ' + (show3 ? '#5a1a1a' : '#1e3a5f') }}>
           {show3 ? (isPT ? '✕ Remover 3ª Equipa' : '✕ Remove 3rd Team') : (isPT ? '+ Adicionar 3ª Equipa (troca a 3)' : '+ Add 3rd Team (3-way trade)')}
         </button>
       </div>
@@ -444,7 +444,7 @@ function ProposeTradePage() {
           <div className="rounded-lg px-4 py-2.5 mb-3 flex items-center gap-2"
                style={{ background: '#2a0a0a', border: '1px solid #5a1a1a' }}>
             <span>🚫</span>
-            <span className="text-sm font-bold" style={{ color: '#dc2626' }}>
+            <span className="text-sm font-bold" style={{ color: '#f87171' }}>
               {isPT ? 'Violação do cap' : 'Cap violation'}: {[
                 myOverCap && (isPT ? `${myTeam?.name} ultrapassaria o cap de $180M` : `${myTeam?.name} would exceed $180M cap`),
                 t2OverCap && (isPT ? `${team2?.name} ultrapassaria o cap de $180M` : `${team2?.name} would exceed $180M cap`),
@@ -459,7 +459,7 @@ function ProposeTradePage() {
           <div className="rounded-lg px-4 py-2.5 mb-3 flex items-center gap-2"
                style={{ background: '#2a0a0a', border: '1px solid #5a1a1a' }}>
             <span>🚫</span>
-            <span className="text-sm font-bold" style={{ color: '#dc2626' }}>
+            <span className="text-sm font-bold" style={{ color: '#f87171' }}>
               {isPT ? 'Violação de plantel' : 'Roster size violation'}: {[
                 myRosterBad && (isPT ? `${myTeam?.name} ficaria com ${myRosterAfter} jogadores` : `${myTeam?.name} would end up with ${myRosterAfter} players`),
                 t2RosterBad && (isPT ? `${team2?.name} ficaria com ${t2RosterAfter} jogadores` : `${team2?.name} would end up with ${t2RosterAfter} players`),
@@ -473,10 +473,10 @@ function ProposeTradePage() {
              style={{ background: isValid ? '#0a2a10' : '#2a0a0a', border: '1px solid ' + (isValid ? '#1a5a20' : '#5a1a1a') }}>
           <span className="text-lg">{isValid ? '✅' : '❌'}</span>
           <div>
-            <span className="font-bold text-sm" style={{ color: isValid ? '#15803d' : '#dc2626' }}>
+            <span className="font-bold text-sm" style={{ color: isValid ? '#4ade80' : '#f87171' }}>
               {isValid ? (isPT ? 'Troca válida' : 'Trade is valid') : (isPT ? 'Troca inválida' : 'Trade is invalid')}
             </span>
-            <div className="text-xs mt-0.5" style={{ color: '#5c554e' }}>
+            <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
               {!hasPlayers && (isPT ? 'Seleciona pelo menos 1 jogador ou escolha em cada lado · ' : 'Select at least 1 player or pick on each side · ')}
               {!salaryValid && (isPT ? 'Diferença salarial excede o limite (±15% + $1M) · ' : `Salary difference exceeds limit (±15% + $1M) · `)}
               {!capValid && (isPT ? 'Uma das equipas ultrapassaria o cap de $180M · ' : `One of the teams would exceed the $180M cap · `)}

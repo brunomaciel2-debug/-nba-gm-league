@@ -92,7 +92,7 @@ export default function ManageArticlesPage() {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-xs font-bold px-2 py-0.5 rounded" style={{background:ps.color+'22',color:ps.color}}>{ps.label}</span>
                       <span className="text-xs px-2 py-0.5 rounded font-semibold"
-                            style={{background:a.published?'#0a2a10':'#2a0a0a',color:a.published?'#15803d':'#dc2626'}}>
+                            style={{background:a.published?'#0a2a10':'#2a0a0a',color:a.published?'#4ade80':'#f87171'}}>
                         {a.published?(isPT?'Publicado':'Published'):(isPT?'Rascunho':'Draft')}
                       </span>
                     </div>
@@ -115,7 +115,7 @@ export default function ManageArticlesPage() {
                     </Link>
                     <button onClick={()=>togglePublished(a.id,a.published)} disabled={toggling===a.id}
                       className="text-xs px-3 py-1.5 rounded-lg font-semibold disabled:opacity-40"
-                      style={{background:a.published?'#2a0a0a':'#0a2a10',color:a.published?'#dc2626':'#15803d'}}>
+                      style={{background:a.published?'#2a0a0a':'#0a2a10',color:a.published?'#f87171':'#4ade80'}}>
                       {toggling===a.id?'...':(a.published?(isPT?'Despublicar':'Unpublish'):(isPT?'Publicar':'Publish'))}
                     </button>
                     <button onClick={()=>deleteArticle(a.id)} disabled={deleting===a.id}

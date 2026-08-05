@@ -107,7 +107,7 @@ export default function AllStarPage() {
               <span className="text-xs px-3 py-1.5 rounded-full" style={{background:'#e8e2d6',color:'#6b5f4e'}}>{t('common.loading')}</span>
             ):(
               <span className="text-xs px-3 py-1.5 rounded-full font-semibold inline-block"
-                    style={{background:votingOpen?'#0a2a10':votingClosed?'#2a0a0a':'#faf8f5',color:votingOpen?'#15803d':votingClosed?'#dc2626':'#5c554e'}}>
+                    style={{background:votingOpen?'#0a2a10':votingClosed?'#2a0a0a':'#faf8f5',color:votingOpen?'#4ade80':votingClosed?'#f87171':'#5c554e'}}>
                 {votingOpen?`🗳️ ${isPT?'Votação Aberta':'Voting Open'}`:votingClosed?`🔒 ${isPT?'Votação Fechada':'Voting Closed'}`:`${isPT?'Abre em':'Opens'} ${formatWeekRange(VOTING_OPENS,locale)}`}
               </span>
             )}
@@ -201,7 +201,7 @@ export default function AllStarPage() {
                 </div>
               ))}
               <button onClick={saveVotes} disabled={saving||submitted||!gmTeam} className="px-8 py-3 rounded-xl font-bold disabled:opacity-40"
-                style={{background:submitted?'#0a5a20':'#2a2000',color:submitted?'#15803d':'#b45309',border:'1px solid '+(submitted?'#1a5a20':'#5a4a00')}}>
+                style={{background:submitted?'#0a5a20':'#2a2000',color:submitted?'#4ade80':'#fbbf24',border:'1px solid '+(submitted?'#1a5a20':'#5a4a00')}}>
                 {saving?(isPT?'A guardar...':'Saving...'):submitted?`✓ ${isPT?'Submetido!':'Submitted!'}`:(isPT?'Submeter Votos':'Submit Votes')}
               </button>
             </>}

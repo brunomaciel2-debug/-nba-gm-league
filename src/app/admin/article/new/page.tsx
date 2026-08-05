@@ -25,7 +25,7 @@ export default function NewArticlePage() {
       label: isPT ? '📌 Destaque Esquerda' : '📌 Featured Left',
       desc: isPT ? 'Destaque na coluna esquerda abaixo do hero. Bom para notícias importantes, relatórios de lesões, resumos de trocas.' : 'Left column highlight below the hero. Good for important news, injury reports, trade summaries.',
       preview: isPT ? 'Coluna esquerda · Abaixo do hero · Máx. 1 artigo' : 'Left column · Below hero · 1 article max',
-      color: '#1d4ed8',
+      color: '#60a5fa',
       bg: '#0a1a3a',
     },
     {
@@ -33,7 +33,7 @@ export default function NewArticlePage() {
       label: isPT ? '📌 Destaque Direita' : '📌 Featured Right',
       desc: isPT ? 'Destaque na coluna direita abaixo do hero. Bom para atualizações de classificação, resumos semanais, movimentos de GM.' : 'Right column highlight below the hero. Good for standings updates, weekly recaps, GM moves.',
       preview: isPT ? 'Coluna direita · Abaixo do hero · Máx. 1 artigo' : 'Right column · Below hero · 1 article max',
-      color: '#15803d',
+      color: '#4ade80',
       bg: '#0a2a10',
     },
     {

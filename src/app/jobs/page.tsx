@@ -88,7 +88,7 @@ export default function JobVacanciesPage() {
                     <div className="text-center">
                       <span className="text-xs font-bold px-2 py-1 rounded-full"
                             style={{background:isOpen?'#0a2a10':'#2a0a0a',
-                                    color:isOpen?'#15803d':'#dc2626'}}>
+                                    color:isOpen?'#4ade80':'#f87171'}}>
                         {isOpen ? (isPT?'✅ Aberta':'✅ Open') : (isPT?'❌ Preenchida':'❌ Filled')}
                       </span>
                     </div>
