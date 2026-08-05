@@ -43,6 +43,11 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
   const [sections,setSections]       = useState<Record<string,Section>>({})
   const [config,setConfig]           = useState<Config|null>(null)
   const [concessions,setConcessions] = useState<Concessions|null>(null)
+  // variantKey -> ends_at (YYYY-MM-DD) for anything still building — a
+  // concession used to finish the instant you clicked Build (no queue at
+  // all), unlike arena sections and the practice facility gym, which both
+  // already took real weeks. Mirrors that same construction_queue table.
+  const [pendingConcessions,setPendingConcessions] = useState<Record<string,string>>({})
   const [selected,setSelected]       = useState<string|null>(null)
   const [loading,setLoading]         = useState(true)
   const [building,setBuilding]       = useState(false)
@@ -59,7 +64,8 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
       supabase.from('franchise_config').select('*').eq('team_id',teamId).single(),
       supabase.from('arena_concessions').select('*').eq('team_id',teamId).single(),
       supabase.from('teams').select('popularity,social_media_followers').eq('id',teamId).single(),
-    ]).then(([{data:s},{data:c},{data:co},{data:tm}])=>{
+      supabase.from('construction_queue').select('name,ends_at').eq('team_id',teamId).eq('construction_type','concession').eq('status','in_progress'),
+    ]).then(([{data:s},{data:c},{data:co},{data:tm},{data:pq}])=>{
       const map:Record<string,Section>={}
       for(const sec of (s||[])) map[sec.section]=sec
       setSections(map)
@@ -67,6 +73,9 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
       setTicketDraft(c||{})
       setConcessions(co)
       setTeamInfo(tm)
+      const pend:Record<string,string>={}
+      for(const q of (pq||[])) pend[q.name]=q.ends_at
+      setPendingConcessions(pend)
       setLoading(false)
     })
   },[teamId])
@@ -132,10 +141,18 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
     })
     const json = await res.json()
     if(!res.ok){ setMsg(json.error||(isPT?'Erro':'Error')); return }
-    const current = (concessions as any)[key] || 0
-    const newMonthly = (concessions.monthly_maintenance||0) + unitMonthly
-    setConcessions(p=>p?{...p,[key]:current+1, monthly_maintenance:newMonthly}:p)
-    setMsg(isPT?'Construído com sucesso!':'Built successfully!')
+    if(json.purchased){
+      // Bought outright — nothing to build, available immediately.
+      const current = (concessions as any)[key] || 0
+      setConcessions(p=>p?{...p,[key]:current+1, monthly_maintenance:(p.monthly_maintenance||0)+unitMonthly}:p)
+      setMsg(isPT?'Comprado com sucesso!':'Purchased successfully!')
+      return
+    }
+    // Doesn't land in arena_concessions until the weekly resolver finishes
+    // the queue entry — only mark it as pending here, don't increment the
+    // count locally.
+    setPendingConcessions(p=>({...p,[key]:json.endsAt}))
+    setMsg(isPT?'Construção iniciada!':'Construction started!')
   }
 
   if(loading)return <div className="text-center py-8" style={{color:'#8a8279'}}>{t('common.loading')}</div>
@@ -320,6 +337,7 @@ export default function ArenaView({teamId,teamColor,arenaName,arenaCapacity,cash
           teamColor={teamColor}
           cash={cash}
           onBuild={handleBuildConcession}
+          pendingConcessions={pendingConcessions}
           estimatedAttendance={attendance}
         />
       )}

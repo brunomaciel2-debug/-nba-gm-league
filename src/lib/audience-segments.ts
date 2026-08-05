@@ -183,6 +183,27 @@ export const SLOT_ECONOMICS: Record<string, SlotEconomics> = {
   mascot: { adoptionRate: 0, avgSpend: 0, fixedPerGame: 5000, cost: 500000, monthly: 3000, maxTotal: 1 },
 }
 
+// Bruno's split: a room/space or anything that physically attaches to the
+// arena's own structure (wiring, plumbing, rigging) is real construction —
+// takes weeks, goes through construction_queue like an arena section. A
+// standalone unit you simply buy already-made (a vending machine, a food
+// kiosk, hiring a mascot) has nothing to build — it's available as soon as
+// it's paid for, same as it always was. See build-concession/route.ts.
+export const CONCESSION_IS_PURCHASED: Record<string, boolean> = {
+  food_stall_basic: true,
+  food_stall_premium: true,
+  vending: true,
+  mascot: true,
+  bar: false,
+  restaurant_vip: false,
+  franchise_store: false,
+  fan_zone: false,
+  corporate_suites: false,
+  club_seats: false,
+  courtside_lounge: false,
+  jumbotron: false,
+}
+
 // Concession slot variant columns (arena_concessions table) grouped by base
 // slot id — mirrors ArenaBlueprint.tsx's SLOTS[].variants[].key list.
 export const SLOT_VARIANT_KEYS: Record<string, string[]> = {

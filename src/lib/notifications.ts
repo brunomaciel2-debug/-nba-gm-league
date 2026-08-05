@@ -4,6 +4,7 @@ import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTech
 import { medicalCostAfterInsurance, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
 import { OffSystem, nodesForSystem, isNodeUnlocked } from './tactical-constants'
 import { NBA_SUBSIDY_MONTHLY, UTILITIES_MONTHLY, INSURANCE_MONTHLY } from './finance-constants'
+import { SLOT_ECONOMICS, SLOT_VARIANT_KEYS } from './audience-segments'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -357,6 +358,20 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
         await supabase.from('practice_facilities').update({
           gym_under_construction: false, ...(nextGrade ? { gym_grade: nextGrade } : {}),
         }).eq('id', item.reference_id)
+      } else if (item.construction_type === 'concession') {
+        // item.name carries the variant key (e.g. 'jumbotron', 'vending_north')
+        // — arena_concessions has no per-unit row, just a count column per
+        // variant, so this is the only place that identity survives.
+        const variantKey = item.name
+        const slotId = Object.keys(SLOT_VARIANT_KEYS).find(id => SLOT_VARIANT_KEYS[id].includes(variantKey))
+        const monthly = slotId ? SLOT_ECONOMICS[slotId].monthly : 0
+        const { data: conc } = await supabase.from('arena_concessions').select('*').eq('id', item.reference_id).single()
+        if (conc) {
+          await supabase.from('arena_concessions').update({
+            [variantKey]: (conc[variantKey] || 0) + 1,
+            monthly_maintenance: (conc.monthly_maintenance || 0) + monthly,
+          }).eq('id', item.reference_id)
+        }
       }
       await supabase.from('construction_queue').update({ status: 'completed' }).eq('id', item.id)
     } else if (daysLeft <= 7) {
