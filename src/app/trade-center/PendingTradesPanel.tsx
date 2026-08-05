@@ -179,7 +179,12 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
     const res = await fetch('/api/trade/respond', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-      body: JSON.stringify({ proposalId, action, reason: action === 'reject' ? rejectReason : undefined }),
+      // teamId tells the server unambiguously which side of the trade this
+      // response is for — needed when the Commissioner (no team_id of their
+      // own) is responding on behalf of a specific team, since otherwise
+      // the server can only guess (see route.ts), which breaks on a 3+
+      // team trade where more than one other team is still pending.
+      body: JSON.stringify({ proposalId, action, teamId, reason: action === 'reject' ? rejectReason : undefined }),
     })
     const json = await res.json()
     if (res.ok) {

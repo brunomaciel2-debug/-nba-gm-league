@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const { data: gm } = await supabaseAdmin.from('gm_profiles').select('team_id,role').eq('id', user.id).single()
   if (!gm) return NextResponse.json({ error: 'No GM profile found' }, { status: 403 })
 
-  const { proposalId, action, reason } = await req.json()
+  const { proposalId, action, reason, teamId } = await req.json()
   // action: 'accept' | 'reject'
 
   if (!proposalId || !['accept', 'reject'].includes(action)) {
@@ -60,11 +60,17 @@ export async function POST(req: NextRequest) {
   for (const t of (teamRecords || [])) teamNameMap[t.id] = t.name
 
   // Which of the trade's teams is this GM actually responding on behalf
-  // of? A real GM can only ever be their own team's row; the commissioner
-  // fallback (no team_id) picks the first still-pending non-initiator row,
-  // same ambiguity that already existed here before this fix.
-  const myTeamEntry = teams.find((t: any) => t.team_id === gm.team_id)
-    || teams.find((t: any) => t.team_id !== proposal.initiator_team && t.status === 'pending')
+  // of? A real GM can only ever be their own team's row — teamId from the
+  // client is ignored for them so one GM can never respond as another
+  // team. The Commissioner has no team_id of their own, so for them the
+  // client-supplied teamId (which team's panel they were actually looking
+  // at) is authoritative; without it, a 3+ team trade with more than one
+  // team still pending had no way to tell which one the Commissioner
+  // meant, and silently picked whichever came back first from the query.
+  const myTeamEntry = gm.team_id
+    ? teams.find((t: any) => t.team_id === gm.team_id)
+    : (isCommissioner && teamId ? teams.find((t: any) => t.team_id === teamId) : undefined)
+      || teams.find((t: any) => t.team_id !== proposal.initiator_team && t.status === 'pending')
   if (!myTeamEntry) return NextResponse.json({ error: 'Could not determine which team you are responding on behalf of' }, { status: 400 })
   if (myTeamEntry.team_id === proposal.initiator_team) {
     return NextResponse.json({ error: 'The initiating team cannot respond to its own proposal' }, { status: 400 })
