@@ -1109,24 +1109,152 @@ message: gamesSimulated > 0 || friendliesSimulated > 0
 })
 }
 
-// ── ATTRIBUTE DEVELOPMENT ─────────────────────────────
+// ── PASSIVE DEVELOPMENT (MONTHLY, AGE-BASED) ──────────
+// Replaces the old weekly random-walk system, which let almost every
+// attribute drift upward with barely any real ceiling and only a token
+// chance of decline — a real incident: a full month's report showed
+// every player on a roster gaining ground on nearly every attribute,
+// nobody losing anything. Bruno's rules: age alone sets the MAX a player
+// can gain or must lose in a calendar month (older players get smaller
+// or no growth allotments, and mandatory decline from 31 up); playing
+// 90%+ of the team's games that month at 20+ minutes/game is what lets a
+// player actually reach that max — short of the bar, the reward scales
+// down much faster than the shortfall itself. Coaching quality, training
+// intensity, morale and a player's own hidden dev_rate still matter, but
+// only to help a player who falls short of the games/minutes bar close
+// the gap — nobody can be coached past the age ceiling. Decline is
+// unconditional once a player is old enough for it — no amount of good
+// coaching or games played prevents it.
+// Runs once per calendar month, only once that month has fully finished
+// (mirrors the MONTHLY DEVELOPMENT REPORT month-detection below it) —
+// idempotency marker is the attribute_development rows themselves
+// (reason starts with 'passive_').
+if (!isPreseason) {
 try {
-const { data: allPlayers3 } = await supabaseAdmin
-.from('players').select('id,name,age,health,moral,dev_rate,team_id,'+
+const { end: pdHalfEnd } = getHalfWeekDates(week, half)
+const pdMonthsToCheck: {year:number,month:number}[] = []
+{
+let cursor = new Date(SEASON_WEEK_START.getFullYear(), SEASON_WEEK_START.getMonth(), 1)
+const limit = new Date(pdHalfEnd.getFullYear(), pdHalfEnd.getMonth(), 1)
+while (cursor <= limit) {
+const lastDayOfCursorMonth = new Date(cursor.getFullYear(), cursor.getMonth()+1, 0)
+if (lastDayOfCursorMonth <= pdHalfEnd) pdMonthsToCheck.push({year: cursor.getFullYear(), month: cursor.getMonth()})
+cursor = new Date(cursor.getFullYear(), cursor.getMonth()+1, 1)
+}
+}
+
+// Age -> how many distinct attributes get +1 (up1), one extra attribute
+// at a bigger bonus size (bonus/bonusSize), how many distinct attributes
+// MUST drop by 1 (down1), and one extra attribute at a bigger mandatory
+// drop (downBonus/downBonusSize). First matching bracket (by min age)
+// wins; players under 21 fall through to the 18-20 row.
+const AGE_BRACKETS: {min:number, up1:number, bonus:number, bonusSize:number, down1:number, downBonus:number, downBonusSize:number}[] = [
+{ min: 35, up1: 0, bonus: 0, bonusSize: 0, down1: 3, downBonus: 1, downBonusSize: 2 },
+{ min: 33, up1: 0, bonus: 0, bonusSize: 0, down1: 2, downBonus: 1, downBonusSize: 2 },
+{ min: 31, up1: 2, bonus: 0, bonusSize: 0, down1: 0, downBonus: 1, downBonusSize: 2 },
+{ min: 28, up1: 4, bonus: 0, bonusSize: 0, down1: 0, downBonus: 0, downBonusSize: 0 },
+{ min: 26, up1: 5, bonus: 0, bonusSize: 0, down1: 0, downBonus: 0, downBonusSize: 0 },
+{ min: 23, up1: 5, bonus: 1, bonusSize: 2, down1: 0, downBonus: 0, downBonusSize: 0 },
+{ min: 21, up1: 6, bonus: 1, bonusSize: 2, down1: 0, downBonus: 0, downBonusSize: 0 },
+{ min: 0,  up1: 6, bonus: 1, bonusSize: 3, down1: 0, downBonus: 0, downBonusSize: 0 },
+]
+const bracketFor = (age: number) => AGE_BRACKETS.find(b => age >= b.min)!
+
+const ATTRS = ['three','layup','dunk','mid','ft','siq','draw_foul','blk','stl',
+'idef','pdef','def_reb','off_reb','stamina','durability',
+'ball_hdl','pass_vis','pass_iq','pressure','consistency','assist_role']
+const OFF_ATTRS = new Set(['three','layup','dunk','mid','ft','siq','draw_foul'])
+const DEF_ATTRS = new Set(['blk','stl','idef','pdef'])
+const PHYS_ATTRS = new Set(['stamina','durability','def_reb','off_reb'])
+const SPECIALTY_MAP: Record<string,string[]> = {
+offense: ['three','mid','layup','dunk','siq'],
+defense: ['blk','stl','idef','pdef'],
+shooting: ['three','mid','ft'],
+playmaking: ['ball_hdl','pass_vis','pass_iq','assist_role'],
+bigs: ['blk','def_reb','off_reb','idef','dunk'],
+}
+// Rescaled from the old system's additive TRAIN_DEV into a gentler
+// multiplicative quality factor (old values went as low as -0.5, which
+// made "Rest" weeks actively invert growth into decline — not intended).
+const TRAIN_QUALITY: Record<string,number> = { rest:0.85, light:0.95, normal:1.0, intense:1.10, very_intense:1.20 }
+
+// Weighted-random pick of `count` distinct attributes from `pool`,
+// favoring whatever the coaching staff specializes in — same influence
+// the old system gave Assistant Coach specialties, just aimed at WHICH
+// attributes move instead of whether they do at all.
+const weightedPick = (pool: string[], count: number, coach: {off:number,def:number,conditioning:number,specialties:Record<string,number>}) => {
+const chosen: string[] = []
+let remaining = pool.slice()
+for (let i = 0; i < count && remaining.length > 0; i++) {
+const weights = remaining.map(attr => {
+let w = 1
+const specialty = Object.entries(coach.specialties).find(([sp]) => SPECIALTY_MAP[sp]?.includes(attr))
+if (specialty) w *= (1 + specialty[1]/100)
+if (OFF_ATTRS.has(attr)) w *= (1 + (coach.off-60)/200)
+if (DEF_ATTRS.has(attr)) w *= (1 + (coach.def-60)/200)
+if (PHYS_ATTRS.has(attr)) w *= (1 + (coach.conditioning-60)/200)
+return Math.max(0.05, w)
+})
+const total = weights.reduce((a,b)=>a+b,0)
+let roll = Math.random()*total
+let idx = 0
+for (; idx < weights.length; idx++) { roll -= weights[idx]; if (roll <= 0) break }
+idx = Math.min(idx, remaining.length-1)
+chosen.push(remaining[idx])
+remaining = remaining.filter((_,i) => i !== idx)
+}
+return chosen
+}
+const NEUTRAL_COACH = {off:60,def:60,conditioning:60,specialties:{} as Record<string,number>}
+
+for (const {year: pdYear, month: pdMonth} of pdMonthsToCheck) {
+try {
+const ymdLocalPd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const firstWeek = getWeekForDate(ymdLocalPd(new Date(pdYear, pdMonth, 1)))
+const lastWeek = getWeekForDate(ymdLocalPd(new Date(pdYear, pdMonth+1, 0)))
+const pdWeeks: number[] = []
+for (let w = Math.max(1, firstWeek); w <= lastWeek; w++) {
+const wStart = getWeekDates(w).start
+if (wStart.getFullYear() === pdYear && wStart.getMonth() === pdMonth) pdWeeks.push(w)
+}
+if (!pdWeeks.length) continue
+const lastPdWeek = pdWeeks[pdWeeks.length-1]
+
+const { data: alreadyDone } = await supabaseAdmin.from('attribute_development')
+.select('id').in('week_number', pdWeeks).ilike('reason','passive_%').limit(1)
+if (alreadyDone && alreadyDone.length > 0) continue
+
+const { data: monthGames } = await supabaseAdmin.from('games').select('id,home_team,away_team')
+.in('week_number', pdWeeks).eq('status','final').eq('game_type','regular')
+if (!monthGames || !monthGames.length) continue
+const monthGameIds = monthGames.map((g:any)=>g.id)
+const teamGameCounts: Record<string,number> = {}
+for (const g of monthGames) {
+teamGameCounts[g.home_team] = (teamGameCounts[g.home_team]||0)+1
+teamGameCounts[g.away_team] = (teamGameCounts[g.away_team]||0)+1
+}
+
+const monthBoxes = await fetchAllRows<any>((from,to) => supabaseAdmin
+.from('box_scores').select('player_id,mins').in('game_id', monthGameIds).range(from,to))
+const gamesPlayedByPlayer: Record<string, number> = {}
+const minsByPlayer: Record<string, number> = {}
+;(monthBoxes||[]).forEach((b:any) => {
+if ((b.mins||0) > 0) {
+gamesPlayedByPlayer[b.player_id] = (gamesPlayedByPlayer[b.player_id]||0)+1
+minsByPlayer[b.player_id] = (minsByPlayer[b.player_id]||0)+(b.mins||0)
+}
+})
+
+const { data: pdPlayers } = await supabaseAdmin.from('players').select('id,age,moral,dev_rate,team_id,'+
 'three,layup,dunk,mid,ft,siq,draw_foul,blk,stl,idef,pdef,def_reb,off_reb,'+
 'stamina,durability,ball_hdl,pass_vis,pass_iq,pressure,consistency,assist_role,'+
 'pot_three,pot_layup,pot_dunk,pot_mid,pot_ft,pot_siq,pot_draw_foul,pot_blk,pot_stl,'+
 'pot_idef,pot_pdef,pot_def_reb,pot_off_reb,pot_stamina,pot_durability,'+
 'pot_ball_hdl,pot_pass_vis,pot_pass_iq,pot_pressure,pot_consistency,pot_assist_role')
 
-// Was querying columns that don't exist on `coaches` (player_dev, specialty,
-// specialty_boost) — Supabase returned a 400 on every single call, so this
-// whole coach-quality bonus was silently a no-op forever (every player got
-// the same neutral 60-baseline regardless of actual coaching staff).
-const { data: coaches3 } = await supabaseAdmin.from('coaches').select('team_id,role,player_development,offense_iq,defense_iq,offense_dev,defense_dev,shooting_dev,conditioning')
-
+const { data: pdCoaches } = await supabaseAdmin.from('coaches').select('team_id,role,player_development,offense_iq,defense_iq,offense_dev,defense_dev,shooting_dev,conditioning')
 const coachBonus: Record<string,{dev:number,off:number,def:number,conditioning:number,specialties:Record<string,number>}> = {}
-for (const c of (coaches3||[])) {
+for (const c of (pdCoaches||[])) {
 if (!c.team_id) continue
 if (!coachBonus[c.team_id]) coachBonus[c.team_id] = {dev:60,off:60,def:60,conditioning:60,specialties:{}}
 if (c.role==='head_coach') {
@@ -1144,157 +1272,113 @@ coachBonus[c.team_id].conditioning = Math.max(coachBonus[c.team_id].conditioning
 }
 }
 
-// Decline risk inputs — "didn't play" is measured across the WHOLE week's
-// final games (both simulation halves), not just whichever half this call's
-// own `gamesCreated` covers, the same fix already applied to the win/loss
-// streak check above (a single half never has enough of the picture).
-const { data: weekFinalGames } = await supabaseAdmin.from('games').select('id,home_team,away_team').eq('week_number', week).eq('status','final')
-const weekGameIds = (weekFinalGames||[]).map((g:any) => g.id)
-const teamsWithGamesThisWeek = new Set<string>()
-;(weekFinalGames||[]).forEach((g:any) => { teamsWithGamesThisWeek.add(g.home_team); teamsWithGamesThisWeek.add(g.away_team) })
-const minsByPlayerThisWeek: Record<string, number> = {}
-if (weekGameIds.length > 0) {
-const weekBoxesForDev = await fetchAllRows<any>((from,to) => supabaseAdmin
-.from('box_scores').select('player_id,mins').in('game_id', weekGameIds).range(from,to))
-;(weekBoxesForDev||[]).forEach((b:any) => { minsByPlayerThisWeek[b.player_id] = (minsByPlayerThisWeek[b.player_id]||0) + (b.mins||0) })
-}
+// Team's average training intensity across the month's weeks — treats
+// every week of the month equally rather than only whichever was set
+// last.
+const { data: monthOrders } = await supabaseAdmin.from('gm_orders').select('team_id,training_intensity').in('week_number', pdWeeks)
+const teamTrainSum: Record<string,{sum:number,n:number}> = {}
+;(monthOrders||[]).forEach((o:any) => {
+const q = TRAIN_QUALITY[o.training_intensity||'normal'] ?? 1.0
+if (!teamTrainSum[o.team_id]) teamTrainSum[o.team_id] = {sum:0,n:0}
+teamTrainSum[o.team_id].sum += q; teamTrainSum[o.team_id].n += 1
+})
 
-// A player can only carry one open injury at a time (same guard used when
-// injuries are generated), so this is a simple 1:1 lookup. days_out is the
-// one duration field reliably populated on every injury_log row (unlike
-// week_number/return_week, which are frequently null) — used here as the
-// injury's predicted total length, converted to weeks.
-const { data: activeInjuriesForDev } = await supabaseAdmin.from('injury_log').select('player_id,days_out').eq('status','active')
-const injuryWeeksOutByPlayer: Record<string, number> = {}
-;(activeInjuriesForDev||[]).forEach((inj:any) => { injuryWeeksOutByPlayer[inj.player_id] = (inj.days_out||0) / 7 })
+const pdUpdates: { id:string, updates:Record<string,number> }[] = []
+const pdLogs: any[] = []
 
-const TRAIN_DEV: Record<string,number> = {rest:-0.5,light:0.5,normal:1.0,intense:1.5,very_intense:1.8}
+for (const p of (pdPlayers||[])) {
+const bracket = bracketFor(p.age||25)
+const teamGames = teamGameCounts[p.team_id] || 0
+const gamesPlayed = gamesPlayedByPlayer[p.id] || 0
+const totalMins = minsByPlayer[p.id] || 0
+const gamesPct = teamGames > 0 ? gamesPlayed/teamGames : 0
+const avgMins = gamesPlayed > 0 ? totalMins/gamesPlayed : 0
+const meetsBar = teamGames > 0 && gamesPct >= 0.9 && avgMins >= 20
 
-const ATTRS = ['three','layup','dunk','mid','ft','siq','draw_foul','blk','stl',
-'idef','pdef','def_reb','off_reb','stamina','durability',
-'ball_hdl','pass_vis','pass_iq','pressure','consistency','assist_role']
-
-const OFF_ATTRS = new Set(['three','layup','dunk','mid','ft','siq','draw_foul'])
-const DEF_ATTRS = new Set(['blk','stl','idef','pdef'])
-const PHYS_ATTRS = new Set(['stamina','durability','def_reb','off_reb'])
-
-const SPECIALTY_MAP: Record<string,string[]> = {
-offense: ['three','mid','layup','dunk','siq'],
-defense: ['blk','stl','idef','pdef'],
-shooting: ['three','mid','ft'],
-playmaking: ['ball_hdl','pass_vis','pass_iq','assist_role'],
-bigs: ['blk','def_reb','off_reb','idef','dunk'],
-}
-
-const { data: weekOrds3 } = await supabaseAdmin.from('gm_orders').select('team_id,training_intensity,pace').eq('week_number',week)
-const ordMap3: Record<string,any> = {}
-;(weekOrds3||[]).forEach((o:any) => ordMap3[o.team_id]=o)
-
-// Every player's update/insert used to be awaited one at a time inside
-// this loop — with ~1150+ active players that's 1150+ sequential DB
-// round-trips (~100ms each on Supabase's network) for a step that runs
-// EVERY week regardless of whether any real games were played, which is
-// exactly what made a zero-game offseason week still take ~2 minutes to
-// simulate. Now every player's math runs in memory first, then the writes
-// go out in batches of 50 concurrently (same chunking pattern as the
-// aging step further down), cutting this to a handful of round-trips.
-const allPlayerUpdates: { id:string, updates:Record<string,number> }[] = []
-const allDevLogs: any[] = []
-
-for (const p of (allPlayers3||[])) {
-const ord = ordMap3[p.team_id] || {training_intensity:'normal'}
 const coach = coachBonus[p.team_id] || {dev:60,off:60,def:60,conditioning:60,specialties:{}}
-const trainMod = TRAIN_DEV[ord.training_intensity||'normal'] || 1.0
-const coachDevMod = (coach.dev - 60) / 100
-const moralMod = ((p.moral||80) - 80) / 200
-const ageFactor = p.age <= 22 ? 1.5 : p.age <= 25 ? 1.2 : p.age <= 28 ? 1.0 : p.age <= 31 ? 0.7 : p.age <= 34 ? 0.3 : 0.0
-const healthMod = (p.health||100) < 60 ? 0 : (p.health||100) < 80 ? 0.5 : 1.0
-const devRate = (p.dev_rate||1.0) * ageFactor * healthMod
+const trainQ = teamTrainSum[p.team_id] ? teamTrainSum[p.team_id].sum/teamTrainSum[p.team_id].n : 1.0
+const coachDevMod = (coach.dev-60)/100
+const moralMod = ((p.moral||80)-80)/200
+const qualityFactor = Math.min(1.5, Math.max(0.5, trainQ * (1+coachDevMod) * (1+moralMod) * (p.dev_rate||1.0)))
 
-// Decline risk — four independent triggers, rolled per attribute per
-// week, and can stack (a player can be hit by more than one the same
-// week). "Didn't play" and "low morale" scale up sharply from age 28 via
-// an exponential multiplier (1.18x compounding per year over 28) — a
-// young player carries only the flat base risk, an old one much more.
-// Old-age decline (34+) is unchanged, pre-existing, and not part of this
-// multiplier.
-const ageDeclineMult = p.age >= 28 ? Math.pow(1.18, p.age - 28) : 1.0
-const teamPlayedThisWeek = teamsWithGamesThisWeek.has(p.team_id)
-const didntPlayThisWeek = teamPlayedThisWeek && (minsByPlayerThisWeek[p.id]||0) === 0 && healthMod > 0
-const hasLowMorale = (p.moral||80) < 40
-
-// Injury decline — separate exponential, scaled by the injury's own
-// predicted length rather than age: a knee tweak that keeps someone out a
-// few extra days barely matters, but a multi-week injury compounds fast
-// (1.18x per week of absence beyond the first).
-const injuryWeeksOut = injuryWeeksOutByPlayer[p.id] || 0
-const isLongTermInjured = injuryWeeksOut > 1
-const injuryDeclineMult = isLongTermInjured ? Math.pow(1.18, injuryWeeksOut - 1) : 1.0
+// Below the games/minutes bar, the shortfall costs substantially more
+// than the shortfall itself (squared, not linear) — coaching/training/
+// morale/dev_rate can still help close the gap, but never past 1.0
+// (the age bracket above is always the hard ceiling).
+let effectiveRatio = 1.0
+if (!meetsBar) {
+const rawRatio = Math.min(1, gamesPct/0.9) * Math.min(1, avgMins/20)
+const participationRatio = Math.pow(rawRatio, 2)
+effectiveRatio = Math.min(1, participationRatio * qualityFactor)
+}
 
 const updates: Record<string,number> = {}
-const devLogs: any[] = []
+const logs: any[] = []
+const usedAttrs = new Set<string>()
 
-for (const attr of ATTRS) {
-const curr = (p as any)[attr] || 0
-const pot = (p as any)[`pot_${attr}`] || curr
-
-if (curr < pot) {
-let growthChance = 0.15 * trainMod * (1 + coachDevMod) * devRate
-
-const specialty = Object.entries(coach.specialties).find(([sp]) => SPECIALTY_MAP[sp]?.includes(attr))
-if (specialty) growthChance *= (1 + specialty[1]/100)
-
-if (OFF_ATTRS.has(attr)) growthChance *= (1 + (coach.off-60)/200)
-if (DEF_ATTRS.has(attr)) growthChance *= (1 + (coach.def-60)/200)
-if (PHYS_ATTRS.has(attr)) growthChance *= (1 + (coach.conditioning-60)/200)
-
-growthChance *= (1 + moralMod)
-
-if (Math.random() < growthChance) {
-const gain = Math.min(2, Math.max(1, Math.round(devRate * trainMod)))
-const newVal = Math.min(pot, curr + gain)
-if (newVal > curr) {
-updates[attr] = newVal
-devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:attr, old_value:curr, new_value:newVal, change:newVal-curr, reason:`training_${ord.training_intensity||'normal'}` })
+if (bracket.up1 > 0 || bracket.bonus > 0) {
+const growthPool = ATTRS.filter(a => ((p as any)[a]||0) < ((p as any)[`pot_${a}`] ?? (p as any)[a] ?? 0))
+const up1Attrs = weightedPick(growthPool, bracket.up1, coach)
+for (const attr of up1Attrs) {
+if (Math.random() >= effectiveRatio) continue
+usedAttrs.add(attr)
+const curr = (p as any)[attr]||0
+const pot = (p as any)[`pot_${attr}`] ?? curr
+const newVal = Math.min(pot, curr+1)
+if (newVal > curr) { updates[attr] = newVal; logs.push({ player_id:p.id, season:'2025-26', week_number:lastPdWeek, attribute:attr, old_value:curr, new_value:newVal, change:newVal-curr, reason:`passive_growth_age${bracket.min||18}` }) }
+}
+if (bracket.bonus > 0) {
+const bonusPool = growthPool.filter(a => !usedAttrs.has(a))
+const bonusAttrs = weightedPick(bonusPool, bracket.bonus, coach)
+for (const attr of bonusAttrs) {
+if (Math.random() >= effectiveRatio) continue
+usedAttrs.add(attr)
+const curr = (p as any)[attr]||0
+const pot = (p as any)[`pot_${attr}`] ?? curr
+const newVal = Math.min(pot, curr+bracket.bonusSize)
+if (newVal > curr) { updates[attr] = newVal; logs.push({ player_id:p.id, season:'2025-26', week_number:lastPdWeek, attribute:attr, old_value:curr, new_value:newVal, change:newVal-curr, reason:`passive_growth_age${bracket.min||18}_bonus` }) }
 }
 }
 }
 
-// Decline checks run independently of the potential cap above — an
-// attribute already at potential can still erode from age, disuse, or
-// unhappiness, same as real aging curves.
-let declineHits = 0
-const declineReasons: string[] = []
-if (p.age > 34 && Math.random() < 0.08) { declineHits++; declineReasons.push('age') }
-if (didntPlayThisWeek && Math.random() < 0.04 * ageDeclineMult) { declineHits++; declineReasons.push('no_playing_time') }
-if (hasLowMorale && Math.random() < 0.04 * ageDeclineMult) { declineHits++; declineReasons.push('low_morale') }
-if (isLongTermInjured && Math.random() < 0.04 * injuryDeclineMult) { declineHits++; declineReasons.push('long_term_injury') }
-if (declineHits > 0) {
-const base = (updates[attr] ?? curr)
-const newVal = Math.max(30, base - declineHits)
-if (newVal < base) {
-updates[attr] = newVal
-devLogs.push({ player_id:p.id, season:'2025-26', week_number:week, attribute:attr, old_value:curr, new_value:newVal, change:newVal-curr, reason:declineReasons.join('+') })
+if (bracket.down1 > 0 || bracket.downBonus > 0) {
+const declinePool = ATTRS.filter(a => !usedAttrs.has(a))
+const down1Attrs = weightedPick(declinePool, bracket.down1, NEUTRAL_COACH)
+for (const attr of down1Attrs) {
+usedAttrs.add(attr)
+const before = (p as any)[attr]||0
+const curr = (updates[attr] ?? before)
+const newVal = Math.max(30, curr-1)
+if (newVal < curr) { updates[attr] = newVal; logs.push({ player_id:p.id, season:'2025-26', week_number:lastPdWeek, attribute:attr, old_value:before, new_value:newVal, change:newVal-before, reason:`passive_decline_age${bracket.min}` }) }
+}
+if (bracket.downBonus > 0) {
+const bonusDeclinePool = declinePool.filter(a => !usedAttrs.has(a))
+const bonusDeclineAttrs = weightedPick(bonusDeclinePool, bracket.downBonus, NEUTRAL_COACH)
+for (const attr of bonusDeclineAttrs) {
+usedAttrs.add(attr)
+const before = (p as any)[attr]||0
+const curr = (updates[attr] ?? before)
+const newVal = Math.max(30, curr-bracket.downBonusSize)
+if (newVal < curr) { updates[attr] = newVal; logs.push({ player_id:p.id, season:'2025-26', week_number:lastPdWeek, attribute:attr, old_value:before, new_value:newVal, change:newVal-before, reason:`passive_decline_age${bracket.min}_bonus` }) }
 }
 }
 }
 
-if (Object.keys(updates).length > 0) {
-allPlayerUpdates.push({ id: p.id, updates })
-}
-if (devLogs.length > 0) {
-allDevLogs.push(...devLogs)
-}
+if (Object.keys(updates).length > 0) pdUpdates.push({ id: p.id, updates })
+if (logs.length > 0) pdLogs.push(...logs)
 }
 
-for (let i = 0; i < allPlayerUpdates.length; i += 50) {
-const chunk = allPlayerUpdates.slice(i, i + 50)
+for (let i = 0; i < pdUpdates.length; i += 50) {
+const chunk = pdUpdates.slice(i, i + 50)
 await Promise.all(chunk.map(u => supabaseAdmin.from('players').update(u.updates).eq('id', u.id)))
 }
-for (let i = 0; i < allDevLogs.length; i += 500) {
-await supabaseAdmin.from('attribute_development').insert(allDevLogs.slice(i, i + 500))
+for (let i = 0; i < pdLogs.length; i += 500) {
+await supabaseAdmin.from('attribute_development').insert(pdLogs.slice(i, i + 500))
 }
-} catch(devErr) { console.warn('Development step failed', devErr) }
+} catch (onePdMonthErr) { console.warn(`Passive development failed for ${pdYear}-${pdMonth+1}:`, onePdMonthErr) }
+}
+} catch(pdErr) { console.warn('Passive development step failed', pdErr) }
+}
 
 // ── PLAYER INTERACTIONS ────────────────────────────────
 // Real, actionable morale system: an unhappy player raises a specific,
