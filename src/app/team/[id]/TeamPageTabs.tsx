@@ -152,8 +152,14 @@ export default function TeamPageTabs({
       // current_week directly found no row, silently fell back to 'motion',
       // and compared THAT against tactical_focus — so the alert kept firing
       // even after picking a focus for whichever system was actually active.
+      // The exact row for current_week+1 ALSO doesn't exist yet most of the
+      // time (only created once the GM revisits Orders, or that week's own
+      // sim run backfills it) — falling back to the most recent EXISTING
+      // order (same carry-forward the backend uses) avoids the same false
+      // 'motion' default in that gap.
       const week = ((cfg as any)?.current_week || 0) + 1
-      const { data: order } = await supabase.from('gm_orders').select('atk_style').eq('team_id', teamId).eq('week_number', week).maybeSingle()
+      const { data: order } = await supabase.from('gm_orders').select('atk_style')
+        .eq('team_id', teamId).lte('week_number', week).order('week_number', { ascending: false }).limit(1).maybeSingle()
       const activeSystem = (order as any)?.atk_style || 'motion'
       const { data: focusRows } = await supabase.from('tactical_focus').select('system,node_id').eq('team_id', teamId)
       // Used to only check whether ANY focus had ever been picked for the

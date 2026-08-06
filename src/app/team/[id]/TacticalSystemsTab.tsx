@@ -45,7 +45,18 @@ export default function TacticalSystemsTab({ teamId, teamColor }: { teamId: stri
     // back to 'motion', which let a GM pick a focus for a system that isn't
     // really active (this is what the notification check queries too).
     const week = ((sc as any)?.current_week || 0) + 1
-    const { data: order } = await supabase.from('gm_orders').select('atk_style').eq('team_id', teamId).eq('week_number', week).maybeSingle()
+    // The exact row for `week` often doesn't exist yet — it only gets
+    // created once the GM revisits the Orders page for that week, or once
+    // that week's own simulation run calls ensureWeeklyOrders(). Querying
+    // week_number=week directly hit that gap constantly (right after any
+    // week finished simulating, before either of those happened) and
+    // silently fell back to 'motion', which made the tab show the wrong
+    // system as active and flag the GM's real chosen system as "not active
+    // this week / eroding" — a false alarm, not an actual reset. Falling
+    // back to the most recent EXISTING order (same carry-forward logic the
+    // backend itself uses) shows the real system in that gap instead.
+    const { data: order } = await supabase.from('gm_orders').select('atk_style')
+      .eq('team_id', teamId).lte('week_number', week).order('week_number', { ascending: false }).limit(1).maybeSingle()
     const sys: OffSystem = (order as any)?.atk_style || 'motion'
     setActiveSystem(sys)
     setViewSystem(sys)
