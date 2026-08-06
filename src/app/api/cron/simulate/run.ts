@@ -1247,6 +1247,11 @@ const ATTRS = ['three','layup','dunk','mid','ft','siq','draw_foul','blk','stl',
 const OFF_ATTRS = new Set(['three','layup','dunk','mid','ft','siq','draw_foul'])
 const DEF_ATTRS = new Set(['blk','stl','idef','pdef'])
 const PHYS_ATTRS = new Set(['stamina','durability','def_reb','off_reb'])
+// Confidence/focus-linked attributes — used only by the under-31 monthly
+// regression roll below, to bias WHICH attribute slips when the cause was a
+// bad environment (poor coaching, low morale) rather than fatigue or a cold
+// shooting stretch.
+const MENTAL_ATTRS = new Set(['consistency','pressure','assist_role','pass_iq'])
 const SPECIALTY_MAP: Record<string,string[]> = {
 offense: ['three','mid','layup','dunk','siq'],
 defense: ['blk','stl','idef','pdef'],
@@ -1316,15 +1321,27 @@ teamGameCounts[g.away_team] = (teamGameCounts[g.away_team]||0)+1
 }
 
 const monthBoxes = await fetchAllRows<any>((from,to) => supabaseAdmin
-.from('box_scores').select('player_id,mins').in('game_id', monthGameIds).range(from,to))
+.from('box_scores').select('player_id,mins,pts').in('game_id', monthGameIds).range(from,to))
 const gamesPlayedByPlayer: Record<string, number> = {}
 const minsByPlayer: Record<string, number> = {}
+const monthPtsByPlayer: Record<string, number> = {}
 ;(monthBoxes||[]).forEach((b:any) => {
 if ((b.mins||0) > 0) {
 gamesPlayedByPlayer[b.player_id] = (gamesPlayedByPlayer[b.player_id]||0)+1
 minsByPlayer[b.player_id] = (minsByPlayer[b.player_id]||0)+(b.mins||0)
+monthPtsByPlayer[b.player_id] = (monthPtsByPlayer[b.player_id]||0)+(b.pts||0)
 }
 })
+
+// Season-long PPG baseline — this month's own PPG (just computed above)
+// compared against it is the "performance" leg of the monthly development
+// score below (same relative-to-own-baseline pattern already used for
+// jersey-sale fame in merchandising.ts). A player with no season sample
+// yet (very first month with games) has nothing to compare against —
+// handled as a neutral case where the score is built below.
+const { data: pdSeasonStats } = await supabaseAdmin.from('player_stats').select('player_id,pts,games').eq('season','2025-26')
+const seasonPpgByPlayer: Record<string, number> = {}
+;(pdSeasonStats||[]).forEach((s:any) => { if ((s.games||0) > 0) seasonPpgByPlayer[s.player_id] = s.pts/s.games })
 
 const { data: pdPlayers } = await supabaseAdmin.from('players').select('id,age,moral,dev_rate,team_id,'+
 'three,layup,dunk,mid,ft,siq,draw_foul,blk,stl,idef,pdef,def_reb,off_reb,'+
@@ -1374,7 +1391,6 @@ const gamesPlayed = gamesPlayedByPlayer[p.id] || 0
 const totalMins = minsByPlayer[p.id] || 0
 const gamesPct = teamGames > 0 ? gamesPlayed/teamGames : 0
 const avgMins = gamesPlayed > 0 ? totalMins/gamesPlayed : 0
-const meetsBar = teamGames > 0 && gamesPct >= 0.9 && avgMins >= 20
 
 const coach = coachBonus[p.team_id] || {dev:60,off:60,def:60,conditioning:60,specialties:{}}
 const trainQ = teamTrainSum[p.team_id] ? teamTrainSum[p.team_id].sum/teamTrainSum[p.team_id].n : 1.0
@@ -1382,16 +1398,39 @@ const coachDevMod = (coach.dev-60)/100
 const moralMod = ((p.moral||80)-80)/200
 const qualityFactor = Math.min(1.5, Math.max(0.5, trainQ * (1+coachDevMod) * (1+moralMod) * (p.dev_rate||1.0)))
 
-// Below the games/minutes bar, the shortfall costs substantially more
-// than the shortfall itself (squared, not linear) — coaching/training/
-// morale/dev_rate can still help close the gap, but never past 1.0
-// (the age bracket above is always the hard ceiling).
-let effectiveRatio = 1.0
-if (!meetsBar) {
-const rawRatio = Math.min(1, gamesPct/0.9) * Math.min(1, avgMins/20)
-const participationRatio = Math.pow(rawRatio, 2)
-effectiveRatio = Math.min(1, participationRatio * qualityFactor)
-}
+// ── MONTHLY DEVELOPMENT SCORE (0-1) ────────────────────
+// Age brackets above are a maximum POTENTIAL, not a guarantee — real
+// incident: a Development Report showed 9 of 9 players growing multiple
+// attributes with barely any real gate, because the old system only ever
+// throttled growth when a player missed the bar, and even then compared
+// each attribute against a single quality-adjusted probability. This
+// blends 3 independently-scored legs into one score that decides how much
+// of the bracket's ceiling a player actually earns THIS month — merely
+// adequate (met the bar, played at his usual level, average coaching/
+// morale) lands around 70-75%, not the ceiling; hitting 100% needs a
+// genuinely great month across all three, same as it would for a real
+// player.
+// Leg 1 — participation: unchanged bar (90% of team games at 20+ mins).
+const participationScore = Math.min(1, gamesPct/0.9) * Math.min(1, avgMins/20)
+// Leg 2 — performance: this month's PPG vs the player's OWN season
+// average (same relative-to-own-baseline idea already used for jersey
+// sales fame in merchandising.ts) — merely matching his usual level is
+// half marks (0.5), full marks needs a genuinely hot month (+30%). No
+// season sample yet (first month with real games) reads as neutral (0.5),
+// never rewarded or punished for something that hasn't happened.
+const monthPts = monthPtsByPlayer[p.id] || 0
+const monthPpg = gamesPlayed > 0 ? monthPts/gamesPlayed : null
+const seasonPpg = seasonPpgByPlayer[p.id] ?? null
+const perfRatio = (monthPpg != null && seasonPpg != null && seasonPpg >= 2)
+? Math.max(0.7, Math.min(1.3, monthPpg/seasonPpg)) : 1.0
+const performanceScore = (perfRatio - 0.7) / 0.6
+// Leg 3 — environment: the same coaching/training/morale/dev_rate factor
+// as before, rescaled the same way (neutral settings = half marks, only a
+// genuinely strong staff/happy locker room earns full marks).
+const environmentScore = (qualityFactor - 0.5) / 1.0
+const monthScore = Math.max(0, Math.min(1,
+0.45*participationScore + 0.30*performanceScore + 0.25*environmentScore
+))
 
 const updates: Record<string,number> = {}
 const logs: any[] = []
@@ -1399,20 +1438,24 @@ const usedAttrs = new Set<string>()
 
 if (bracket.up1 > 0 || bracket.bonus > 0) {
 const growthPool = ATTRS.filter(a => ((p as any)[a]||0) < ((p as any)[`pot_${a}`] ?? (p as any)[a] ?? 0))
-const up1Attrs = weightedPick(growthPool, bracket.up1, coach)
+// How many of the bracket's up1 slots this month's score actually earns —
+// e.g. a 60%-score 23-year-old (up1=5) earns 3 this month, not all 5.
+const earnedUp1 = Math.round(bracket.up1 * monthScore)
+const up1Attrs = weightedPick(growthPool, earnedUp1, coach)
 for (const attr of up1Attrs) {
-if (Math.random() >= effectiveRatio) continue
 usedAttrs.add(attr)
 const curr = (p as any)[attr]||0
 const pot = (p as any)[`pot_${attr}`] ?? curr
 const newVal = Math.min(pot, curr+1)
 if (newVal > curr) { updates[attr] = newVal; logs.push({ player_id:p.id, season:'2025-26', week_number:lastPdWeek, attribute:attr, old_value:curr, new_value:newVal, change:newVal-curr, reason:`passive_growth_age${bracket.min||18}` }) }
 }
-if (bracket.bonus > 0) {
+// The standout "bonus" attribute only fires on a genuinely excellent
+// month (score near the ceiling across all 3 legs) — meeting expectations
+// isn't enough to earn the extra-sized jump, exceeding them is.
+if (bracket.bonus > 0 && monthScore >= 0.90) {
 const bonusPool = growthPool.filter(a => !usedAttrs.has(a))
 const bonusAttrs = weightedPick(bonusPool, bracket.bonus, coach)
 for (const attr of bonusAttrs) {
-if (Math.random() >= effectiveRatio) continue
 usedAttrs.add(attr)
 const curr = (p as any)[attr]||0
 const pot = (p as any)[`pot_${attr}`] ?? curr
@@ -1423,6 +1466,7 @@ if (newVal > curr) { updates[attr] = newVal; logs.push({ player_id:p.id, season:
 }
 
 if (bracket.down1 > 0 || bracket.downBonus > 0) {
+// Unchanged — mandatory 31+ decline, exactly as before monthScore existed.
 const declinePool = ATTRS.filter(a => !usedAttrs.has(a))
 const down1Attrs = weightedPick(declinePool, bracket.down1, NEUTRAL_COACH)
 for (const attr of down1Attrs) {
@@ -1441,6 +1485,49 @@ const before = (p as any)[attr]||0
 const curr = (updates[attr] ?? before)
 const newVal = Math.max(30, curr-bracket.downBonusSize)
 if (newVal < curr) { updates[attr] = newVal; logs.push({ player_id:p.id, season:'2025-26', week_number:lastPdWeek, attribute:attr, old_value:before, new_value:newVal, change:newVal-before, reason:`passive_decline_age${bracket.min}_bonus` }) }
+}
+}
+} else {
+// ── UNDER-31 MONTHLY REGRESSION ROLL ──────────────────
+// Below the mandatory-decline age, growth used to be the only possible
+// outcome — real incident: a Development Report with 9 players never
+// showed a single dip, only ever +1/+2s. Real development isn't
+// monotonic even for a rising star. Driven by the SAME monthScore just
+// computed above (a bad month both earns less growth AND risks a real
+// setback — one coherent story) plus two standing factors: a gentle age
+// gradient foreshadowing the 31+ cliff instead of a hard wall starting
+// exactly there, and durability (tougher players hold up better).
+const ageGradient = p.age >= 27 ? Math.min(8, (p.age-26)*2) : 0
+const durabilityAdj = ((p.durability||75)-75)/10
+const regressionChance = Math.max(0.02, Math.min(0.40,
+0.05 + Math.max(0, 0.75-monthScore)*0.40 + ageGradient/100 - durabilityAdj/100
+))
+if (Math.random() < regressionChance) {
+// Bias toward whichever leg of the month actually went worst — makes
+// the dip explainable, not arbitrary: under-played -> physical
+// attributes slip; a cold stretch on the floor -> scoring touch slips;
+// poor coaching/low morale -> focus/confidence attributes slip.
+const worstLeg = [
+{ leg:'participation' as const, score:participationScore },
+{ leg:'performance' as const, score:performanceScore },
+{ leg:'environment' as const, score:environmentScore },
+].sort((a,b)=>a.score-b.score)[0].leg
+const biasedPool = ATTRS.filter(a => {
+if (usedAttrs.has(a)) return false
+if (worstLeg==='participation') return PHYS_ATTRS.has(a)
+if (worstLeg==='performance') return OFF_ATTRS.has(a)
+return MENTAL_ATTRS.has(a)
+})
+const declinePool = biasedPool.length ? biasedPool : ATTRS.filter(a => !usedAttrs.has(a))
+// A genuinely bad month on more than one leg at once costs 2 points on
+// that single attribute instead of a 2nd separate one — rare.
+const severe = participationScore < 0.5 && environmentScore < 0.4
+const [attr] = weightedPick(declinePool, 1, NEUTRAL_COACH)
+if (attr) {
+const before = (p as any)[attr]||0
+const curr = (updates[attr] ?? before)
+const newVal = Math.max(30, curr-(severe?2:1))
+if (newVal < curr) { updates[attr] = newVal; logs.push({ player_id:p.id, season:'2025-26', week_number:lastPdWeek, attribute:attr, old_value:before, new_value:newVal, change:newVal-before, reason:'passive_regression' }) }
 }
 }
 }
