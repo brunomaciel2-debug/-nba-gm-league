@@ -196,6 +196,18 @@ export default function AdminSimulatePage() {
               : `✅ ${halfLabel(data.week,before.half)}${noGames ? ' — no games this phase' : ` — ${data.games_simulated} games, ${data.friendlies_simulated||0} friendly(ies)`}.`)
         setLog(prev => [...prev, msg])
         setResult(data)
+        // Real incident: on a multi-block run (n>1), the "1 Day/Complete
+        // Block/1 Week" preview cards at the top of the page only refreshed
+        // once the WHOLE run finished — during a several-minutes-long run
+        // they sat frozen showing wherever the season was BEFORE this run
+        // started, while the Log/Result below were already updating live,
+        // several weeks ahead. Bruno saw the top say "Nov 24" while the log
+        // said "Nov 14–Nov 20 simulated" at the same time and had no way to
+        // tell which one was real. Refreshing after every block (not just
+        // at the very end) keeps them in sync with what's actually
+        // happening throughout the whole run.
+        await loadPreview()
+        window.dispatchEvent(new Event('sim-updated'))
       }
     } catch (e: any) {
       const msg = `❌ ${e.message}`
@@ -442,6 +454,28 @@ export default function AdminSimulatePage() {
         </div>
       </div>
 
+      {/* Status — one single, unambiguous answer to "is it still running or
+          done?", which used to require reading the button text (small,
+          easy to miss) or reconciling the log against a Result card that
+          could appear WHILE loading was still true (every block sets a
+          fresh result, so the Result card's "✅ ... simulated
+          successfully!" could show up right next to a button that still
+          said "Simulating..." — a real incident: exactly that combination
+          is what left Bruno unsure whether it had actually finished). */}
+      {(loading || log.length > 0) && (
+        <div className="rounded-xl p-4 mb-4 flex items-center gap-3" style={{
+          background: loading ? '#eff6ff' : (result?.error ? '#fee2e2' : '#dcfce7'),
+          border: `1px solid ${loading ? '#1d4ed8' : (result?.error ? '#dc2626' : '#15803d')}`,
+        }}>
+          <span style={{fontSize:26}}>{loading ? '🔄' : (result?.error ? '❌' : '✅')}</span>
+          <p className="text-sm font-bold" style={{color: loading ? '#1d4ed8' : (result?.error ? '#dc2626' : '#15803d')}}>
+            {loading
+              ? (isPT ? 'A simular — não feches esta página, pode demorar alguns minutos...' : 'Simulating — keep this page open, this can take a few minutes...')
+              : (result?.error ? (isPT ? 'Falhou — vê o log abaixo.' : 'Failed — see the log below.') : (isPT ? 'Concluído!' : 'Done!'))}
+          </p>
+        </div>
+      )}
+
       {/* Log */}
       {log.length > 0 && (
         <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
@@ -465,8 +499,11 @@ export default function AdminSimulatePage() {
         </div>
       )}
 
-      {/* Result */}
-      {result && !result.error && (
+      {/* Result — only once the whole run is actually finished (not
+          mid-multi-block), so this never contradicts the Status banner
+          above by claiming "successfully simulated" while a button
+          elsewhere still says "Simulating...". */}
+      {!loading && result && !result.error && (
         <div className="mt-4 rounded-xl p-4" style={{background:'#dcfce7', border:'1px solid #15803d'}}>
           <div className="flex items-center gap-3 mb-3">
             <span style={{fontSize:28}}>✅</span>
