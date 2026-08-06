@@ -411,12 +411,14 @@ export default function AdminSimulatePage() {
         })()}
       </div>
 
-      {/* Advanced: bulk-skip several weeks at once (testing) */}
-      <details className="mb-4">
-        <summary className="text-xs font-semibold cursor-pointer" style={{color:'#8a8279'}}>
-          {isPT ? 'Avançado: simular várias semanas de uma vez' : 'Advanced: simulate several weeks at once'}
-        </summary>
-        <div className="flex items-center gap-2 mt-3">
+      {/* Simulate several weeks at once — always visible (used to be
+          collapsed behind a "▶ Advanced" toggle; Bruno never noticed it
+          was there, "não estava muito visível"). */}
+      <div className="rounded-xl p-4 mb-6" style={{background:'#faf8f5', border:'1px solid #d4cdc5', borderTop:'3px solid #5c554e'}}>
+        <div className="text-xs font-bold uppercase tracking-widest mb-3" style={{color:'#5c554e'}}>
+          {isPT ? 'Simular várias semanas de uma vez' : 'Simulate several weeks at once'}
+        </div>
+        <div className="flex items-center gap-2">
           <span className="text-xs font-semibold" style={{color:'#5c554e'}}>
             {isPT ? 'Nº de semanas:' : 'Weeks:'}
           </span>
@@ -428,7 +430,7 @@ export default function AdminSimulatePage() {
             disabled={loading}
             onChange={e => setWeekCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
             className="w-16 px-2 py-1 rounded-lg text-sm text-center font-bold disabled:opacity-40"
-            style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}
+            style={{background:'#fff', border:'1px solid #d4cdc5', color:'#1a1512'}}
           />
           <button
             onClick={() => simulate(weekCount * 2, weekCount)}
@@ -438,7 +440,7 @@ export default function AdminSimulatePage() {
             {loading ? (isPT ? '⏳ A simular...' : '⏳ Simulating...') : `⚡ ${isPT ? `Simular ${weekCount} Semana${weekCount!==1?'s':''}` : `Simulate ${weekCount} Week${weekCount!==1?'s':''}`}`}
           </button>
         </div>
-      </details>
+      </div>
 
       {/* Log */}
       {log.length > 0 && (
