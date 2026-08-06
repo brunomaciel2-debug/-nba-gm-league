@@ -100,6 +100,18 @@ export type AttendanceInput = {
   teamId: string
   popularity: number
   capacity: number
+  // The team's FULL built-out capacity (every arena_sections row, including
+  // any currently under construction) — used only to size how many fans
+  // WANT to come. `capacity` above is today's real, sellable seat count
+  // (construction-reduced) and stays the cap on actual attendance further
+  // down. Without this split, putting sections under construction shrank
+  // demand itself (fewer fans "wanting" to attend a smaller building), not
+  // just the number of seats available to sell them — real incident: a
+  // team's expected attendance dropped further than its capacity did,
+  // because the same shrunken number was driving both. Falls back to
+  // `capacity` for callers that don't have this distinction (e.g. preseason
+  // friendlies, where construction status isn't fetched).
+  demandCapacity?: number
   winPct: number // this team's own win% — same real driver used today
   rivalryTier: RivalryTier
   isMarquee: boolean
@@ -181,11 +193,12 @@ export function computeGameAttendance(input: AttendanceInput): AttendanceResult 
   // patience for a price hike, the one segment-specific quality effect.
   const loyalFanComfort = (SEGMENTS.find(s => s.id === 'loyal_fan')!.comfortablePrice) * (1 + input.winPct * 0.5)
 
+  const demandCapacity = input.demandCapacity ?? input.capacity
   const rawDemand: Record<SegmentId, number> = {} as any
   for (const s of SEGMENTS) {
     const comfortable = s.id === 'loyal_fan' ? loyalFanComfort : s.comfortablePrice
     const pf = priceFactor(tierPrice[s.tier], comfortable)
-    rawDemand[s.id] = overallInterest * mix[s.id] * input.capacity * pf
+    rawDemand[s.id] = overallInterest * mix[s.id] * demandCapacity * pf
   }
 
   // Segments sharing a tier (young_adult + loyal_fan both prefer 'lower')

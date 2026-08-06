@@ -195,6 +195,15 @@ const concessionsMap: Record<string, any> = {}
 const { data: allAudienceModifiers } = await supabaseAdmin.from('arena_audience_modifiers').select('*')
 const audienceModifiersMap: Record<string, any> = {}
 ;(allAudienceModifiers||[]).forEach((m:any) => audienceModifiersMap[m.team_id] = m)
+// Full built-out capacity per team (every section, including ones
+// currently under construction) — feeds computeGameAttendance's
+// demandCapacity so a construction-shrunk building doesn't ALSO shrink how
+// many fans want to attend, only how many of them can actually get a seat
+// (teams.arena_capacity, used just below, already correctly excludes
+// under-construction sections for that seat cap).
+const { data: allArenaSections } = await supabaseAdmin.from('arena_sections').select('team_id,capacity')
+const fullCapacityMap: Record<string, number> = {}
+;(allArenaSections||[]).forEach((s:any) => { fullCapacityMap[s.team_id] = (fullCapacityMap[s.team_id]||0) + (s.capacity||0) })
 
 // Referees are pre-assigned to scheduled games ahead of time (so they show
 // up on the calendar before the game is played) — see src/lib/referees.ts.
@@ -364,9 +373,11 @@ const ticketPrices = ticketConfigMap[ht.id] || { ticket_lower: 80, ticket_upper:
 // revenue itself. See computeConcessionSynergyMultipliers in
 // audience-segments.ts for what each one actually means.
 const homeVariantCounts: Record<string, number> = concessionsMap[ht.id] || {}
+const realCapacity = ht.arena_capacity || arenaCapacityMap[ht.id] || 18000
 const attendanceResult = computeGameAttendance({
 teamId: ht.id, popularity: ht.popularity ?? 50,
-capacity: ht.arena_capacity || arenaCapacityMap[ht.id] || 18000,
+capacity: realCapacity,
+demandCapacity: fullCapacityMap[ht.id] || realCapacity,
 winPct: htWinPct, rivalryTier, isMarquee: gMarquee.marquee,
 prices: { lower: ticketPrices.ticket_lower, upper: ticketPrices.ticket_upper, courtside: ticketPrices.ticket_courtside },
 randomJitter: Math.random() * 0.06 - 0.03,
