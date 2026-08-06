@@ -49,9 +49,16 @@ export async function checkSponsorObjectives() {
   // order, so "was this opponent top-5 at the time" can be computed instead
   // of against today's standings. Fetched once here (not per-team inside
   // the loop) since it's the same league-wide log for everyone.
+  // game_type='regular' only — every one of these win-counting objectives
+  // is a REGULAR SEASON count by description ("Win 42 or more regular
+  // season games", etc.). Real incident found during a full audit: none of
+  // the wins_* queries in this file filtered by game_type at all, so the
+  // 34 preseason friendly wins already in the DB this season were being
+  // counted toward these totals right now, and playoff wins would have
+  // started leaking in too the moment the playoffs began.
   const { data: allSeasonGames } = await supabase.from('games')
     .select('home_team,away_team,home_score,away_score,scheduled_date')
-    .eq('season','2025-26').eq('status','final')
+    .eq('season','2025-26').eq('status','final').eq('game_type','regular')
     .order('scheduled_date')
 
   // reach_playoffs/top_conference/top_division are FINAL-standings
@@ -77,7 +84,7 @@ export async function checkSponsorObjectives() {
       case 'wins_total': {
         const { data: games } = await supabase.from('games')
           .select('id,home_team,away_team,home_score,away_score')
-          .eq('season','2025-26').eq('status','final')
+          .eq('season','2025-26').eq('status','final').eq('game_type','regular')
           .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
         currentValue = (games||[]).filter(g=>
           (g.home_team===teamId&&g.home_score>g.away_score)||
@@ -90,7 +97,7 @@ export async function checkSponsorObjectives() {
       case 'wins_home_total': {
         const { data: games } = await supabase.from('games')
           .select('home_score,away_score')
-          .eq('season','2025-26').eq('status','final')
+          .eq('season','2025-26').eq('status','final').eq('game_type','regular')
           .eq('home_team', teamId)
         currentValue = (games||[]).filter(g=>g.home_score>g.away_score).length
         isAchieved = currentValue >= obj.threshold
@@ -98,11 +105,20 @@ export async function checkSponsorObjectives() {
       }
 
       case 'wins_streak': {
+        // Ordered by scheduled_date (the simulated in-game date), not
+        // played_at — played_at is stamped with the REAL wall-clock moment
+        // the row was written, which is whenever this ran in real time, not
+        // the simulated game date. Whenever a whole week (or more) gets
+        // simulated in one batch, every one of those games gets a played_at
+        // within the same few real seconds, in whatever order the batch
+        // happened to process them — not necessarily the actual in-season
+        // sequence. Same root cause already fixed for box scores/player
+        // last-5-games earlier this project; missed here.
         const { data: games } = await supabase.from('games')
-          .select('home_team,away_team,home_score,away_score,played_at')
-          .eq('season','2025-26').eq('status','final')
+          .select('home_team,away_team,home_score,away_score,scheduled_date')
+          .eq('season','2025-26').eq('status','final').eq('game_type','regular')
           .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
-          .order('played_at', {ascending:false})
+          .order('scheduled_date', {ascending:false})
         let streak = 0, maxStreak = 0
         for (const g of (games||[])) {
           const won = (g.home_team===teamId&&g.home_score>g.away_score)||(g.away_team===teamId&&g.away_score>g.home_score)
@@ -114,11 +130,12 @@ export async function checkSponsorObjectives() {
       }
 
       case 'wins_home_streak': {
+        // Same played_at -> scheduled_date fix as wins_streak above.
         const { data: games } = await supabase.from('games')
-          .select('home_score,away_score,played_at')
-          .eq('season','2025-26').eq('status','final')
+          .select('home_score,away_score,scheduled_date')
+          .eq('season','2025-26').eq('status','final').eq('game_type','regular')
           .eq('home_team', teamId)
-          .order('played_at', {ascending:false})
+          .order('scheduled_date', {ascending:false})
         let streak = 0, maxStreak = 0
         for (const g of (games||[])) {
           if (g.home_score>g.away_score) { streak++; maxStreak=Math.max(maxStreak,streak) } else streak=0
@@ -137,7 +154,7 @@ export async function checkSponsorObjectives() {
         const rivalOr = rivals.map((r:string) => `and(home_team.eq.${teamId},away_team.eq.${r}),and(home_team.eq.${r},away_team.eq.${teamId})`).join(',')
         const { data: games } = await supabase.from('games')
           .select('home_score,away_score,home_team,away_team')
-          .eq('season','2025-26').eq('status','final')
+          .eq('season','2025-26').eq('status','final').eq('game_type','regular')
           .or(rivalOr)
         currentValue = (games||[]).filter(g=>
           (g.home_team===teamId&&g.home_score>g.away_score)||
@@ -184,7 +201,7 @@ export async function checkSponsorObjectives() {
       case 'win_margin': {
         const { data: games } = await supabase.from('games')
           .select('home_score,away_score,home_team,away_team')
-          .eq('season','2025-26').eq('status','final')
+          .eq('season','2025-26').eq('status','final').eq('game_type','regular')
           .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
         const bigWins = (games||[]).filter(g=>{
           const ts = g.home_team===teamId?g.home_score:g.away_score
@@ -199,7 +216,7 @@ export async function checkSponsorObjectives() {
       case 'wins_by_double_digits': {
         const { data: games } = await supabase.from('games')
           .select('home_score,away_score,home_team,away_team')
-          .eq('season','2025-26').eq('status','final')
+          .eq('season','2025-26').eq('status','final').eq('game_type','regular')
           .or(`home_team.eq.${teamId},away_team.eq.${teamId}`)
         const ddWins = (games||[]).filter(g=>{
           const ts = g.home_team===teamId?g.home_score:g.away_score
@@ -212,9 +229,14 @@ export async function checkSponsorObjectives() {
       }
 
       case 'attendance_avg': {
+        // game_type='regular' — preseason friendlies also have attendance
+        // recorded (real incident: confirmed values around 10-12K already
+        // in the DB) and were dragging this "average home attendance"
+        // objective away from what a real regular-season crowd number
+        // should be.
         const { data: games } = await supabase.from('games')
           .select('attendance,home_score,away_score')
-          .eq('season','2025-26').eq('status','final')
+          .eq('season','2025-26').eq('status','final').eq('game_type','regular')
           .eq('home_team', teamId)
           .not('attendance','is',null)
         if (games?.length) {
@@ -223,7 +245,12 @@ export async function checkSponsorObjectives() {
           const cap = (ff as any)?.arena_capacity || 18000
           const avg = (games||[]).reduce((t,g)=>t+((g.attendance||0)/cap*100),0)/games.length
           currentValue = Math.round(avg)
-          isAchieved = currentValue >= obj.threshold
+          // Same drifts-both-ways reasoning as ppg_avg/top_scorer_count/
+          // fan_satisfaction above — a handful of early sellouts can clear
+          // the bar long before a real season's worth of attendance swings
+          // (a losing streak, a cold winter month) has a chance to pull it
+          // back down.
+          isAchieved = regularSeasonOver && currentValue >= obj.threshold
         }
         break
       }
@@ -291,9 +318,12 @@ export async function checkSponsorObjectives() {
       }
 
       case 'ppg_avg': {
+        // game_type='regular' — box_scores has preseason friendly rows too
+        // (this join only filtered by season), which were pulling this
+        // "points per game" average away from real regular-season pace.
         const { data: boxes } = await supabase.from('box_scores')
-          .select('pts,game_id,games!inner(home_team,away_team,season)')
-          .eq('games.season','2025-26')
+          .select('pts,game_id,games!inner(home_team,away_team,season,game_type)')
+          .eq('games.season','2025-26').eq('games.game_type','regular')
           .eq('team_id', teamId)
         if (boxes?.length) {
           const gameIdSet: Record<string,boolean> = {}
@@ -301,21 +331,50 @@ export async function checkSponsorObjectives() {
           const gameIds = Object.keys(gameIdSet)
           const totalPts = (boxes||[]).reduce((t:number,b:any)=>t+(b.pts||0),0)
           currentValue = Math.round(totalPts / Math.max(1,gameIds.length))
-          isAchieved = currentValue >= obj.threshold
+          // Same reasoning as reach_playoffs/top_conference/no_major_injury/
+          // fan_satisfaction above — a scoring average drifts both ways over
+          // the season (an early hot streak can inflate it well past the
+          // target long before the sample size is real), so a mid-season
+          // snapshot clearing the bar isn't conclusive. Missed in the
+          // original pass that added the guard to the other drifting
+          // objectives; same bug, same fix.
+          isAchieved = regularSeasonOver && currentValue >= obj.threshold
         }
         break
       }
 
       case 'top_scorer_count': {
+        // Two different sponsor templates share this same objective_type —
+        // "Have at least N players score X+ PPG" (a flat per-player cutoff)
+        // and "N players finish top 10 in league scoring" (a LEAGUE-WIDE
+        // RANKING, not a fixed number) — distinguished only by their
+        // description text since there's no separate column for it. Real
+        // incident: both were being evaluated with the exact same flat
+        // "ppg>=20" check, so "top 10 in league scoring" never actually
+        // checked league rank at all — a team could clear it (or miss it)
+        // for reasons having nothing to do with whether their players were
+        // really top-10 league-wide (some seasons the 10th-best scorer is
+        // at 24 PPG, others at 19).
+        const isTopTenVariant = /top\s*10/i.test(obj.description || '')
         const { data: stats } = await supabase.from('player_stats')
           .select('player_id,pts,games').eq('season','2025-26').gte('games',20)
         const { data: roster } = await supabase.from('players').select('id').eq('team_id',teamId)
         const rosterIds = new Set((roster||[]).map((p:any)=>p.id))
-        const scorers = (stats||[])
-          .map((s:any)=>({id:s.player_id,ppg:s.pts/Math.max(1,s.games)}))
-          .filter((s:any)=>rosterIds.has(s.id)&&s.ppg>=20)
-        currentValue = scorers.length
-        isAchieved = currentValue >= obj.threshold
+        const allScorers = (stats||[]).map((s:any)=>({id:s.player_id,ppg:s.pts/Math.max(1,s.games)}))
+        if (isTopTenVariant) {
+          const top10Ids = new Set(
+            [...allScorers].sort((a,b)=>b.ppg-a.ppg).slice(0,10).map(s=>s.id)
+          )
+          currentValue = allScorers.filter(s=>rosterIds.has(s.id)&&top10Ids.has(s.id)).length
+        } else {
+          currentValue = allScorers.filter(s=>rosterIds.has(s.id)&&s.ppg>=20).length
+        }
+        // Same "drifts both ways, needs the full season" reasoning as
+        // ppg_avg/attendance_avg/fan_satisfaction above — a player's PPG
+        // (and league-wide rank) through a partial season isn't the final
+        // word, and league rank in particular can only be meaningfully
+        // computed once everyone's sample size is real.
+        isAchieved = regularSeasonOver && currentValue >= obj.threshold
         break
       }
 
@@ -331,11 +390,25 @@ export async function checkSponsorObjectives() {
       }
 
       case 'player_ovr_improvement': {
+        // Two different sponsor templates share this type — a generic "any
+        // player +3" and a "rookie or sophomore +5" that's supposed to be
+        // restricted to nba_experience 0/1 — same shared-type-different-
+        // description issue as top_scorer_count above. The code never
+        // actually filtered by experience for the second variant, so ANY
+        // veteran's improvement could satisfy an objective explicitly meant
+        // for young players.
+        const isYoungVariant = /rookie|sophomore/i.test(obj.description || '')
         const { data: players } = await supabase.from('players')
-          .select('id,real_ovr,ovr_start_season').eq('team_id',teamId)
-        const improvements = (players||[]).map((p:any)=>(p.real_ovr||0)-(p.ovr_start_season||p.real_ovr||0))
+          .select('id,real_ovr,ovr_start_season,nba_experience').eq('team_id',teamId)
+        const pool = isYoungVariant ? (players||[]).filter((p:any)=>[0,1].includes(p.nba_experience)) : (players||[])
+        const improvements = pool.map((p:any)=>(p.real_ovr||0)-(p.ovr_start_season||p.real_ovr||0))
         currentValue = improvements.length ? Math.max(...improvements) : 0
-        isAchieved = currentValue >= obj.threshold
+        // OVR isn't monotonic — the age-based development rules add real
+        // decline from 31+, so an early-season improvement can legitimately
+        // erode back down later. Same "drifts both ways" reasoning as
+        // ppg_avg/attendance_avg/fan_satisfaction above; missed in the
+        // original pass since this objective type predates that pass.
+        isAchieved = regularSeasonOver && currentValue >= obj.threshold
         break
       }
 
