@@ -41,7 +41,10 @@ export default function AdminSimulatePage() {
   // silently chaining into the next block even when a stretch has no games
   // (a real incident: pre-season weeks with nothing scheduled still need to
   // be steppable one block at a time, not skipped through in a single click).
-  const [blockCount, setBlockCount] = useState(1)
+  // The Advanced input below is expressed in WEEKS, not blocks — "block" is
+  // an internal implementation detail Bruno shouldn't need to know about;
+  // simulate() itself still runs it 2 blocks per week under the hood.
+  const [weekCount, setWeekCount] = useState(1)
 
   const getSeasonState = async () => {
     const { data } = await supabase.from('season_config').select('current_week,next_sim_half').eq('id',1).single()
@@ -162,10 +165,16 @@ export default function AdminSimulatePage() {
   // "Complete Block" — one call, no game limit: always fully resolves
   // whatever's left in the CURRENT half, whether that's a fresh half or one
   // a previous interrupted call only got partway through.
-  const simulate = async (n: number) => {
-    if (!confirm(n === 1
-      ? (isPT ? 'Completar o bloco atual (3-4 dias) agora?' : 'Complete the current block (3-4 days) now?')
-      : (isPT ? `Simular os próximos ${n} blocos (3-4 dias cada) agora? Isto pode demorar vários minutos.` : `Simulate the next ${n} blocks (3-4 days each) now? This may take several minutes.`))) return
+  // `weeks`, when passed, is purely for the confirm-dialog wording — the
+  // Advanced section below deals in weeks (what Bruno actually thinks in),
+  // this still always runs n BLOCKS underneath either way.
+  const simulate = async (n: number, weeks?: number) => {
+    const confirmMsg = weeks
+      ? (isPT ? `Simular as próximas ${weeks} semana${weeks!==1?'s':''} agora? Isto pode demorar vários minutos.` : `Simulate the next ${weeks} week${weeks!==1?'s':''} now? This may take several minutes.`)
+      : n === 1
+        ? (isPT ? 'Completar o bloco atual (3-4 dias) agora?' : 'Complete the current block (3-4 days) now?')
+        : (isPT ? `Simular os próximos ${n} blocos (3-4 dias cada) agora? Isto pode demorar vários minutos.` : `Simulate the next ${n} blocks (3-4 days each) now? This may take several minutes.`)
+    if (!confirm(confirmMsg)) return
 
     setLoading(true)
     setResult(null)
@@ -402,31 +411,31 @@ export default function AdminSimulatePage() {
         })()}
       </div>
 
-      {/* Advanced: bulk-skip several blocks at once (testing) */}
+      {/* Advanced: bulk-skip several weeks at once (testing) */}
       <details className="mb-4">
         <summary className="text-xs font-semibold cursor-pointer" style={{color:'#8a8279'}}>
-          {isPT ? 'Avançado: simular vários blocos de uma vez' : 'Advanced: simulate several blocks at once'}
+          {isPT ? 'Avançado: simular várias semanas de uma vez' : 'Advanced: simulate several weeks at once'}
         </summary>
         <div className="flex items-center gap-2 mt-3">
           <span className="text-xs font-semibold" style={{color:'#5c554e'}}>
-            {isPT ? 'Nº de blocos (3-4 dias):' : 'Blocks (3-4 days):'}
+            {isPT ? 'Nº de semanas:' : 'Weeks:'}
           </span>
           <input
             type="number"
             min={1}
-            max={40}
-            value={blockCount}
+            max={20}
+            value={weekCount}
             disabled={loading}
-            onChange={e => setBlockCount(Math.min(40, Math.max(1, parseInt(e.target.value) || 1)))}
+            onChange={e => setWeekCount(Math.min(20, Math.max(1, parseInt(e.target.value) || 1)))}
             className="w-16 px-2 py-1 rounded-lg text-sm text-center font-bold disabled:opacity-40"
             style={{background:'#faf8f5', border:'1px solid #d4cdc5', color:'#1a1512'}}
           />
           <button
-            onClick={() => simulate(blockCount)}
+            onClick={() => simulate(weekCount * 2, weekCount)}
             disabled={loading}
             className="flex-1 py-2 rounded-xl font-bold text-sm disabled:opacity-40"
             style={{background:'#5c554e', color:'#fff'}}>
-            {loading ? (isPT ? '⏳ A simular...' : '⏳ Simulating...') : `⚡ ${isPT ? `Simular ${blockCount} Bloco${blockCount!==1?'s':''}` : `Simulate ${blockCount} Block${blockCount!==1?'s':''}`}`}
+            {loading ? (isPT ? '⏳ A simular...' : '⏳ Simulating...') : `⚡ ${isPT ? `Simular ${weekCount} Semana${weekCount!==1?'s':''}` : `Simulate ${weekCount} Week${weekCount!==1?'s':''}`}`}
           </button>
         </div>
       </details>

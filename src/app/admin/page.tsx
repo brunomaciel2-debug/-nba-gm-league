@@ -66,7 +66,7 @@ export default function AdminPage() {
   )
 
   const items_EN = [
-    {icon:'⚡',label:'Simulate Week',     desc:'Manually trigger next week simulation',         href:'/admin/simulate',    color:'#15803d'},
+    {icon:'⚡',label:'Simulate Games',    desc:'Manually trigger simulation — a day, a week, or several weeks at once', href:'/admin/simulate', color:'#15803d'},
     {icon:'✍️',label:'Write Article',     desc:'Publish news, recaps, analysis',               href:'/admin/article/new', color:'#1d4ed8'},
     {icon:'📋',label:'Manage Articles',   desc:'Edit, publish, delete articles',                href:'/admin/articles',    color:'#1e40af'},
     {icon:'🖼️',label:'Media Manager',     desc:'Upload team logos & player photos',             href:'/admin/media',       color:'#0e7490'},
@@ -86,7 +86,7 @@ export default function AdminPage() {
     {icon:'🏀',label:'Retirement Decisions', desc:'Decide which 35+ veterans stay or retire',     href:'/admin/retirements', color:'#b45309', badgeKey:'retirements'},
   ]
   const items_PT = [
-    {icon:'⚡',label:'Simular Semana',     desc:'Disparar simulação da próxima semana',          href:'/admin/simulate',    color:'#15803d'},
+    {icon:'⚡',label:'Simular Jogos',      desc:'Disparar simulação — um dia, uma semana, ou várias semanas de uma vez', href:'/admin/simulate', color:'#15803d'},
     {icon:'✍️',label:'Escrever Artigo',    desc:'Publicar notícias, resumos, análises',         href:'/admin/article/new', color:'#1d4ed8'},
     {icon:'📋',label:'Gerir Artigos',      desc:'Editar, publicar, eliminar artigos',            href:'/admin/articles',    color:'#1e40af'},
     {icon:'🖼️',label:'Gestor de Media',    desc:'Carregar logos de equipas e fotos',            href:'/admin/media',       color:'#0e7490'},
