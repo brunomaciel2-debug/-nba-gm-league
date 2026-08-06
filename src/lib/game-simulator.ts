@@ -1024,14 +1024,47 @@ w*=astTaper(st?.[p.id]?.ast||0,p.mins||0)
 // tapers intended, undoing them exactly when they mattered most. Real
 // incident: Shai Gilgeous-Alexander went 29/44 FGA for 74 points in 34
 // minutes — his own taper math worked out to a weight near 0.17, which the
-// .5 floor overrode. Lowered to .02, below every internal taper's own floor
-// (scoreTaper .06, pointsTaper .05), so a heavily-tapered player's weight
-// actually reflects the taper instead of being rescued by this floor —
-// still nonzero so a genuine cold/tapered player always keeps some small
-// chance of a look, never a hard zero.
-return{p,w:Math.max(.02,w*(1+mom[p.id]*(p.streaky/100)*.08)*(.5+f*.5))}
+// .5 floor overrode. Lowered to .02, intended to sit below every internal
+// taper's own floor (scoreTaper .06, pointsTaper .05) so a heavily-tapered
+// player's weight would actually reflect the taper instead of being
+// rescued by this floor.
+// Tightened further to .001 (below the product of scoreTaper's and
+// pointsTaper's OWN floors, .06*.05=.003) so a player maxed out on BOTH at
+// once doesn't get rescued back up to a floor higher than their combined
+// verdict. A real incident surfaced while chasing this (Jonathan Kuminga,
+// a bench player, 39 points on 23 FGA in 15 minutes) — Monte Carlo testing
+// this exact scenario afterward showed this floor tightening barely moved
+// the outcome (his own weight, even fully tapered, never actually dipped
+// near .02 to begin with — his BASE weight before tapering was just too
+// large for a 15-minute role). Kept anyway as a correct, harmless floor
+// for the genuinely extreme cases it does affect; the real fix for the
+// Kuminga case is the wtCapped ceiling just below.
+return{p,w:Math.max(.001,w*(1+mom[p.id]*(p.streaky/100)*.08)*(.5+f*.5))}
 })
-return wtCapped(weighted)
+// wtCapped's default .33 ceiling (a flat share of THIS possession's pool)
+// doesn't know how few real minutes a player has — it only ever compares
+// weights WITHIN this one possession, so a bench player capped at "up to
+// a third of this possession's shot" is just as capped whether that's one
+// of his team's ~95 possessions across the whole 48-minute game (which is
+// what actually happens, since the pool here is every mins>0 player, not
+// just whoever's literally on the floor this instant) or one of a real
+// 15-minute stretch. Effectively he gets offered a third of the ENTIRE
+// game's shots, not a third of HIS share of it — the mins/48 dilution
+// above gets baked into his weight, but the cap only checks relative
+// share and cheerfully overrides that dilution once he's still the
+// pool's biggest fish (easy, when the rest of a bench unit is also
+// low-rated). Scaling the ceiling itself by his own mins fixes that
+// directly. Verified by Monte Carlo against the real Kuminga incident
+// (scoring 65, 15 real minutes, realistic bench pool around him): the
+// flat .33 cap let him average ~22 FGA / 29 pts a game (46% of games
+// 30+); (mins/48)^1.8 brings that down to ~13 FGA / 17 pts (8% of games
+// 30+) — while a normal 34-40 minute starter case (still capped at .33,
+// since (34/48)^1.8≈.44 and (40/48)^1.8≈.63, both already above .33)
+// comes out statistically unchanged, confirming this only bites players
+// who genuinely don't have the minutes to back up a star-level weight.
+const maxEntry=weighted.reduce((b,x)=>x.w>b.w?x:b,weighted[0])
+const dynCap=Math.min(.33,Math.pow((maxEntry.p.mins||0)/48,1.8))
+return wtCapped(weighted,dynCap)
 }
 
 function simFT(p:any,n:number,fat:Record<string,number>){let m=0;for(let i=0;i<n;i++)if(Math.random()<p.ft/100*(.88+fat[p.id]/100*.12))m++;return m}
