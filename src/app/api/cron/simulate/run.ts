@@ -2186,17 +2186,27 @@ description: `Monthly facility/concession maintenance — ${formatSimMonthName(m
 })
 }
 } catch (maintErr) { console.warn('Monthly maintenance deduction failed:', maintErr) }
+}
 
 // ── MERCHANDISING (jersey sales) ────────────────────
-// Same isEndOfMonth/monthNum cadence as Player of the Month above — fame
-// drifts monthly toward a deserved target (quality/form/wins/awards/any
-// active marketing campaign) and turns into real jersey revenue, posted
-// straight to the balance sheet. See src/lib/merchandising.ts.
+// Deliberately OUTSIDE the !isPreseason gate above (unlike Player of the
+// Month/maintenance, which genuinely need real games/rent to mean anything)
+// — real jersey/merchandise sales never actually stop just because there's
+// no game this week, the same reasoning already applied to All-Star Weekend
+// resolution just below. Real incident: with this nested inside the
+// !isPreseason block, the very first payout of a fresh season couldn't
+// land before week 20 (the first week%4===0 boundary AFTER preseason ends
+// at week 16) — a real ~3-week blackout right when a GM starts a season,
+// on top of every earlier week%4 boundary during free agency/offseason
+// never resolving at all. Still only fires every 4 weeks (see
+// resolveMonthlyMerchandising's own monthNum/idempotency guard), just no
+// longer skipped outright depending on season phase.
 try {
+if (week % 4 === 0) {
 const merchResult = await resolveMonthlyMerchandising(week)
 console.log(`Merchandising resolved: ${merchResult.players} players, ${merchResult.teams} teams with revenue`)
-} catch (merchErr) { console.warn('Merchandising resolution failed:', merchErr) }
 }
+} catch (merchErr) { console.warn('Merchandising resolution failed:', merchErr) }
 
 // ── ALL-STAR WEEKEND ─────────────────────────────────
 // Self-guarded (checks current week + allstar_config.roster_announced
