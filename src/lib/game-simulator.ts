@@ -275,9 +275,27 @@ const REB_BREAKPOINTS:[number,number][]=[
 // (the mins-weight only shapes PROBABILITY per rebound, not how many total
 // rebounds are up for grabs across the whole game). Scaled off a 36-minute
 // reference (the level the flat "10" was originally tuned against).
-function rebTaper(rebSoFar:number,mins:number):number{
-const threshold=Math.max(3,(mins/36)*10)
-return rebSoFar<=threshold?1:Math.max(.25,1-(rebSoFar-threshold)*.10)
+// Threshold used to be a flat "10 boards per 36 minutes" for every player
+// regardless of their own reb_rate — so an elite rebounder (rpg36 target
+// ~12-14) got throttled well BEFORE reaching his own realistic total, while
+// a low-reb_rate player (target ~2-3) never tapered at all and could ride a
+// hot night far past what he should. Tying the threshold to the player's
+// OWN rpg36 target makes each player self-correct toward his own realistic
+// number, rather than sharing one number-for-everyone ceiling — the actual
+// fix for a real complaint that a shared wtCapped() share-cap alone only
+// moved the excess onto the next-best rebounder on the same team instead of
+// producing realistic totals for either of them.
+// The threshold also has to track ELAPSED game time, not the player's
+// TOTAL planned minutes for the whole game — an earlier version used total
+// minutes, which let a star reach his full-game target risk-free by
+// halftime (nothing capped him before then) and only started correcting in
+// the 4th quarter, far too late to pull an already-inflated total back down.
+// Scaling by how much of the 48-minute game has actually elapsed keeps him
+// near pace throughout, not just by the final buzzer.
+function rebTaper(rebSoFar:number,mins:number,rebRate:number|undefined,elapsedMin:number):number{
+const paceTarget=rpg36(rebRate)*(mins/36)*Math.min(1,elapsedMin/48)
+const threshold=Math.max(1,paceTarget)
+return rebSoFar<=threshold?1:Math.max(.05,1-(rebSoFar-threshold)*.35)
 }
 // Same idea as rebTaper() above, applied to the assist weighted-draw: an
 // elite passer's own assist total this game tapers his own draw weight down
@@ -397,6 +415,33 @@ return Math.min(15,p1+slope*(s-s1))
 // high-reb_rate one just because their split happens to favor one side.
 function offReboundShare(p:any):number{const o=p.off_reb??50,d=p.def_reb??50;return o/Math.max(1,o+d)}
 function defReboundShare(p:any):number{const o=p.off_reb??50,d=p.def_reb??50;return d/Math.max(1,o+d)}
+// Fixed a systematic over-counting bug: rpg36(reb_rate) already IS the
+// intended rebounds-per-36-minutes in real RPG units, but the weighted-draw
+// below used to run that value through an extra "*7+2" amplification left
+// over from before rpg36() existed (when the raw 0-99 reb_rate was used
+// directly as the weight). Applying that old amplification on top of an
+// already-real-unit value double-counted the scale, so any player even
+// moderately above his own lineup's average reb_rate absorbed a far bigger
+// share of the team's boards than his own rpg36 target — confirmed against
+// real season data (a reb_rate-74 center averaging 17 RPG against a ~12
+// target) and with direct simulateGame() runs (14+ RPG in just 24 minutes).
+// Using rpg36() directly as the weight keeps the same competitive shape — a
+// better rebounder still wins more contested boards — without re-amplifying
+// a value that was already calibrated in real RPG units.
+function rebWeightBase(p:any):number{return Math.max(.15,rpg36(p.reb_rate))}
+// A shared max-share cap (wtCapped) was tried first here, capping whoever's
+// biggest at a flat ceiling regardless of what that player's OWN rpg36
+// target actually is. Real simulateGame() runs against real rosters showed
+// it just moves the excess onto the NEXT-best rebounder on the same team —
+// squeezing an elite big below his own realistic target while a merely-good
+// teammate got pushed above his (real incident: capping Jokic down pushed
+// Aaron Gordon from 9.8 to 12.6 RPG, an artificial trade rather than a fix).
+// rebTaper (below) now does the real, per-player correction, paced against
+// elapsed game time — each player self-limits once he's ahead of HIS OWN
+// rpg36 pace, not a number shared with teammates. This cap stays on as a
+// backstop against the first few minutes of a game (before the taper has
+// any data to react to) and against the whole-roster pool-dilution effect
+// described above, tightened to .28.
 
 function rnd(a:number,b:number){return Math.floor(Math.random()*(b-a+1))+a}
 function wt(pool:Array<{p:any,w:number}>){
@@ -1235,8 +1280,8 @@ if(!u3&&Math.random()<bpg36(def.blk)*.145*(doo.def_style==='zone23'?.5:1)*refFou
 // (mostly the defense, sometimes the shooting team recovers the carom).
 // This used to just vanish (possession ends, nobody gets a rebound stat),
 // quietly undercounting team REB by exactly the number of blocks in the game.
-if(Math.random()<.27){const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0)})),.45);st[rb.id].or++;st[rb.id].reb++}
-else{const rb=wtCapped(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0)})),.45);st[rb.id].dr++;st[rb.id].reb++}
+if(Math.random()<.27){const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(rebWeightBase(p)*(0.5+offReboundShare(p))*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].or++;st[rb.id].reb++}
+else{const rb=wtCapped(dps.map(p=>({p,w:(rebWeightBase(p)*(0.5+defReboundShare(p))*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].dr++;st[rb.id].reb++}
 pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away})
 };return}
 ss.fga++;if(u3)ss.tpa++
@@ -1300,7 +1345,7 @@ else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
 // a skill (off_reb) roll — a secondary, smaller weight so off_reb still
 // decides most of the time.
-const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+offReboundShare(p))*7*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0)})),.45);st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st);if(re){st[re.id].fga++;
+const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(rebWeightBase(p)*(0.5+offReboundShare(p))*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st);if(re){st[re.id].fga++;
 // Putback chance: whoever ends up with the loose ball finishes it better
 // the more of a standing-dunk finisher they are — real range around the
 // old flat 50%, not a fixed coin flip regardless of who's shooting.
@@ -1308,5 +1353,5 @@ if(Math.random()<.35+((re.standing_dunk??50)/100)*.30){st[re.id].fgm++;sc[os]+=2
 // Lockdown Defender's real cost: locked onto one man all game, he crashes
 // the defensive glass worse — the "unavailable for help and rebounds"
 // tradeoff the rules page already promises.
-const rb=wtCapped(dps.map(p=>({p,w:(Math.max(.3,rpg36(p.reb_rate)-1)*(0.5+defReboundShare(p))*7*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3)+2)*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0)})),.45);st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
+const rb=wtCapped(dps.map(p=>({p,w:(rebWeightBase(p)*(0.5+defReboundShare(p))*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
 }
