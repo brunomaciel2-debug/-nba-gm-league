@@ -39,6 +39,15 @@ function packGamesByDay(
   startDate: Date,
   endDate: Date,
   blackoutDates: Set<string>,
+  // Real incident this caught: redistributing only PART of an in-progress
+  // season (games from some cutoff week onward) with no memory of what each
+  // team played just before that cutoff produced a 3-straight-day violation
+  // spanning the seam for 9 teams — the packer correctly avoided B2B2B
+  // WITHIN the window it knew about, but had no idea those teams had also
+  // played on the last day before the window started. Seeding each team's
+  // real last 2 play dates (from the untouched, already-real portion of the
+  // season) closes that gap.
+  seedLastTwo: Record<string, string[]> = {},
 ): { home: string; away: string; date: string }[] {
   const pool = [...games]
   for (let i = pool.length - 1; i > 0; i--) {
@@ -48,6 +57,7 @@ function packGamesByDay(
   const assignments: { home: string; away: string; date: string }[] = []
   // team -> the exact calendar dates (up to the most recent 2) it played on
   const lastTwo: Record<string, string[]> = {}
+  for (const [team, dates] of Object.entries(seedLastTwo)) lastTwo[team] = dates.slice(-2)
   const gamesLeft: Record<string, number> = {}
   for (const g of pool) { gamesLeft[g.home] = (gamesLeft[g.home]||0)+1; gamesLeft[g.away] = (gamesLeft[g.away]||0)+1 }
 
@@ -129,11 +139,64 @@ function packGamesByDay(
       lastTwo[team] = arr.slice(-2)
     })
   }
-  // Last resort: the pacing gate above guarantees enough room as long as no
-  // team ever had more remaining games than remaining days at the START —
-  // true by construction (82 games always fit a ~135-day window) — so this
-  // should stay empty. Kept as a safety net so a game is placed on the
-  // final date rather than silently vanishing from the season if it doesn't.
+  // Last resort: the pacing gate + daily cap above guarantee enough room as
+  // long as no team ever had more remaining games than remaining days at
+  // the start — true by construction — so this should rarely fire, and
+  // never for more than a handful of games. A second pass over the same
+  // dates, dropping the SOFT pacing gate and the daily cap but keeping both
+  // HARD rules (no same day twice, no 3rd straight day).
+  // Real incident this replaced: a first attempt at this fallback re-walked
+  // dates in order checking each one only BACKWARD (does placing here plus
+  // the previous 2 days create a straight 3rd) — correct for the main pass,
+  // which only ever adds dates going forward, but wrong here: the fallback
+  // can end up filling in an EARLIER date (e.g. Dec 5) for a team that
+  // already has a LATER date already fixed by the main pass (e.g. Dec 6),
+  // and a backward-only check at Dec 5 has no way to see that already-fixed
+  // Dec 6 sitting ahead of it — Dec 4 (seed) + Dec 5 (this fallback pick) +
+  // Dec 6 (already fixed) is still 3 straight days, just assembled out of
+  // order. Tracks every date each team is confirmed for (not just the last
+  // 2) and checks all three positions a new date could occupy in a 3-day
+  // window — before it, in the middle, or after — against dates ALREADY
+  // fixed in either direction, not just looking backward.
+  if (pool.length > 0) {
+    const allDates: Record<string, Set<string>> = {}
+    const addDate = (team: string, dateStr: string) => (allDates[team] ||= new Set()).add(dateStr)
+    for (const [team, dates] of Object.entries(seedLastTwo)) dates.forEach(d => addDate(team, d))
+    for (const a of assignments) { addDate(a.home, a.date); addDate(a.away, a.date) }
+
+    const dayOffset = (dateStr: string, n: number) => {
+      const d = new Date(dateStr + 'T00:00:00')
+      d.setDate(d.getDate() + n)
+      return ymd(d)
+    }
+    const wouldCreateThreeStraight = (team: string, dateStr: string): boolean => {
+      const has = (offset: number) => allDates[team]?.has(dayOffset(dateStr, offset)) ?? false
+      return (has(-2) && has(-1)) || (has(-1) && has(1)) || (has(1) && has(2))
+    }
+
+    for (const dateStr of playableDates) {
+      // Same-day conflicts against what pass one ALREADY placed today aren't
+      // visible through `wouldCreateThreeStraight` (it only checks +/-1/-2
+      // offsets, never the day itself) — real incident: 3 teams ended up
+      // with two games apiece on the same date because this check was
+      // missing entirely, checked only against what THIS pass had placed
+      // today, not what pass one already had there.
+      const usedToday = new Set<string>()
+      for (const [team, dates] of Object.entries(allDates)) if (dates.has(dateStr)) usedToday.add(team)
+      for (let i = 0; i < pool.length; i++) {
+        const g = pool[i]
+        if (usedToday.has(g.home) || usedToday.has(g.away)) continue
+        if (wouldCreateThreeStraight(g.home, dateStr) || wouldCreateThreeStraight(g.away, dateStr)) continue
+        usedToday.add(g.home); usedToday.add(g.away)
+        assignments.push({ ...g, date: dateStr })
+        addDate(g.home, dateStr); addDate(g.away, dateStr)
+        pool.splice(i, 1); i--
+      }
+      if (!pool.length) break
+    }
+  }
+  // Truly last resort — every hard rule above still respected, this only
+  // matters if the whole window's capacity (extremely unlikely) is exhausted.
   if (pool.length > 0) {
     const fallbackDate = ymd(endDate)
     for (const g of pool) assignments.push({ ...g, date: fallbackDate })
@@ -304,6 +367,27 @@ export async function redistributeRemainingSchedule(fromWeek: number) {
   const blackoutDates = new Set<string>()
   for (const d = new Date(allstarBlock.start); d <= allstarBlock.end; d.setDate(d.getDate() + 1)) blackoutDates.add(ymd(d))
 
+  // Seed each team's real last 2 play dates from just before the window
+  // (any status — a team's most recent games right before `fromWeek` might
+  // still be 'scheduled' if fromWeek itself is a partially-played week left
+  // untouched on purpose) — see packGamesByDay's seedLastTwo param for why.
+  // 10 days back is comfortably more than the 2 dates any team could
+  // possibly need, even at the tightest realistic pace.
+  const lookback = new Date(startDate); lookback.setDate(lookback.getDate() - 10)
+  const { data: recentGames } = await supabaseAdmin
+    .from('games').select('home_team,away_team,scheduled_date')
+    .eq('season', SEASON).eq('game_type', 'regular')
+    .gte('scheduled_date', ymd(lookback)).lt('scheduled_date', ymd(startDate))
+    .order('scheduled_date')
+  const seedLastTwo: Record<string, string[]> = {}
+  for (const g of (recentGames || []) as any[]) {
+    for (const team of [g.home_team, g.away_team]) {
+      const arr = seedLastTwo[team] || []
+      if (arr[arr.length - 1] !== g.scheduled_date) arr.push(g.scheduled_date)
+      seedLastTwo[team] = arr.slice(-2)
+    }
+  }
+
   // Carry each game's real id through packGamesByDay's shuffle/placement by
   // encoding it into a synthetic team-slot pair the packer never has to know
   // about — simplest way to reuse the exact same day-by-day logic without
@@ -314,7 +398,7 @@ export async function redistributeRemainingSchedule(fromWeek: number) {
     ;(idByPair[key] ||= []).push(g.id)
     return { home: g.home_team, away: g.away_team }
   })
-  const dated = packGamesByDay(slots, startDate, endDate, blackoutDates)
+  const dated = packGamesByDay(slots, startDate, endDate, blackoutDates, seedLastTwo)
 
   let updated = 0
   for (const g of dated) {
