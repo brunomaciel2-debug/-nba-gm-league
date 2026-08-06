@@ -820,9 +820,17 @@ const { data: recentlyHealed } = healedPids.length > 0 ? await supabaseAdmin
 // in the Injury Report twice with two unrelated injuries and two separate
 // recovery clocks, because nothing here ever checked for an existing
 // active injury_log row before generating a new one.
+// String(...) both sides — `pid` below comes from Object.entries(), which
+// always stringifies keys, while injury_log.player_id round-trips as a
+// number (players.id is an integer column). Set<number>.has(string) is
+// never true, so this guard was silently a no-op for every player with a
+// numeric id (i.e. every real NBA player) despite looking correct — a real
+// incident found via a league-wide query: 28 players already carrying 2-3
+// simultaneously "active" injury_log rows, this exact bug the July 20 fix
+// was supposed to prevent.
 const { data: alreadyInjured } = healedPids.length > 0 ? await supabaseAdmin
 .from('injury_log').select('player_id').eq('status','active').in('player_id', healedPids) : { data: [] as any[] }
-const activelyInjuredPids = new Set((alreadyInjured||[]).map((r:any)=>r.player_id))
+const activelyInjuredPids = new Set((alreadyInjured||[]).map((r:any)=>String(r.player_id)))
 const injTypeByName: Record<string,any> = {}
 ;(injTypes||[]).forEach((t:any) => injTypeByName[t.name] = t)
 const fragileMap: Record<string,{bodyPart:string,risk:number}> = {}
