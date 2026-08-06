@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { getStatusForWeek } from './season-week-helper'
+import { REGULAR_SEASON_END_WEEK } from './allstar-constants'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,7 +67,17 @@ export async function checkSponsorObjectives() {
   // the standings. Only conclusive once the regular season has actually
   // ended (getStatusForWeek moves past 'regular-season' into play-in).
   const { data: seasonCfg } = await supabase.from('season_config').select('current_week').eq('id', 1).single()
-  const regularSeasonOver = getStatusForWeek((seasonCfg?.current_week || 0) + 1) !== 'regular-season'
+  // Real incident: `getStatusForWeek(week) !== 'regular-season'` is true both
+  // AFTER the regular season ends (play-in onward — the intended case) AND
+  // BEFORE it's even started (offseason/preseason, weeks 1-16) — a team's
+  // week-12 status is also "not regular-season", so every one of these
+  // guards read as "season's over, pay out" the moment a fresh season began,
+  // with zero games played. Comparing the actual week number against the
+  // regular season's real end (40) instead of the phase LABEL fixes this —
+  // weeks 1-40 (including offseason/preseason) all correctly read as "not
+  // over yet", only 41+ (play-in and beyond) counts as over.
+  const currentWeek = (seasonCfg?.current_week || 0) + 1
+  const regularSeasonOver = currentWeek > REGULAR_SEASON_END_WEEK
 
   let achieved = 0
 
