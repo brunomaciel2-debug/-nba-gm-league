@@ -2580,6 +2580,14 @@ await supabaseAdmin.from('players').update(update).eq('id', r.id)
 // health is the real recovery trigger and used to only be checked once a
 // week. This step keeps the once-per-week cadence Bruno didn't ask to
 // change and now only handles morale.
+// That "once-per-week" intent was only ever true in this comment — there
+// was no actual half===2 gate enforcing it, so this (and Psychology Office
+// right after it) fired on BOTH halves of every week: confirmed live, a
+// team was charged twice for the same week's psychology sessions
+// (identical week_number, minutes apart) — real incident this fixes.
+// half===2 (not 1) since morale targets below read "recent form" that
+// should reflect the WHOLE week's games, not just the first half's.
+if (half === 2) {
 try {
 const { data: allP2 } = await supabaseAdmin.from('players').select('id,moral,team_id,status,usage').in('status',['active','injured'])
 
@@ -2699,6 +2707,7 @@ try {
 const psychResult = await resolveWeeklyPsychologyOffice(week)
 console.log(`Psychology Office — processed: ${psychResult.processed}, cleared: ${psychResult.cleared}`)
 } catch(psychErr) { console.warn('Psychology Office resolution failed:', psychErr) }
+}
 
 // ── SPONSOR OBJECTIVES ────────────────────────────────
 // Pre-season is a tactics/rotations sandbox — nothing here should count

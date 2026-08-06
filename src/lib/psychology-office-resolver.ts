@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
-import { weeklyCost, targetMorale, sessionBoostRate } from '@/lib/psychology-office-constants'
+import { weeklyCost, targetMorale, sessionBoostRate, sessionGuaranteedStep } from '@/lib/psychology-office-constants'
 
 const SEASON = '2025-26'
 
@@ -59,7 +59,10 @@ export async function resolveWeeklyPsychologyOffice(week: number): Promise<{ pro
     const target = targetMorale(slot.extra_hours)
     const rate = sessionBoostRate(moraleMgmtByTeam[slot.team_id])
     const currentMoral = p.moral || 0
-    const pushed = Math.round(currentMoral + (target - currentMoral) * rate)
+    const gap = target - currentMoral
+    const pushedRaw = currentMoral + gap * rate
+    const guaranteed = currentMoral + Math.min(gap, sessionGuaranteedStep(moraleMgmtByTeam[slot.team_id]))
+    const pushed = Math.round(Math.max(pushedRaw, guaranteed))
     const newMoral = Math.max(0, Math.min(100, Math.max(currentMoral, pushed)))
 
     if (newMoral !== currentMoral) {
