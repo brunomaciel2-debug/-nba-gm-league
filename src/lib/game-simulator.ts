@@ -931,9 +931,30 @@ jittered.forEach(p=>{p.mins=Math.round(p.mins)})
 }
 }
 
+// Absolute, unconditional ceiling on shot attempts per minute played — every
+// mechanism above this (taper, dilution, wtCapped's share ceiling) is a soft,
+// probabilistic brake that some combination of ratings can still slip past
+// (a real incident: an AVERAGE-rated bench player, scoring=50, still put up
+// 24 FGA in 10 minutes despite every one of those brakes already being in
+// place and tuned). Bruno's ask after that incident was explicit: not
+// another one-off patch for the specific player/rating combo that slipped
+// through this time, but a hard line NOTHING can cross, for ANY player.
+// 1.3 FGA/minute is already at the extreme edge of real NBA history (Wilt
+// Chamberlain's 100-point game: 63 FGA in 48 minutes) — generous enough to
+// never clip a legitimately great shooting night, but a 10-minute player
+// hard-stops at 13 attempts, not 24.
+function fgaHardCap(mins:number):number{return Math.max(3,Math.ceil((mins||0)*1.3))}
 function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>,st?:Record<string,any>){
-if(ic&&ord.clutch){const cp=ps.find((p:any)=>p.name===ord.clutch);if(cp&&fat[cp.id]>40)return cp}
-const pool=ps.filter((p:any)=>p.mins>0);if(!pool.length)return ps[0]
+if(ic&&ord.clutch){const cp=ps.find((p:any)=>p.name===ord.clutch);if(cp&&fat[cp.id]>40&&(st?.[cp.id]?.fga||0)<fgaHardCap(cp.mins||0))return cp}
+// Exclude anyone already at their hard cap from the pool entirely — not a
+// weight penalty (which the exact bug above already showed can be beaten),
+// an actual impossibility to select. Falls back to the uncapped pool only
+// if literally everyone eligible has already hit their own cap (a genuine
+// deep-overtime edge case), so a possession is never left with no shooter.
+const uncappedPool=ps.filter((p:any)=>p.mins>0)
+const cappedPool=uncappedPool.filter((p:any)=>(st?.[p.id]?.fga||0)<fgaHardCap(p.mins||0))
+const pool=cappedPool.length?cappedPool:uncappedPool
+if(!pool.length)return ps[0]
 const pris=ord.pris||[ord.priority_1,ord.priority_2,ord.priority_3]
 const weighted=pool.map((p:any)=>{
 const f=fat[p.id]/100
