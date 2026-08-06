@@ -1,29 +1,145 @@
 import { supabaseAdmin } from '@/lib/supabase'
-import { getWeekDates } from '@/lib/season-week-helper'
-import { ALLSTAR_WEEK, ALLSTAR_HALF } from '@/lib/allstar-constants'
+import { getWeekDates, getWeekForDate, getHalfWeekDates } from '@/lib/season-week-helper'
+import { ALLSTAR_WEEK, ALLSTAR_HALF, REGULAR_SEASON_END_WEEK } from '@/lib/allstar-constants'
+import { assignRefereesToScheduledGames } from '@/lib/referees'
 
 const SEASON = '2025-26'
 
-// Maps a game's round-within-week index to a day offset from that week's
-// start date. Every within-week gap is 2 days (no back-to-backs inside a
-// week); the only 1-day gap possible is the seam between round 3 of one
-// week (offset 6, the week's last day) and round 0 of the next week
-// (offset 0 of the next 7-day block) — a single realistic back-to-back,
-// never a 3rd consecutive day. This makes "3 games in 3 straight days"
-// structurally impossible, without any extra validation code.
-const ROUND_DAY_OFFSETS = [0, 2, 4, 6]
-function dateForRound(weekStartDate: Date, roundIdx: number): Date {
-  const offset = ROUND_DAY_OFFSETS[roundIdx % 4] + 7 * Math.floor(roundIdx / 4)
-  const d = new Date(weekStartDate)
-  d.setDate(d.getDate() + offset)
-  return d
-}
 // Plain local Y-M-D string — NOT toISOString(), which converts to UTC and
 // can roll the date back a day depending on the server's timezone offset.
 function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+type GameSlot = { home: string; away: string }
+
+// Packs a flat pool of {home,away} matchups onto real calendar days, one day
+// at a time — replaces the old "4 fixed rounds a week, every other day"
+// scheme, which forced the ENTIRE league to only ever play on the same 4 of
+// every 7 days, with 3 completely dead league-wide days a week.
+// Two hard rules, always enforced: a team never plays twice in one day, and
+// never on a 3rd straight day (blocked only if it played on EACH of the
+// exact previous 2 calendar days — so a single back-to-back is fine, a 3rd
+// game right after it is not).
+// A first version of this only enforced those two hard rules and otherwise
+// greedily crammed as many games as possible into the earliest eligible
+// days — real incident: with back-to-backs unrestricted, that packed the
+// ENTIRE remaining season into the first ~80 of ~135 available days, nearly
+// half of every team's gaps were 1-day back-to-backs, and the schedule
+// finished over a month early. A THIRD, soft rule fixes that: a team may
+// only play on a 1-day gap (back-to-back) if it's genuinely running behind
+// its own pace — i.e. it has more games left than days left to spread them
+// across at a normal 2-day rhythm. Otherwise it must rest at least a day,
+// which is what naturally spreads everyone across the FULL window instead
+// of the front of it, with back-to-backs surfacing only where real NBA
+// schedules actually have them: catching up, not the default rhythm.
+function packGamesByDay(
+  games: GameSlot[],
+  startDate: Date,
+  endDate: Date,
+  blackoutDates: Set<string>,
+): { home: string; away: string; date: string }[] {
+  const pool = [...games]
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  const assignments: { home: string; away: string; date: string }[] = []
+  // team -> the exact calendar dates (up to the most recent 2) it played on
+  const lastTwo: Record<string, string[]> = {}
+  const gamesLeft: Record<string, number> = {}
+  for (const g of pool) { gamesLeft[g.home] = (gamesLeft[g.home]||0)+1; gamesLeft[g.away] = (gamesLeft[g.away]||0)+1 }
+
+  const blockedThreeStraight = (team: string, dateStr: string): boolean => {
+    const [twoBack, oneBack] = lastTwo[team] || []
+    if (!oneBack || !twoBack) return false
+    const d = new Date(dateStr + 'T00:00:00')
+    const prev = new Date(d); prev.setDate(prev.getDate() - 1)
+    const prevPrev = new Date(d); prevPrev.setDate(prevPrev.getDate() - 2)
+    return oneBack === ymd(prev) && twoBack === ymd(prevPrev)
+  }
+  // Soft pacing gate: only allow a back-to-back (played yesterday) if this
+  // team can no longer fit its remaining games into its remaining days
+  // without one — i.e. it's genuinely behind, not just eligible.
+  const needsCatchUp = (team: string, dateStr: string): boolean => {
+    const d = new Date(dateStr + 'T00:00:00')
+    const daysLeftIncl = Math.round((endDate.getTime() - d.getTime()) / 86400000) + 1
+    return (gamesLeft[team] || 0) > daysLeftIncl
+  }
+  const restBlocked = (team: string, dateStr: string): boolean => {
+    const [, oneBack] = lastTwo[team] || []
+    if (!oneBack) return false
+    const d = new Date(dateStr + 'T00:00:00')
+    const prev = new Date(d); prev.setDate(prev.getDate() - 1)
+    if (oneBack !== ymd(prev)) return false // didn't play yesterday — no rest issue
+    return !needsCatchUp(team, dateStr)
+  }
+
+  // Precompute every non-blackout date in the window, so each day's game
+  // cap can be sized against exactly how many playable days are actually
+  // left (not just raw calendar days).
+  const playableDates: string[] = []
+  for (const dd = new Date(startDate); dd <= endDate; dd.setDate(dd.getDate() + 1)) {
+    const s = ymd(dd)
+    if (!blackoutDates.has(s)) playableDates.push(s)
+  }
+
+  for (let dayIdx = 0; dayIdx < playableDates.length && pool.length > 0; dayIdx++) {
+    const dateStr = playableDates[dayIdx]
+    const daysLeftInclToday = playableDates.length - dayIdx
+    // Deliberate spread: without a cap, every team that's eligible today
+    // gets scheduled today, which — since most teams rest the same ~2 days
+    // — packs games onto roughly half the available days and leaves the
+    // other half completely empty (a real incident: the first version of
+    // this function did exactly that, 49% day coverage). Capping today's
+    // total at a bit above the pure remaining-games/remaining-days average
+    // forces the games that don't fit today to roll over to tomorrow
+    // instead, spreading the same total across far more distinct days —
+    // the actual daily NBA-calendar feel Bruno asked for.
+    const dailyCap = Math.max(2, Math.ceil((pool.length / daysLeftInclToday) * 1.4))
+    // Most urgent (closest to needing a back-to-back to still fit) first,
+    // so the cap never starves a team that's genuinely running out of room —
+    // shuffled within that priority (pool was pre-shuffled, stable sort
+    // keeps that order among equal-urgency games).
+    pool.sort((a, b) => {
+      const urgency = (g: GameSlot) => {
+        const d = new Date(dateStr + 'T00:00:00')
+        const daysLeftIncl = Math.round((endDate.getTime() - d.getTime()) / 86400000) + 1
+        return Math.max((gamesLeft[g.home]||0) - daysLeftIncl, (gamesLeft[g.away]||0) - daysLeftIncl)
+      }
+      return urgency(b) - urgency(a)
+    })
+    const usedToday = new Set<string>()
+    let placedToday = 0
+    for (let i = 0; i < pool.length && placedToday < dailyCap; i++) {
+      const g = pool[i]
+      if (usedToday.has(g.home) || usedToday.has(g.away)) continue
+      if (blockedThreeStraight(g.home, dateStr) || blockedThreeStraight(g.away, dateStr)) continue
+      if (restBlocked(g.home, dateStr) || restBlocked(g.away, dateStr)) continue
+      usedToday.add(g.home); usedToday.add(g.away)
+      assignments.push({ ...g, date: dateStr })
+      gamesLeft[g.home]--; gamesLeft[g.away]--
+      pool.splice(i, 1); i--
+      placedToday++
+    }
+    usedToday.forEach(team => {
+      const arr = lastTwo[team] || []
+      arr.push(dateStr)
+      lastTwo[team] = arr.slice(-2)
+    })
+  }
+  // Last resort: the pacing gate above guarantees enough room as long as no
+  // team ever had more remaining games than remaining days at the START —
+  // true by construction (82 games always fit a ~135-day window) — so this
+  // should stay empty. Kept as a safety net so a game is placed on the
+  // final date rather than silently vanishing from the season if it doesn't.
+  if (pool.length > 0) {
+    const fallbackDate = ymd(endDate)
+    for (const g of pool) assignments.push({ ...g, date: fallbackDate })
+  }
+  return assignments
+}
 
 // Generates a real, complete 82-game NBA-style regular season schedule:
 // - 4 games vs each of the 4 division rivals (16 games)
@@ -100,7 +216,6 @@ export async function generateRegularSeasonSchedule(opts: { startWeek: number; e
   // Expand matchups into individual game instances, splitting home/away as
   // evenly as possible (extra home game alternates by a deterministic rule
   // so it isn't always the same side of the pairing that benefits).
-  type GameSlot = { home: string; away: string }
   const allGames: GameSlot[] = []
   for (const [key, count] of Object.entries(matchups)) {
     const [a, b] = key.split('|')
@@ -112,52 +227,15 @@ export async function generateRegularSeasonSchedule(opts: { startWeek: number; e
     for (let i = 0; i < secondHome; i++) allGames.push({ home: second, away: first })
   }
 
-  // Shuffle for variety, then greedily pack into weeks: each week, run
-  // repeated "rounds" (every team plays at most once per round) until no
-  // more of the remaining games fit without double-booking a team that week.
-  for (let i = allGames.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[allGames[i], allGames[j]] = [allGames[j], allGames[i]]
-  }
-
-  const totalWeeks = endWeek - startWeek + 1
-  // weekRounds[w] = array of rounds; each round = array of games in it —
-  // preserved (instead of flattened) so each game's round index can be
-  // mapped to a real calendar date below.
-  const weekRounds: GameSlot[][][] = Array.from({ length: totalWeeks }, () => [])
-  const remaining = [...allGames]
-  let weekIdx = 0
-  const MAX_ROUNDS_PER_WEEK = 4
-  // All-Star Weekend (ALLSTAR_HALF=1 of ALLSTAR_WEEK, see allstar-constants.ts)
-  // is a dedicated no-other-games block — rounds 0-1 map to that half's dates
-  // (getHalfWeekDates), so the first 2 rounds ever recorded for that week
-  // index must always come back empty. Checking weekRounds[wIdx].length < 2
-  // (not the round counter) makes this safe even if packing needs a second
-  // pass over the same week — whichever 2 rounds land first for that week
-  // are the blocked ones, and anything skipped just stays in `remaining` to
-  // be placed in a later week instead of being lost.
-  const allstarWeekIdx = ALLSTAR_WEEK - startWeek
-  while (remaining.length > 0) {
-    for (let round = 0; round < MAX_ROUNDS_PER_WEEK && remaining.length > 0; round++) {
-      const wIdx = weekIdx % totalWeeks
-      const isBlockedAllstarRound = wIdx === allstarWeekIdx && weekRounds[wIdx].length < 2
-      const usedThisRound = new Set<string>()
-      const roundGames: GameSlot[] = []
-      if (!isBlockedAllstarRound) {
-        for (let i = 0; i < remaining.length; i++) {
-          const g = remaining[i]
-          if (usedThisRound.has(g.home) || usedThisRound.has(g.away)) continue
-          usedThisRound.add(g.home); usedThisRound.add(g.away)
-          roundGames.push(g)
-          remaining.splice(i, 1)
-          i--
-        }
-      }
-      weekRounds[wIdx].push(roundGames)
-    }
-    weekIdx++
-    if (weekIdx > totalWeeks * 3) break // safety valve, shouldn't be needed
-  }
+  // Pack the whole season's games onto real calendar days (see
+  // packGamesByDay above) — every day is a candidate except the All-Star
+  // Weekend blackout window (ALLSTAR_HALF of ALLSTAR_WEEK).
+  const startDate = getWeekDates(startWeek).start
+  const endDate = getWeekDates(endWeek).end
+  const allstarBlock = getHalfWeekDates(ALLSTAR_WEEK, ALLSTAR_HALF)
+  const blackoutDates = new Set<string>()
+  for (const d = new Date(allstarBlock.start); d <= allstarBlock.end; d.setDate(d.getDate() + 1)) blackoutDates.add(ymd(d))
+  const dated = packGamesByDay(allGames, startDate, endDate, blackoutDates)
 
   // Write to the DB: wipe the old scheduled regular-season games for this
   // range, then insert the new ones.
@@ -168,31 +246,27 @@ export async function generateRegularSeasonSchedule(opts: { startWeek: number; e
     .delete()
     .eq('status', 'scheduled').eq('game_type', 'regular')
 
-  let inserted = 0
-  for (let w = 0; w < totalWeeks; w++) {
-    const week = startWeek + w
-    const weekStart = getWeekDates(week).start
-    let gameNumber = 0
-    const rows: any[] = []
-    weekRounds[w].forEach((roundGames, roundIdx) => {
-      const gameDate = dateForRound(weekStart, roundIdx)
-      const scheduledDate = ymd(gameDate)
-      const dayOfWeek = WEEKDAY_NAMES[gameDate.getDay()]
-      for (const g of roundGames) {
-        gameNumber++
-        rows.push({
-          week_number: week, game_number: gameNumber,
-          home_team: g.home, away_team: g.away,
-          status: 'scheduled', game_type: 'regular', season: SEASON,
-          scheduled_date: scheduledDate, day_of_week: dayOfWeek,
-        })
-      }
+  const byDate: Record<string, typeof dated> = {}
+  for (const g of dated) (byDate[g.date] ||= []).push(g)
+  const rows: any[] = []
+  for (const [dateStr, gamesOnDate] of Object.entries(byDate)) {
+    const dayOfWeek = WEEKDAY_NAMES[new Date(dateStr + 'T00:00:00').getDay()]
+    const week = getWeekForDate(dateStr)
+    gamesOnDate.forEach((g, i) => {
+      rows.push({
+        week_number: week, game_number: i + 1,
+        home_team: g.home, away_team: g.away,
+        status: 'scheduled', game_type: 'regular', season: SEASON,
+        scheduled_date: dateStr, day_of_week: dayOfWeek,
+      })
     })
-    if (rows.length > 0) {
-      const { error } = await supabaseAdmin.from('games').insert(rows)
-      if (error) return { success: false as const, error: error.message }
-      inserted += rows.length
-    }
+  }
+  let inserted = 0
+  for (let i = 0; i < rows.length; i += 500) {
+    const chunk = rows.slice(i, i + 500)
+    const { error } = await supabaseAdmin.from('games').insert(chunk)
+    if (error) return { success: false as const, error: error.message }
+    inserted += chunk.length
   }
 
   // Sanity check: every team should have exactly 82 games
@@ -203,5 +277,57 @@ export async function generateRegularSeasonSchedule(opts: { startWeek: number; e
   }
   const offCount = Object.values(perTeam).filter(c => c !== 82).length
 
-  return { success: true as const, games: inserted, weeks: totalWeeks, teams_off_82: offCount, per_team: perTeam }
+  return { success: true as const, games: inserted, weeks: endWeek - startWeek + 1, teams_off_82: offCount, per_team: perTeam }
+}
+
+// Re-dates every not-yet-played regular-season game from `fromWeek` onward
+// onto the new day-by-day cadence (packGamesByDay above), WITHOUT touching
+// who plays whom or which side is home — only when. For an in-progress
+// season: already-played games (and whatever's mid-simulation this week)
+// are left completely alone; only games still 'scheduled' from fromWeek's
+// start through the regular season's end get new dates. Existing referee
+// assignments are cleared and reassigned afterward (see the route that
+// calls this) since assignRefereesToScheduledGames balances workload
+// against each game's date/marquee status, which just changed for all of
+// these.
+export async function redistributeRemainingSchedule(fromWeek: number) {
+  const { data: games, error: fetchErr } = await supabaseAdmin
+    .from('games').select('id,home_team,away_team')
+    .eq('season', SEASON).eq('game_type', 'regular').eq('status', 'scheduled')
+    .gte('week_number', fromWeek)
+  if (fetchErr) return { success: false as const, error: fetchErr.message }
+  if (!games?.length) return { success: true as const, redated: 0 }
+
+  const startDate = getWeekDates(fromWeek).start
+  const endDate = getWeekDates(REGULAR_SEASON_END_WEEK).end
+  const allstarBlock = getHalfWeekDates(ALLSTAR_WEEK, ALLSTAR_HALF)
+  const blackoutDates = new Set<string>()
+  for (const d = new Date(allstarBlock.start); d <= allstarBlock.end; d.setDate(d.getDate() + 1)) blackoutDates.add(ymd(d))
+
+  // Carry each game's real id through packGamesByDay's shuffle/placement by
+  // encoding it into a synthetic team-slot pair the packer never has to know
+  // about — simplest way to reuse the exact same day-by-day logic without
+  // threading a third field through every internal step.
+  const idByPair: Record<string, string[]> = {}
+  const slots: GameSlot[] = games.map((g: any) => {
+    const key = `${g.home_team}|${g.away_team}`
+    ;(idByPair[key] ||= []).push(g.id)
+    return { home: g.home_team, away: g.away_team }
+  })
+  const dated = packGamesByDay(slots, startDate, endDate, blackoutDates)
+
+  let updated = 0
+  for (const g of dated) {
+    const key = `${g.home}|${g.away}`
+    const id = idByPair[key]?.shift()
+    if (!id) continue
+    const dayOfWeek = WEEKDAY_NAMES[new Date(g.date + 'T00:00:00').getDay()]
+    const week = getWeekForDate(g.date)
+    const { error } = await supabaseAdmin.from('games').update({
+      scheduled_date: g.date, day_of_week: dayOfWeek, week_number: week, referee_id: null,
+    }).eq('id', id)
+    if (!error) updated++
+  }
+  const refResult = await assignRefereesToScheduledGames()
+  return { success: true as const, redated: updated, referees_assigned: refResult.assigned }
 }
