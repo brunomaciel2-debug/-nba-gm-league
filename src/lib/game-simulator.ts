@@ -141,9 +141,12 @@ const FT_RATE_BREAKPOINTS:[number,number][]=[
 // can still run well above his own individual per-36 target on a given
 // night — real variance, same as an actual box score — but the team total
 // this is actually calibrated against matches.
-// Nudged .03->.032 to compensate for the new ftTaper/tighter SHOOTING_FOUL_CAP
-// below pulling the team-level average down slightly below this real target.
-const FT_RATE_K=0.039
+// Re-nudged .039->.033 — raising SHOOTING_FOUL_CAP and fixing ftTaper below
+// (both were silently strangling elite foul-drawers specifically, not just
+// shaving a rare tail) pushed the team-level average up to ~29/team/game,
+// above this real target; this brings it back down without re-crushing the
+// elite individual cases the two fixes above were made for.
+const FT_RATE_K=0.029
 // Real per-shot ceiling for a shooting foul — the previous ".55" cap was
 // applied to the base frequency term BEFORE foulDrawQualityMult/refFoulMult/
 // tacticalMods.foulDrawMult multiplied it further, so the real per-shot
@@ -151,11 +154,17 @@ const FT_RATE_K=0.039
 // shooting-foul roll below, which now caps the FULLY-combined probability
 // instead). ~0.22 keeps an elite free_throw_rate/draw_foul player's
 // per-shot shooting-foul chance in a believable range.
-// Tightened .18->.15 alongside the new ftTaper below — most shots sit well
-// under this ceiling already (FT_RATE_K is tuned for the average, not the
-// cap), so this mainly shaves the extreme tail (a maxed-out player plus a
-// whistle-happy ref) rather than moving the calibrated team-level average.
-const SHOOTING_FOUL_CAP=0.10
+// Raised .10->.35 — .10 was tight enough to permanently cap the FORMULA
+// ITSELF for any elite foul-drawer, not just shave a rare extreme tail.
+// Real incident: Luka Doncic (free_throw_rate 95, draw_foul 94 — both near
+// max) computes a raw per-shot chance of .446 before this cap, matching his
+// real FTA/FGA ratio almost exactly (10.1/22.8=.44) — but the old .10 cap
+// crushed that down to a flat 10% on every single shot, not just an
+// occasional outlier, leaving him at 4.7 FTA/game against a real 10.1
+// target. .35 lets a genuinely elite foul-drawer get most of the way to his
+// real target while still preventing a theoretical maxed-out (99/99) case
+// from blowing past realistic bounds.
+const SHOOTING_FOUL_CAP=0.35
 // Per-possession chance of a common/non-shooting foul (reach-in, illegal
 // screen, loose ball) — independent of the shot itself, and NOT
 // automatically a trip to the line (see the bonus/penalty check where this
@@ -186,8 +195,17 @@ return Math.min(12,p1+slope*(s-s1))
 // with 76 combined FTA (both teams), well above the calibrated target, with
 // several players individually posting real per-36 outliers. Same
 // self-taper pattern, applied to shootingFoulChance below.
-function ftTaper(ftaSoFar:number,mins:number):number{
-const threshold=Math.max(1,(mins/36)*4)
+// Threshold used to be a flat "4 FTA per 36 minutes" for every player
+// regardless of their own free_throw_rate, AND sized off total planned
+// minutes rather than elapsed game time — same double bug already fixed in
+// rebTaper/pointsTaper. An elite foul-drawer's real target (Luka: 10.1/36
+// min) is more than double that flat "4", so he was already being throttled
+// well before reaching a realistic pace, on top of the SHOOTING_FOUL_CAP
+// fix above. Pacing the threshold against both his OWN target and elapsed
+// time keeps him tracking his real pace all game, not just by the end.
+function ftTaper(ftaSoFar:number,mins:number,freeThrowRate:number|undefined,elapsedMin:number):number{
+const target=ftpg36(freeThrowRate)*(mins/36)*Math.min(1,elapsedMin/48)
+const threshold=Math.max(1,target)
 return ftaSoFar<=threshold?1:Math.max(.05,1-(ftaSoFar-threshold)*.45)
 }
 
@@ -347,8 +365,14 @@ function foulTaper(pfSoFar:number):number{return pfSoFar<=1?1:Math.max(.12,1-(pf
 // showed the old rate let a hot shooter's weight stay high enough, long
 // enough, to keep out-competing bench weights all game even while
 // "tapering". Same idea as astTaper's .11->.20 steepening earlier.
-function scoreTaper(fgaSoFar:number,mins:number):number{
-const threshold=Math.max(4,(mins/36)*18)
+// Threshold used to be sized off the player's TOTAL planned minutes for the
+// whole game, so a hot shooter could reach his full-game shot allotment
+// risk-free by halftime (nothing throttled him before then) and only
+// started correcting once the damage was already done — same class of bug
+// fixed in rebTaper below. Scaling by elapsed game time (not total mins)
+// keeps him near his own pace throughout the game, not just by the buzzer.
+function scoreTaper(fgaSoFar:number,mins:number,elapsedMin:number):number{
+const threshold=Math.max(2,(mins/36)*18*Math.min(1,elapsedMin/48))
 return fgaSoFar<=threshold?1:Math.max(.06,1-(fgaSoFar-threshold)*.24)
 }
 // scoreTaper above only throttles raw shot COUNT — and-1s, made 3s, and free
@@ -366,8 +390,26 @@ return fgaSoFar<=threshold?1:Math.max(.06,1-(fgaSoFar-threshold)*.24)
 // a genuine star (a big expected baseline meant the same raw point excess
 // barely moved his weight), letting him keep climbing well past a real
 // monster game instead of leveling off around one.
-function pointsTaper(ptsSoFar:number,mins:number,scoring?:number):number{
-const expected=Math.max(6,ppg36(scoring)*(mins/36))
+// Same elapsed-time fix as scoreTaper above: "expected" used to be sized
+// off TOTAL planned minutes, so a hot scorer's threshold was his FULL-game
+// target from the opening tip — he could bank most of a big night in the
+// first half with zero resistance, and the back-half taper alone couldn't
+// pull an already-inflated total back down (the exact dynamic behind
+// several real featured scorers running well past their real-world
+// reference numbers — Donovan Mitchell 37.3 PPG in-sim vs his real ~25,
+// Jalen Brunson 34.1 vs his real ~26). Pacing "expected" against elapsed
+// game time keeps him tracking his own target throughout, not just letting
+// the taper try to claw back an already-blown-past total late.
+// Shrinks a multiplier's distance from neutral (1.0) by factor k, keeping
+// its direction (a boost is still a boost, a penalty still a penalty) but
+// preventing many individually-modest situational factors — home court,
+// matchup, momentum, team spacing, etc. — from fully compounding when
+// several happen to land favorably for the same player at once. k=1 is a
+// no-op (unchanged); k=0 would flatten everything to exactly neutral.
+function dampen(mult:number,k:number):number{return 1+(mult-1)*k}
+function pointsTaper(ptsSoFar:number,mins:number,scoring:number|undefined,elapsedMin:number):number{
+const paceFrac=Math.min(1,elapsedMin/48)
+const expected=Math.max(2,ppg36(scoring)*(mins/36)*paceFrac)
 const threshold=expected*1.3
 return ptsSoFar<=threshold?1:Math.max(.05,1-(ptsSoFar-threshold)/expected*3.5)
 }
@@ -989,7 +1031,7 @@ jittered.forEach(p=>{p.mins=Math.round(p.mins)})
 // never clip a legitimately great shooting night, but a 10-minute player
 // hard-stops at 13 attempts, not 24.
 function fgaHardCap(mins:number):number{return Math.max(3,Math.ceil((mins||0)*1.3))}
-function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>,st?:Record<string,any>){
+function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>,st:Record<string,any>|undefined,elapsedMin:number){
 if(ic&&ord.clutch){const cp=ps.find((p:any)=>p.name===ord.clutch);if(cp&&fat[cp.id]>40&&(st?.[cp.id]?.fga||0)<fgaHardCap(cp.mins||0))return cp}
 // Exclude anyone already at their hard cap from the pool entirely — not a
 // weight penalty (which the exact bug above already showed can be beaten),
@@ -1062,8 +1104,8 @@ w*=Math.max(.04,(p.mins||0)/48)
 // defense keys on a red-hot scorer harder as the game goes on. Only
 // redistributes shots to the same on-court pool, never touches the team's
 // total FGA.
-w*=scoreTaper(st?.[p.id]?.fga||0,p.mins||0)
-w*=pointsTaper(st?.[p.id]?.pts||0,p.mins||0,p.scoring)
+w*=scoreTaper(st?.[p.id]?.fga||0,p.mins||0,elapsedMin)
+w*=pointsTaper(st?.[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMin)
 // Points and assists were only ever tapered against THEMSELVES, so a
 // player could independently max out both in the same game without either
 // taper ever noticing the other — a real incident: 41 points AND 14
@@ -1148,7 +1190,7 @@ if(!ops.length||!dps.length)return
 const u3=Math.random()<(oo.three_rate||oo.threeRate||47)/100
 const shotProfile=SHOT_PROFILE_BY_ATK_STYLE[oo.atk_style]||SHOT_PROFILE_BY_ATK_STYLE.motion
 const isMid=!u3&&Math.random()<shotProfile.mid,isPost=!u3&&!isMid&&Math.random()<shotProfile.post
-const sc2=pS(ops,oo,u3,isC,fat,mom,st)
+const sc2=pS(ops,oo,u3,isC,fat,mom,st,elapsedMinutes(q,tl))
 if(!sc2)return
 // Lockdown Defender: a GM-assigned individual matchup, no penalty elsewhere
 // (unlike Double Team) — if the locked-down player has the ball and his
@@ -1308,8 +1350,34 @@ const rimSkill=(sc2.layup+sc2.dunk+(sc2.close_shot??sc2.layup))/300
 // someone who's already well past his normal pace) — capped at a 12%
 // haircut, not a hard shutoff, so a real hot game can still happen, just
 // not an outright statistically-impossible one.
-const hotHandAccDamp=0.80+0.20*pointsTaper(st[sc2.id]?.pts||0,sc2.mins||0,sc2.scoring)
-const acc=Math.min(.74,Math.max(.18,(u3?.355+(sc2.three-50)/100*.20:isPost?.47:isMid?.43+(sc2.mid-50)/100*.10:.535+rimSkill*.18)*(.84+fs*.16)*(1-(u3?def.pdef:def.idef)/100*.14)*(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult*(sc2.posFitMult??1)*usageEffMult(st[sc2.id]?.fga||0)*teamSpacingMult(sc2,ops)*hotHandAccDamp))
+const hotHandAccDamp=0.80+0.20*pointsTaper(st[sc2.id]?.pts||0,sc2.mins||0,sc2.scoring,elapsedMinutes(q,tl))
+// A flat cap on the FINAL probability only stops the most extreme,
+// literally-impossible outcomes (nobody exceeding the real all-time-best
+// three-point specialist) — it doesn't fix a player whose situational
+// multipliers compound to land him well above his OWN real percentage
+// while still under that cap. Real incident this fixes: Donovan Mitchell —
+// not even a top-23 real 3PT shooter, real career ~36% — was hitting the
+// old flat .50 cap on nearly every shot (his own combined situational
+// multipliers computed to +30%+ before any cap), while a genuinely elite,
+// similarly-rated shooter (Luka, real 3PT% almost identical to Mitchell's)
+// wasn't inflated at all — his own situational multipliers just don't
+// compound the same way. So the fix has to dampen the COMPOUNDING itself,
+// not just clamp the output. Each of the ~13 situational factors (home
+// court, matchup, momentum, team spacing...) is individually a real effect
+// — dampen() below keeps its direction but shrinks how far it can push a
+// shot away from 1.0, so several of them landing favorably for the same
+// player at once no longer multiplies into an extreme, only into a modest
+// good night — the way real situational factors actually stack.
+// Fatigue and defense are always-present, physically real per-shot factors
+// (every shot has SOME defender and SOME fatigue level) — dampening them
+// toward neutral would make defense matter less, the opposite of what's
+// wanted. Only the "several favorable things happening to align" factors
+// (home court, matchup, momentum, spacing, off-ball role, GM tactics...)
+// get dampened; fatigue/defense apply at full strength on every shot.
+const situational=(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult*(sc2.posFitMult??1)*usageEffMult(st[sc2.id]?.fga||0)*teamSpacingMult(sc2,ops)*hotHandAccDamp
+const acc=u3
+?Math.min(.50,Math.max(.15,(.355+(sc2.three-50)/100*.20)*(.84+fs*.16)*(1-def.pdef/100*.14)*dampen(situational,.6)))
+:Math.min(.74,Math.max(.18,(isPost?.47:isMid?.43+(sc2.mid-50)/100*.10:.535+rimSkill*.18)*(.84+fs*.16)*(1-def.idef/100*.14)*dampen(situational,.6)))
 const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100
@@ -1338,14 +1406,14 @@ const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
 // real NBA on-ball fouls) so team-wide assist totals land in a realistic
 // range and assist_rate differences between players actually show up in
 // season averages instead of being swamped by opportunity volume.
-const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult*ftTaper(ss.fta||0,sc2.mins||0))
-if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.28+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)*pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring)})),.45);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
-if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.62+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)*pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring)})),.45);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
+const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult*ftTaper(ss.fta||0,sc2.mins||0,sc2.free_throw_rate,elapsedMinutes(q,tl)))
+if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.28+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)*pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl))})),.45);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.62+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)*pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl))})),.45);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
 // a skill (off_reb) roll — a secondary, smaller weight so off_reb still
 // decides most of the time.
-const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(rebWeightBase(p)*(0.5+offReboundShare(p))*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st);if(re){st[re.id].fga++;
+const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(rebWeightBase(p)*(0.5+offReboundShare(p))*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st,elapsedMinutes(q,tl));if(re){st[re.id].fga++;
 // Putback chance: whoever ends up with the loose ball finishes it better
 // the more of a standing-dunk finisher they are — real range around the
 // old flat 50%, not a fixed coin flip regardless of who's shooting.
