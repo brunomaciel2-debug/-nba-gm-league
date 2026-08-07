@@ -121,7 +121,22 @@ export default function AdminSimulatePage() {
     })
 
     const timeout = new Promise<'TIMEOUT'>(resolve => setTimeout(() => resolve('TIMEOUT'), FETCH_TIMEOUT_MS))
-    const first = await Promise.race([direct, timeout])
+    // A real incident: on a multi-block run, block 5 failed outright with a
+    // raw "Failed to fetch" instead of ever showing the "taking longer than
+    // usual" message — a hard-dropped connection (the hosting platform's own
+    // gateway killing an already-slow request) REJECTS immediately, which
+    // Promise.race propagates as a rejection right away, skipping the
+    // polling fallback below entirely. The backend keeps running to
+    // completion either way (same as a plain timeout), so a rejection needs
+    // to fall through to the exact same DB-polling safety net a timeout
+    // already gets, instead of aborting the whole run on what might just be
+    // a dropped connection to work that actually succeeded.
+    let first: any
+    try {
+      first = await Promise.race([direct, timeout])
+    } catch {
+      first = 'TIMEOUT'
+    }
     if (first !== 'TIMEOUT') return first
 
     setLog(prev => [...prev, isPT
