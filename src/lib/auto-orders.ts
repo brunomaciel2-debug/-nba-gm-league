@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { sixthManMinutes } from '@/lib/auto-depth-chart'
 
 // Ensures every real team has a gm_orders row for `week` before anything
 // reads it — carries forward each team's most recent real order (GM or
@@ -46,7 +47,7 @@ export async function ensureWeeklyOrders(week: number): Promise<{ generated: num
 
     const { data: players } = await supabaseAdmin
       .from('players')
-      .select('id, name, pos, usage, stamina, three, layup, dunk, mid, ft, siq, idef, pdef, ball_hdl, pass_vis')
+      .select('id, name, pos, usage, scoring, stamina, three, layup, dunk, mid, ft, siq, idef, pdef, ball_hdl, pass_vis')
       .eq('team_id', team.id)
       .eq('status', 'active')
       .order('usage', { ascending: false })
@@ -73,16 +74,17 @@ export async function ensureWeeklyOrders(week: number): Promise<{ generated: num
       const starter = pool[0]
       const sub1 = pool[1]
       const sub2 = pool[2]
+      const [starterMins, sub1Mins, sub2Mins] = sixthManMinutes(starter, sub1)
 
       depth_chart[pos] = {
-        s: { name: starter.name, mins: 24 },
-        ...(sub1 ? { b1: { name: sub1.name, mins: 16 } } : {}),
-        ...(sub2 ? { b2: { name: sub2.name, mins: 8 } } : {}),
+        s: { name: starter.name, mins: starterMins },
+        ...(sub1 ? { b1: { name: sub1.name, mins: sub1Mins } } : {}),
+        ...(sub2 ? { b2: { name: sub2.name, mins: sub2Mins } } : {}),
       }
 
-      usedMins[starter.id] = (usedMins[starter.id] || 0) + 24
-      if (sub1) usedMins[sub1.id] = (usedMins[sub1.id] || 0) + 16
-      if (sub2) usedMins[sub2.id] = (usedMins[sub2.id] || 0) + 8
+      usedMins[starter.id] = (usedMins[starter.id] || 0) + starterMins
+      if (sub1) usedMins[sub1.id] = (usedMins[sub1.id] || 0) + sub1Mins
+      if (sub2) usedMins[sub2.id] = (usedMins[sub2.id] || 0) + sub2Mins
     }
 
     for (const pos of ['PG', 'SG', 'SF', 'PF', 'C']) {
@@ -94,16 +96,17 @@ export async function ensureWeeklyOrders(week: number): Promise<{ generated: num
       const starter = pool[0]
       const sub1 = pool[1]
       const sub2 = pool[2]
+      const [starterMins, sub1Mins, sub2Mins] = sixthManMinutes(starter, sub1)
 
       depth_chart[pos] = {
-        s: { name: starter.name, mins: 24 },
-        ...(sub1 ? { b1: { name: sub1.name, mins: 16 } } : {}),
-        ...(sub2 ? { b2: { name: sub2.name, mins: 8 } } : {}),
+        s: { name: starter.name, mins: starterMins },
+        ...(sub1 ? { b1: { name: sub1.name, mins: sub1Mins } } : {}),
+        ...(sub2 ? { b2: { name: sub2.name, mins: sub2Mins } } : {}),
       }
 
-      usedMins[starter.id] = (usedMins[starter.id] || 0) + 24
-      if (sub1) usedMins[sub1.id] = (usedMins[sub1.id] || 0) + 16
-      if (sub2) usedMins[sub2.id] = (usedMins[sub2.id] || 0) + 8
+      usedMins[starter.id] = (usedMins[starter.id] || 0) + starterMins
+      if (sub1) usedMins[sub1.id] = (usedMins[sub1.id] || 0) + sub1Mins
+      if (sub2) usedMins[sub2.id] = (usedMins[sub2.id] || 0) + sub2Mins
     }
 
     const top3 = [...players].sort((a: any, b: any) => b.usage - a.usage).slice(0, 3)
