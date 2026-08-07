@@ -1499,8 +1499,18 @@ if (newVal < curr) { updates[attr] = newVal; logs.push({ player_id:p.id, season:
 // exactly there, and durability (tougher players hold up better).
 const ageGradient = p.age >= 27 ? Math.min(8, (p.age-26)*2) : 0
 const durabilityAdj = ((p.durability||75)-75)/10
+// Base raised .05->.13 and the below-baseline penalty .40->.45 — real
+// season data after this system's first two live months (a fresh reset,
+// so month 1 unavoidably got every player's performance leg defaulted to
+// a neutral 1.0 with no baseline yet to compare against) showed 0
+// regressions in month 1 (expected, see below) and only 3 of ~14 players
+// in month 2 once real baselines existed — noticeably light for Bruno's
+// taste even though it matched the original design. This roughly doubles
+// the regression chance across the board (a good month: 6%->14%, a weak
+// one: 22%->32%) while keeping the same shape — a bad month, an ageing
+// player, and low durability all still push the odds up further.
 const regressionChance = Math.max(0.02, Math.min(0.40,
-0.05 + Math.max(0, 0.75-monthScore)*0.40 + ageGradient/100 - durabilityAdj/100
+0.13 + Math.max(0, 0.75-monthScore)*0.45 + ageGradient/100 - durabilityAdj/100
 ))
 if (Math.random() < regressionChance) {
 // Bias toward whichever leg of the month actually went worst — makes
