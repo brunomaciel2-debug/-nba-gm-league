@@ -331,8 +331,19 @@ return rebSoFar<=threshold?1:Math.max(.05,1-(rebSoFar-threshold)*.35)
 // real NBA games essentially never see even 2). At .20, a player is
 // already down to the floor by 4 assists past threshold instead of
 // drifting there slowly.
-function astTaper(astSoFar:number,mins:number):number{
-const threshold=Math.max(2,(mins/36)*7)
+// Threshold used to be a flat "7 assists per 36 minutes" for every player
+// regardless of their own assist_rate, AND sized off total planned minutes
+// rather than elapsed game time — the exact same double bug already found
+// and fixed in rebTaper/pointsTaper/ftTaper. Real incident: Nikola Jokic
+// (assist_rate 95, the real 2025-26 NBA assist leader at 10.7/game) was
+// stuck at 7.1 in-sim — right at the old flat threshold — while his own
+// apg36 target at his real minutes computes to ~10.2, matching his real
+// total almost exactly. Pacing the threshold against his OWN target and
+// elapsed game time (instead of a number shared with every other player)
+// lets an elite passer actually reach his real pace.
+function astTaper(astSoFar:number,mins:number,assistRate:number|undefined,elapsedMin:number):number{
+const target=apg36(assistRate)*(mins/36)*Math.min(1,elapsedMin/48)
+const threshold=Math.max(1,target)
 return astSoFar<=threshold?1:Math.max(.22,1-(astSoFar-threshold)*.20)
 }
 // Real "foul trouble" caution — a coach genuinely plays a player more
@@ -1115,7 +1126,7 @@ w*=pointsTaper(st?.[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMin)
 // applying astTaper here means a player who's already piling up assists
 // this game becomes less likely to also be the shooter, the same shared-
 // usage-budget idea real basketball roles already impose.
-w*=astTaper(st?.[p.id]?.ast||0,p.mins||0)
+w*=astTaper(st?.[p.id]?.ast||0,p.mins||0,p.assist_rate,elapsedMin)
 // Coefficient cut from .15 to .08 — a maxed-out streaky=100 player sitting
 // at mom=3 was getting a flat +45% shot-selection weight on top of an
 // already-legit star's higher base weight AND his top-3-usage priority
@@ -1406,9 +1417,42 @@ const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
 // real NBA on-ball fouls) so team-wide assist totals land in a realistic
 // range and assist_rate differences between players actually show up in
 // season averages instead of being swamped by opportunity volume.
+// Raised again to .74/.34 (from .62/.28) — makes off an offensive-rebound
+// putback never check for an assist at all (real, correct — putbacks
+// genuinely aren't assisted), so the checked paths need a higher base rate
+// to land the TEAM-WIDE blended average (across all makes, checked or not)
+// on the real target — confirmed via real rosters: was landing team AST at
+// ~21/game against a real ~25-28 target before this bump.
+// The assist-credit weight below also cross-applies pointsTaper (a
+// candidate receiver's OWN scoring pace) — intentional (a real incident:
+// 41pts+14ast in 21 minutes, an impossible combined rate no real dual role
+// produces), but full-strength was overcorrecting a merely-elite genuine
+// dual threat: Nikola Jokic (real 2025-26 league assist leader, 10.7/game,
+// who ALSO scores 27.7 PPG at the same time every night — nowhere near
+// that 41+14 incident) was landing at just 29% of his team's assists
+// in-sim against a real ~40% share, because his own heavy scoring kept
+// clipping his assist-credit weight. dampen()'d instead of applied at full
+// strength — still real, still discourages an actually-impossible combo,
+// just doesn't crush a player whose real-life role legitimately is both.
+// Two more fixes to the same assist-credit weight, verified together
+// against multiple real elite passers (not just Jokic): (1) the base term
+// used to be Math.max(.3,apg36(assist_rate)-1) — the flat "-1" barely dents
+// a high apg36 (Jokic: 11-1=10, -9%) but guts a low one (a bench player at
+// apg36 1.5 loses 67%), so it artificially widened the gap between the
+// single MOST extreme passer in the league and every other elite passer,
+// not just between stars and role players. Dropping it to a direct
+// Math.max(.15,apg36(...)) evened that back out — real check: Luka
+// (assist_rate 85) and Harden (84) landed almost exactly on their real
+// AST (8.7/8.3, 7.5/8.0) once this was fixed, they'd been overshooting
+// before to compensate for Jokic's uniquely extreme 95 dragging the whole
+// share cap conversation off. (2) With the base fixed, the wtCapped share
+// cap itself still needed raising .45->.50 — even a fixed weight formula
+// still competes across the WHOLE roster (see the same note on rebounds
+// above), so an elite, well-catered-to passer's real ~40%+ share of his
+// team's assists needs real room to reach it.
 const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult*ftTaper(ss.fta||0,sc2.mins||0,sc2.free_throw_rate,elapsedMinutes(q,tl)))
-if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.28+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)*pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl))})),.45);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
-if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.62+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.3,apg36(p.assist_rate)-1)*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0)*pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl))})),.45);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
+if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.34+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.15,apg36(p.assist_rate))*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0,p.assist_rate,elapsedMinutes(q,tl))*dampen(pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl)),.4)})),.50);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.74+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.15,apg36(p.assist_rate))*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0,p.assist_rate,elapsedMinutes(q,tl))*dampen(pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl)),.4)})),.50);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
 // a skill (off_reb) roll — a secondary, smaller weight so off_reb still
