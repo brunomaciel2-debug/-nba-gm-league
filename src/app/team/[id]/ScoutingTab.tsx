@@ -75,7 +75,11 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
   const [cart, setCart] = useState<{prospectId:string, attribute:string}[]>([])
   const [search, setSearch] = useState('')
   const [pos, setPos] = useState('All')
-  const [expandedProspect, setExpandedProspect] = useState<string|null>(null)
+  // A Set (not a single id) so a GM can have several prospects open side by
+  // side while distributing credits — opening one used to silently close
+  // whichever was already open, making it easy to lose track of who'd
+  // already gotten attention.
+  const [expandedProspects, setExpandedProspects] = useState<Set<string>>(new Set())
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -121,6 +125,14 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
 
   const isRevealed = (prospectId: string, attr: string) => revealedMap[prospectId]?.has(attr) || false
+
+  const toggleExpanded = (id: string) => {
+    setExpandedProspects(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   const toggleCartItem = (prospectId: string, attribute: string) => {
     if (creditsAvailable === 0) return
@@ -320,11 +332,12 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
         {filteredProspects.map(p => {
           const revealed = revealedMap[p.id] || new Set()
-          const isExpanded = expandedProspect === p.id
+          const isExpanded = expandedProspects.has(p.id)
+          const pendingCount = cart.filter(c => c.prospectId === p.id).length
           const pc = POS_COLOR[p.pos] || '#5c554e'
           return (
-            <div key={p.id} style={{borderRadius:12,border:'1px solid #d4cdc5',overflow:'hidden'}}>
-              <div onClick={() => setExpandedProspect(isExpanded ? null : p.id)}
+            <div key={p.id} style={{borderRadius:12,border: pendingCount>0 ? '1px solid #c4b5fd' : '1px solid #d4cdc5',overflow:'hidden'}}>
+              <div onClick={() => toggleExpanded(p.id)}
                 style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:'#faf8f5',cursor:'pointer'}}>
                 {p.photo_url
                   ? <img src={p.photo_url} alt="" style={{width:32,height:32,borderRadius:'50%',objectFit:'cover'}}/>
@@ -337,6 +350,14 @@ export default function ScoutingTab({ teamId, teamColor }: { teamId: string, tea
                     <span style={{color:pc,fontWeight:600}}>{p.pos}</span> · {p.college || (isPT ? 'Internacional' : 'International')}
                   </div>
                 </div>
+                {/* Visible even collapsed — the only way today's GM had of
+                    telling whether a prospect still had unsaved selections
+                    was to reopen every single card and check by eye. */}
+                {pendingCount > 0 && (
+                  <div style={{fontSize:11,fontWeight:700,padding:'3px 8px',borderRadius:10,background:'#ede9fe',color:'#6d28d9',whiteSpace:'nowrap'}}>
+                    +{pendingCount} {isPT ? 'por gravar' : 'pending'}
+                  </div>
+                )}
                 <div style={{fontSize:11,fontWeight:600,color: revealed.size === TOTAL_ATTRIBUTES ? '#15803d' : '#8a8279'}}>
                   {revealed.size}/{TOTAL_ATTRIBUTES} {isPT ? 'avaliado' : 'scouted'}
                 </div>
