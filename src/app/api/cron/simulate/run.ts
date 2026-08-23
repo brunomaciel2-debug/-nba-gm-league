@@ -1199,10 +1199,22 @@ await supabaseAdmin.from('players').update({ gleague_team_id: t.id }).eq('id', p
 // schedules only ever coincide at that single shared number, every other
 // G-League week (1-12, every one of them already due by now) never got
 // touched at all. Matches by real calendar date instead — anything due
-// (played_at up through this half's end) gets resolved, catching up any
-// backlog in the same pass rather than depending on a numeric coincidence.
-const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
-const halfEndInclusive = new Date(halfEnd)
+// gets resolved, catching up any backlog in the same pass rather than
+// depending on a numeric coincidence.
+// Cutoff is the last day THIS call actually simulated (cappedDates' last
+// entry — the same value just written to last_sim_day above), NOT
+// getHalfWeekDates(week,half).end. Real incident: this block moved up to
+// run on every call (see the comment where last_sim_day gets updated,
+// above) rather than only once a whole half fully finishes — but it kept
+// using the half's END date as the cutoff, so the very first "Simulate 1
+// Day" call to touch a half immediately resolved every G-League game
+// through the LAST day of that half, days before the NBA calendar had
+// actually reached them (a G-League game "from the future" showing
+// already played while "Now" still read an earlier date). Falls back to
+// the already-stored last_sim_day for a call that itself simulated no new
+// days (cappedDates empty).
+const lastProcessedDay = cappedDates.length > 0 ? cappedDates[cappedDates.length-1] : cfg?.last_sim_day
+const halfEndInclusive = lastProcessedDay ? new Date(lastProcessedDay+'T00:00:00') : new Date(0)
 halfEndInclusive.setDate(halfEndInclusive.getDate()+1)
 const { data: glGames } = await supabaseAdmin
 .from('gleague_games')
