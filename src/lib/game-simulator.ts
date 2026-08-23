@@ -38,9 +38,15 @@ function posFitMultiplier(avgDistance: number): number {
 // type, make%), but no longer gate the volume. Calibrated at 36 minutes per
 // the commissioner's own scoring table; breakpoints are the exact PPG/Scoring
 // pairs from that table (Scoring is the upper bound of each PPG bucket).
+// 81-99 replaced with finer, smoothly-accelerating steps (was just
+// 81/85/89/91.5/95, a coarse 4-segment climb with an awkward slope kink at
+// 91.5) so elite scorers ramp up continuously instead of jumping between
+// wide gaps — endpoints (81->24, 95->35, 99->40) unchanged, same design
+// intent, just more resolution in the star-player range.
 const SCORING_BREAKPOINTS:[number,number][]=[
 [0,0],[20,2],[28,4],[35,6],[41,8],[47,10],[53,12],[59,14],[65,16],[69,18],
-[73,20],[77,22],[81,24],[85,26],[89,28],[91.5,30],[95,35],
+[73,20],[77,22],[81,24],[83,24.6],[85,25.7],[87,27.1],[89,28.7],[91,30.6],
+[93,32.7],[95,35],[97,37.4],[99,40],
 ]
 function ppg36(scoring?:number):number{
 const s=Math.max(0,Math.min(99,scoring??50))
@@ -52,11 +58,9 @@ const[s0,p0]=bp[i-1],[s1,p1]=bp[i]
 return p0+(p1-p0)*(s-s0)/(s1-s0)
 }
 }
-// Beyond the table's top breakpoint (95): extrapolate the last segment's
-// slope, capped at a hard ceiling no real NBA workload realistically clears.
-const[s0,p0]=bp[bp.length-2],[s1,p1]=bp[bp.length-1]
-const slope=(p1-p0)/(s1-s0)
-return Math.min(40,p1+slope*(s-s1))
+// s is clamped to <=99 above and 99 is now the table's own top breakpoint,
+// so this is unreachable in practice — kept only as a type-safe fallback.
+return bp[bp.length-1][1]
 }
 
 // Three Attempt Rate (hidden) is the SOLE driver of how many threes a
@@ -828,7 +832,12 @@ let isGT=false,gtW=""
 const pbp:any[]=[],hb:any[]=[],ab:any[]=[]
 const seed=(ps:any[],ord:any)=>ps.forEach(p=>{st[p.id]={pts:0,or:0,dr:0,ast:0,stl:0,blk:0,fga:0,fgm:0,tpa:0,tpm:0,fta:0,ftm:0,pf:0,tf:0,fd:0,to:0,reb:0,turnovers:0,plus_minus:0};fat[p.id]=Math.min(100,Math.max(40,(p.health??100)-(ord.backToBack?12*(1-coachDampen(ord.substitutions)):0)));mom[p.id]=0;ls[p.id]=[];p.ejected=false})
 seed(hp,ho);seed(ap,ao)
-const pa=(ho.pace+ao.pace)/2,ppq=Math.round(25+pa/100*4)
+const pa=(ho.pace+ao.pace)/2
+// Shared between both sides on purpose — a game's tempo, not one team's shot
+// count, is what real complete-scorer stacking speeds up.
+const qualityExcess=Math.max(0,(teamScoringQuality(hp)+teamScoringQuality(ap))/2-65)
+const qualityPossBonus=Math.min(2,qualityExcess/12)
+const ppq=Math.round(25+pa/100*4+qualityPossBonus)
 const gameReferee=ho.referee||ao.referee
 const gameChippy=!!(ho.isRivalry||ao.isRivalry||ho.decisive||ao.decisive)
 // Regulation is exactly 4 quarters, but basketball has no ties: if the
@@ -1187,6 +1196,26 @@ return wtCapped(weighted,dynCap)
 }
 
 function simFT(p:any,n:number,fat:Record<string,number>){let m=0;for(let i=0;i<n;i++)if(Math.random()<p.ft/100*(.88+fat[p.id]/100*.12))m++;return m}
+
+// A team stacked with genuinely COMPLETE scorers — high SCR (volume) *and*
+// real shooting accuracy, not just usage — plays a little faster in real
+// life (more transition looks, quicker decisions off easy makes). The shot-
+// picking weight above (scoreVol) is deliberately volume-only, so this is
+// the one place accuracy gets to matter for anything beyond the individual
+// shooter's own make%. Bottlenecked with min() so a high-SCR/average-
+// accuracy "chucker" doesn't count as complete just for shooting a lot.
+// Baseline (65) means a normal-quality top-3 contributes ~0 — only a real
+// stack of elite two-way scorers nudges the game's pace at all.
+function teamScoringQuality(ps:any[]):number{
+const onFloor=ps.filter((p:any)=>(p.mins||0)>0)
+if(!onFloor.length)return 0
+const top=[...onFloor].sort((a,b)=>(b.scoring??50)-(a.scoring??50)).slice(0,3)
+const scores=top.map((p:any)=>{
+const acc=((p.three??50)+(p.layup??50)+(p.dunk??50))/3
+return Math.min(p.scoring??50,acc)
+})
+return scores.reduce((a,b)=>a+b,0)/scores.length
+}
 
 function simP(ot:any,dt:any,ops:any[],dps:any[],oo:any,doo:any,sc:any,st:any,fat:any,mom:any,ls:any,part:any,isC:boolean,os:"home"|"away",ds:"home"|"away",q:number,tl:number,pbp:any[],teamFouls:{home:number,away:number}){
 if(!ops.length||!dps.length)return
