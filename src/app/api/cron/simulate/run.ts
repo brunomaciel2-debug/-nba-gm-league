@@ -1124,6 +1124,251 @@ if (cappedDates.length > 0) {
 await supabaseAdmin.from('season_config').update({ last_sim_day: cappedDates[cappedDates.length - 1] }).eq('id', 1)
 }
 
+// ── G-LEAGUE SIMULATION ────────────────────────────────
+// Moved here from much further down in this function (past two early
+// returns below) — it used to only run on a call that both completed all
+// of half 2 AND wasn't day-capped. Real incident: the admin's actual
+// workflow is almost always "Simulate 1 Day", which returns early via the
+// dayLimit check right below, or a half-1-completing call, which returns
+// early further down — so last_sim_day (what SimulatorBanner shows as
+// "Now") kept advancing on every call while G-League games sat unplayed
+// for days, since the code that resolves them was never actually reached.
+// Placed right after last_sim_day updates (above) so it runs on every
+// single invocation regardless of which path returns early — its own
+// date-based cutoff (getHalfWeekDates(week, half) below) already only
+// pulls games that are actually due, so running it more often is exactly
+// the fix, not a risk.
+// A brief retry for a transient failure (a real incident: box score
+// inserts silently failed on some calls with no error surfaced, most
+// likely the kind of momentary connection/pooler hiccup a tight loop of
+// hundreds of sequential requests can hit under real load — something a
+// short isolated local script never reproduces). Not a fix for a
+// persistent problem (schema mismatch, bad data) — those still fail after
+// 3 tries and get logged same as before.
+const withRetry = async <T,>(fn: () => Promise<{data:T,error:any}>, label: string, attempts = 3): Promise<{data:T,error:any}> => {
+let last: {data:T,error:any} = {data: null as any, error: null}
+for (let i = 0; i < attempts; i++) {
+last = await fn()
+if (!last.error) return last
+if (i < attempts-1) await new Promise(r => setTimeout(r, 300*(i+1)))
+}
+console.warn(`${label} failed after ${attempts} attempts:`, last.error?.message)
+return last
+}
+
+try {
+// Auto top-up: keep every G-League roster at 10+ players. Real
+// incident — a first attempt at this same fix pulled in a 2027
+// draft-class prospect (AJ Dybantsa) and several Rest-of-World players,
+// both categories that should never be assignable. Bruno's explicit
+// criteria: only real, already-established free agents — age 23 or
+// under, no world_team_id (excludes Rest of the World), no
+// rookie_draft_season (excludes any not-yet-drafted prospect, current
+// class or future) — are eligible candidates.
+const MIN_GLEAGUE_ROSTER = 10
+{
+const { data: allGlTeams } = await supabaseAdmin.from('gleague_teams').select('id')
+const { data: allGlPlayers } = await supabaseAdmin.from('players').select('id,gleague_team_id').not('gleague_team_id','is',null)
+const rosterCounts: Record<string,number> = {}
+for (const p of (allGlPlayers||[])) rosterCounts[p.gleague_team_id] = (rosterCounts[p.gleague_team_id]||0)+1
+const thinTeams = (allGlTeams||[]).filter((t:any) => (rosterCounts[t.id]||0) < MIN_GLEAGUE_ROSTER)
+if (thinTeams.length > 0) {
+const totalNeeded = thinTeams.reduce((s:number,t:any)=>s+(MIN_GLEAGUE_ROSTER-(rosterCounts[t.id]||0)),0)
+const { data: pool } = await supabaseAdmin.from('players').select('id')
+.is('team_id',null).is('gleague_team_id',null).is('world_team_id',null)
+.eq('status','active').lte('age',23).is('rookie_draft_season',null)
+.limit(totalNeeded)
+let poolIdx = 0
+for (const t of thinTeams) {
+const need = MIN_GLEAGUE_ROSTER - (rosterCounts[t.id]||0)
+const toAssign = (pool||[]).slice(poolIdx, poolIdx+need)
+poolIdx += toAssign.length
+for (const p of toAssign) {
+await supabaseAdmin.from('players').update({ gleague_team_id: t.id }).eq('id', p.id)
+}
+}
+}
+}
+
+// Was matching G-League's own week_number directly against the NBA's
+// week counter — but the two are completely unrelated numbering schemes
+// (G-League's season starts Dec 27 with its own week 1; the NBA's week 1
+// is July 4). Real incident: the two numbers coincidentally matched once
+// (both "13"), which resolved 45 G-League games dated Mar 21-26 while the
+// NBA calendar was still in early January — and because the two
+// schedules only ever coincide at that single shared number, every other
+// G-League week (1-12, every one of them already due by now) never got
+// touched at all. Matches by real calendar date instead — anything due
+// (played_at up through this half's end) gets resolved, catching up any
+// backlog in the same pass rather than depending on a numeric coincidence.
+const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
+const halfEndInclusive = new Date(halfEnd)
+halfEndInclusive.setDate(halfEndInclusive.getDate()+1)
+const { data: glGames } = await supabaseAdmin
+.from('gleague_games')
+.select('*, home:gleague_teams!gleague_games_home_team_fkey(*), away:gleague_teams!gleague_games_away_team_fkey(*)')
+.lt('played_at', halfEndInclusive.toISOString())
+.eq('status', 'scheduled')
+.eq('season', '2025-26')
+// Capped per call — a backlog can genuinely reach 500+ games (this one
+// did, from sitting unsimulated for two months of real-world sessions
+// before this date-based fix existed), and generating a full roster's
+// box score for every one of them in a single invocation risks the exact
+// same hosting execution-time-limit failure already seen on the NBA side
+// with a big batch of games. Oldest-first so the catch-up clears the
+// backlog in order over a few calls instead of processing an arbitrary
+// slice of it.
+.order('played_at', { ascending: true })
+.limit(120)
+
+// Win/loss totals tracked in-memory across this whole batch instead of
+// writing from each game's own game.home/game.away snapshot — those were
+// fetched ONCE up front for the whole batch, so a team playing several
+// games in the same catch-up pass (routine now that a backlog exists) had
+// every update after the first overwrite the same "+1" instead of
+// accumulating, since none of them ever saw the batch's own earlier
+// writes. A real incident: a team that won 3 games in one batch ended up
+// recorded at 1-0, not 3-0.
+const teamRecords: Record<string,{wins:number,losses:number}> = {}
+const ensureTeamRecord = (t:any) => {
+if (!teamRecords[t.id]) teamRecords[t.id] = { wins: t.wins||0, losses: t.losses||0 }
+return teamRecords[t.id]
+}
+
+for (const game of (glGames || [])) {
+const { data: roster } = await supabaseAdmin
+.from('players').select('*')
+.in('gleague_team_id', [game.home_team, game.away_team])
+
+const homeBox = buildTeamBox((roster||[]).filter((p:any)=>p.gleague_team_id===game.home_team), game.home_team)
+const awayBox = buildTeamBox((roster||[]).filter((p:any)=>p.gleague_team_id===game.away_team), game.away_team)
+const homeScore = homeBox.reduce((s,b)=>s+b.pts,0)
+const awayScore = awayBox.reduce((s,b)=>s+b.pts,0)
+const hWon = homeScore > awayScore
+
+await supabaseAdmin.from('gleague_games').update({
+home_score: homeScore, away_score: awayScore, status: 'final'
+}).eq('id', game.id)
+
+if (homeBox.length>0 || awayBox.length>0) {
+// game_id is NOT NULL on gleague_box_scores — buildTeamBox has no way to
+// know it (it only builds one team's box), so it has to be stamped on
+// here. This was missing entirely before: every single insert violated
+// the not-null constraint and failed, which is the actual reason no
+// G-League box score ever saved, in every environment — a schema-cache
+// reload and a retry couldn't have fixed this, since the request itself
+// was always malformed.
+const withGameId = [...homeBox, ...awayBox].map(b => ({ ...b, game_id: game.id }))
+await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId), `gleague_box_scores insert for game ${game.id}`)
+}
+
+const homeRec = ensureTeamRecord(game.home)
+if (hWon) homeRec.wins++; else homeRec.losses++
+await supabaseAdmin.from('gleague_teams').update({ wins: homeRec.wins, losses: homeRec.losses }).eq('id', game.home_team)
+
+const awayRec = ensureTeamRecord(game.away)
+if (hWon) awayRec.losses++; else awayRec.wins++
+await supabaseAdmin.from('gleague_teams').update({ wins: awayRec.wins, losses: awayRec.losses }).eq('id', game.away_team)
+
+for (const b of [...homeBox, ...awayBox]) {
+// Double-double/triple-double — same 2-of-5 / 3-of-5 categories>=10
+// definition as the NBA side, computed per game from this box row (no
+// separate flag exists on gleague_box_scores, unlike box_scores'
+// is_double_double/is_triple_double, since G-League games are built as
+// a single final box rather than possession-by-possession).
+const catsAtLeast10 = [b.pts,b.reb,b.ast,b.stl,b.blk].filter((v:number)=>v>=10).length
+const isDD = catsAtLeast10>=2, isTD = catsAtLeast10>=3
+
+const { data: existStat } = await supabaseAdmin
+.from('gleague_player_stats').select('*')
+.eq('player_id', b.player_id).eq('season','2025-26').maybeSingle()
+
+if (existStat) {
+await supabaseAdmin.from('gleague_player_stats').update({
+games: existStat.games + 1, mins: existStat.mins+b.mins,
+pts: existStat.pts + b.pts, reb: existStat.reb + b.reb,
+ast: existStat.ast + b.ast, stl: existStat.stl + b.stl, blk: existStat.blk + b.blk,
+fgm: existStat.fgm+b.fgm, fga: existStat.fga+b.fga, tpm: existStat.tpm+b.tpm, tpa: existStat.tpa+b.tpa,
+ftm: existStat.ftm+b.ftm, fta: existStat.fta+b.fta,
+off_reb: (existStat.off_reb||0)+(b.off_reb||0), def_reb: (existStat.def_reb||0)+(b.def_reb||0),
+turnovers: (existStat.turnovers||0)+(b.turnovers||0), fouls: (existStat.fouls||0)+(b.pf||0),
+double_doubles: (existStat.double_doubles||0)+(isDD?1:0), triple_doubles: (existStat.triple_doubles||0)+(isTD?1:0),
+}).eq('id', existStat.id)
+} else {
+await supabaseAdmin.from('gleague_player_stats').insert({
+player_id: b.player_id, gleague_team_id: b.gleague_team_id,
+season: '2025-26', games: 1, mins: b.mins,
+pts: b.pts, reb: b.reb, ast: b.ast, stl: b.stl, blk: b.blk,
+fgm: b.fgm, fga: b.fga, tpm: b.tpm, tpa: b.tpa, ftm: b.ftm, fta: b.fta,
+off_reb: b.off_reb||0, def_reb: b.def_reb||0, turnovers: b.turnovers||0, fouls: b.pf||0,
+double_doubles: isDD?1:0, triple_doubles: isTD?1:0,
+})
+}
+
+const devBoost = Math.random() < 0.15
+if (devBoost) {
+const attrs = ['three','layup','mid','ft','siq','ball_hdl','pass_vis','stamina','durability']
+const attr = attrs[Math.floor(Math.random() * attrs.length)]
+const p = (roster||[]).find((rp:any)=>rp.id===b.player_id)
+const cur = (p as any)?.[attr] || 60
+if (cur < 90) {
+await supabaseAdmin.from('players').update({ [attr]: cur + 1 }).eq('id', b.player_id)
+}
+}
+}
+}
+
+// Self-heal: any already-'final' G-League game still missing its box
+// score (every game resolved before the game_id fix above, plus any
+// future one-off insert failure the retry didn't recover from) gets one
+// regenerated here. Scaled to match the score already locked into the
+// game record — since it's already final, the score itself is the one
+// unchangeable fact, so the box has to fit it, not the other way round.
+// Bounded to the 200 most recently-played final games so an old gap
+// doesn't turn every future call into a full-season scan.
+const { data: recentFinals } = await supabaseAdmin
+.from('gleague_games').select('id,home_team,away_team,home_score,away_score')
+.eq('status','final').eq('season','2025-26')
+.order('played_at',{ascending:false}).limit(200)
+if (recentFinals && recentFinals.length>0) {
+const { data: existingBoxGameIds } = await supabaseAdmin
+.from('gleague_box_scores').select('game_id').in('game_id', recentFinals.map((g:any)=>g.id))
+const covered = new Set((existingBoxGameIds||[]).map((r:any)=>r.game_id))
+const missing = recentFinals.filter((g:any)=>!covered.has(g.id))
+const scaleToScore = (box:any[], target:number) => {
+const total = box.reduce((s,b)=>s+b.pts,0)
+if (total<=0 || target<=0) return box
+const k = target/total
+const out = box.map(b=>({...b, pts: Math.max(0,Math.round(b.pts*k)), fgm: Math.max(0,Math.round(b.fgm*k)), tpm: Math.max(0,Math.round(b.tpm*k)), ftm: Math.max(0,Math.round(b.ftm*k))}))
+const diff = target - out.reduce((s,b)=>s+b.pts,0)
+if (diff!==0 && out.length>0) {
+const topIdx = out.reduce((best,b,i)=>b.pts>out[best].pts?i:best,0)
+out[topIdx] = {...out[topIdx], pts: Math.max(0,out[topIdx].pts+diff)}
+}
+return out
+}
+for (const g of missing) {
+const { data: roster2 } = await supabaseAdmin.from('players').select('*').in('gleague_team_id',[g.home_team,g.away_team])
+const homeBox2 = scaleToScore(buildTeamBox((roster2||[]).filter((p:any)=>p.gleague_team_id===g.home_team), g.home_team), g.home_score||0)
+const awayBox2 = scaleToScore(buildTeamBox((roster2||[]).filter((p:any)=>p.gleague_team_id===g.away_team), g.away_team), g.away_score||0)
+if (homeBox2.length>0 || awayBox2.length>0) {
+const withGameId2 = [...homeBox2, ...awayBox2].map(b=>({...b, game_id: g.id}))
+await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId2), `gleague_box_scores backfill for game ${g.id}`)
+}
+}
+}
+} catch(glErr) { console.warn('G-League sim error:', glErr) }
+
+// G-League playoffs — runs on the G-League's own calendar (see
+// gleague-playoff-resolver.ts's self-guard), completely independent of
+// which NBA phase this week is in, same reasoning as why the regular-
+// season G-League catch-up above matches real calendar dates instead of
+// the NBA's week_number.
+try {
+const glpResult = await resolveGLeaguePlayoffs(week)
+if (glpResult.processed > 0) console.log(`G-League playoffs — games simulated: ${glpResult.processed}`)
+} catch (glpErr) { console.warn('G-League playoff step failed:', glpErr) }
+
 // A capped call that didn't cover every day in this half yet (pre-season
 // friendlies/ticks have no other way to detect "still more to do" the way
 // the regular-season games check above does, since preseason has no
@@ -1904,238 +2149,6 @@ console.warn(`Monthly development report failed for ${devMonthKey}:`, oneDevMont
 }
 } catch (devReportErr) { console.warn('Monthly development report step failed:', devReportErr) }
 }
-
-// ── G-LEAGUE SIMULATION ────────────────────────────────
-// A brief retry for a transient failure (a real incident: box score
-// inserts silently failed on some calls with no error surfaced, most
-// likely the kind of momentary connection/pooler hiccup a tight loop of
-// hundreds of sequential requests can hit under real load — something a
-// short isolated local script never reproduces). Not a fix for a
-// persistent problem (schema mismatch, bad data) — those still fail after
-// 3 tries and get logged same as before.
-const withRetry = async <T,>(fn: () => Promise<{data:T,error:any}>, label: string, attempts = 3): Promise<{data:T,error:any}> => {
-let last: {data:T,error:any} = {data: null as any, error: null}
-for (let i = 0; i < attempts; i++) {
-last = await fn()
-if (!last.error) return last
-if (i < attempts-1) await new Promise(r => setTimeout(r, 300*(i+1)))
-}
-console.warn(`${label} failed after ${attempts} attempts:`, last.error?.message)
-return last
-}
-
-try {
-// Auto top-up: keep every G-League roster at 10+ players. Real
-// incident — a first attempt at this same fix pulled in a 2027
-// draft-class prospect (AJ Dybantsa) and several Rest-of-World players,
-// both categories that should never be assignable. Bruno's explicit
-// criteria: only real, already-established free agents — age 23 or
-// under, no world_team_id (excludes Rest of the World), no
-// rookie_draft_season (excludes any not-yet-drafted prospect, current
-// class or future) — are eligible candidates.
-const MIN_GLEAGUE_ROSTER = 10
-{
-const { data: allGlTeams } = await supabaseAdmin.from('gleague_teams').select('id')
-const { data: allGlPlayers } = await supabaseAdmin.from('players').select('id,gleague_team_id').not('gleague_team_id','is',null)
-const rosterCounts: Record<string,number> = {}
-for (const p of (allGlPlayers||[])) rosterCounts[p.gleague_team_id] = (rosterCounts[p.gleague_team_id]||0)+1
-const thinTeams = (allGlTeams||[]).filter((t:any) => (rosterCounts[t.id]||0) < MIN_GLEAGUE_ROSTER)
-if (thinTeams.length > 0) {
-const totalNeeded = thinTeams.reduce((s:number,t:any)=>s+(MIN_GLEAGUE_ROSTER-(rosterCounts[t.id]||0)),0)
-const { data: pool } = await supabaseAdmin.from('players').select('id')
-.is('team_id',null).is('gleague_team_id',null).is('world_team_id',null)
-.eq('status','active').lte('age',23).is('rookie_draft_season',null)
-.limit(totalNeeded)
-let poolIdx = 0
-for (const t of thinTeams) {
-const need = MIN_GLEAGUE_ROSTER - (rosterCounts[t.id]||0)
-const toAssign = (pool||[]).slice(poolIdx, poolIdx+need)
-poolIdx += toAssign.length
-for (const p of toAssign) {
-await supabaseAdmin.from('players').update({ gleague_team_id: t.id }).eq('id', p.id)
-}
-}
-}
-}
-
-// Was matching G-League's own week_number directly against the NBA's
-// week counter — but the two are completely unrelated numbering schemes
-// (G-League's season starts Dec 27 with its own week 1; the NBA's week 1
-// is July 4). Real incident: the two numbers coincidentally matched once
-// (both "13"), which resolved 45 G-League games dated Mar 21-26 while the
-// NBA calendar was still in early January — and because the two
-// schedules only ever coincide at that single shared number, every other
-// G-League week (1-12, every one of them already due by now) never got
-// touched at all. Matches by real calendar date instead — anything due
-// (played_at up through this half's end) gets resolved, catching up any
-// backlog in the same pass rather than depending on a numeric coincidence.
-const { start: halfStart, end: halfEnd } = getHalfWeekDates(week, half)
-const halfEndInclusive = new Date(halfEnd)
-halfEndInclusive.setDate(halfEndInclusive.getDate()+1)
-const { data: glGames } = await supabaseAdmin
-.from('gleague_games')
-.select('*, home:gleague_teams!gleague_games_home_team_fkey(*), away:gleague_teams!gleague_games_away_team_fkey(*)')
-.lt('played_at', halfEndInclusive.toISOString())
-.eq('status', 'scheduled')
-.eq('season', '2025-26')
-// Capped per call — a backlog can genuinely reach 500+ games (this one
-// did, from sitting unsimulated for two months of real-world sessions
-// before this date-based fix existed), and generating a full roster's
-// box score for every one of them in a single invocation risks the exact
-// same hosting execution-time-limit failure already seen on the NBA side
-// with a big batch of games. Oldest-first so the catch-up clears the
-// backlog in order over a few calls instead of processing an arbitrary
-// slice of it.
-.order('played_at', { ascending: true })
-.limit(120)
-
-// Win/loss totals tracked in-memory across this whole batch instead of
-// writing from each game's own game.home/game.away snapshot — those were
-// fetched ONCE up front for the whole batch, so a team playing several
-// games in the same catch-up pass (routine now that a backlog exists) had
-// every update after the first overwrite the same "+1" instead of
-// accumulating, since none of them ever saw the batch's own earlier
-// writes. A real incident: a team that won 3 games in one batch ended up
-// recorded at 1-0, not 3-0.
-const teamRecords: Record<string,{wins:number,losses:number}> = {}
-const ensureTeamRecord = (t:any) => {
-if (!teamRecords[t.id]) teamRecords[t.id] = { wins: t.wins||0, losses: t.losses||0 }
-return teamRecords[t.id]
-}
-
-for (const game of (glGames || [])) {
-const { data: roster } = await supabaseAdmin
-.from('players').select('*')
-.in('gleague_team_id', [game.home_team, game.away_team])
-
-const homeBox = buildTeamBox((roster||[]).filter((p:any)=>p.gleague_team_id===game.home_team), game.home_team)
-const awayBox = buildTeamBox((roster||[]).filter((p:any)=>p.gleague_team_id===game.away_team), game.away_team)
-const homeScore = homeBox.reduce((s,b)=>s+b.pts,0)
-const awayScore = awayBox.reduce((s,b)=>s+b.pts,0)
-const hWon = homeScore > awayScore
-
-await supabaseAdmin.from('gleague_games').update({
-home_score: homeScore, away_score: awayScore, status: 'final'
-}).eq('id', game.id)
-
-if (homeBox.length>0 || awayBox.length>0) {
-// game_id is NOT NULL on gleague_box_scores — buildTeamBox has no way to
-// know it (it only builds one team's box), so it has to be stamped on
-// here. This was missing entirely before: every single insert violated
-// the not-null constraint and failed, which is the actual reason no
-// G-League box score ever saved, in every environment — a schema-cache
-// reload and a retry couldn't have fixed this, since the request itself
-// was always malformed.
-const withGameId = [...homeBox, ...awayBox].map(b => ({ ...b, game_id: game.id }))
-await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId), `gleague_box_scores insert for game ${game.id}`)
-}
-
-const homeRec = ensureTeamRecord(game.home)
-if (hWon) homeRec.wins++; else homeRec.losses++
-await supabaseAdmin.from('gleague_teams').update({ wins: homeRec.wins, losses: homeRec.losses }).eq('id', game.home_team)
-
-const awayRec = ensureTeamRecord(game.away)
-if (hWon) awayRec.losses++; else awayRec.wins++
-await supabaseAdmin.from('gleague_teams').update({ wins: awayRec.wins, losses: awayRec.losses }).eq('id', game.away_team)
-
-for (const b of [...homeBox, ...awayBox]) {
-// Double-double/triple-double — same 2-of-5 / 3-of-5 categories>=10
-// definition as the NBA side, computed per game from this box row (no
-// separate flag exists on gleague_box_scores, unlike box_scores'
-// is_double_double/is_triple_double, since G-League games are built as
-// a single final box rather than possession-by-possession).
-const catsAtLeast10 = [b.pts,b.reb,b.ast,b.stl,b.blk].filter((v:number)=>v>=10).length
-const isDD = catsAtLeast10>=2, isTD = catsAtLeast10>=3
-
-const { data: existStat } = await supabaseAdmin
-.from('gleague_player_stats').select('*')
-.eq('player_id', b.player_id).eq('season','2025-26').maybeSingle()
-
-if (existStat) {
-await supabaseAdmin.from('gleague_player_stats').update({
-games: existStat.games + 1, mins: existStat.mins+b.mins,
-pts: existStat.pts + b.pts, reb: existStat.reb + b.reb,
-ast: existStat.ast + b.ast, stl: existStat.stl + b.stl, blk: existStat.blk + b.blk,
-fgm: existStat.fgm+b.fgm, fga: existStat.fga+b.fga, tpm: existStat.tpm+b.tpm, tpa: existStat.tpa+b.tpa,
-ftm: existStat.ftm+b.ftm, fta: existStat.fta+b.fta,
-off_reb: (existStat.off_reb||0)+(b.off_reb||0), def_reb: (existStat.def_reb||0)+(b.def_reb||0),
-turnovers: (existStat.turnovers||0)+(b.turnovers||0), fouls: (existStat.fouls||0)+(b.pf||0),
-double_doubles: (existStat.double_doubles||0)+(isDD?1:0), triple_doubles: (existStat.triple_doubles||0)+(isTD?1:0),
-}).eq('id', existStat.id)
-} else {
-await supabaseAdmin.from('gleague_player_stats').insert({
-player_id: b.player_id, gleague_team_id: b.gleague_team_id,
-season: '2025-26', games: 1, mins: b.mins,
-pts: b.pts, reb: b.reb, ast: b.ast, stl: b.stl, blk: b.blk,
-fgm: b.fgm, fga: b.fga, tpm: b.tpm, tpa: b.tpa, ftm: b.ftm, fta: b.fta,
-off_reb: b.off_reb||0, def_reb: b.def_reb||0, turnovers: b.turnovers||0, fouls: b.pf||0,
-double_doubles: isDD?1:0, triple_doubles: isTD?1:0,
-})
-}
-
-const devBoost = Math.random() < 0.15
-if (devBoost) {
-const attrs = ['three','layup','mid','ft','siq','ball_hdl','pass_vis','stamina','durability']
-const attr = attrs[Math.floor(Math.random() * attrs.length)]
-const p = (roster||[]).find((rp:any)=>rp.id===b.player_id)
-const cur = (p as any)?.[attr] || 60
-if (cur < 90) {
-await supabaseAdmin.from('players').update({ [attr]: cur + 1 }).eq('id', b.player_id)
-}
-}
-}
-}
-
-// Self-heal: any already-'final' G-League game still missing its box
-// score (every game resolved before the game_id fix above, plus any
-// future one-off insert failure the retry didn't recover from) gets one
-// regenerated here. Scaled to match the score already locked into the
-// game record — since it's already final, the score itself is the one
-// unchangeable fact, so the box has to fit it, not the other way round.
-// Bounded to the 200 most recently-played final games so an old gap
-// doesn't turn every future call into a full-season scan.
-const { data: recentFinals } = await supabaseAdmin
-.from('gleague_games').select('id,home_team,away_team,home_score,away_score')
-.eq('status','final').eq('season','2025-26')
-.order('played_at',{ascending:false}).limit(200)
-if (recentFinals && recentFinals.length>0) {
-const { data: existingBoxGameIds } = await supabaseAdmin
-.from('gleague_box_scores').select('game_id').in('game_id', recentFinals.map((g:any)=>g.id))
-const covered = new Set((existingBoxGameIds||[]).map((r:any)=>r.game_id))
-const missing = recentFinals.filter((g:any)=>!covered.has(g.id))
-const scaleToScore = (box:any[], target:number) => {
-const total = box.reduce((s,b)=>s+b.pts,0)
-if (total<=0 || target<=0) return box
-const k = target/total
-const out = box.map(b=>({...b, pts: Math.max(0,Math.round(b.pts*k)), fgm: Math.max(0,Math.round(b.fgm*k)), tpm: Math.max(0,Math.round(b.tpm*k)), ftm: Math.max(0,Math.round(b.ftm*k))}))
-const diff = target - out.reduce((s,b)=>s+b.pts,0)
-if (diff!==0 && out.length>0) {
-const topIdx = out.reduce((best,b,i)=>b.pts>out[best].pts?i:best,0)
-out[topIdx] = {...out[topIdx], pts: Math.max(0,out[topIdx].pts+diff)}
-}
-return out
-}
-for (const g of missing) {
-const { data: roster2 } = await supabaseAdmin.from('players').select('*').in('gleague_team_id',[g.home_team,g.away_team])
-const homeBox2 = scaleToScore(buildTeamBox((roster2||[]).filter((p:any)=>p.gleague_team_id===g.home_team), g.home_team), g.home_score||0)
-const awayBox2 = scaleToScore(buildTeamBox((roster2||[]).filter((p:any)=>p.gleague_team_id===g.away_team), g.away_team), g.away_score||0)
-if (homeBox2.length>0 || awayBox2.length>0) {
-const withGameId2 = [...homeBox2, ...awayBox2].map(b=>({...b, game_id: g.id}))
-await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId2), `gleague_box_scores backfill for game ${g.id}`)
-}
-}
-}
-} catch(glErr) { console.warn('G-League sim error:', glErr) }
-
-// G-League playoffs — runs on the G-League's own calendar (see
-// gleague-playoff-resolver.ts's self-guard), completely independent of
-// which NBA phase this week is in, same reasoning as why the regular-
-// season G-League catch-up above matches real calendar dates instead of
-// the NBA's week_number.
-try {
-const glpResult = await resolveGLeaguePlayoffs(week)
-if (glpResult.processed > 0) console.log(`G-League playoffs — games simulated: ${glpResult.processed}`)
-} catch (glpErr) { console.warn('G-League playoff step failed:', glpErr) }
 
 // ── AWARDS ────────────────────────────────────────────
 if (!isPreseason) {
