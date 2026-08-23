@@ -13,26 +13,50 @@ import GlobalSearch from './GlobalSearch'
 // whole nav row now lives on the same dark strip as the logo/icons (merged
 // from what used to be two separate bars), so these replace the old
 // light-background colors (#2d2722 text / red-on-hover) with white-on-dark.
+// Was a bare underline (bottom-border accent on hover) — Bruno: the actual
+// shape of these felt dated, not the colors. Now a real pill-shaped button:
+// rounded, soft background highlight on hover/active, no underline at all.
 const navBtnStyle: React.CSSProperties = {
-  padding: '9px 9px', fontSize: 13, fontWeight: 600, color: '#c9d1d9',
-  borderBottom: '3px solid transparent', marginBottom: -1, whiteSpace: 'nowrap',
+  padding: '8px 13px', fontSize: 13, fontWeight: 600, color: '#c9d1d9',
+  borderRadius: 10, whiteSpace: 'nowrap', transition: 'background-color 0.15s ease, color 0.15s ease',
 }
-const navBtnHover = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderBottomColor = '#c8102e' }
-const navBtnLeave = (e: React.MouseEvent<HTMLElement>, active: boolean) => { if (!active) { e.currentTarget.style.color = '#c9d1d9'; e.currentTarget.style.borderBottomColor = 'transparent' } }
+const navBtnHover = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.09)' }
+const navBtnLeave = (e: React.MouseEvent<HTMLElement>, active: boolean) => { if (!active) { e.currentTarget.style.color = '#c9d1d9'; e.currentTarget.style.backgroundColor = 'transparent' } }
 
-function NavDropdown({ label, icon, items, onNavigate }: {
-  label: string, icon: string, items: any[], onNavigate: () => void
+// One item row, shared by both the flat list and the mega-menu columns below.
+function NavItemRow({ item, onClick }: { item: any, onClick: () => void }) {
+  return (
+    <Link href={item.href}
+      onClick={onClick}
+      className="flex items-center gap-2.5 px-2.5 py-2 text-xs no-underline transition-all"
+      style={{ color: '#333029', borderRadius: 10, margin: '1px 0', fontWeight: 500, breakInside: 'avoid' }}
+      onMouseEnter={e => (e.currentTarget.style.background = '#faf3e9')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+      <span className="flex items-center justify-center flex-shrink-0"
+            style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(200,16,46,0.09)' }}>
+        <i className={`ti ${item.icon}`} style={{ fontSize: 13, color: '#c8102e' }}></i>
+      </span>
+      {item.label}
+    </Link>
+  )
+}
+
+function NavDropdown({ label, icon, items, onNavigate, columns = 1 }: {
+  label: string, icon: string, items: any[], onNavigate: () => void, columns?: number
 }) {
   const [open, setOpen] = useState(false)
-  // Sub-groups (Rules & Info's Roster & Contracts/On the Court/etc.) start
-  // collapsed — Bruno: even grouped, a 21-item list still meant "muito
-  // scroll down" just to open the dropdown. Clicking a group heading
-  // toggles just that section instead of showing everything at once.
-  // League/Events items have no `group` field, so this never engages for
-  // them — they still render as a plain flat list, unchanged.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const ref = useRef<HTMLDivElement>(null)
   const hasGroups = items.some((item: any) => item.group)
+  // Grouped dropdowns (Rules & Info's Roster & Contracts/On the Court/etc.,
+  // League's Standings & Schedule/Transactions/Stats & Rankings) used to hide
+  // every group behind a click-to-expand accordion — Bruno: even grouped, a
+  // 21-item single column still meant a lot of scrolling to open. Laying the
+  // groups out as real side-by-side columns (a standard "mega menu") shows
+  // everything at once with no scrolling AND no clicks, instead of trading
+  // scroll for hidden content.
+  const ungrouped = items.filter((item: any) => !item.group)
+  const groupNames: string[] = []
+  items.forEach((item: any) => { if (item.group && !groupNames.includes(item.group)) groupNames.push(item.group) })
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -47,50 +71,35 @@ function NavDropdown({ label, icon, items, onNavigate }: {
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1 no-underline transition-all"
-        style={{ ...navBtnStyle, color: open ? '#fff' : navBtnStyle.color, borderBottomColor: open ? '#c8102e' : 'transparent', background: 'transparent', border: 'none', borderBottomWidth: 3, borderBottomStyle: 'solid', cursor: 'pointer' }}
+        style={{ ...navBtnStyle, color: open ? '#fff' : navBtnStyle.color, backgroundColor: open ? 'rgba(255,255,255,0.11)' : 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0 }}
         onMouseEnter={navBtnHover}
         onMouseLeave={e => navBtnLeave(e, open)}>
         <i className={`ti ${icon}`} style={{ fontSize: 14 }}></i>
         {label}
-        <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize: 13, marginLeft: 2, color: '#d4a537' }}></i>
+        <i className="ti ti-chevron-down" style={{ fontSize: 13, marginLeft: 2, color: '#d4a537', display: 'inline-block', transition: 'transform 0.15s ease', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}></i>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-50 rounded-xl py-1"
-             style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 220, maxHeight: '75vh', overflowY: 'auto',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.2)', marginTop: 8 }}>
-          {items.map((item: any, i: number) => {
-            const showGroup = item.group && item.group !== items[i - 1]?.group
-            if (hasGroups && item.group && !showGroup && !openGroups[item.group]) return null
-            return (
-              <div key={item.href}>
-                {showGroup && (
-                  <button type="button" onClick={() => setOpenGroups(prev => ({ ...prev, [item.group]: !prev[item.group] }))}
-                    className="w-full flex items-center justify-between"
-                    style={{
-                      margin: i === 0 ? '4px 8px 2px' : '10px 8px 2px', padding: '4px 6px',
-                      fontSize: 10, fontWeight: 700, letterSpacing: '0.5px',
-                      textTransform: 'uppercase', color: '#8a8279',
-                      background: 'transparent', border: 'none', cursor: 'pointer', width: 'calc(100% - 16px)',
-                    }}>
-                    {item.group}
-                    <i className={`ti ti-chevron-${openGroups[item.group] ? 'up' : 'down'}`} style={{ fontSize: 11 }}></i>
-                  </button>
-                )}
-                {showGroup && i !== 0 && <div style={{ height: 1, background: '#d6d0c6', margin: '0 12px 4px' }} />}
-                {(!item.group || openGroups[item.group]) && (
-                  <Link href={item.href}
-                    onClick={() => { setOpen(false); onNavigate() }}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
-                    style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                    <i className={`ti ${item.icon}`} style={{ fontSize: 14, color: '#c8102e' }}></i>
-                    {item.label}
-                  </Link>
-                )}
-              </div>
-            )
-          })}
+        <div className="absolute left-0 top-full z-50 nav-dropdown-panel"
+             style={{ background: '#fff', border: '1px solid #eceae5', borderRadius: 16, padding: '10px', minWidth: hasGroups ? Math.min(240 * columns, 620) : 240, maxHeight: '80vh', overflowY: 'auto',
+                      boxShadow: '0 20px 44px -12px rgba(15,22,35,0.22), 0 4px 14px rgba(15,22,35,0.07)', marginTop: 10 }}>
+          {ungrouped.map((item: any) => (
+            <NavItemRow key={item.href} item={item} onClick={() => { setOpen(false); onNavigate() }} />
+          ))}
+          {ungrouped.length > 0 && hasGroups && <div style={{ height: 1, background: '#efece6', margin: '6px 4px 8px' }} />}
+          {hasGroups && (
+            <div style={{ columnCount: columns, columnGap: 20 }}>
+              {groupNames.map(group => (
+                <div key={group} style={{ breakInside: 'avoid', marginBottom: 12 }}>
+                  <div style={{ padding: '4px 10px 2px', fontSize: 10, fontWeight: 800, letterSpacing: '0.6px', textTransform: 'uppercase', color: '#a8a196' }}>
+                    {group}
+                  </div>
+                  {items.filter((item: any) => item.group === group).map((item: any) => (
+                    <NavItemRow key={item.href} item={item} onClick={() => { setOpen(false); onNavigate() }} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -119,6 +128,7 @@ export default function Navbar() {
     {
       label: isPT ? 'Liga' : 'League',
       icon: 'ti-ball-basketball',
+      columns: 2,
       items: [
         { label: isPT ? 'Equipas'          : 'Teams',           href: '/teams',          icon: 'ti-users' },
         { label: isPT ? 'Classificação'    : 'Standings',       href: '/standings',      icon: 'ti-list-numbers', group: isPT ? 'Classificação & Calendário' : 'Standings & Schedule' },
@@ -149,7 +159,12 @@ export default function Navbar() {
       // Used to be a single plain link — G-League's own page already has 5
       // internal tabs (Teams/Standings/Schedule/Leaders/Playoffs) with
       // nothing in the navbar pointing at them directly.
-      label: 'G-League',
+      // Label uses a non-breaking hyphen (U+2011, looks identical to "-") —
+      // a plain hyphen is a legal line-break point for flexbox's automatic
+      // min-content sizing, so under real-world width pressure the button
+      // could wrap to "G-" / "League" on two lines even with
+      // white-space:nowrap set. Real incident: happened on Bruno's screen.
+      label: 'G‑League',
       icon: 'ti-ball-basketball',
       items: [
         { label: isPT ? 'Equipas'          : 'Teams',          href: '/gleague?tab=teams',     icon: 'ti-users' },
@@ -168,6 +183,7 @@ export default function Navbar() {
   const RULES_DROPDOWN = {
     label: isPT ? 'Regras & Info' : 'Rules & Info',
     icon: 'ti-book',
+    columns: 3,
     items: [
       // 1. Roster & Contracts
       { label: isPT ? 'Regras do Tecto Salarial'  : 'Salary Cap Rules',    href: '/rules/cap',      icon: 'ti-cash', group: isPT ? 'Plantel & Contratos' : 'Roster & Contracts' },
@@ -264,7 +280,7 @@ export default function Navbar() {
             </Link>
 
             {NAV_DROPDOWNS.map(d => (
-              <NavDropdown key={d.label} label={d.label} icon={d.icon} items={d.items} onNavigate={() => {}} />
+              <NavDropdown key={d.label} label={d.label} icon={d.icon} items={d.items} onNavigate={() => {}} columns={(d as any).columns} />
             ))}
 
             {/* Separates primary league navigation from reference material
@@ -272,7 +288,7 @@ export default function Navbar() {
                 diferentes" from the League/Events/G-League group. */}
             <span style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.15)', margin: '0 6px', flexShrink: 0 }} />
 
-            <NavDropdown label={RULES_DROPDOWN.label} icon={RULES_DROPDOWN.icon} items={RULES_DROPDOWN.items} onNavigate={() => {}} />
+            <NavDropdown label={RULES_DROPDOWN.label} icon={RULES_DROPDOWN.icon} items={RULES_DROPDOWN.items} onNavigate={() => {}} columns={RULES_DROPDOWN.columns} />
 
             {NAV_LINKS_RIGHT.map(item => (
               <Link key={item.href} href={item.href}
@@ -303,24 +319,32 @@ export default function Navbar() {
                     <i className="ti ti-chevron-down" style={{ fontSize: 11 }}></i>
                   </button>
                   {commOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-50 rounded-xl overflow-hidden py-1"
-                         style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
+                    <div className="absolute right-0 top-full z-50 nav-dropdown-panel"
+                         style={{ background: '#fff', border: '1px solid #eceae5', borderRadius: 16, padding: '6px', minWidth: 220, marginTop: 10,
+                                  boxShadow: '0 20px 44px -12px rgba(15,22,35,0.22), 0 4px 14px rgba(15,22,35,0.07)' }}>
                       {COMM_LINKS.map(item => (
                         <Link key={item.href} href={item.href} onClick={() => setCommOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
-                          style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
+                          className="flex items-center gap-2.5 px-2.5 py-2 text-xs no-underline transition-all"
+                          style={{ color: '#333029', borderRadius: 10, margin: '1px 2px', fontWeight: 500 }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#faf3e9')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                          <i className={`ti ${item.icon}`} style={{ fontSize: 14, color: '#c8102e' }}></i>
+                          <span className="flex items-center justify-center flex-shrink-0"
+                                style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(200,16,46,0.09)' }}>
+                            <i className={`ti ${item.icon}`} style={{ fontSize: 13, color: '#c8102e' }}></i>
+                          </span>
                           {item.label}
                         </Link>
                       ))}
+                      <div style={{ height: 1, background: '#efece6', margin: '4px 8px' }} />
                       <button onClick={() => { signOut(); setCommOpen(false) }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs"
-                        style={{ color: '#dc2626' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
+                        className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs"
+                        style={{ color: '#dc2626', borderRadius: 10, margin: '1px 2px', border: 'none', background: 'transparent', fontWeight: 500 }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#fdf1f1')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <i className="ti ti-logout" style={{ fontSize: 14 }}></i>
+                        <span className="flex items-center justify-center flex-shrink-0"
+                              style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(220,38,38,0.09)' }}>
+                          <i className="ti ti-logout" style={{ fontSize: 13 }}></i>
+                        </span>
                         {isPT ? 'Terminar Sessão' : 'Sign Out'}
                       </button>
                     </div>
@@ -336,29 +360,37 @@ export default function Navbar() {
                     <i className="ti ti-chevron-down" style={{ fontSize: 11 }}></i>
                   </button>
                   {gmOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-50 rounded-xl overflow-hidden py-1"
-                         style={{ background: '#ede8df', border: '1px solid #cec8be', minWidth: 210, boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-                      <div className="px-4 py-2.5 text-xs font-black uppercase tracking-widest"
-                           style={{ color: '#1d4ed8', borderBottom: '1px solid #d6d0c6', background: '#e8e2d6' }}>
-                        <i className="ti ti-building mr-1.5" style={{ fontSize: 13 }}></i>
+                    <div className="absolute right-0 top-full z-50 nav-dropdown-panel overflow-hidden"
+                         style={{ background: '#fff', border: '1px solid #eceae5', borderRadius: 16, padding: '6px', minWidth: 220, marginTop: 10,
+                                  boxShadow: '0 20px 44px -12px rgba(15,22,35,0.22), 0 4px 14px rgba(15,22,35,0.07)' }}>
+                      <div className="px-2.5 py-2 text-xs font-black uppercase tracking-widest flex items-center gap-2"
+                           style={{ color: '#1d4ed8', borderRadius: 10, background: 'rgba(29,78,216,0.07)', margin: '1px 2px 6px' }}>
+                        <i className="ti ti-building" style={{ fontSize: 13 }}></i>
                         {(profile as any)?.teams?.name || teamId}
                       </div>
                       {GM_LINKS.map(item => (
                         <Link key={item.href} href={item.href} onClick={() => setGmOpen(false)}
-                          className="flex items-center gap-2.5 px-4 py-2.5 text-xs no-underline transition-all"
-                          style={{ color: '#2d2722', borderBottom: '1px solid #d6d0c6' }}
-                          onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
+                          className="flex items-center gap-2.5 px-2.5 py-2 text-xs no-underline transition-all"
+                          style={{ color: '#333029', borderRadius: 10, margin: '1px 2px', fontWeight: 500 }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#faf3e9')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                          <i className={`ti ${item.icon}`} style={{ fontSize: 14, color: '#1d4ed8' }}></i>
+                          <span className="flex items-center justify-center flex-shrink-0"
+                                style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(29,78,216,0.09)' }}>
+                            <i className={`ti ${item.icon}`} style={{ fontSize: 13, color: '#1d4ed8' }}></i>
+                          </span>
                           {item.label}
                         </Link>
                       ))}
+                      <div style={{ height: 1, background: '#efece6', margin: '4px 8px' }} />
                       <button onClick={() => { signOut(); setGmOpen(false) }}
-                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs"
-                        style={{ color: '#dc2626' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#e2dbd0')}
+                        className="w-full flex items-center gap-2.5 px-2.5 py-2 text-xs"
+                        style={{ color: '#dc2626', borderRadius: 10, margin: '1px 2px', border: 'none', background: 'transparent', fontWeight: 500 }}
+                        onMouseEnter={e => (e.currentTarget.style.background = '#fdf1f1')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <i className="ti ti-logout" style={{ fontSize: 14 }}></i>
+                        <span className="flex items-center justify-center flex-shrink-0"
+                              style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(220,38,38,0.09)' }}>
+                          <i className="ti ti-logout" style={{ fontSize: 13 }}></i>
+                        </span>
                         {isPT ? 'Terminar Sessão' : 'Sign Out'}
                       </button>
                     </div>

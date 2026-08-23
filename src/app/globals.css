@@ -16,6 +16,15 @@
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* Navbar dropdown panels (League/Events/Rules & Info + the Commissioner/GM
+   account menus) — a short fade + rise on open instead of popping in
+   instantly, the one thing pure inline styles can't do on their own. */
+@keyframes navDropdownIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.nav-dropdown-panel { animation: navDropdownIn 0.16s cubic-bezier(0.16, 1, 0.3, 1); }
+
 :root {
   /* Backgrounds — 4 tones, clearly distinct */
   --bg-page:   #eee8df;   /* page background */
