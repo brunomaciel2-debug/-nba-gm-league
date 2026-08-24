@@ -116,10 +116,14 @@ export default function AllStarPage() {
   const expectedGames = expectedGamesByWeek(curWeek)
 
   const confPlayers = (conf:string, pos:string) => {
+    // Strict position match only — SF/PF used to also cross-list into each
+    // other's pool, so the same player could appear (and be votable) under
+    // two different position cards at once, letting one GM's votes for him
+    // split across both and silently eating a slot that should've gone to
+    // someone else entirely.
     const pool = players.filter(p=>{
       const gp=p.player_stats?.[0]?.games||0
-      return teams[p.team_id]?.conference===conf&&
-        (p.pos===pos||(pos==='SF'&&p.pos==='PF')||(pos==='PF'&&p.pos==='SF'))&&gp>=minGames
+      return teams[p.team_id]?.conference===conf && p.pos===pos && gp>=minGames
     }).map(p=>{
       const s=p.player_stats?.[0]||{}
       const gp2=Math.max(1,s.games||1)
@@ -171,22 +175,28 @@ export default function AllStarPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="rounded-2xl p-6 mb-6" style={{background:'#fef3c7',border:'1px solid #5a4a00',borderTop:'4px solid #b45309'}}>
-        <div className="flex items-start justify-between flex-wrap gap-4">
+      <div className="rounded-2xl p-7 mb-6 relative overflow-hidden" style={{
+        background:'linear-gradient(135deg, #fde68a 0%, #fbbf24 55%, #f59e0b 100%)',
+        border:'1px solid #92620a', boxShadow:'0 20px 44px -12px rgba(120,72,0,0.35), 0 4px 14px rgba(120,72,0,0.15)'}}>
+        <div className="absolute -right-6 -top-10 text-[160px] leading-none select-none pointer-events-none" style={{opacity:0.12}}>⭐</div>
+        <div className="flex items-start justify-between flex-wrap gap-4 relative">
           <div>
-            <h1 className="text-2xl font-bold mb-1" style={{color:'#b45309'}}>⭐ {isPT?'All-Star Weekend 2025-26':'All-Star Weekend 2025-26'}</h1>
-            <p className="text-sm" style={{color:'#8a6a00'}}>{isPT?`${formatWeekRange(ALLSTAR_WEEK,locale)} · Caloiros vs Veteranos (Sáb) · Este vs Oeste (Dom)`:`${formatWeekRange(ALLSTAR_WEEK,locale)} · Rookies vs Sophomores (Sat) · East vs West (Sun)`}</p>
+            <h1 className="text-3xl sm:text-4xl font-black mb-1 tracking-tight" style={{color:'#3d2400',textShadow:'0 1px 0 rgba(255,255,255,0.35)'}}>⭐ All-Star Weekend</h1>
+            <p className="text-sm font-semibold" style={{color:'#5a3d00'}}>{isPT?`${formatWeekRange(ALLSTAR_WEEK,locale)} · Caloiros vs Veteranos (Sáb) · Este vs Oeste (Dom)`:`${formatWeekRange(ALLSTAR_WEEK,locale)} · Rookies vs Sophomores (Sat) · East vs West (Sun)`}</p>
           </div>
           <div className="text-right">
             {!ready?(
-              <span className="text-xs px-3 py-1.5 rounded-full" style={{background:'#e8e2d6',color:'#6b5f4e'}}>{t('common.loading')}</span>
+              <span className="text-xs px-3 py-1.5 rounded-full font-bold" style={{background:'rgba(0,0,0,0.15)',color:'#3d2400'}}>{t('common.loading')}</span>
             ):(
-              <span className="text-xs px-3 py-1.5 rounded-full font-semibold inline-block"
-                    style={{background:votingOpen?'#0a2a10':votingClosed?'#2a0a0a':'#faf8f5',color:votingOpen?'#4ade80':votingClosed?'#f87171':'#5c554e'}}>
+              <span className="text-sm px-4 py-2 rounded-full font-black inline-block" style={{
+                background:votingOpen?'#0a2a10':votingClosed?'#2a0a0a':'#1a1210',
+                color:votingOpen?'#4ade80':votingClosed?'#f87171':'#fbbf24',
+                boxShadow:'0 8px 20px -6px rgba(0,0,0,0.4)',
+                animation:votingOpen?'pulse 2s infinite':undefined}}>
                 {votingOpen?`🗳️ ${isPT?'Votação Aberta':'Voting Open'}`:votingClosed?`🔒 ${isPT?'Votação Fechada':'Voting Closed'}`:`${isPT?'Abre em':'Opens'} ${voteOpenLabel}`}
               </span>
             )}
-            <div className="text-xs mt-1" style={{color:'#6b5f4e'}}>{isPT?'Atual:':'Current:'} {formatWeekRange(curWeek,locale)}</div>
+            <div className="text-xs mt-1.5 font-bold" style={{color:'#5a3d00'}}>{isPT?'Atual:':'Current:'} {formatWeekRange(curWeek,locale)}</div>
           </div>
         </div>
       </div>
@@ -197,7 +207,7 @@ export default function AllStarPage() {
         </div>
       ):(
         <>
-          <div className="rounded-xl px-4 py-3 mb-5 text-xs" style={{background:'#e8e2d6',border:'1px solid #d4cec3',color:'#6b5f4e'}}>
+          <div className="rounded-xl px-4 py-3 mb-5 text-xs" style={{background:'#efe8da',border:'1px solid #d4cec3',color:'#6b5f4e'}}>
             <strong style={{color:'#1a1612'}}>{isPT?'Elegibilidade:':'Eligibility:'}</strong> ≥{minGames} {isPT?`jogos (75% de ~${expectedGames} jogos)`:`games played (75% of ~${expectedGames} games)`} · {isPT?'Sem jogadores lesionados':'No injured players'} ·{' '}
             <strong style={{color:'#1a1612'}}>{isPT?'Titulares:':'Starters:'}</strong> {isPT?'mais votados por posição (5 por equipa) + 7 reservas':'top-voted per position (5 per team) + 7 reserves'} ·{' '}
             <strong style={{color:'#1a1612'}}>{isPT?'Voto automático:':'Auto-vote:'}</strong> {isPT?'GMs que perderem o prazo recebem votos automáticos':'GMs who miss deadline get system votes'}
@@ -205,8 +215,9 @@ export default function AllStarPage() {
 
           <div className="flex gap-2 mb-5">
             {[{k:'vote',l:isPT?'🗳️ Votar':'🗳️ Cast Votes'},{k:'results',l:isPT?'📊 Convocados':'📊 Roster'}].map((tb:any)=>(
-              <button key={tb.k} onClick={()=>setTab(tb.k)} className="px-4 py-2 rounded-lg text-sm font-semibold"
-                style={{background:tab===tb.k?'#d4cdc5':'#faf8f5',color:tab===tb.k?'#1a1512':'#5c554e',border:'1px solid #d4cdc5'}}>
+              <button key={tb.k} onClick={()=>setTab(tb.k)} className="px-5 py-2.5 rounded-xl text-sm font-black transition-all"
+                style={{background:tab===tb.k?'#b45309':'#faf8f5',color:tab===tb.k?'#fff':'#5c554e',border:'1px solid '+(tab===tb.k?'#b45309':'#d4cdc5'),
+                  boxShadow:tab===tb.k?'0 8px 18px -6px rgba(180,83,9,0.5)':'none'}}>
                 {tb.l}
               </button>
             ))}
@@ -228,47 +239,61 @@ export default function AllStarPage() {
               </div>
             )}
             {votingOpen&&<>
-              <div className="flex items-center gap-3 mb-5 p-3 rounded-xl" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
-                <span className="text-xs font-semibold" style={{color:'#6b5f4e'}}>{isPT?'A tua equipa:':'Your team:'}</span>
+              <div className="flex items-center gap-3 mb-6 p-4 rounded-xl" style={{background:'#1a1612',boxShadow:'0 8px 20px -8px rgba(0,0,0,0.3)'}}>
+                <span className="text-xs font-bold uppercase tracking-wide" style={{color:'#a89a86'}}>{isPT?'A tua equipa':'Your team'}</span>
                 {teamAutoDetected?(
-                  <span className="text-sm font-bold flex-1" style={{color:'#1a1612'}}>{teams[gmTeam]?.name || gmTeam}</span>
+                  <span className="text-base font-black flex-1" style={{color:'#fbbf24'}}>{teams[gmTeam]?.name || gmTeam}</span>
                 ):(
                   <select value={gmTeam} onChange={e=>setGmTeam(e.target.value)} className="text-sm px-3 py-1.5 rounded-lg flex-1"
-                    style={{background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1612',outline:'none'}}>
+                    style={{background:'#2a241e',border:'1px solid #4a4238',color:'#fff',outline:'none'}}>
                     <option value="">{isPT?'— Seleciona a tua equipa —':'— Select your team —'}</option>
                     {Object.values(teams).map((tm:any)=><option key={tm.id} value={tm.id}>{tm.name}</option>)}
                   </select>
                 )}
-                <span className="text-xs font-bold" style={{color:totalVotes===20?'#15803d':'#5c554e'}}>{totalVotes}/20</span>
+                <span className="text-sm font-black px-3 py-1 rounded-full" style={{background:totalVotes===20?'#0a3a1a':'#3a2f1a',color:totalVotes===20?'#4ade80':'#fbbf24'}}>{totalVotes}/20</span>
               </div>
               {CONFS.map(conf=>(
-                <div key={conf} className="mb-8">
-                  <h2 className="text-base font-bold mb-4" style={{color:conf==='Eastern'?'#e05050':'#5090d0'}}>{confLabel(conf)} — {isPT?'escolhe 2 por posição':'pick 2 per position'}</h2>
+                <div key={conf} className="mb-9">
+                  <h2 className="text-xl font-black mb-4 flex items-center gap-2" style={{color:conf==='Eastern'?'#e05050':'#5090d0'}}>
+                    <span className="inline-block w-1.5 h-6 rounded-full" style={{background:conf==='Eastern'?'#e05050':'#5090d0'}}/>
+                    {confLabel(conf)} <span className="text-xs font-semibold" style={{color:'#8a8074'}}>— {isPT?'escolhe 2 por posição':'pick 2 per position'}</span>
+                  </h2>
                   {POSITIONS.map(pos=>{
                     const pool=confPlayers(conf,pos);const sel=votes[conf]?.[pos]||[]
                     return(
-                      <div key={pos} className="mb-3 rounded-xl overflow-hidden" style={{border:'1px solid #d4cec3'}}>
-                        <div className="px-4 py-2 flex justify-between" style={{background:'#ddd7ca',borderBottom:'1px solid #d4cec3'}}>
-                          <span className="font-bold" style={{color:'#1a1612'}}>{pos}</span>
-                          <span className="text-xs" style={{color:sel.length===2?'#15803d':'#5c554e'}}>{sel.length}/2</span>
+                      <div key={pos} className="mb-4 rounded-2xl overflow-hidden" style={{border:'1px solid #d4cec3',boxShadow:'0 4px 14px -6px rgba(30,20,10,0.12)'}}>
+                        <div className="px-4 py-2.5 flex justify-between items-center" style={{background:'#2a2420'}}>
+                          <span className="font-black text-sm" style={{color:'#fbbf24'}}>{pos}</span>
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{background:sel.length===2?'#0a3a1a':'#3a3228',color:sel.length===2?'#4ade80':'#c9bda8'}}>{sel.length}/2</span>
                         </div>
                         {pool.length===0?(
                           <div className="p-4 text-xs text-center" style={{color:'#6b5f4e'}}>{isPT?'Sem jogadores elegíveis ainda.':'No eligible players yet.'}</div>
                         ):(
-                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 p-3" style={{background:'#ede8de'}}>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-3" style={{background:'#f4efe4'}}>
                             {pool.map((p:any)=>{
                               const isSel=sel.includes(p.id);const tm=teams[p.team_id];const tc=readableTeamColor(tm?.color||'555555')
                               return(
                                 <button key={p.id} onClick={()=>toggleVote(conf,pos,p.id)} disabled={!isSel&&sel.length>=2}
-                                  className="flex flex-col items-center p-2 rounded-lg transition-all disabled:opacity-40"
-                                  style={{background:isSel?'#fdf1e0':'#faf8f5',border:'1px solid '+(isSel?'#b45309':'#d4cdc5')}}>
-                                  <div className="w-10 h-10 rounded-full overflow-hidden mb-1" style={{background:tc+'22'}}>
+                                  className="relative flex flex-col items-center p-3 rounded-2xl transition-all disabled:opacity-40"
+                                  style={{
+                                    background:isSel?'linear-gradient(160deg, #fdf1d0 0%, #fce4b0 100%)':'#fff',
+                                    border:'2px solid '+(isSel?'#b45309':'#e5ddcf'),
+                                    boxShadow:isSel?'0 10px 24px -8px rgba(180,83,9,0.45)':'0 2px 8px -4px rgba(30,20,10,0.1)',
+                                    transform:isSel?'translateY(-2px)':'none'}}>
+                                  {isSel&&<span className="absolute -top-2 -right-2 text-lg" style={{filter:'drop-shadow(0 2px 3px rgba(0,0,0,0.3))'}}>⭐</span>}
+                                  <div className="w-16 h-16 rounded-full overflow-hidden mb-2" style={{background:tc+'22',boxShadow:'0 0 0 3px '+tc+', 0 4px 10px -3px rgba(0,0,0,0.3)'}}>
                                     {p.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
-                                      :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                                      :<div className="w-full h-full flex items-center justify-center text-base font-black" style={{color:tc}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
                                   </div>
-                                  <div className="text-xs font-semibold" style={{color:isSel?'#b45309':'#1a1512'}}>{p.name.split(' ').slice(-1)[0]}</div>
-                                  <div className="text-xs" style={{color:'#6b5f4e'}}>{p.topStats.map((ts:any)=>`${ts.val.toFixed(1)}${STAT_SUFFIX[ts.cat]}`).join(' · ')}</div>
-                                  {isSel&&<span>⭐</span>}
+                                  <div className="text-xs font-black text-center leading-tight mb-0.5" style={{color:isSel?'#7c3a00':'#1a1512'}}>{p.name}</div>
+                                  <div className="text-[10px] font-bold mb-1.5" style={{color:tc}}>{tm?.id}</div>
+                                  <div className="flex gap-1 flex-wrap justify-center">
+                                    {p.topStats.map((ts:any,i:number)=>(
+                                      <span key={i} className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{background:isSel?'#b45309':'#eee6d6',color:isSel?'#fff':'#6b5f4e'}}>
+                                        {ts.val.toFixed(1)}{STAT_SUFFIX[ts.cat]}
+                                      </span>
+                                    ))}
+                                  </div>
                                 </button>
                               )
                             })}
@@ -279,8 +304,9 @@ export default function AllStarPage() {
                   })}
                 </div>
               ))}
-              <button onClick={saveVotes} disabled={saving||submitted||!gmTeam} className="px-8 py-3 rounded-xl font-bold disabled:opacity-40"
-                style={{background:submitted?'#0a5a20':'#2a2000',color:submitted?'#4ade80':'#fbbf24',border:'1px solid '+(submitted?'#1a5a20':'#5a4a00')}}>
+              <button onClick={saveVotes} disabled={saving||submitted||!gmTeam} className="px-8 py-3.5 rounded-xl font-black text-base disabled:opacity-40 transition-all"
+                style={{background:submitted?'#0a5a20':'linear-gradient(135deg,#fbbf24,#b45309)',color:submitted?'#4ade80':'#2a1500',
+                  border:'1px solid '+(submitted?'#1a5a20':'#92620a'),boxShadow:submitted?'none':'0 10px 24px -8px rgba(180,83,9,0.5)'}}>
                 {saving?(isPT?'A guardar...':'Saving...'):submitted?`✓ ${isPT?'Submetido!':'Submitted!'}`:(isPT?'Submeter Votos':'Submit Votes')}
               </button>
             </>}
@@ -297,20 +323,26 @@ export default function AllStarPage() {
               CONFS.map(conf=>{
                 const cr=roster.filter((r:any)=>r.conference===conf).sort((a:any,b:any)=>(b.is_starter?1:0)-(a.is_starter?1:0))
                 return(
-                  <div key={conf} className="mb-8">
-                    <h2 className="text-lg font-bold mb-4" style={{color:conf==='Eastern'?'#e05050':'#5090d0'}}>{confLabel(conf)} All-Stars</h2>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                  <div key={conf} className="mb-9">
+                    <h2 className="text-xl font-black mb-4 flex items-center gap-2" style={{color:conf==='Eastern'?'#e05050':'#5090d0'}}>
+                      <span className="inline-block w-1.5 h-6 rounded-full" style={{background:conf==='Eastern'?'#e05050':'#5090d0'}}/>
+                      {confLabel(conf)} All-Stars
+                    </h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                       {cr.map((r:any)=>{
                         const p=r.players;const tm=teams[p?.team_id];const tc=readableTeamColor(tm?.color||'555')
                         return(
-                          <div key={r.id} className="rounded-xl p-3 text-center" style={{background:r.is_starter?'#fdf1e0':'#faf8f5',border:'1px solid '+(r.is_starter?'#b45309':'#d4cdc5')}}>
-                            {r.is_starter&&<div className="text-xs font-bold mb-1" style={{color:'#b45309'}}>⭐ {isPT?'TITULAR':'STARTER'}</div>}
-                            <div className="w-12 h-12 rounded-full overflow-hidden mx-auto mb-2" style={{background:tc+'22'}}>
+                          <div key={r.id} className="rounded-2xl p-4 text-center" style={{
+                            background:r.is_starter?'linear-gradient(160deg, #fdf1d0 0%, #fce4b0 100%)':'#fff',
+                            border:'2px solid '+(r.is_starter?'#b45309':'#e5ddcf'),
+                            boxShadow:r.is_starter?'0 10px 24px -8px rgba(180,83,9,0.35)':'0 2px 8px -4px rgba(30,20,10,0.1)'}}>
+                            {r.is_starter&&<div className="text-[10px] font-black mb-1.5 tracking-wide" style={{color:'#b45309'}}>⭐ {isPT?'TITULAR':'STARTER'}</div>}
+                            <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-2" style={{background:tc+'22',boxShadow:'0 0 0 3px '+tc+', 0 4px 10px -3px rgba(0,0,0,0.3)'}}>
                               {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
-                                :<div className="w-full h-full flex items-center justify-center font-black" style={{color:tc}}>{p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                                :<div className="w-full h-full flex items-center justify-center text-base font-black" style={{color:tc}}>{p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
                             </div>
-                            <div className="text-xs font-bold" style={{color:'#1a1612'}}>{p?.name?.split(' ').slice(-1)[0]}</div>
-                            <div className="text-xs" style={{color:'#6b5f4e'}}>{r.position} · {tm?.id}</div>
+                            <div className="text-xs font-black leading-tight" style={{color:'#1a1612'}}>{p?.name}</div>
+                            <div className="text-[10px] font-bold mt-0.5" style={{color:tc}}>{r.position} · {tm?.id}</div>
                           </div>
                         )
                       })}
