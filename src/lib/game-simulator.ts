@@ -1231,11 +1231,18 @@ jittered.forEach(p=>{p.mins=Math.round(p.mins)})
 // place and tuned). Bruno's ask after that incident was explicit: not
 // another one-off patch for the specific player/rating combo that slipped
 // through this time, but a hard line NOTHING can cross, for ANY player.
-// 1.3 FGA/minute is already at the extreme edge of real NBA history (Wilt
-// Chamberlain's 100-point game: 63 FGA in 48 minutes) — generous enough to
-// never clip a legitimately great shooting night, but a 10-minute player
-// hard-stops at 13 attempts, not 24.
-function fgaHardCap(mins:number):number{return Math.max(3,Math.ceil((mins||0)*1.3))}
+// Was 1.3 FGA/minute (Wilt Chamberlain's 100-point game: 63 FGA in 48
+// minutes) — real incident that exposed why that reference case doesn't
+// transfer: Wilt was the guy playing the entire game as the clear #1
+// option, not a 15-minute bench piece, and the per-player share cap right
+// above already handles star-level monster games on its own. Using an all-
+// time historic RATE as the hard floor for every role player let a real
+// 15-minute bench PF (Jonathan Kuminga, Pick & Roll's screener bonus) put
+// up 20 FGA / 33 pts. 0.85 FGA/minute still allows a real big shooting
+// night for anyone with real minutes (a 38-minute starter can still reach
+// 32-33 attempts, genuine 50-point-game territory) while a 15-minute
+// bench role hard-stops at 13, not 20.
+function fgaHardCap(mins:number):number{return Math.max(3,Math.ceil((mins||0)*0.85))}
 function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>,st:Record<string,any>|undefined,elapsedMin:number,isTransitionPoss?:boolean){
 if(ic&&ord.clutch){const cp=ps.find((p:any)=>p.name===ord.clutch);if(cp&&fat[cp.id]>40&&(st?.[cp.id]?.fga||0)<fgaHardCap(cp.mins||0))return cp}
 // Exclude anyone already at their hard cap from the pool entirely — not a
@@ -1452,9 +1459,34 @@ return{p,w:Math.max(.001,w*(1+mom[p.id]*(p.streaky/100)*.08)*(.5+f*.5))}
 // since (34/48)^1.8≈.44 and (40/48)^1.8≈.63, both already above .33)
 // comes out statistically unchanged, confirming this only bites players
 // who genuinely don't have the minutes to back up a star-level weight.
-const maxEntry=weighted.reduce((b,x)=>x.w>b.w?x:b,weighted[0])
-const dynCap=Math.min(.33,Math.pow((maxEntry.p.mins||0)/48,1.8))
-return wtCapped(weighted,dynCap)
+// Real incident (2026, after Pick & Roll's screener bonus shipped):
+// Jonathan Kuminga, a real 14-minute bench PF (idef 82, dunk 93 — exactly
+// the profile that bonus rewards), still put up 20 FGA/33 pts in one game
+// despite the fix above. Traced it with Monte Carlo instrumentation: the
+// dynCap fix only ever caps whichever ONE entry happens to be this
+// possession's outright #1 — it never checks anyone else, so a bench
+// player who's usually #2 or #3 (never #1) can still get picked over and
+// over across the game's ~90 possessions with no ceiling on HIS OWN share
+// at all. Same root idea (a player's cap should scale with his own real
+// minutes, not just apply to whoever's on top this one possession) but
+// applied to every entry that's over ITS OWN cap, not only the max —
+// repeatedly clamp whichever entry is furthest over its own ceiling and
+// redistribute, until nobody's left over their own line.
+const caps=weighted.map(x=>Math.min(.33,Math.pow((x.p.mins||0)/48,1.8)))
+for(let iter=0;iter<weighted.length;iter++){
+const totalW=weighted.reduce((s,x)=>s+x.w,0)
+if(totalW<=0)break
+let worstIdx=-1,worstExcess=0
+for(let i=0;i<weighted.length;i++){
+const share=weighted[i].w/totalW
+if(share>caps[i]&&share-caps[i]>worstExcess){worstExcess=share-caps[i];worstIdx=i}
+}
+if(worstIdx===-1)break
+const others=totalW-weighted[worstIdx].w
+if(others<=0)break
+weighted[worstIdx].w=(caps[worstIdx]/(1-caps[worstIdx]))*others
+}
+return wt(weighted)
 }
 
 function simFT(p:any,n:number,fat:Record<string,number>){let m=0;for(let i=0;i<n;i++)if(Math.random()<p.ft/100*(.88+fat[p.id]/100*.12))m++;return m}
