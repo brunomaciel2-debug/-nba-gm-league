@@ -8,6 +8,17 @@ import { formatWeekRange, getWeekForDate } from '@/lib/season-week-helper'
 
 const POSITIONS = ['PG','SG','SF','PF','C']
 const CONFS = ['Eastern','Western']
+const STAT_CATS = ['pts','reb','ast','stl','blk'] as const
+const STAT_SUFFIX: Record<string,string> = { pts:'ppg', reb:'rpg', ast:'apg', stl:'spg', blk:'bpg' }
+// Which categories can realistically be a player's "standout" at each
+// position — without this, a near-zero, noisy category (e.g. a guard's
+// 0.4 blocks/game) could out-rank a real 11 ppg just because it happened
+// to be this pool's single highest value in that category.
+const POS_STAT_CATS: Record<string,readonly string[]> = {
+  PG: ['pts','ast','stl','reb'], SG: ['pts','ast','stl','reb'],
+  SF: STAT_CATS,
+  PF: ['pts','reb','blk','stl'], C: ['pts','reb','blk','stl'],
+}
 
 export default function AllStarPage() {
   const {t} = useTranslation()
@@ -20,6 +31,7 @@ export default function AllStarPage() {
   const [submitted, setSubmitted] = useState(false)
   const [saving,    setSaving]    = useState(false)
   const [gmTeam,    setGmTeam]    = useState('')
+  const [teamAutoDetected, setTeamAutoDetected] = useState(false)
   const [tab,       setTab]       = useState<'vote'|'results'>('vote')
   const [roster,    setRoster]    = useState<any[]>([])
   const [voteOpenDate, setVoteOpenDate] = useState<string|null>(null)
@@ -41,7 +53,7 @@ export default function AllStarPage() {
           // player_stats has one row per season — without this filter a
           // veteran's player_stats?.[0] below can grab a stale, all-null
           // past season instead of the current one.
-          supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast)').eq('status','active').eq('player_stats.season','2025-26'),
+          supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast,stl,blk)').eq('status','active').eq('player_stats.season','2025-26'),
           supabase.from('teams').select('id,name,conference,color,logo_url').not('id','in','(ALL,RVS,ROO,SOP)'),
           // current_week only advances once a WHOLE week (both halves) is
           // done — mid-week it still reads last week's number, which made
@@ -81,6 +93,15 @@ export default function AllStarPage() {
       setReady(true)
     }
     load()
+    // A logged-in GM votes as their own team — asking which team they are
+    // (when the site already knows, from their login) was a pointless extra
+    // step. Only the fallback dropdown (no team on the profile — e.g. the
+    // Commissioner account) still asks.
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: gm } = await supabase.from('gm_profiles').select('team_id').eq('id', user.id).single()
+      if (gm?.team_id) { setGmTeam(gm.team_id); setTeamAutoDetected(true) }
+    })
   },[])
 
   const votingOpen   = curWeek >= VOTING_OPENS && curWeek <= VOTING_CLOSES
@@ -89,13 +110,33 @@ export default function AllStarPage() {
   const minGames = minGamesByWeek(curWeek)
   const expectedGames = expectedGamesByWeek(curWeek)
 
-  const confPlayers = (conf:string, pos:string) =>
-    players.filter(p=>{
+  const confPlayers = (conf:string, pos:string) => {
+    const pool = players.filter(p=>{
       const gp=p.player_stats?.[0]?.games||0
       return teams[p.team_id]?.conference===conf&&
         (p.pos===pos||(pos==='SF'&&p.pos==='PF')||(pos==='PF'&&p.pos==='SF'))&&gp>=minGames
-    }).map(p=>{const s=p.player_stats?.[0]||{};const gp2=Math.max(1,s.games||1);return{...p,ppg:(s.pts/gp2).toFixed(1),score:(s.pts/gp2)*0.5+(s.reb/gp2)*0.25+(s.ast/gp2)*0.25}})
-    .sort((a:any,b:any)=>b.score-a.score).slice(0,10)
+    }).map(p=>{
+      const s=p.player_stats?.[0]||{}
+      const gp2=Math.max(1,s.games||1)
+      const per:Record<string,number>={}
+      for(const c of STAT_CATS) per[c]=(s[c]||0)/gp2
+      return {...p, per, score:per.pts*0.5+per.reb*0.25+per.ast*0.25}
+    }).sort((a:any,b:any)=>b.score-a.score).slice(0,10)
+
+    // Which 2 stats actually distinguish each player, not just PPG — a
+    // defensive-minded PG might stand out more for assists/steals than
+    // scoring. Ranked relative to this same pool's own max per category, so
+    // "distinguish" means relative to the other All-Star candidates, not
+    // some arbitrary league-wide bar.
+    const maxByCat:Record<string,number>={}
+    for(const c of STAT_CATS) maxByCat[c]=Math.max(0.1,...pool.map((p:any)=>p.per[c]))
+    return pool.map((p:any)=>{
+      const eligible=POS_STAT_CATS[p.pos]||STAT_CATS
+      const ranked=[...eligible].sort((a,b)=>(p.per[b]/maxByCat[b])-(p.per[a]/maxByCat[a]))
+      const topStats=ranked.slice(0,2).map(c=>({cat:c,val:p.per[c]}))
+      return {...p, topStats}
+    })
+  }
 
   const toggleVote=(conf:string,pos:string,pid:string)=>{
     if(!votingOpen||submitted)return
@@ -183,11 +224,15 @@ export default function AllStarPage() {
             {votingOpen&&<>
               <div className="flex items-center gap-3 mb-5 p-3 rounded-xl" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <span className="text-xs font-semibold" style={{color:'#6b5f4e'}}>{isPT?'A tua equipa:':'Your team:'}</span>
-                <select value={gmTeam} onChange={e=>setGmTeam(e.target.value)} className="text-sm px-3 py-1.5 rounded-lg flex-1"
-                  style={{background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1612',outline:'none'}}>
-                  <option value="">{isPT?'— Seleciona a tua equipa —':'— Select your team —'}</option>
-                  {Object.values(teams).map((tm:any)=><option key={tm.id} value={tm.id}>{tm.name}</option>)}
-                </select>
+                {teamAutoDetected?(
+                  <span className="text-sm font-bold flex-1" style={{color:'#1a1612'}}>{teams[gmTeam]?.name || gmTeam}</span>
+                ):(
+                  <select value={gmTeam} onChange={e=>setGmTeam(e.target.value)} className="text-sm px-3 py-1.5 rounded-lg flex-1"
+                    style={{background:'#ddd7ca',border:'1px solid #d4cec3',color:'#1a1612',outline:'none'}}>
+                    <option value="">{isPT?'— Seleciona a tua equipa —':'— Select your team —'}</option>
+                    {Object.values(teams).map((tm:any)=><option key={tm.id} value={tm.id}>{tm.name}</option>)}
+                  </select>
+                )}
                 <span className="text-xs font-bold" style={{color:totalVotes===20?'#15803d':'#5c554e'}}>{totalVotes}/20</span>
               </div>
               {CONFS.map(conf=>(
@@ -216,7 +261,7 @@ export default function AllStarPage() {
                                       :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
                                   </div>
                                   <div className="text-xs font-semibold" style={{color:isSel?'#b45309':'#1a1512'}}>{p.name.split(' ').slice(-1)[0]}</div>
-                                  <div className="text-xs" style={{color:'#6b5f4e'}}>{p.ppg}pts</div>
+                                  <div className="text-xs" style={{color:'#6b5f4e'}}>{p.topStats.map((ts:any)=>`${ts.val.toFixed(1)}${STAT_SUFFIX[ts.cat]}`).join(' · ')}</div>
                                   {isSel&&<span>⭐</span>}
                                 </button>
                               )
