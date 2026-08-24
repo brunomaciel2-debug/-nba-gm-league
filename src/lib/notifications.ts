@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek, getWeekDates, formatWeekRange } from './season-week-helper'
-import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded, notifMonthlySettlement } from './notifications-helpers'
+import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded, notifMonthlySettlement, notifAllStarVoteOpen } from './notifications-helpers'
 import { medicalCostAfterInsurance, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
 import { OffSystem, nodesForSystem, isNodeUnlocked } from './tactical-constants'
 import { NBA_SUBSIDY_MONTHLY, UTILITIES_MONTHLY, INSURANCE_MONTHLY } from './finance-constants'
 import { SLOT_ECONOMICS, SLOT_VARIANT_KEYS } from './audience-segments'
+import { VOTING_OPENS_WEEK } from './allstar-constants'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -526,6 +527,21 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
         const lang = await getTeamLang(team.id)
         const notif = notifGLeagueStart(lang)
         await notify(team.id, 'gleague_start', notif.subject, notif.body, {})
+      }
+    }
+  }
+
+  // ── 12c. ALL-STAR VOTING OPENS ─────────────────────────
+  // Fires once, the first time this runs during (or after) the week voting
+  // actually opens — guarded the same way as the G-League notice above so
+  // the twice-a-week call cadence (half 1 + half 2) doesn't resend it.
+  if (week >= VOTING_OPENS_WEEK) {
+    const { data: alreadySent } = await supabase.from('inbox_messages').select('id').eq('type', 'allstar_vote').limit(1).maybeSingle()
+    if (!alreadySent) {
+      for (const team of (teams || [])) {
+        const lang = await getTeamLang(team.id)
+        const notif = notifAllStarVoteOpen(lang)
+        await notify(team.id, 'allstar_vote', notif.subject, notif.body, {})
       }
     }
   }

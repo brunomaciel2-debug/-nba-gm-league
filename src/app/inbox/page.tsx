@@ -8,14 +8,14 @@ const TYPE_ICONS: Record<string,string> = {
   preseason_declined:'❌', injury:'🏥', trade:'🔄', contract:'📝', award:'🏆',
   sponsor:'🎯', results:'📊', standings:'📍', streak:'🔥', rivalry:'⚔️',
   development:'📈', morale:'😟', construction:'🏗️', reminder:'⏰', gleague:'⬆️',
-  fa:'👤', training:'🏋️', scouting:'🔍',
+  fa:'👤', training:'🏋️', scouting:'🔍', allstar_vote:'⭐',
 }
 
 const TYPE_COLORS: Record<string,string> = {
   welcome:'#c8102e', injury:'#dc2626', results:'#1d4ed8', standings:'#b45309', streak:'#b45309',
   rivalry:'#7c3aed', development:'#15803d', morale:'#dc2626', construction:'#b45309',
   reminder:'#6b7280', sponsor:'#15803d', award:'#b45309', gleague:'#1d4ed8',
-  contract:'#7c3aed', trade:'#1d4ed8', fa:'#15803d', training:'#7c3aed', scouting:'#0e7490',
+  contract:'#7c3aed', trade:'#1d4ed8', fa:'#15803d', training:'#7c3aed', scouting:'#0e7490', allstar_vote:'#b45309',
 }
 
 const TYPE_LABELS_PT: Record<string,string> = {
@@ -23,7 +23,7 @@ const TYPE_LABELS_PT: Record<string,string> = {
   streak:'Séries', rivalry:'Rivalidade', development:'Desenvolvimento', morale:'Moral',
   construction:'Construção', reminder:'Lembretes', sponsor:'Patrocínio', award:'Prémios',
   gleague:'G-League', contract:'Contratos', trade:'Trades', fa:'Free Agency',
-  training:'Treino', scouting:'Scouting', application:'Candidaturas',
+  training:'Treino', scouting:'Scouting', application:'Candidaturas', allstar_vote:'Votação All-Star',
 }
 
 export default function InboxPage() {
@@ -177,10 +177,11 @@ export default function InboxPage() {
   }
 
   const filterLabel = (f: string) => {
-    if (isPT) return TYPE_LABELS_PT[f] || (f.charAt(0).toUpperCase()+f.slice(1))
+    const pretty = f.replace(/_/g,' ')
+    if (isPT) return TYPE_LABELS_PT[f] || (pretty.charAt(0).toUpperCase()+pretty.slice(1))
     if (f==='all') return 'All'
     if (f==='unread') return 'Unread'
-    return f.charAt(0).toUpperCase()+f.slice(1)
+    return pretty.charAt(0).toUpperCase()+pretty.slice(1)
   }
 
   if (loading) return <div className="p-8 text-center" style={{color:'#5c554e'}}>{t('common.loading')}</div>

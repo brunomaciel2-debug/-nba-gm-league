@@ -461,6 +461,15 @@ export function notifGLeagueStart(lang: 'en'|'pt') {
   }
 }
 
+export function notifAllStarVoteOpen(lang: 'en'|'pt') {
+  return {
+    subject: lang === 'pt' ? `⭐ A votação do All-Star já abriu!` : `⭐ All-Star voting is open!`,
+    body: lang === 'pt'
+      ? `A votação para o All-Star Weekend já está disponível. Vota nos titulares e reservas de cada conferência na página All-Star (menu Rules & Info → All-Star). Se não votares até ao prazo, a tua equipa recebe votos automáticos.`
+      : `Voting for All-Star Weekend is now open. Cast your votes for starters and reserves in each conference on the All-Star page (Rules & Info menu → All-Star). If you miss the deadline, your team gets automatic votes.`,
+  }
+}
+
 export function notifGMInactivity(lang: 'en'|'pt', name: string, days: number) {
   return {
     subject: lang === 'pt' ? `⚠️ Não estás ativo há ${days} dias` : `⚠️ You haven't been active for ${days} days`,
