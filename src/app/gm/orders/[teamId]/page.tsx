@@ -116,7 +116,12 @@ export default function GMOrdersPage({ params }: { params: { teamId: string } })
       setIsAuthorized(gm?.role==='commissioner' || gm?.team_id===teamId)
     })
     supabase.from('teams').select('*').eq('id',teamId).single().then(({data})=>data&&setTeam(data))
-    supabase.from('players').select('id,name,pos,usage').eq('team_id',teamId).eq('status','active')
+    // Excludes anyone currently on a G-League assignment — his team_id stays
+    // pointed at this NBA club even while assigned down (assign/recall only
+    // ever touch gleague_team_id/on_gleague_assignment), so without this
+    // filter a sent-down player would still show up here as pickable for
+    // real NBA minutes.
+    supabase.from('players').select('id,name,pos,usage').eq('team_id',teamId).eq('status','active').eq('on_gleague_assignment',false)
       .order('name',{ascending:true}).then(async ({data})=>{
         if(!data)return
         setPlayers(data)

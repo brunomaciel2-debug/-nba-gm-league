@@ -45,11 +45,16 @@ export async function ensureWeeklyOrders(week: number): Promise<{ generated: num
   for (const team of (teams || [])) {
     if (alreadyHasOrders.has(team.id) || carriedForwardTeams.has(team.id)) continue
 
+    // Excludes anyone currently on a G-League assignment — assign/recall
+    // only ever touches gleague_team_id/on_gleague_assignment, never
+    // team_id, so without this filter a player sent down still shows up
+    // here as if he were fully available to his NBA parent club.
     const { data: players } = await supabaseAdmin
       .from('players')
       .select('id, name, pos, usage, scoring, stamina, three, layup, dunk, mid, ft, siq, idef, pdef, ball_hdl, pass_vis')
       .eq('team_id', team.id)
       .eq('status', 'active')
+      .eq('on_gleague_assignment', false)
       .order('usage', { ascending: false })
 
     if (!players || players.length === 0) continue

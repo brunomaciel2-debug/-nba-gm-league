@@ -332,9 +332,15 @@ const weekGames = (weekGamesAll || []).filter((g: any) => cappedDates.includes(g
 for (const sg of (weekGames||[])) {
 const ht = teamMap[sg.home_team], at = teamMap[sg.away_team]
 if (!ht || !at) continue
+// A player assigned to the G-League keeps his NBA team_id (assign/recall
+// only ever touches gleague_team_id/on_gleague_assignment, see
+// api/gleague/assign — his rights stay with the parent club) — without
+// this filter he's still fully eligible here, and a real incident showed
+// exactly that: a player on assignment got auto-slotted into real NBA
+// minutes for his parent team while also playing his actual G-League game.
 const [{ data: hp }, { data: ap }] = await Promise.all([
-supabaseAdmin.from('players').select('*').eq('team_id', ht.id).eq('status','active'),
-supabaseAdmin.from('players').select('*').eq('team_id', at.id).eq('status','active'),
+supabaseAdmin.from('players').select('*').eq('team_id', ht.id).eq('status','active').eq('on_gleague_assignment', false),
+supabaseAdmin.from('players').select('*').eq('team_id', at.id).eq('status','active').eq('on_gleague_assignment', false),
 ])
 if (!hp || !ap) continue
 

@@ -164,8 +164,12 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
     const [{ data: homeTeam }, { data: awayTeam }, { data: hp }, { data: ap }] = await Promise.all([
       supabaseAdmin.from('teams').select('*').eq('id', pg.home_team).single(),
       supabaseAdmin.from('teams').select('*').eq('id', pg.away_team).single(),
-      supabaseAdmin.from('players').select('*').eq('team_id', pg.home_team).eq('status', 'active'),
-      supabaseAdmin.from('players').select('*').eq('team_id', pg.away_team).eq('status', 'active'),
+      // Excludes anyone currently on a G-League assignment — same fix as the
+      // real weekly sim (cron/simulate/run.ts): team_id stays pointed at the
+      // NBA club even while assigned down, so this would otherwise let a
+      // sent-down player play a friendly for his parent team too.
+      supabaseAdmin.from('players').select('*').eq('team_id', pg.home_team).eq('status', 'active').eq('on_gleague_assignment', false),
+      supabaseAdmin.from('players').select('*').eq('team_id', pg.away_team).eq('status', 'active').eq('on_gleague_assignment', false),
     ])
     if (!hp?.length || !ap?.length) {
       return { success: false as const, error: 'One of the teams has no active players' }
@@ -239,7 +243,7 @@ export async function simulatePreseasonGame(id: string, weekOverride?: number) {
     const [{ data: nbaTeam }, { data: worldTeam }, { data: nbaPlayers }, { data: worldPlayers }, { data: nbaOrders }, { data: nbaHeadCoach }] = await Promise.all([
       supabaseAdmin.from('teams').select('*').eq('id', nbaTeamId).single(),
       supabaseAdmin.from('world_teams').select('*').eq('id', worldTeamId).single(),
-      supabaseAdmin.from('players').select('*').eq('team_id', nbaTeamId).eq('status', 'active'),
+      supabaseAdmin.from('players').select('*').eq('team_id', nbaTeamId).eq('status', 'active').eq('on_gleague_assignment', false),
       supabaseAdmin.from('players').select('*').eq('world_team_id', worldTeamId).eq('nba_recruitable', false),
       supabaseAdmin.from('gm_orders').select('*').eq('week_number', week).eq('team_id', nbaTeamId).maybeSingle(),
       supabaseAdmin.from('coaches').select('off_adjustment,def_adjustment').eq('role', 'head_coach').eq('team_id', nbaTeamId).maybeSingle(),
