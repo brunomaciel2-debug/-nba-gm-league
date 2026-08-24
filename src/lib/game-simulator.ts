@@ -536,12 +536,96 @@ function fmt(tl:number){return Math.floor(tl/60)+":"+String(tl%60).padStart(2,"0
 // Rolls but leaves Motion shooters open; Press creates chaos but is worst
 // against Transition/Post (pulls defenders from the paint); Pack the Paint
 // smothers Iso/Transition drives but concedes Pick & Roll/Post-Up looks.
+// Motion's row is Bruno's first full playstyle redesign (2026): a real,
+// felt matchup identity instead of the old generic ±5-10% spread — +15% vs
+// Man, -20% vs Zone, neutral vs Press. Motion's own "pack" entry is unused
+// (see motionVsPackMult below) — that one matchup depends on the actual
+// roster's perimeter shooting, not a flat constant, so it's computed live
+// in simP() instead of living in this table.
+// Pick & Roll's row is Bruno's second full playstyle redesign (2026): +20%
+// vs Man, -25% vs Zone, +15% vs Press (the ball-handler/screener combo as a
+// real press-breaking release valve). Its own "pack" entry is unused (see
+// pickrollVsPackMult below) — always a real disadvantage (rolling into a
+// packed paint never truly becomes a strength, unlike Motion's shooters
+// case), just a smaller one when the screener himself can shoot.
+// Isolation's row is Bruno's third full playstyle redesign (2026): +30% vs
+// Man (the classic 1-on-1 answer to straight man coverage), -25% vs Zone
+// (no single defender to attack, help comes from everywhere), -10% vs
+// Press (a half-court, stationary set the press disrupts before it starts).
+// Its own "pack" entry is unused (see isoVsPackMult below) — always a real
+// disadvantage or at best neutral, same "never flips positive" rule as
+// Pick & Roll, just reaching all the way to neutral (not just a smaller
+// negative) for a genuinely elite one-on-one creator.
+// Post-Up's row is Bruno's fourth full playstyle redesign (2026): neutral
+// vs Man (a real but unremarkable size mismatch), -10% vs Zone (kept as a
+// real disadvantage per Bruno's explicit call, just lighter than before —
+// the tech tree's "Attacking Zone from the Post" node still shrinks this,
+// same "reduce the disadvantage" philosophy as every other style, it just
+// doesn't need to flip all the way positive), -15% vs Press (hard to even
+// get the ball to the block against full-court pressure), fixed -30% vs
+// Pack (no conditional escape this time — the paint IS the post player's
+// entire work area, there's no equivalent to Motion's shooters or Pick &
+// Roll's popping big).
+// Transition's row is Bruno's fifth full playstyle redesign (2026):
+// neutral vs Man (it wins on pace and extra triggers, not a specific
+// matchup edge), +10% vs Zone (catches a zone still finding its shape),
+// +20% vs Press (the chaos of full-court pressure is exactly where a fast
+// break thrives), -15% vs Pack unchanged (the paint is still the one place
+// a good transition defense can pre-load into).
 const ATK_DEF_MATCHUP:Record<string,Record<string,number>>={
-motion:     {man:0.90,zone23:1.05,press:1.00,pack:1.05},
-pickroll:   {man:1.05,zone23:0.90,press:1.05,pack:0.95},
-transition: {man:1.00,zone23:1.00,press:1.10,pack:0.90},
-iso:        {man:1.10,zone23:1.00,press:1.05,pack:0.85},
-post:       {man:1.00,zone23:0.85,press:1.10,pack:0.95},
+motion:     {man:1.15,zone23:0.80,press:1.00,pack:1.00},
+pickroll:   {man:1.20,zone23:0.75,press:1.15,pack:1.00},
+transition: {man:1.00,zone23:1.10,press:1.20,pack:0.85},
+iso:        {man:1.30,zone23:0.75,press:0.90,pack:1.00},
+post:       {man:1.00,zone23:0.90,press:0.85,pack:0.70},
+}
+
+// Pack the Paint vs Motion is the one matchup that genuinely depends on who's
+// on the floor, not just which two styles are facing off — real basketball:
+// packing the paint against a team with no real shooting is smart defense
+// (there's no punishment for it), but the same defense against a team full
+// of shooters just hands them wide-open threes. Reads the average three-
+// point shooting of whichever PG/SG/SF are actually on the floor (minutes-
+// weighted) — 40 rating or below is "no real shooters" (-25%), 70+ is
+// "load up on shooters" (+20%), smoothly scaled in between so there's no
+// artificial cliff at one exact number.
+function motionVsPackMult(ops:any[]):number{
+const perimeter=ops.filter((p:any)=>(p.mins||0)>0&&['PG','SG','SF'].includes(p.pos))
+if(!perimeter.length)return 1.0
+const totalMin=perimeter.reduce((s:number,p:any)=>s+(p.mins||0),0)
+const avgThree=totalMin>0?perimeter.reduce((s:number,p:any)=>s+(p.three??50)*(p.mins||0),0)/totalMin:50
+const t=Math.max(0,Math.min(1,(avgThree-40)/30))
+return 0.75+t*(1.20-0.75)
+}
+
+// Pack the Paint vs Pick & Roll — Bruno's explicit call: unlike Motion, this
+// NEVER flips into an advantage. A big who can't shoot rolling into a packed
+// paint is always a real problem (-35%); a big who can genuinely pop and
+// shoot from outside shrinks that problem a lot, but it never fully goes
+// away (-5% floor, not neutral or positive) — reads whichever C/PF is
+// actually on the floor (minutes-weighted, same shape as motionVsPackMult).
+function pickrollVsPackMult(ops:any[]):number{
+const bigs=ops.filter((p:any)=>(p.mins||0)>0&&['C','PF'].includes(p.pos))
+if(!bigs.length)return 0.80
+const totalMin=bigs.reduce((s:number,p:any)=>s+(p.mins||0),0)
+const avgThree=totalMin>0?bigs.reduce((s:number,p:any)=>s+(p.three??50)*(p.mins||0),0)/totalMin:50
+const t=Math.max(0,Math.min(1,(avgThree-40)/30))
+return 0.65+t*(0.95-0.65)
+}
+
+// Pack the Paint vs Isolation — depends on the SPECIFIC named isolator
+// (Weekly Orders' priority-1 player), not a team average, since Isolation
+// is fundamentally about one designated player creating his own shot. A
+// mediocre ball-handler/shooter isolating into a packed paint is a real
+// tactical mistake (-25%); a genuinely elite one-on-one threat (handle +
+// outside shot) fights all the way back to neutral — but per Bruno's call,
+// never past it into an actual advantage.
+function isoVsPackMult(oo:any,ops:any[]):number{
+const isolator=ops.find((p:any)=>p.name===oo.pris?.[0])
+if(!isolator)return 0.90
+const quality=((isolator.ball_hdl??50)+(isolator.three??50))/2
+const t=Math.max(0,Math.min(1,(quality-45)/30))
+return 0.75+t*(1.0-0.75)
 }
 
 // Pace tendencies: Transition/Press want a fast tempo, Iso/Post/Pack want a
@@ -563,12 +647,104 @@ return pace<=55?1.06:pace>=75?0.94:1.0
 // post shots; Transition wants easy paint looks with almost no post-ups
 // (no time to work the block); Isolation leans on self-created mid-range;
 // Pick & Roll leans paint (the roll man) and mid (the pull-up jumper).
+// Motion's split changed to a true 50/50 rim-vs-mid among non-three shots,
+// post-up removed entirely (0) — real motion sets are cutting/screening
+// action, not a system that ever works the low block. Combined with
+// MOTION_THREE_BASE=1/3 below, this gives an even 3-way rim/mid/three split
+// among non-transition shots — transition (contra-ataque) is deliberately
+// left OUT of this balance entirely, per Bruno's call: it's tracked as its
+// own separate thing (like real "fast break points"), not a slice competing
+// with shot-location categories for the same pool.
+// pickroll's mid:0.3636 is derived the same way as motion's 0.5 — Bruno's
+// target (excluding transition, its own separate category) is rim 35% /
+// mid 20% / three 45%. With three fixed at 45% (STYLE_THREE_BASE.pickroll
+// below), the remaining 55% needs to split rim 35 / mid 20, i.e. mid is
+// 20/55=36.4% of that remainder — same nested-probability math as motion.
+// iso's mid:0.529/post:0.5 targets Bruno's "classic hero-ball" split (of
+// non-transition shots): rim 20% / mid 45% / post 20% / three 15%. With
+// three fixed at 15%, the remaining 85% needs mid=45 (52.9% of 85), then of
+// what's left after mid (40%), post=20 is exactly half (0.5) — leaving rim
+// at the other half (20), matching the target exactly.
+// post's mid:0.15/post:0.647 targets Bruno's "classic" split rim 30% /
+// mid 15% / post 55% — but unlike the others, Post-Up does NOT get its own
+// STYLE_THREE_BASE entry (Bruno's call: the post player himself basically
+// never shoots threes, so three stays on the generic GM slider, same as
+// every not-yet-redesigned style), so these two fractions are computed
+// directly against the full non-three pool: mid=0.15 exactly, then post is
+// 55/(100-15)=64.7% of what's left after mid, leaving rim at 30%.
 const SHOT_PROFILE_BY_ATK_STYLE:Record<string,{mid:number,post:number}>={
-motion:     {mid:0.30,post:0.15},
-post:       {mid:0.20,post:0.45},
-iso:        {mid:0.40,post:0.20},
-pickroll:   {mid:0.35,post:0.08},
+motion:     {mid:0.5,post:0},
+post:       {mid:0.15,post:0.647},
+iso:        {mid:0.529,post:0.5},
+pickroll:   {mid:0.3636,post:0},
 transition: {mid:0.15,post:0.05},
+}
+
+// Each redesigned style's own three-point identity — the GM's Three-Point
+// Rate slider still exists and still matters, but only as a nudge around
+// THIS number, not the sole driver like it still is for every other (not
+// yet redesigned) style. Bruno's explicit call: the style should pull hard
+// toward its own identity, the slider adjusts around it. motion=1/3 (a
+// clean even 3-way split, contra-ataque tracked separately per Bruno — see
+// SHOT_PROFILE_BY_ATK_STYLE comment above); pickroll=0.45 (modern drive-
+// and-kick identity); iso=0.15 (classic hero-ball, low on catch-and-shoot
+// threes since nobody's moving to create them).
+const STYLE_THREE_BASE:Record<string,number>={motion:1/3,pickroll:0.45,iso:0.15}
+function styleEffectiveThreeRate(styleBase:number,threeRateSlider:number|undefined,swingDelta:number):number{
+const sliderNudge=((threeRateSlider??47)-47)/100*0.35
+return Math.max(.05,Math.min(.65,styleBase+sliderNudge+swingDelta))
+}
+
+// The "aleatório" element of a redesigned style's identity: which one of
+// rim/mid/three runs hot varies game to game (a real team doesn't shoot the
+// exact same shot mix every single night) — rolled once per team per game,
+// not per-shot, so it stays a real, consistent game-long tendency rather
+// than shot-to-shot noise. Same mechanic for every redesigned style.
+function rollShotSwing():{three:number,mid:number}{
+const pick=Math.floor(Math.random()*3)
+const mag=0.07+Math.random()*0.06
+if(pick===2)return{three:mag,mid:-mag/2}
+if(pick===1)return{three:-mag/2,mid:mag}
+return{three:-mag/2,mid:-mag/2}
+}
+
+// Full-Court Press's real payoff depends on who's actually running it, not
+// a flat bonus for choosing the scheme — Bruno's explicit call: gambling
+// full-court only pays off with genuinely good, fresh perimeter defenders;
+// weak ones just commit fouls and get beaten, and the SAME defenders
+// gambling on tired legs late in a game make worse decisions than they
+// would have in the 1st quarter. Two real, separate inputs multiplied
+// together: personnel quality (Perimeter Defense + Steal Rate of whichever
+// PG/SG/SF are on the floor, minutes-weighted) and how fresh those same
+// players currently are (their own live fatigue, not a static rating) —
+// this is what actually delivers on "a scheme that wears itself out."
+function pressEffectiveness(dps:any[],fat:Record<string,number>):number{
+const perimeter=dps.filter((p:any)=>(p.mins||0)>0&&['PG','SG','SF'].includes(p.pos))
+if(!perimeter.length)return 0.85
+const totalMin=perimeter.reduce((s:number,p:any)=>s+(p.mins||0),0)
+if(totalMin<=0)return 0.85
+const avgQuality=perimeter.reduce((s:number,p:any)=>s+((p.pdef??50)+(p.stl??50))/2*(p.mins||0),0)/totalMin
+const avgFatigue=perimeter.reduce((s:number,p:any)=>s+(fat[p.id]??100)*(p.mins||0),0)/totalMin
+const qualityMult=0.75+Math.max(0,Math.min(1,(avgQuality-40)/40))*0.85
+const fatigueMult=0.7+Math.max(0,Math.min(1,(avgFatigue-40)/60))*0.4
+return qualityMult*fatigueMult
+}
+
+// Transition's own playstyle identity (Bruno's fifth redesign, 2026): a
+// real steal already creates a fast break for ANY team, any style — that
+// mechanic is universal (see transitionCtx above), not something choosing
+// this style should duplicate. What Transition-as-a-chosen-style adds on
+// top is a genuinely EXTRA way to get there: a real (if smaller) chance of
+// pushing the pace off the inbound right after the OPPONENT scores, not
+// just off a live turnover — quick outlet, no time for the defense to
+// fully get back. Bruno explicitly declined the equivalent trigger off
+// defensive rebounds (offered, not chosen) — this is the only extra
+// trigger Transition gets. Gated to the team about to attack next actually
+// running Transition; every other style still only gets fast breaks off
+// real steals.
+const PUSH_AFTER_MAKE_CHANCE=0.30
+function maybeTriggerPushAfterMake(nextAttackerOrd:any,transitionCtx?:{on:boolean,stealerId?:any,stealDefStyle?:string}){
+if(transitionCtx&&nextAttackerOrd.atk_style==='transition'&&Math.random()<PUSH_AFTER_MAKE_CHANCE)transitionCtx.on=true
 }
 
 // A Head Coach's off_adjustment/def_adjustment sharpens a matchup that
@@ -808,6 +984,10 @@ const defOrd=(ps:any[])=>{const s=[...ps].sort((a,b)=>b.usage-a.usage);return{pr
 // must apply even to a team that never submitted Weekly Orders, so a partial
 // hOrd/aOrd (just those fields) still gets real pace/style defaults underneath.
 const ho={...defOrd(hp),...(hOrd||{})},ao={...defOrd(ap),...(aOrd||{})}
+// Rolled once per team per game, read every possession in simP() — see
+// rollShotSwing() above. Harmless (unused) for any style not yet
+// redesigned (only Motion and Pick & Roll read it so far).
+;(ho as any).shotSwing=rollShotSwing();(ao as any).shotSwing=rollShotSwing()
 ensurePlayableDepthChart(hp,ho.depth_chart)
 ensurePlayableDepthChart(ap,ao.depth_chart)
 // fat[] is seeded from each player's weekly health (not a flat 100) so a
@@ -852,6 +1032,11 @@ const periodLen=isOT?300:720
 const periodPoss=isOT?Math.max(6,Math.round(ppq*300/720)):ppq
 part.home=0;part.away=0
 teamFouls.home=0;teamFouls.away=0
+// Reset every quarter, same as part above — a turnover forced right at the
+// buzzer shouldn't hand a transition chance into a fresh quarter, where the
+// ball gets inbounded normally after the stoppage, not pushed off a live
+// steal.
+const transitionCtx={on:false}
 let side="home"
 rollTechs(hp,ap,"home","away",ht,sc,st,q,pbp,gameReferee,gameChippy)
 rollTechs(ap,hp,"away","home",at,sc,st,q,pbp,gameReferee,gameChippy)
@@ -910,7 +1095,7 @@ if((part[ds] as number)>=8&&(tol[os].q[q]||0)<2&&tol[os].used<7){tol[os].q[q]=(t
 const scBefore=sc[os]
 const onCourtOff=onCourtFive(side==="home"?hp:ap)
 const onCourtDef=onCourtFive(side==="home"?ap:hp)
-simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp,teamFouls)
+simP(ot,dt,ops,dps,oo,doo,sc,st,fat,mom,ls,part,isC,os,ds,q,tl,pbp,teamFouls,transitionCtx)
 const pmDelta=sc[os]-scBefore
 if(pmDelta!==0){
 onCourtOff.forEach(p=>{st[p.id].plus_minus+=pmDelta})
@@ -1051,7 +1236,7 @@ jittered.forEach(p=>{p.mins=Math.round(p.mins)})
 // never clip a legitimately great shooting night, but a 10-minute player
 // hard-stops at 13 attempts, not 24.
 function fgaHardCap(mins:number):number{return Math.max(3,Math.ceil((mins||0)*1.3))}
-function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>,st:Record<string,any>|undefined,elapsedMin:number){
+function pS(ps:any[],ord:any,u3:boolean,ic:boolean,fat:Record<string,number>,mom:Record<string,number>,st:Record<string,any>|undefined,elapsedMin:number,isTransitionPoss?:boolean){
 if(ic&&ord.clutch){const cp=ps.find((p:any)=>p.name===ord.clutch);if(cp&&fat[cp.id]>40&&(st?.[cp.id]?.fga||0)<fgaHardCap(cp.mins||0))return cp}
 // Exclude anyone already at their hard cap from the pool entirely — not a
 // weight penalty (which the exact bug above already showed can be beaten),
@@ -1100,6 +1285,83 @@ if(!u3){if(pi===0)w*=1.3;else if(pi===1)w*=1.15;else if(pi===2)w*=1.08}else{if(p
 // touches here, a real 3PT accuracy bump in simP()'s acc formula.
 if(p.ball_role==='dominant')w*=1.2
 else if(p.ball_role==='off_ball')w*=0.85
+// Motion Offense identity (Bruno's redesign): real motion sets live and
+// die on off-ball movement — genuinely mobile players get more/better
+// touches (cuts, relocations, backdoor reads), while a live-dribble ISO
+// go-to guy doesn't fit the system at all, on top of (not instead of) the
+// generic Dominant bump just above — net a real penalty, not just a
+// smaller bonus. 1.0 at league-average, scaling to about ±29% at the
+// extremes.
+// Originally agility+speed — real incident: those two columns (plus
+// strength/close_shot/standing_dunk) are only populated for 30 unrostered
+// draft prospects out of 1163 active players (verified via a direct
+// count), so every real game was silently computing this as the neutral
+// 50/50 case. Shot IQ (reads openings/cuts) + Stamina (keeps moving the
+// whole game) is the closest already-fully-populated proxy for "genuinely
+// mobile off the ball" — same fix applied to every other spot below that
+// had this exact problem.
+if(ord.atk_style==='motion'){
+w*=0.7+((p.siq??50)+(p.stamina??50))/200*.6
+if(p.ball_role==='dominant')w*=0.75
+}
+// Pick & Roll identity (Bruno's redesign): a real two-man game — the
+// ball-handler creating off the dribble/pass AND the screener setting the
+// pick and finishing the roll both matter, equally (same ±29% swing shape
+// as Motion's mobility bonus, applied to whichever half of the two-man
+// game this player actually is). A wing/SF is neither role here on
+// purpose — Pick & Roll is fundamentally a guard-big action.
+// Screener term was strength+dunk — strength has the same empty-data
+// problem as above; Interior Defense is a real, fully-populated proxy for
+// "physical enough to set a real screen" (dunk itself was already fine,
+// kept as-is for "finishes the roll").
+else if(ord.atk_style==='pickroll'){
+if(p.pos==='PG'||p.pos==='SG')w*=0.7+((p.ball_hdl??50)+(p.pass_vis??50))/200*.6
+else if(p.pos==='C'||p.pos==='PF')w*=0.7+((p.idef??50)+(p.dunk??50))/200*.6
+}
+// Isolation identity (Bruno's redesign): the real cost of the scheme, not
+// just a bonus for the go-to guy — the named isolator (Weekly Orders'
+// priority-1 player) gets genuinely more of the ball, and the other four
+// genuinely get less, moderate per Bruno's call (+25%/-8%), not the
+// all-upside-no-downside version this style had before.
+else if(ord.atk_style==='iso'){
+w*=p.name===pris[0]?1.25:0.92
+}
+// Post-Up identity (Bruno's redesign): position decides, not the priority
+// list. First attempt only boosted C/PF without touching anyone else —
+// verified against real minutes and found it didn't work: a guard already
+// sitting on the priority list (+30% there) plus a Dominant ball role
+// buried the modest post-player bonus entirely (Jarrett Allen 6.5 FGA vs
+// Donovan Mitchell 15.2 FGA at IDENTICAL scoring ratings — backwards).
+// Needs the same real concentration ISO has, not just a bonus for the
+// beneficiary — C/PF genuinely take the ball away from the perimeter under
+// this scheme, same magnitude as ISO's isolator/everyone-else split
+// (+25%/-8%), stacked with the existing skill-quality term so a true post
+// threat still outweighs a token big. Was strength+layup — same empty-
+// data problem, Interior Defense substituted for strength (layup kept,
+// already fine).
+else if(ord.atk_style==='post'){
+if(p.pos==='C'||p.pos==='PF')w*=1.25*(0.7+((p.idef??50)+(p.layup??50))/200*.6)
+else w*=0.92
+}
+// Transition identity (Bruno's redesign): interior players are genuinely
+// less involved in a team built to push the pace — not just on the actual
+// break possessions (see the universal transition bias just below, which
+// applies to ANY style's fast breaks), but as this team's whole-game shot
+// diet, since a real up-tempo team's offense runs through its perimeter
+// even in its half-court sets.
+else if(ord.atk_style==='transition'){
+if(p.pos==='C'||p.pos==='PF')w*=0.75
+}
+// A real fast break (ANY style, not just a team that's chosen Transition —
+// see isTransitionPoss passed in from simP()) is a perimeter play: the
+// interior trails the break, a perimeter player (especially a fast,
+// athletic one) either gets pushed the ball ahead or the possession simply
+// never features a big at all. Stacks with (doesn't replace) the
+// atk_style==='transition' whole-game bias just above.
+if(isTransitionPoss){
+if(p.pos==='C'||p.pos==='PF')w*=0.5
+else w*=1.0+((p.siq??50)+(p.stamina??50))/200*.3
+}
 // Out-of-position players are genuinely less likely to be the guy taking
 // the shot, not just less accurate when they do (see posFitMult in acc too).
 w*=(p.posFitMult??1)
@@ -1217,8 +1479,23 @@ return Math.min(p.scoring??50,acc)
 return scores.reduce((a,b)=>a+b,0)/scores.length
 }
 
-function simP(ot:any,dt:any,ops:any[],dps:any[],oo:any,doo:any,sc:any,st:any,fat:any,mom:any,ls:any,part:any,isC:boolean,os:"home"|"away",ds:"home"|"away",q:number,tl:number,pbp:any[],teamFouls:{home:number,away:number}){
+function simP(ot:any,dt:any,ops:any[],dps:any[],oo:any,doo:any,sc:any,st:any,fat:any,mom:any,ls:any,part:any,isC:boolean,os:"home"|"away",ds:"home"|"away",q:number,tl:number,pbp:any[],teamFouls:{home:number,away:number},transitionCtx?:{on:boolean,stealerId?:any,stealDefStyle?:string}){
 if(!ops.length||!dps.length)return
+// A live turnover on the PREVIOUS possession (this same object, set at the
+// bottom of the turnover branch below) means THIS possession is a real
+// fast break, not a half-court set — strict home/away alternation above
+// guarantees whoever's attacking right now is exactly the team that just
+// forced it. Consumed immediately so it only ever applies to this one
+// possession, matching Bruno's real-basketball point: a steal off a
+// dribble or pass creates a numbers-advantage look (2-on-1, 3-on-2, break-
+// away), not just a generic "aggressive defense" flavor stat with no actual
+// connection to the very next shot. Every team gets a real break chance off
+// any live steal; a team actually built for it (Weekly Orders' Transition
+// attacking style) converts it better, same as the tactical tree's own
+// "Steal-to-Break"/"2-on-1 Situations" nodes already promise in their
+// flavor text but never mechanically delivered on before this.
+const isTransition=!!transitionCtx?.on
+if(transitionCtx)transitionCtx.on=false
 // The GM-facing Three-Point Rate slider (0-80, gm/orders page) is labeled
 // "% of possessions ending in a 3PT attempt" — but this used to run the
 // value through r3p(v)=(20+v*0.22)/100 first, silently reinterpreting it
@@ -1227,10 +1504,48 @@ if(!ops.length||!dps.length)return
 // simulated league's actual 27.1% — the accuracy (3P%) was already right,
 // this frequency mismatch was the real gap. Now uses the slider value
 // directly, matching what the UI already promises the GM.
-const u3=Math.random()<(oo.three_rate||oo.threeRate||47)/100
-const shotProfile=SHOT_PROFILE_BY_ATK_STYLE[oo.atk_style]||SHOT_PROFILE_BY_ATK_STYLE.motion
-const isMid=!u3&&Math.random()<shotProfile.mid,isPost=!u3&&!isMid&&Math.random()<shotProfile.post
-const sc2=pS(ops,oo,u3,isC,fat,mom,st,elapsedMinutes(q,tl))
+// A numbers-advantage break (2-on-1, 3-on-2, breakaway) is finished at the
+// rim the overwhelming majority of the time — a jumper or post-up gives the
+// defense time to recover, defeating the whole point of pushing the ball.
+// The Transition system's own "Trailing Shooter" node is the one real
+// exception real basketball has (a trailer spotting up behind the break),
+// modeled here as a small chance that survives even on a fast break.
+const isMotion=oo.atk_style==='motion'
+const isPickroll=oo.atk_style==='pickroll'
+const isIso=oo.atk_style==='iso'
+const isRedesignedStyle=isMotion||isPickroll||isIso
+const styleSwing=isRedesignedStyle?(oo.shotSwing||{three:0,mid:0}):{three:0,mid:0}
+const u3=isTransition?Math.random()<0.10
+:isRedesignedStyle?Math.random()<styleEffectiveThreeRate(STYLE_THREE_BASE[oo.atk_style],oo.three_rate??oo.threeRate,styleSwing.three)
+:Math.random()<(oo.three_rate||oo.threeRate||47)/100
+const shotProfileRaw=SHOT_PROFILE_BY_ATK_STYLE[oo.atk_style]||SHOT_PROFILE_BY_ATK_STYLE.motion
+const shotProfile=isRedesignedStyle?{mid:Math.max(.15,Math.min(.85,shotProfileRaw.mid+styleSwing.mid*1.3)),post:shotProfileRaw.post}:shotProfileRaw
+const isMid=!isTransition&&!u3&&Math.random()<shotProfile.mid,isPost=!isTransition&&!u3&&!isMid&&Math.random()<shotProfile.post
+// A real fast break, any style: interior players trail the play and rarely
+// get the ball, the guy who just stole it either finishes coast-to-coast
+// himself or pushes it ahead to a perimeter teammate (usually the fastest
+// one on the floor) — never a set play run through a big. The self-finish
+// case is handled here directly (skips pS() for this one possession); the
+// perimeter/athletic bias for everyone else is passed into pS() itself.
+// Whether he finishes it himself or releases it depends on WHERE the steal
+// happened — the engine has no real court-position model, so the
+// defensive scheme in play when the steal was forced (recorded on
+// transitionCtx above) stands in for it. Bruno's correction (had this
+// backwards at first): Press traps the ball-handler early and full-court,
+// often right around midcourt — a Press steal already has a short trip
+// left, so he should mostly just finish it himself. Man-to-Man, in
+// practice, is mostly played half-court (even though it technically CAN
+// go full-court) and only really engages once the offense is already set
+// up deep in ITS OWN frontcourt — a live turnover there leaves the stealer
+// the entire length of the floor still to cover, so he should let go of it
+// and push it ahead. Same logic covers Zone/Pack (also half-court schemes).
+// When he DOESN'T finish it himself, the outlet pass almost always comes
+// from him too — the assist-credit weighting below (in both make
+// branches) gives the stealer a real priority bump on a transition
+// possession specifically, instead of treating this pass like any other.
+const stealerOnFloor=isTransition&&transitionCtx?.stealerId?ops.find((p:any)=>p.id===transitionCtx.stealerId&&(p.mins||0)>0):null
+const selfFinishChance=transitionCtx?.stealDefStyle==='press'?0.55:0.15
+const sc2=(stealerOnFloor&&Math.random()<selfFinishChance)?stealerOnFloor:pS(ops,oo,u3,isC,fat,mom,st,elapsedMinutes(q,tl),isTransition)
 if(!sc2)return
 // Lockdown Defender: a GM-assigned individual matchup, no penalty elsewhere
 // (unlike Double Team) — if the locked-down player has the ball and his
@@ -1240,8 +1555,25 @@ const lockDef=doo.lockdown_target&&sc2.name===doo.lockdown_target?dps.find((p:an
 const def=lockDef||wt(dps.map(p=>({p,w:((p.idef+p.pdef)/2*.5+20)*Math.max(.04,(p.mins||0)/48)*foulTaper(st[p.id]?.pf||0)})))
 if(!def)return
 const ss=st[sc2.id],ds2=st[def.id],fs=fat[sc2.id]/100
-fat[sc2.id]=Math.max(40,fat[sc2.id]-(14/sc2.stamina)*.7*1.2)
-fat[def.id]=Math.max(40,fat[def.id]-(14/def.stamina)*.7)
+// Transition identity (Bruno's redesign): "win by exhaustion" — the pace
+// wears out the defense chasing it more than it wears out the attacking
+// team itself, a real, compounding edge against a lower-stamina opponent
+// that only shows up as the game goes on (early fatigue is the same for
+// everyone, this is about who's still fresh in the 4th).
+const transitionOffFat=oo.atk_style==='transition'?1.15:1
+const transitionDefFat=oo.atk_style==='transition'?1.35:1
+// Full-Court Press identity (Bruno's second defensive redesign): the
+// scheme's own real-world reputation ("creates turnovers but tires
+// players") wasn't actually costing anyone anything before this — pressing
+// the ball full-court every possession is genuinely exhausting for the
+// defender doing it.
+const pressDefFat=doo.def_style==='press'?1.35:1
+// Pack the Paint identity (Bruno's third defensive redesign): the exact
+// opposite of Press — everyone stays compact near the rim instead of
+// covering the whole floor, genuinely easier on the legs.
+const packDefFat=doo.def_style==='pack'?0.8:1
+fat[sc2.id]=Math.max(40,fat[sc2.id]-(14/sc2.stamina)*.7*1.2*transitionOffFat)
+fat[def.id]=Math.max(40,fat[def.id]-(14/def.stamina)*.7*transitionDefFat*pressDefFat*packDefFat)
 
 // Common/non-shooting foul (reach-in, illegal screen, loose ball) — a real,
 // distinct foul type from the shooting foul below. Real NBA rule: a common
@@ -1282,7 +1614,11 @@ const tacticalMods:TacticalMods=oo.tacticalMods||NEUTRAL_TACTICAL_MODS
 // related nodes) still shapes how well THEY box out on D, independent of
 // which side is attacking this particular possession.
 const defTacticalMods:TacticalMods=doo.tacticalMods||NEUTRAL_TACTICAL_MODS
-const matchupBase=(ATK_DEF_MATCHUP[oo.atk_style]?.[doo.def_style]??1.0)*paceSynergy(oo.atk_style,(oo.pace||70)*tacticalMods.paceMult)*paceSynergy(doo.def_style,doo.pace||70)
+const rawMatchup=isMotion&&doo.def_style==='pack'?motionVsPackMult(ops)
+:isPickroll&&doo.def_style==='pack'?pickrollVsPackMult(ops)
+:isIso&&doo.def_style==='pack'?isoVsPackMult(oo,ops)
+:(ATK_DEF_MATCHUP[oo.atk_style]?.[doo.def_style]??1.0)
+const matchupBase=rawMatchup*paceSynergy(oo.atk_style,(oo.pace||70)*tacticalMods.paceMult)*paceSynergy(doo.def_style,doo.pace||70)
 const mDev=matchupBase-1
 const offDamp=coachDampen(oo.off_adjustment),defDamp=coachDampen(doo.def_adjustment)
 const dampenFactor=Math.max(0,1+(mDev>0?offDamp-defDamp:defDamp-offDamp))
@@ -1346,24 +1682,89 @@ const refFoulMult=ref?refFoulRate*(1+(os==='home'?refHomeSkew:-refHomeSkew))*ref
 // same calibration scale as every other multiplier here.
 const moralMult=.92+(sc2.moral??80)/100*.08
 
-if(Math.random()<(.115+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0021+(isDoubled?0.04:0))*(1-cohesionDampen(oo.cohesion,0.2))*tacticalMods.toMult){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:(p.stl*.5+20)*Math.max(.04,(p.mins||0)/48)})));
+// Transition identity (Bruno's redesign): higher risk for higher reward —
+// faster, less deliberate possessions genuinely turn the ball over more
+// often. A real, whole-game cost for choosing this style, not just a
+// bonus with no downside.
+const transitionRiskMult=oo.atk_style==='transition'?1.25:1
+// Zone 2-3 identity (Bruno's first defensive redesign): weak ball-pressure
+// containment — defenders play their area facing the ball instead of
+// hounding a specific man, so live turnovers off the dribble genuinely
+// happen less often (its own strengths are shot contesting and defensive
+// rebounding, not creating live-ball chaos).
+const zoneDribbleMult=doo.def_style==='zone23'?0.75:1
+// Full-Court Press identity, continued: the whole point of the scheme is
+// ball pressure — genuinely forces more live turnovers, real risk/reward
+// that already shaped the Transition self-finish location logic earlier.
+// Scaled by pressEffectiveness() (personnel quality × current fatigue),
+// not a flat number — see that function's own comment.
+const pressDribbleMult=doo.def_style==='press'?pressEffectiveness(dps,fat)*1.03:1
+if(Math.random()<(.115+(100-(sc2.siq+sc2.pass_iq+sc2.ball_hdl)/3)*.0021+(isDoubled?0.04:0))*(1-cohesionDampen(oo.cohesion,0.2))*tacticalMods.toMult*transitionRiskMult*zoneDribbleMult*pressDribbleMult){ss.to++;ss.turnovers++;const st3=wt(dps.map(p=>({p,w:(p.stl*.5+20)*Math.max(.04,(p.mins||0)/48)*(doo.def_style==='press'&&(p.pos==='PG'||p.pos==='SG')?1.4:1)})));
 // A forced turnover only becomes a real credited steal (vs. just a live-
 // ball TO) if the defender converts it — Steal Rate (hidden) is now the
 // SOLE driver of how often that happens, same volume/quality split as
-// every other rate attribute here. stl/speed/agility (quality — being
+// every other rate attribute here. stl/Perimeter Defense (quality — being
 // quick enough to actually close and jump the lane) stay a real but
-// secondary multiplier instead of driving frequency themselves.
+// secondary multiplier instead of driving frequency themselves. Was
+// stl+speed+agility — speed/agility are only populated for 30 unrostered
+// prospects out of 1163 active players (found while redesigning Weekly
+// Orders playstyles), so this was silently always the neutral case for
+// every real game; Perimeter Defense is a real, fully-populated proxy for
+// the same "quick enough to jump the lane" idea.
 const stealVol=Math.max(.1,spg36(st3.steal_rate))
-const stealQualityMult=0.7+((st3.stl??50)/100)*.2+(((st3.speed??50)+(st3.agility??50))/200)*.1
-if(Math.random()<Math.min(1,stealVol/1.4)*1.0*stealQualityMult)st[st3.id].stl++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:`${st3.name} steals from ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
+// Full-Court Press identity, continued: defenders facing the ball the
+// whole length of the floor read and jump passing lanes far more than any
+// other scheme — a real, credited-steal-specific bonus (on top of the
+// broader live-turnover bump above), same quality×fatigue scaling as
+// pressDribbleMult instead of a flat number.
+const pressStealMult=doo.def_style==='press'?pressEffectiveness(dps,fat)*0.89:1
+// Pack the Paint identity, continued: defenders are locked onto protecting
+// the rim, not reading the ball for a jump-the-lane steal — kick-outs off
+// the collapse get through clean far more often.
+const packStealMult=doo.def_style==='pack'?0.75:1
+const stealQualityMult=(0.7+((st3.stl??50)/100)*.2+((st3.pdef??50)/100)*.1)*pressStealMult*packStealMult
+// Not every turnover is a fast break. A credited steal (defender actually
+// jumped a lane/stripped the ball, live-ball) IS one — the defense is
+// caught moving the wrong way and a break develops. An uncredited turnover
+// here stands in for the dead-ball kind (travel, offensive foul, a bad pass
+// that just sails out of bounds, 3-second/shot-clock violation) — the whistle
+// blows, both teams reset and inbound normally, no numbers advantage at
+// all. Gating the transition flag on the same steal-credit roll that
+// already exists (rather than inventing a whole separate turnover-type
+// system) is the natural, already-calibrated line between the two.
+const stolen=Math.random()<Math.min(1,stealVol/1.4)*1.0*stealQualityMult
+if(stolen){st[st3.id].stl++;if(transitionCtx){transitionCtx.on=true;transitionCtx.stealerId=st3.id;transitionCtx.stealDefStyle=doo.def_style}}
+pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"turnover",description:stolen?`${st3.name} steals from ${sc2.name}`:`Turnover by ${sc2.name}`,home_score:sc.home,away_score:sc.away});return}
 if(!u3&&Math.random()<bpg36(def.blk)*.145*(doo.def_style==='zone23'?.5:1)*refFoulMult){ds2.blk++;if(Math.random()<.14){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;const f=simFT(sc2,2,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`Block foul on ${sc2.name} — ${f}/2 FTs`,home_score:sc.home,away_score:sc.away})}else{
 // A blocked shot almost always stays inbounds — real box scores still
 // credit someone with the rebound, same OREB/DREB split as any other miss
 // (mostly the defense, sometimes the shooting team recovers the carom).
 // This used to just vanish (possession ends, nobody gets a rebound stat),
 // quietly undercounting team REB by exactly the number of blocks in the game.
-if(Math.random()<.27){const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(rebWeightBase(p)*(0.5+offReboundShare(p))*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].or++;st[rb.id].reb++}
-else{const rb=wtCapped(dps.map(p=>({p,w:(rebWeightBase(p)*(0.5+defReboundShare(p))*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].dr++;st[rb.id].reb++}
+// The "strength contest" term here (and at every other rebound-weight spot
+// below) used to read p.strength — found while redesigning Weekly Orders
+// playstyles that strength/agility/speed/close_shot/standing_dunk are only
+// populated for 30 unrostered draft prospects out of 1163 active players,
+// so this was silently always the neutral 50 case in every real game.
+// Interior Defense substituted as a real, fully-populated proxy for "a
+// physical, bruising presence" (an idea in the same spirit as strength,
+// not a coincidence — good rim protectors are generally the same players
+// who win physical rebounding battles).
+if(Math.random()<.27){const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(rebWeightBase(p)*(0.5+offReboundShare(p))*tacticalMods.offRebMult*(0.7+(p.idef??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].or++;st[rb.id].reb++}
+// Zone 2-3 identity, continued (Bruno's explicit call, against the usual
+// real-basketball assumption that zone rebounds worse): the 2-3 shape
+// already has bodies boxed into the exact areas a miss is most likely to
+// land, and C/PF specifically anchor that back line — a real team-wide
+// boost, with an extra one for the players actually built to protect the
+// glass from there.
+// Full-Court Press identity, continued: everyone's spread across the whole
+// floor pressuring the ball, nobody's actually positioned to box out —
+// a real team-wide defensive rebounding cost.
+// Pack the Paint identity, continued: everyone's already collapsed right
+// where a miss is most likely to land — a real team-wide boost, but no
+// position-specific extra this time (Bruno's explicit call — no standout
+// position for this scheme, unlike Zone's C/PF anchor).
+else{const rb=wtCapped(dps.map(p=>({p,w:(rebWeightBase(p)*(0.5+defReboundShare(p))*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.idef??50)/100*.3)*(doo.def_style==='zone23'?1.2:1)*(doo.def_style==='zone23'&&(p.pos==='C'||p.pos==='PF')?1.15:1)*(doo.def_style==='press'?0.8:1)*(doo.def_style==='pack'?1.2:1))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].dr++;st[rb.id].reb++}
 pbp.push({quarter:q+1,time_left:fmt(tl),team_id:dt.id,event_type:"block",description:`BLOCK by ${def.name} on ${sc2.name}!`,home_score:sc.home,away_score:sc.away})
 };return}
 ss.fga++;if(u3)ss.tpa++
@@ -1415,9 +1816,39 @@ const hotHandAccDamp=0.80+0.20*pointsTaper(st[sc2.id]?.pts||0,sc2.mins||0,sc2.sc
 // (home court, matchup, momentum, spacing, off-ball role, GM tactics...)
 // get dampened; fatigue/defense apply at full strength on every shot.
 const situational=(.9+(sc2.consistency/100)*.15)*pressureMult*matchupMult*dtMult*homeBoost*crowdMult*offBallMult*moralMult*tacticalShotMult*(sc2.posFitMult??1)*usageEffMult(st[sc2.id]?.fga||0)*teamSpacingMult(sc2,ops)*hotHandAccDamp
+// A real, undampened bump (same treatment as fatigue/defense above, not the
+// dampen()'d situational stack) — the defense being genuinely out of
+// position on a break is a physical fact of the play, not several
+// favorable coincidences lining up. Every team gets some of it off any live
+// steal; a team actually running the Transition system converts it better
+// (its own tactical tree already promises this in "Steal-to-Break"/"2-on-1
+// Situations" — this is what actually delivers on that promise).
+const transitionAccMult=isTransition?1.18+(oo.atk_style==='transition'?0.12:0):1
+// Zone 2-3 identity, continued: weak on the arc (corner shooters left more
+// open than a real defender would allow), strong at contesting anything
+// inside it — both the paint and the mid-range "gaps" a zone is often
+// (wrongly, per Bruno's explicit call) assumed to leak. Real, undampened
+// facts about the shot itself, same treatment as fatigue/defense above.
+const zoneDef=doo.def_style==='zone23'
+const zoneExteriorMult=zoneDef?1.15:1
+const zoneInteriorMult=zoneDef?0.85:1
+// Full-Court Press identity, continued: exterior shooting is genuinely
+// unaffected (Bruno's explicit call — MÉDIO), but interior AND mid-range
+// both suffer once the press is actually beaten — a real, scrambling
+// defense recovering late gives up easier paint touches and open pull-ups
+// alike, not just a token effect confined to one shot type.
+const pressInteriorMult=doo.def_style==='press'?1.15:1
+// Pack the Paint identity, continued: the exact opposite shape of Zone —
+// weak on the arc (everyone collapses inward, corner shooters go
+// unattended), strong on anything inside (the scheme's whole purpose),
+// genuinely neutral at mid-range (Bruno's explicit call — neither the
+// strength nor the leak real basketball intuition might expect). Only
+// applies to rim/post, not mid — mid stays untouched by this scheme.
+const packExteriorMult=doo.def_style==='pack'?1.15:1
+const packInteriorMult=doo.def_style==='pack'?0.8:1
 const acc=u3
-?Math.min(.50,Math.max(.15,(.355+(sc2.three-50)/100*.20)*(.84+fs*.16)*(1-def.pdef/100*.14)*dampen(situational,.6)))
-:Math.min(.74,Math.max(.18,(isPost?.47:isMid?.43+(sc2.mid-50)/100*.10:.535+rimSkill*.18)*(.84+fs*.16)*(1-def.idef/100*.14)*dampen(situational,.6)))
+?Math.min(.50,Math.max(.15,(.355+(sc2.three-50)/100*.20)*(.84+fs*.16)*(1-def.pdef/100*.14)*dampen(situational,.6)*zoneExteriorMult*packExteriorMult))
+:Math.min(.74,Math.max(.18,(isPost?.47:isMid?.43+(sc2.mid-50)/100*.10:.535+rimSkill*.18)*(.84+fs*.16)*(1-def.idef/100*.14)*dampen(situational,.6)*transitionAccMult*zoneInteriorMult*pressInteriorMult*(isMid?1:packInteriorMult)))
 const makes=Math.random()<acc
 const lsi=ls[sc2.id];lsi.push(makes?1:0);if(lsi.length>4)lsi.shift()
 const r2=lsi.reduce((a:number,b:number)=>a+b,0),st4=sc2.streaky/100
@@ -1480,19 +1911,21 @@ const foulDrawQualityMult=0.85+(sc2.draw_foul/100)*.3
 // above), so an elite, well-catered-to passer's real ~40%+ share of his
 // team's assists needs real room to reach it.
 const shootingFoulChance=Math.min(SHOOTING_FOUL_CAP,ftpg36(sc2.free_throw_rate)*FT_RATE_K*foulDrawQualityMult*refFoulMult*tacticalMods.foulDrawMult*ftTaper(ss.fta||0,sc2.mins||0,sc2.free_throw_rate,elapsedMinutes(q,tl)))
-if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.34+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.15,apg36(p.assist_rate))*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0,p.assist_rate,elapsedMinutes(q,tl))*dampen(pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl)),.4)})),.50);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
-if(makes){ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.74+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.15,apg36(p.assist_rate))*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0,p.assist_rate,elapsedMinutes(q,tl))*dampen(pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl)),.4)})),.50);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
+if(Math.random()<shootingFoulChance){ds2.pf++;foulOutCheck(def,ds2,dt,dps,q,tl,pbp,sc);foulTroubleCheck(def,ds2,dt,dps,q,tl,pbp,sc);ss.fd++;teamFouls[ds]=(teamFouls[ds]||0)+1;if(makes){maybeTriggerPushAfterMake(doo,transitionCtx);ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.34+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.15,apg36(p.assist_rate))*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0,p.assist_rate,elapsedMinutes(q,tl))*dampen(pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl)),.4)*(isTransition&&p.id===transitionCtx?.stealerId?9:1)})),.50);st[ast.id].ast++}const f=simFT(sc2,1,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} scores and draws foul! (${pts}+${f})`,home_score:sc.home,away_score:sc.away})}else{const fc=u3?3:2;const f=simFT(sc2,fc,fat);sc[os]+=f;ss.pts+=f;ss.ftm+=f;ss.fta+=fc;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"freethrow",description:`${sc2.name} to the line — ${f}/${fc}`,home_score:sc.home,away_score:sc.away})};return}
+if(makes){maybeTriggerPushAfterMake(doo,transitionCtx);ss.fgm++;if(u3)ss.tpm++;const pts=u3?3:2;sc[os]+=pts;ss.pts+=pts;part[os]+=pts;(part as any)[ds]=0;const ap2=ops.filter(p=>p.id!==sc2.id&&p.mins>0);if(ap2.length&&Math.random()<(.74+cohesionDampen(oo.cohesion,0.12))*tacticalMods.astMult){const ast=wtCapped(ap2.map(p=>({p,w:(Math.max(.15,apg36(p.assist_rate))*(0.7+(p.assist_role??50)/100*.3+(p.pass_vis??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*astTaper(st[p.id]?.ast||0,p.mins||0,p.assist_rate,elapsedMinutes(q,tl))*dampen(pointsTaper(st[p.id]?.pts||0,p.mins||0,p.scoring,elapsedMinutes(q,tl)),.4)*(isTransition&&p.id===transitionCtx?.stealerId?9:1)})),.50);st[ast.id].ast++}const shot=u3?"three-pointer":isPost?"hook shot":isMid?"mid-range jump shot":mom[sc2.id]>=2?"slam dunk":"driving layup";pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`${sc2.name} — ${shot}${mom[sc2.id]>=2.5?" 🔥 ON FIRE!":""}! ${pts}pts`,home_score:sc.home,away_score:sc.away})}
 else{if(Math.random()<.27){
 // Boxing out for an offensive rebound is a real strength contest, not just
 // a skill (off_reb) roll — a secondary, smaller weight so off_reb still
 // decides most of the time.
-const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(rebWeightBase(p)*(0.5+offReboundShare(p))*tacticalMods.offRebMult*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st,elapsedMinutes(q,tl));if(re){st[re.id].fga++;
+const rb=wtCapped(ops.filter(p=>p.mins>0).map(p=>({p,w:(rebWeightBase(p)*(0.5+offReboundShare(p))*tacticalMods.offRebMult*(0.7+(p.idef??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].or++;st[rb.id].reb++;const re=pS(ops,oo,false,false,fat,mom,st,elapsedMinutes(q,tl));if(re){st[re.id].fga++;
 // Putback chance: whoever ends up with the loose ball finishes it better
-// the more of a standing-dunk finisher they are — real range around the
-// old flat 50%, not a fixed coin flip regardless of who's shooting.
-if(Math.random()<.35+((re.standing_dunk??50)/100)*.30){st[re.id].fgm++;sc[os]+=2;st[re.id].pts+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`OFF rebound ${rb.name} → ${re.name} scores! 2pts`,home_score:sc.home,away_score:sc.away})}}}else{
+// the more of a finisher they are — real range around the old flat 50%,
+// not a fixed coin flip regardless of who's shooting. Was standing_dunk,
+// same empty-data problem as the strength spots above — dunk substituted
+// (already fully populated, and just as relevant to finishing a putback).
+if(Math.random()<.35+((re.dunk??50)/100)*.30){st[re.id].fgm++;sc[os]+=2;st[re.id].pts+=2;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"score",description:`OFF rebound ${rb.name} → ${re.name} scores! 2pts`,home_score:sc.home,away_score:sc.away})}}}else{
 // Lockdown Defender's real cost: locked onto one man all game, he crashes
 // the defensive glass worse — the "unavailable for help and rebounds"
 // tradeoff the rules page already promises.
-const rb=wtCapped(dps.map(p=>({p,w:(rebWeightBase(p)*(0.5+defReboundShare(p))*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.strength??50)/100*.3))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
+const rb=wtCapped(dps.map(p=>({p,w:(rebWeightBase(p)*(0.5+defReboundShare(p))*defTacticalMods.defRebMult*(doo.lockdown_target&&p.name===doo.lockdown_defender?0.8:1)*(0.7+(p.idef??50)/100*.3)*(doo.def_style==='zone23'?1.2:1)*(doo.def_style==='zone23'&&(p.pos==='C'||p.pos==='PF')?1.15:1)*(doo.def_style==='press'?0.8:1)*(doo.def_style==='pack'?1.2:1))*Math.max(.04,(p.mins||0)/48)*rebTaper(st[p.id]?.reb||0,p.mins||0,p.reb_rate,elapsedMinutes(q,tl))})),.28);st[rb.id].dr++;st[rb.id].reb++;pbp.push({quarter:q+1,time_left:fmt(tl),team_id:ot.id,event_type:"miss",description:`${sc2.name} missed — DEF rebound ${rb.name}`,home_score:sc.home,away_score:sc.away})}}
 }
