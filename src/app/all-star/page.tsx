@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 import { VOTING_OPENS_WEEK, VOTING_CLOSES_WEEK, ALLSTAR_WEEK, minGamesByWeek, expectedGamesByWeek } from '@/lib/allstar-constants'
-import { formatWeekRange } from '@/lib/season-week-helper'
+import { formatWeekRange, getWeekForDate } from '@/lib/season-week-helper'
 
 const POSITIONS = ['PG','SG','SF','PF','C']
 const CONFS = ['Eastern','Western']
@@ -22,21 +22,34 @@ export default function AllStarPage() {
   const [gmTeam,    setGmTeam]    = useState('')
   const [tab,       setTab]       = useState<'vote'|'results'>('vote')
   const [roster,    setRoster]    = useState<any[]>([])
+  const [voteOpenDate, setVoteOpenDate] = useState<string|null>(null)
 
   const VOTING_OPENS  = VOTING_OPENS_WEEK
   const VOTING_CLOSES = VOTING_CLOSES_WEEK
   const locale = isPT ? 'pt-PT' : 'en-US'
+  // Prefer the exact date already shown site-wide (navbar's "Next event")
+  // over the coarser VOTING_OPENS_WEEK date range, so this page never gives
+  // a different answer to "when does voting open" than the rest of the site.
+  const voteOpenLabel = voteOpenDate
+    ? new Date(voteOpenDate+'T12:00:00').toLocaleDateString(locale,{month:'short',day:'numeric'})
+    : formatWeekRange(VOTING_OPENS,locale)
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [r1,r2,r3,r4] = await Promise.allSettled([
+        const [r1,r2,r3,r4,r5] = await Promise.allSettled([
           // player_stats has one row per season — without this filter a
           // veteran's player_stats?.[0] below can grab a stale, all-null
           // past season instead of the current one.
           supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast)').eq('status','active').eq('player_stats.season','2025-26'),
           supabase.from('teams').select('id,name,conference,color,logo_url').not('id','in','(ALL,RVS,ROO,SOP)'),
-          supabase.from('season_config').select('current_week').eq('id',1).single(),
+          // current_week only advances once a WHOLE week (both halves) is
+          // done — mid-week it still reads last week's number, which made
+          // this page show "Current: Jan 9-15" while the navbar's "Now"
+          // (last_sim_day + 1) already read Jan 18. last_sim_day is the
+          // same source the navbar uses, so deriving curWeek from it here
+          // keeps both readouts in agreement.
+          supabase.from('season_config').select('last_sim_day').eq('id',1).single(),
           // is_injured rows are historical markers (the original pick who
           // got hurt) — the row for who actually took his spot is a
           // separate, non-injured row already in this same result set, so
@@ -44,11 +57,26 @@ export default function AllStarPage() {
           // (found live: Eastern showed 7 "starters" and 16 total instead
           // of 5 + 12, exactly the count of injured markers still included).
           supabase.from('allstar_roster').select('*, players!allstar_roster_player_id_fkey(name,pos,photo_url,team_id)').eq('season','2025-26').eq('is_injured',false),
+          // The exact real-world open date the navbar's "Next event" pill
+          // shows (e.g. "Jan 19") — VOTING_OPENS_WEEK's week-math lands on
+          // the Monday that week starts (Jan 16), a few days off from this,
+          // which read as two different answers to "when does voting open."
+          // Showing this same date here instead keeps the site consistent.
+          supabase.from('season_events').select('start_date').eq('season','2025-26').eq('event_key','allstar_vote').maybeSingle(),
         ])
         if(r1.status==='fulfilled'&&r1.value.data)setPlayers(r1.value.data)
         if(r2.status==='fulfilled'&&r2.value.data)setTeams(Object.fromEntries(r2.value.data.map((t:any)=>[t.id,t])))
-        if(r3.status==='fulfilled'&&r3.value.data)setCurWeek((r3.value.data as any).current_week||0)
+        if(r3.status==='fulfilled'&&r3.value.data){
+          const lastSimDay=(r3.value.data as any).last_sim_day
+          if(lastSimDay){
+            const d=new Date(lastSimDay+'T12:00:00')
+            d.setDate(d.getDate()+1)
+            const ymd=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+            setCurWeek(getWeekForDate(ymd))
+          }
+        }
         if(r4.status==='fulfilled'&&r4.value.data)setRoster(r4.value.data)
+        if(r5.status==='fulfilled'&&r5.value.data)setVoteOpenDate((r5.value.data as any).start_date)
       } catch(e){console.error(e)}
       setReady(true)
     }
@@ -108,7 +136,7 @@ export default function AllStarPage() {
             ):(
               <span className="text-xs px-3 py-1.5 rounded-full font-semibold inline-block"
                     style={{background:votingOpen?'#0a2a10':votingClosed?'#2a0a0a':'#faf8f5',color:votingOpen?'#4ade80':votingClosed?'#f87171':'#5c554e'}}>
-                {votingOpen?`🗳️ ${isPT?'Votação Aberta':'Voting Open'}`:votingClosed?`🔒 ${isPT?'Votação Fechada':'Voting Closed'}`:`${isPT?'Abre em':'Opens'} ${formatWeekRange(VOTING_OPENS,locale)}`}
+                {votingOpen?`🗳️ ${isPT?'Votação Aberta':'Voting Open'}`:votingClosed?`🔒 ${isPT?'Votação Fechada':'Voting Closed'}`:`${isPT?'Abre em':'Opens'} ${voteOpenLabel}`}
               </span>
             )}
             <div className="text-xs mt-1" style={{color:'#6b5f4e'}}>{isPT?'Atual:':'Current:'} {formatWeekRange(curWeek,locale)}</div>
@@ -141,8 +169,8 @@ export default function AllStarPage() {
             {!votingOpen&&!votingClosed&&(
               <div className="rounded-xl p-10 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
                 <div className="text-5xl mb-4">🔒</div>
-                <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>{isPT?`Votação abre em ${formatWeekRange(VOTING_OPENS,locale)}`:`Voting opens ${formatWeekRange(VOTING_OPENS,locale)}`}</h2>
-                <p style={{color:'#6b5f4e'}}>{isPT?`A liga está em ${formatWeekRange(curWeek,locale)}. A votação abre a partir de ${formatWeekRange(VOTING_OPENS,locale)}.`:`The league is currently at ${formatWeekRange(curWeek,locale)}. Voting opens starting ${formatWeekRange(VOTING_OPENS,locale)}.`}</p>
+                <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>{isPT?`Votação abre a ${voteOpenLabel}`:`Voting opens ${voteOpenLabel}`}</h2>
+                <p style={{color:'#6b5f4e'}}>{isPT?`A liga está em ${formatWeekRange(curWeek,locale)}. A votação abre a ${voteOpenLabel}.`:`The league is currently at ${formatWeekRange(curWeek,locale)}. Voting opens ${voteOpenLabel}.`}</p>
               </div>
             )}
             {votingClosed&&(
