@@ -10,14 +10,19 @@ const POSITIONS = ['PG','SG','SF','PF','C']
 const CONFS = ['Eastern','Western']
 const STAT_CATS = ['pts','reb','ast','stl','blk'] as const
 const STAT_SUFFIX: Record<string,string> = { pts:'ppg', reb:'rpg', ast:'apg', stl:'spg', blk:'bpg' }
-// Which categories can realistically be a player's "standout" at each
-// position — without this, a near-zero, noisy category (e.g. a guard's
-// 0.4 blocks/game) could out-rank a real 11 ppg just because it happened
-// to be this pool's single highest value in that category.
-const POS_STAT_CATS: Record<string,readonly string[]> = {
-  PG: ['pts','ast','stl','reb'], SG: ['pts','ast','stl','reb'],
-  SF: STAT_CATS,
-  PF: ['pts','reb','blk','stl'], C: ['pts','reb','blk','stl'],
+// Bruno's explicit spec: guards/wings always lead with scoring + playmaking
+// (their two "wow" numbers), bigs lead with scoring + rebounding — a
+// relative "whichever stat ranks highest" pick (like the first version of
+// this used for both slots) could surface something unimpressive, like
+// Cade Cunningham's rebounds/steals, ahead of his actual scoring/assists.
+// Only the 3rd slot is picked dynamically, from the remaining categories.
+const ALWAYS_STAT_CATS: Record<string,readonly string[]> = {
+  PG: ['pts','ast'], SG: ['pts','ast'], SF: ['pts','ast'],
+  PF: ['pts','reb'], C: ['pts','reb'],
+}
+const CANDIDATE_STAT_CATS: Record<string,readonly string[]> = {
+  PG: ['reb','stl','blk'], SG: ['reb','stl','blk'], SF: ['reb','stl','blk'],
+  PF: ['ast','stl','blk'], C: ['ast','stl','blk'],
 }
 
 export default function AllStarPage() {
@@ -131,9 +136,10 @@ export default function AllStarPage() {
     const maxByCat:Record<string,number>={}
     for(const c of STAT_CATS) maxByCat[c]=Math.max(0.1,...pool.map((p:any)=>p.per[c]))
     return pool.map((p:any)=>{
-      const eligible=POS_STAT_CATS[p.pos]||STAT_CATS
-      const ranked=[...eligible].sort((a,b)=>(p.per[b]/maxByCat[b])-(p.per[a]/maxByCat[a]))
-      const topStats=ranked.slice(0,2).map(c=>({cat:c,val:p.per[c]}))
+      const always=ALWAYS_STAT_CATS[p.pos]||['pts','ast']
+      const candidates=CANDIDATE_STAT_CATS[p.pos]||['reb','stl','blk']
+      const bestCandidate=[...candidates].sort((a,b)=>(p.per[b]/maxByCat[b])-(p.per[a]/maxByCat[a]))[0]
+      const topStats=[...always,bestCandidate].map(c=>({cat:c,val:p.per[c]}))
       return {...p, topStats}
     })
   }
