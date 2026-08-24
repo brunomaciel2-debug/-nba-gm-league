@@ -10,6 +10,9 @@ const POSITIONS = ['PG','SG','SF','PF','C']
 const CONFS = ['Eastern','Western']
 const STAT_CATS = ['pts','reb','ast','stl','blk'] as const
 const STAT_SUFFIX: Record<string,string> = { pts:'ppg', reb:'rpg', ast:'apg', stl:'spg', blk:'bpg' }
+// Extra raw counting stats (beyond the 5 shown on the card) needed only to
+// compute Game Score below.
+const GMSC_EXTRA_CATS = ['fgm','fga','ftm','fta','off_reb','def_reb','pf','turnovers'] as const
 // Bruno's explicit spec: guards/wings always lead with scoring + playmaking
 // (their two "wow" numbers), bigs lead with scoring + rebounding — a
 // relative "whichever stat ranks highest" pick (like the first version of
@@ -58,7 +61,7 @@ export default function AllStarPage() {
           // player_stats has one row per season — without this filter a
           // veteran's player_stats?.[0] below can grab a stale, all-null
           // past season instead of the current one.
-          supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast,stl,blk)').eq('status','active').eq('player_stats.season','2025-26'),
+          supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers)').eq('status','active').eq('player_stats.season','2025-26'),
           supabase.from('teams').select('id,name,conference,color,logo_url').not('id','in','(ALL,RVS,ROO,SOP)'),
           // current_week only advances once a WHOLE week (both halves) is
           // done — mid-week it still reads last week's number, which made
@@ -129,7 +132,16 @@ export default function AllStarPage() {
       const gp2=Math.max(1,s.games||1)
       const per:Record<string,number>={}
       for(const c of STAT_CATS) per[c]=(s[c]||0)/gp2
-      return {...p, per, score:per.pts*0.5+per.reb*0.25+per.ast*0.25}
+      for(const c of GMSC_EXTRA_CATS) per[c]=(s[c]||0)/gp2
+      // Game Score (GmSc) — same John Hollinger formula already used
+      // site-wide to pick each game's MVP (see GameBoxScore.tsx) — Bruno's
+      // call: it's the real "how good was this player" number, where the
+      // old pts/reb/ast-only weighting could rank a high-volume, low-impact
+      // scorer above someone clearly better overall.
+      const score = per.pts + 0.4*per.fgm - 0.7*per.fga - 0.4*(per.fta-per.ftm)
+        + 0.7*per.off_reb + 0.3*per.def_reb + per.stl + 0.7*per.ast + 0.7*per.blk
+        - 0.4*per.pf - per.turnovers
+      return {...p, per, score}
     }).sort((a:any,b:any)=>b.score-a.score).slice(0,10)
 
     // Which 2 stats actually distinguish each player, not just PPG — a
