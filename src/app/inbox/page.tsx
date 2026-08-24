@@ -157,12 +157,23 @@ export default function InboxPage() {
   const filtered = filter==='unread' ? messages.filter(m=>!m.read)
     : filter==='all' ? messages : messages.filter(m=>m.type===filter)
 
-  const fmtDate = (iso: string) => {
-    const d=new Date(iso), now=new Date(), diff=now.getTime()-d.getTime()
-    if (diff<60000) return isPT?'Agora mesmo':'Just now'
-    if (diff<3600000) return `${Math.floor(diff/60000)}m`
-    if (diff<86400000) return `${Math.floor(diff/3600000)}h`
-    return d.toLocaleDateString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric'})
+  // Shows the SIMULATED calendar day the message belongs to (sim_date, set
+  // by a DB trigger to season_config's "Now" at insert time — see
+  // ADICIONAR_DATA_SIMULADA_INBOX.sql), not real wall-clock time since it
+  // was inserted. Real elapsed minutes/hours was actively misleading here —
+  // several notifications inserted a few real minutes apart can belong to
+  // completely different simulated weeks (each "Simulate" click is one real
+  // moment covering a whole batch of simulated days), so "39m"/"52m" told a
+  // GM nothing about when in the SEASON these actually happened. Falls back
+  // to the real created_at date for older rows from before this column
+  // existed (sim_date is null there, since the trigger only fires on new
+  // inserts).
+  const fmtDate = (iso: string, simDate?: string | null) => {
+    if (simDate) {
+      return new Date(simDate + 'T12:00:00').toLocaleDateString(isPT ? 'pt-PT' : 'en-US', { month: 'short', day: 'numeric' })
+    }
+    const d = new Date(iso)
+    return d.toLocaleDateString(isPT ? 'pt-PT' : 'en-US', { month: 'short', day: 'numeric' })
   }
 
   const filterLabel = (f: string) => {
@@ -258,7 +269,7 @@ export default function InboxPage() {
                     {expanded!==msg.id&&<span className="text-xs truncate block" style={{color:msg.read?'#b0a89e':'#6b5f52'}}>{msg.body?.split('\n')[0]}</span>}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs" style={{color:msg.read?'#b0a89e':accentColor,fontWeight:msg.read?400:700}}>{fmtDate(msg.created_at)}</span>
+                    <span className="text-xs" style={{color:msg.read?'#b0a89e':accentColor,fontWeight:msg.read?400:700}}>{fmtDate(msg.created_at, msg.sim_date)}</span>
                     <button onClick={e=>{e.stopPropagation();deleteMsg(msg.id)}} className="text-xs px-2 py-1 rounded" style={{background:'transparent',color:'#c0b8b0'}}>🗑</button>
                   </div>
                 </div>
