@@ -8,6 +8,7 @@ import { legacyFameFloor } from '@/lib/merchandising-legacy-rank'
 // Re-exported here so every existing call site importing from
 // '@/lib/merchandising' keeps working unchanged.
 import { marketMultiplier, followersBonus, effectiveMarketMultiplier } from '@/lib/market-tiers'
+import { fetchAllRows } from '@/lib/paginate'
 export { marketMultiplier, followersBonus, effectiveMarketMultiplier }
 import { formatSimMonthName } from '@/lib/season-week-helper'
 
@@ -193,8 +194,12 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
   const monthStartWeek = (monthNum - 1) * 4 + 1
   const monthEndWeek = monthNum * 4
 
-  const { data: players } = await supabaseAdmin.from('players')
-    .select('id,name,team_id,real_ovr,fame,nationality').eq('status', 'active').not('team_id', 'is', null)
+  // Paginated fetch is required — 1163 active players exceeds PostgREST's
+  // hard 1000-row-per-request cap (see src/lib/paginate.ts), which (no
+  // ORDER BY here) was silently excluding an arbitrary ~160 real players
+  // from monthly jersey-sales revenue.
+  const players = await fetchAllRows((from,to) => supabaseAdmin.from('players')
+    .select('id,name,team_id,real_ovr,fame,nationality').eq('status', 'active').not('team_id', 'is', null).range(from,to))
   if (!players?.length) return { teams: 0, players: 0 }
   const playerIds = players.map((p: any) => p.id)
 

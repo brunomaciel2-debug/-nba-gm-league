@@ -3,6 +3,7 @@ import { notify } from '@/lib/notifications'
 import { getTeamLang } from '@/lib/notifications-helpers'
 import { computeRosterQuality, normalizeRosterQuality, computeWinNowIndex, winNowLabel, computeTop5AvgAge, countHighPotential, WinNowLabel } from '@/lib/roster-quality'
 import { getStatusForWeek } from '@/lib/season-week-helper'
+import { fetchAllRows } from '@/lib/paginate'
 
 const SEASON = '2025-26'
 const CAP_LIMIT = 180_000_000 // mirrors notifications.ts CAP_LIMIT
@@ -436,7 +437,11 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     { data: existingTargets },
     { data: allTransactions },
   ] = await Promise.all([
-    supabaseAdmin.from('players').select('id,name,team_id,real_ovr,usage,age,contract_years,potential_grade,moral').eq('status', 'active').not('team_id', 'is', null),
+    // Paginated fetch is required — 1163 active players exceeds
+    // PostgREST's hard 1000-row-per-request cap (see src/lib/paginate.ts),
+    // which (no ORDER BY here) was silently dropping an arbitrary ~160
+    // real players from every team's satisfaction inputs.
+    fetchAllRows((from,to)=>supabaseAdmin.from('players').select('id,name,team_id,real_ovr,usage,age,contract_years,potential_grade,moral').eq('status', 'active').not('team_id', 'is', null).range(from,to)).then(data=>({data})),
     supabaseAdmin.from('draft_picks').select('team_id,original_team_id,season').eq('status', 'owned'),
     supabaseAdmin.from('practice_facilities').select('team_id,gym_grade').in('team_id', teamIds),
     supabaseAdmin.from('arena_sections').select('team_id,capacity').in('team_id', teamIds),

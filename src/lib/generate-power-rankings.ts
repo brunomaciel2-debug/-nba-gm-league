@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { computeRosterQuality, normalizeRosterQuality, computeTop5AvgAge, countHighPotential } from './roster-quality'
+import { fetchAllRows } from './paginate'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,12 +40,17 @@ export async function generatePowerRankings(week: number) {
 
   // Every active player (real_ovr/usage/age/potential_grade feed roster
   // quality + trajectory below)
-  const { data: allPlayers } = await supabase
+  // Paginated fetch is required — 1163 active players exceeds PostgREST's
+  // hard 1000-row-per-request cap (see src/lib/paginate.ts), which (even
+  // with this ORDER BY) would silently drop the ~160 lowest real_ovr
+  // players from every team's roster quality calculation below.
+  const allPlayers = await fetchAllRows((from, to) => supabase
     .from('players')
     .select('id,name,pos,team_id,real_ovr,usage,age,potential_grade')
     .eq('status', 'active')
     .not('team_id', 'is', null)
     .order('real_ovr', { ascending: false })
+    .range(from, to))
 
   const teamPlayersMap: Record<string, {name:string,pos:string}[]> = {}
   const teamRosterMap: Record<string, any[]> = {}

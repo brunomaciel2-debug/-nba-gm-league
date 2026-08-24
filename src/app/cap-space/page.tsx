@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
+import { fetchAllRows } from '@/lib/paginate'
 
 const CAP_LIMIT = 180_000_000
 const MIN_ROSTER = 12
@@ -20,7 +21,11 @@ export default function CapSpacePage() {
   useEffect(() => {
     Promise.all([
       supabase.from('teams').select('id,name,logo_url,color,conference,division').not('id','in','(ALL,RVS,ROO,SOP)'),
-      supabase.from('players').select('team_id,salary').eq('status','active').not('team_id','is',null),
+      // Paginated fetch is required — 1163 active players exceeds
+      // PostgREST's hard 1000-row-per-request cap (see src/lib/paginate.ts),
+      // which (no ORDER BY here) was silently dropping an arbitrary ~160
+      // players' salaries from every team's cap total.
+      fetchAllRows((from,to)=>supabase.from('players').select('team_id,salary').eq('status','active').not('team_id','is',null).range(from,to)).then(data=>({data})),
     ]).then(([{ data: teams }, { data: players }]) => {
       const data = (teams || []).map((t: any) => {
         const tp = (players || []).filter((p: any) => p.team_id === t.id)

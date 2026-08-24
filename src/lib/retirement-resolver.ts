@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { REGULAR_SEASON_END_WEEK } from '@/lib/allstar-constants'
+import { fetchAllRows } from '@/lib/paginate'
 
 const SEASON = '2025-26'
 const RETIREMENT_AGE = 35
@@ -16,8 +17,8 @@ const WARNING_START_WEEK = REGULAR_SEASON_END_WEEK - 8
 export async function resolveRetirementWarnings(week: number): Promise<{ warned: number }> {
   if (week < WARNING_START_WEEK || week > REGULAR_SEASON_END_WEEK) return { warned: 0 }
 
-  const { data: eligible } = await supabaseAdmin.from('players')
-    .select('id,name,team_id,age').eq('status', 'active').not('team_id', 'is', null).gte('age', RETIREMENT_AGE)
+  const eligible = await fetchAllRows((from,to) => supabaseAdmin.from('players')
+    .select('id,name,team_id,age').eq('status', 'active').not('team_id', 'is', null).gte('age', RETIREMENT_AGE).range(from,to))
   if (!eligible?.length) return { warned: 0 }
 
   // This app only ever tracks one season at a time (SEASON is hardcoded
@@ -44,8 +45,8 @@ export async function resolveRetirementWarnings(week: number): Promise<{ warned:
 // for good. Idempotent by design (checks who's already queued this season
 // before inserting), so it's safe even if isEndOfSeason's week fires twice.
 export async function queueRetirementDecisions(): Promise<{ queued: number }> {
-  const { data: eligible } = await supabaseAdmin.from('players')
-    .select('id,team_id').eq('status', 'active').not('team_id', 'is', null).gte('age', RETIREMENT_AGE)
+  const eligible = await fetchAllRows((from,to) => supabaseAdmin.from('players')
+    .select('id,team_id').eq('status', 'active').not('team_id', 'is', null).gte('age', RETIREMENT_AGE).range(from,to))
   if (!eligible?.length) return { queued: 0 }
 
   const { data: existing } = await supabaseAdmin.from('retirement_decisions').select('player_id').eq('season', SEASON)

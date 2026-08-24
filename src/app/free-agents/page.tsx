@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { calcOvr, ovrColor } from '@/lib/ovr'
 import { useTranslation } from '@/components/I18nProvider'
+import { fetchAllRows } from '@/lib/paginate'
 
 const POSITIONS = ['All','PG','SG','SF','PF','C']
 type Mode = 'stats' | 'attributes'
@@ -125,7 +126,7 @@ export default function FreeAgentsPage() {
       const nextDraft = cfg?.next_draft_season
       const draftFilter = nextDraft ? `rookie_draft_season.is.null,rookie_draft_season.lt.${nextDraft}` : 'rookie_draft_season.is.null'
       Promise.all([
-        supabase.from('players').select('*, photo_url, gleague_team_id, gleague_teams(id,name), player_stats(pts,reb,ast,stl,blk,games,fgm,fga,tpm,tpa,ftm,fta,season)').is('team_id', null).is('world_team_id', null).eq('status', 'active').or(draftFilter),
+        fetchAllRows((from,to)=>supabase.from('players').select('*, photo_url, gleague_team_id, gleague_teams(id,name), player_stats(pts,reb,ast,stl,blk,games,fgm,fga,tpm,tpa,ftm,fta,season)').is('team_id', null).is('world_team_id', null).eq('status', 'active').or(draftFilter).range(from,to)).then(data=>({data})),
         supabase.from('coaches').select('*').is('team_id', null),
       ]).then(([{ data: pl }, { data: st }]) => {
         setPlayers(pl || []); setStaff(st || []); setLoading(false)

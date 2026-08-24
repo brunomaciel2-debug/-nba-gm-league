@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { VOTING_CLOSES_WEEK, ANNOUNCE_WEEK, minGamesByWeek } from '@/lib/allstar-constants'
+import { fetchAllRows } from '@/lib/paginate'
 export * from '@/lib/allstar-constants'
 
 const SEASON = '2025-26'
@@ -32,9 +33,14 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
   const teamConf: Record<string, string> = {}
   ;(allTeams || []).forEach((t: any) => { teamConf[t.id] = t.conference })
 
-  const { data: playersRaw } = await supabaseAdmin
+  // Paginated fetch is required — 1163 active players exceeds PostgREST's
+  // hard 1000-row-per-request cap (see src/lib/paginate.ts), which (no
+  // ORDER BY here) was silently excluding an arbitrary ~160 real players
+  // from All-Star roster consideration.
+  const playersRaw = await fetchAllRows((from,to) => supabaseAdmin
     .from('players').select('id,name,pos,team_id,status')
     .eq('status', 'active')
+    .range(from,to))
 
   // player_stats holds one row per player PER SEASON (multi-year history) —
   // a naive players(...player_stats(...)) embed with no season filter grabs
@@ -224,9 +230,9 @@ export async function resolveRisingStars(): Promise<{ skipped: boolean, rookies?
   const { data: activeInjuries } = await supabaseAdmin.from('injury_log').select('player_id').eq('status', 'active')
   const injuredIds = new Set((activeInjuries || []).map((i: any) => i.player_id))
 
-  const { data: playersRaw } = await supabaseAdmin
+  const playersRaw = await fetchAllRows((from,to) => supabaseAdmin
     .from('players').select('id,name,team_id,status,nba_experience')
-    .eq('status', 'active').in('nba_experience', [0, 1])
+    .eq('status', 'active').in('nba_experience', [0, 1]).range(from,to))
 
   // Game Score is a LINEAR combination of box-score counting stats, so the
   // average per game over a season is just the same formula applied to the

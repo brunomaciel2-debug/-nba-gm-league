@@ -747,8 +747,12 @@ techsUntilNextSuspension: nextTrigger - totalTechs, gamesAdded: crossings,
 } catch(techErr) { console.warn('Technical foul suspension step failed:', techErr) }
 
 // ── HEALTH LOSS + INJURY GENERATION ──────────────────────
-const { data: allPlayers } = await supabaseAdmin
-.from('players').select('id,name,health,moral,durability,team_id,status,games_missed,injury_type')
+// .range() is required — 1163 active players exceeds PostgREST's default
+// 1000-row cap (no filter/ORDER BY here at all), which was silently
+// exempting an arbitrary ~160 real players from health/injury processing
+// every single week.
+const allPlayers = await fetchAllRows<any>((from,to) => supabaseAdmin
+.from('players').select('id,name,health,moral,durability,team_id,status,games_missed,injury_type').range(from,to))
 const playerMap: Record<string,any> = {}
 ;(allPlayers||[]).forEach((p:any) => playerMap[p.id] = p)
 
@@ -2509,7 +2513,7 @@ stats_context:mipScores[0].stats,notes:'Most Improved Player'
 // Real COY philosophy: reward overperforming a roster, not just winning the
 // most with the most talent already in place.
 const { data: coyTeams } = await supabaseAdmin.from('teams').select('id,wins,losses').not('id','in','(ALL,RVS,ROO,SOP)')
-const { data: coyPlayers } = await supabaseAdmin.from('players').select('team_id,real_ovr,usage').eq('status','active').not('team_id','is',null)
+const coyPlayers = await fetchAllRows<any>((from,to) => supabaseAdmin.from('players').select('team_id,real_ovr,usage').eq('status','active').not('team_id','is',null).range(from,to))
 const { data: headCoaches } = await supabaseAdmin.from('coaches').select('id,team_id').eq('role','head_coach').not('team_id','is',null)
 const coyRosterByTeam: Record<string,{real_ovr:number,usage:number}[]> = {}
 for (const p of (coyPlayers||[])) { (coyRosterByTeam[p.team_id] ||= []).push(p as any) }
@@ -2544,8 +2548,11 @@ notes:'Coach of the Year'
 // 2/3 checks below instead of landing on them one week at a time).
 if (week === 40) { // last week of the Regular Season (see season-week-helper.ts)
 try {
-const { data: everyPlayer } = await supabaseAdmin
-.from('players').select('id,age,nba_experience,team_id,status').not('age','is',null)
+// .range() is required — see the HEALTH LOSS comment above; this is the
+// once-a-season age-up/rookie-progression step, so a missed player here
+// would silently never age for the whole year.
+const everyPlayer = await fetchAllRows<any>((from,to) => supabaseAdmin
+.from('players').select('id,age,nba_experience,team_id,status').not('age','is',null).range(from,to))
 if (everyPlayer) {
 for (let i = 0; i < everyPlayer.length; i += 50) {
 const chunk = everyPlayer.slice(i, i + 50)
@@ -2590,9 +2597,9 @@ await Promise.all(chunk.map((p:any) => supabaseAdmin.from('prospects').update({ 
 // Same once-a-season trigger as the aging step above — advances rookie
 // contracts toward their next Team Option decision point.
 try {
-const { data: rookies } = await supabaseAdmin
+const rookies = await fetchAllRows<any>((from,to) => supabaseAdmin
 .from('players').select('id,name,team_id,rookie_years_elapsed,rookie_option_status,rookie_draft_round,rookie_draft_pick')
-.eq('is_rookie_contract', true).eq('status', 'active')
+.eq('is_rookie_contract', true).eq('status', 'active').range(from,to))
 for (const r of (rookies||[])) {
 const newElapsed = (r.rookie_years_elapsed||0) + 1
 const update: any = { rookie_years_elapsed: newElapsed }
@@ -2630,7 +2637,7 @@ await supabaseAdmin.from('players').update(update).eq('id', r.id)
 // should reflect the WHOLE week's games, not just the first half's.
 if (half === 2) {
 try {
-const { data: allP2 } = await supabaseAdmin.from('players').select('id,moral,team_id,status,usage').in('status',['active','injured'])
+const allP2 = await fetchAllRows<any>((from,to) => supabaseAdmin.from('players').select('id,moral,team_id,status,usage').in('status',['active','injured']).range(from,to))
 
 // Mental Coach — morale_management now scales how fast a player's morale
 // drifts toward what it actually "deserves" each week (see moraleTarget()

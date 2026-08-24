@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import BannerUpload from './BannerUpload'
 import { useTranslation } from '@/components/I18nProvider'
+import { fetchAllRows } from '@/lib/paginate'
 
 // ── Translation hook bridge (used by sub-components via prop) ──
 // Sub-components receive isPT as prop to avoid hook rules issues
@@ -200,7 +201,7 @@ export default function AdminMediaPage() {
   useEffect(()=>{
     if(!selPlayerTeam){setPhotoItems([]);return}
     if(selPlayerTeam==='FA'){
-      supabase.from('players').select('id,name,pos,age,photo_url').is('team_id',null).is('gleague_team_id',null).is('world_team_id',null).eq('status','active').order('name').then(({data})=>setPhotoItems(data||[]))
+      fetchAllRows((from,to)=>supabase.from('players').select('id,name,pos,age,photo_url').is('team_id',null).is('gleague_team_id',null).is('world_team_id',null).eq('status','active').order('name').range(from,to)).then(data=>setPhotoItems(data||[]))
     } else if(selPlayerTeam.startsWith('GL_')){
       supabase.from('players').select('id,name,pos,age,photo_url').eq('gleague_team_id',selPlayerTeam.replace('GL_','')).order('name').then(({data})=>setPhotoItems(data||[]))
     } else if(selPlayerTeam.startsWith('W_')){

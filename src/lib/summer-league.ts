@@ -3,6 +3,7 @@ import { simulateGame } from '@/lib/game-simulator'
 import { getTeamLang } from '@/lib/notifications-helpers'
 import { notify } from '@/lib/notifications'
 import { notifSummerLeagueRosters } from '@/lib/notifications-helpers'
+import { fetchAllRows } from '@/lib/paginate'
 
 const NON_REAL_TEAMS = ['ALL', 'RVS', 'ROO', 'SOP']
 const POSITIONS = ['PG', 'SG', 'SF', 'PF', 'C']
@@ -43,7 +44,7 @@ async function getCurrentSeason(): Promise<string> {
 // trusting a manually-bumped constant, so this works correctly regardless
 // of exactly when that constant gets bumped after a draft resolves.
 async function getRookieAndSophomoreClasses(): Promise<{ rookieClass: string | null, sophomoreClass: string | null }> {
-  const { data } = await supabaseAdmin.from('players').select('rookie_draft_season').eq('is_rookie_contract', true).not('rookie_draft_season', 'is', null)
+  const data = await fetchAllRows((from,to) => supabaseAdmin.from('players').select('rookie_draft_season').eq('is_rookie_contract', true).not('rookie_draft_season', 'is', null).range(from,to))
   const classes = (Array.from(new Set((data || []).map((p: any) => p.rookie_draft_season as string))) as string[]).sort((a, b) => Number(b) - Number(a))
   return { rookieClass: classes[0] || null, sophomoreClass: classes[1] || null }
 }
@@ -152,8 +153,8 @@ async function generateRosters(season: string) {
 
       for (const ageCap of [26, 28, 100]) {
         if (squad.length >= ROSTER_SIZE) break
-        const { data: pool } = await supabaseAdmin.from('players').select('*')
-          .is('team_id', null).eq('status', 'active').lte('age', ageCap)
+        const pool = await fetchAllRows((from,to) => supabaseAdmin.from('players').select('*')
+          .is('team_id', null).eq('status', 'active').lte('age', ageCap).range(from,to))
         const available: any[] = (pool || []).filter((p: any) => !usedFillerIds.has(p.id))
         if (!available.length) continue
 

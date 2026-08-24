@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getGymGradeBonus } from '@/lib/facility-constants'
+import { fetchAllRows } from '@/lib/paginate'
 import { medicalCostAfterInsurance, InjurySeverity, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, mentalIssueSidelines } from '@/lib/injury-constants'
 
 // Same severity weighting used by the real-game injury generator in
@@ -35,8 +36,12 @@ const OFF_COURT_INCIDENT_CHANCE = 0.0012
 // team has a real game that week.
 export async function resolveWeeklyPracticeAndOffCourtInjuries(week: number) {
   const [{ data: players }, { data: injTypes }, { data: orders }, { data: facilities }, { data: trainers }] = await Promise.all([
-    supabaseAdmin.from('players').select('id,name,health,moral,durability,team_id,status,games_missed,injury_type')
-      .eq('status', 'active').not('team_id', 'is', null),
+    // Paginated fetch is required — 1163 active players exceeds
+    // PostgREST's hard 1000-row-per-request cap (see src/lib/paginate.ts),
+    // which (no ORDER BY here) was silently exempting an arbitrary ~160
+    // real players from ever being considered for a practice injury at all.
+    fetchAllRows((from,to)=>supabaseAdmin.from('players').select('id,name,health,moral,durability,team_id,status,games_missed,injury_type')
+      .eq('status', 'active').not('team_id', 'is', null).range(from,to)).then(data=>({data})),
     supabaseAdmin.from('injury_types').select('*'),
     supabaseAdmin.from('gm_orders').select('team_id,training_intensity').eq('week_number', week),
     supabaseAdmin.from('practice_facilities').select('team_id,gym_grade'),

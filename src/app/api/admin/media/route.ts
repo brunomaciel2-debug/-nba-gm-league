@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
+import { fetchAllRows } from '@/lib/paginate';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,11 +38,14 @@ export async function GET(request: Request) {
   }
 
   if (type === 'players') {
-    const { data } = await supabase
+    // Paginated fetch is required — this covers NBA + FA + G-League
+    // players, well past PostgREST's hard 1000-row-per-request cap.
+    const data = await fetchAllRows((from, to) => supabase
       .from('players')
       .select('id, name, photo_url, team_id, gleague_team_id')
       .is('world_team_id', null)
-      .order('name');
+      .order('name')
+      .range(from, to));
     return NextResponse.json({ players: data || [] });
   }
 

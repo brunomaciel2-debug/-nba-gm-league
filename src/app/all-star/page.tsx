@@ -5,6 +5,7 @@ import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 import { VOTING_OPENS_WEEK, VOTING_CLOSES_WEEK, ALLSTAR_WEEK, minGamesByWeek, expectedGamesByWeek } from '@/lib/allstar-constants'
 import { formatWeekRange, getWeekForDate } from '@/lib/season-week-helper'
+import { fetchAllRows } from '@/lib/paginate'
 
 const POSITIONS = ['PG','SG','SF','PF','C']
 const CONFS = ['Eastern','Western']
@@ -61,7 +62,14 @@ export default function AllStarPage() {
           // player_stats has one row per season — without this filter a
           // veteran's player_stats?.[0] below can grab a stale, all-null
           // past season instead of the current one.
-          supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers)').eq('status','active').eq('player_stats.season','2025-26'),
+          // Paginated fetch is required — there are 1163 active players,
+          // and PostgREST hard-caps EVERY request at 1000 rows regardless
+          // of the requested range (a single .range(0, 2999) still only
+          // returns rows 0-999) — see src/lib/paginate.ts. That silently
+          // dropped ~160 real players from every position pool (real
+          // example: LaMelo Ball and Derrick White both missing from the
+          // PG pool while lower-scoring players still showed up).
+          fetchAllRows((from,to)=>supabase.from('players').select('id,name,pos,team_id,photo_url,status,player_stats(games,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers)').eq('status','active').eq('player_stats.season','2025-26').range(from,to)).then(data=>({data})),
           supabase.from('teams').select('id,name,conference,color,logo_url').not('id','in','(ALL,RVS,ROO,SOP)'),
           // current_week only advances once a WHOLE week (both halves) is
           // done — mid-week it still reads last week's number, which made

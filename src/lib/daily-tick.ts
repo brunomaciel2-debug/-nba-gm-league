@@ -4,6 +4,7 @@ import { getGymGradeBonus } from '@/lib/facility-constants'
 import { physioRecoveryMultiplier, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from '@/lib/injury-constants'
 import { resolvePlayoffDay } from '@/lib/playoff-resolver'
 import { resolveDailyTacticalDevelopment } from '@/lib/tactical-resolver'
+import { fetchAllRows } from '@/lib/paginate'
 
 // Health recovery used to run once per simulated WEEK (really once per
 // half-2 call), gated by an odd `isMonday = new Date().getDay()===1` check
@@ -18,7 +19,11 @@ import { resolveDailyTacticalDevelopment } from '@/lib/tactical-resolver'
 // to "1 day's worth", so 7 daily ticks add up to the same weekly total the
 // old 3-or-4-day lump sums used to.
 export async function resolveDailyHealthRecovery(simDate: string) {
-  const { data: allP } = await supabaseAdmin.from('players').select('id,health,team_id,status,durability').in('status', ['active', 'injured'])
+  // Paginated fetch is required — 1163 active players exceeds PostgREST's
+  // hard 1000-row-per-request cap (see src/lib/paginate.ts), which (no
+  // ORDER BY here) was silently skipping an arbitrary ~160 real players'
+  // daily health recovery every single day.
+  const allP = await fetchAllRows((from,to)=>supabaseAdmin.from('players').select('id,health,team_id,status,durability').in('status', ['active', 'injured']).range(from,to))
   if (!allP?.length) return
 
   const week = getWeekForDate(simDate)

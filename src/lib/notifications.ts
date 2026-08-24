@@ -6,6 +6,7 @@ import { OffSystem, nodesForSystem, isNodeUnlocked } from './tactical-constants'
 import { NBA_SUBSIDY_MONTHLY, UTILITIES_MONTHLY, INSURANCE_MONTHLY } from './finance-constants'
 import { SLOT_ECONOMICS, SLOT_VARIANT_KEYS } from './audience-segments'
 import { VOTING_OPENS_WEEK } from './allstar-constants'
+import { fetchAllRows } from './paginate'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -83,9 +84,14 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     // NOTE: real column is "contract_years" (years REMAINING on the deal),
     // not "contract_years_left" — the wrong name here silently broke this
     // query (and the LOW MORALE + CONTRACTS EXPIRING sections below) forever.
-    supabase.from('players').select('id,name,team_id,real_ovr,moral,age,contract_years,salary').eq('status','active').not('team_id','is',null),
+    // Paginated fetch is required on both of these — 1163 active players
+    // exceeds PostgREST's hard 1000-row-per-request cap (see
+    // src/lib/paginate.ts), which (no ORDER BY here) was silently dropping
+    // an arbitrary ~160 real players from the weekly low morale /
+    // contracts-expiring notification sections.
+    fetchAllRows((from,to)=>supabase.from('players').select('id,name,team_id,real_ovr,moral,age,contract_years,salary').eq('status','active').not('team_id','is',null).range(from,to)).then(data=>({data})),
     supabase.from('awards').select('*,players!inner(name,team_id)').eq('season','2025-26').in('period',[`week_${week}`]),
-    supabase.from('players').select('id,name,team_id,contract_years,salary').eq('status','active').not('team_id','is',null).lte('contract_years',1),
+    fetchAllRows((from,to)=>supabase.from('players').select('id,name,team_id,contract_years,salary').eq('status','active').not('team_id','is',null).lte('contract_years',1).range(from,to)).then(data=>({data})),
     supabase.from('sponsor_contracts').select('*,template:sponsor_templates(company_name,tier)').eq('season','2025-26').eq('status','active'),
     supabase.from('construction_queue').select('*').eq('status','in_progress'),
   ])
