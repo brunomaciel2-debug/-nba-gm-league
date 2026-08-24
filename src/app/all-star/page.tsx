@@ -269,29 +269,38 @@ export default function AllStarPage() {
                         {pool.length===0?(
                           <div className="p-4 text-xs text-center" style={{color:'#6b5f4e'}}>{isPT?'Sem jogadores elegíveis ainda.':'No eligible players yet.'}</div>
                         ):(
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-3" style={{background:'#f4efe4'}}>
+                          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4" style={{background:'#f4efe4'}}>
                             {pool.map((p:any)=>{
                               const isSel=sel.includes(p.id);const tm=teams[p.team_id];const tc=readableTeamColor(tm?.color||'555555')
                               return(
                                 <button key={p.id} onClick={()=>toggleVote(conf,pos,p.id)} disabled={!isSel&&sel.length>=2}
-                                  className="relative flex flex-col items-center p-3 rounded-2xl transition-all disabled:opacity-40"
+                                  className="relative flex flex-col items-center p-4 rounded-2xl transition-all disabled:opacity-40"
                                   style={{
                                     background:isSel?'linear-gradient(160deg, #fdf1d0 0%, #fce4b0 100%)':'#fff',
                                     border:'2px solid '+(isSel?'#b45309':'#e5ddcf'),
-                                    boxShadow:isSel?'0 10px 24px -8px rgba(180,83,9,0.45)':'0 2px 8px -4px rgba(30,20,10,0.1)',
-                                    transform:isSel?'translateY(-2px)':'none'}}>
-                                  {isSel&&<span className="absolute -top-2 -right-2 text-lg" style={{filter:'drop-shadow(0 2px 3px rgba(0,0,0,0.3))'}}>⭐</span>}
-                                  <div className="w-16 h-16 rounded-full overflow-hidden mb-2" style={{background:tc+'22',boxShadow:'0 0 0 3px '+tc+', 0 4px 10px -3px rgba(0,0,0,0.3)'}}>
-                                    {p.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
-                                      :<div className="w-full h-full flex items-center justify-center text-base font-black" style={{color:tc}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                                    boxShadow:isSel?'0 14px 30px -8px rgba(180,83,9,0.5)':'0 2px 8px -4px rgba(30,20,10,0.1)',
+                                    transform:isSel?'translateY(-3px) scale(1.02)':'none'}}>
+                                  {isSel&&<span className="absolute -top-3 -right-2 text-2xl z-10" style={{filter:'drop-shadow(0 2px 4px rgba(0,0,0,0.4))'}}>⭐</span>}
+                                  {/* Conic-gradient ring (team color → gold → team color) instead of a
+                                      flat solid circle — reads as a trading-card badge, and glows
+                                      brighter once selected instead of just changing color. */}
+                                  <div className="rounded-full mb-3" style={{
+                                    width:104,height:104,padding:4,
+                                    background:`conic-gradient(from 180deg, ${tc}, #fde68a, ${tc})`,
+                                    boxShadow:isSel?`0 0 0 4px #fff, 0 0 22px 4px ${tc}99`:`0 0 0 3px #fff, 0 6px 14px -4px rgba(0,0,0,0.35)`}}>
+                                    <div className="w-full h-full rounded-full overflow-hidden" style={{background:'#fff'}}>
+                                      {p.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
+                                        :<div className="w-full h-full flex items-center justify-center text-2xl font-black" style={{color:tc,background:tc+'18'}}>{p.name.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                                    </div>
                                   </div>
-                                  <div className="text-xs font-black text-center leading-tight mb-0.5" style={{color:isSel?'#7c3a00':'#1a1512'}}>{p.name}</div>
-                                  <div className="text-[10px] font-bold mb-1.5" style={{color:tc}}>{tm?.id}</div>
-                                  <div className="flex gap-1 flex-wrap justify-center">
+                                  <div className="text-sm font-black text-center leading-tight mb-0.5" style={{color:isSel?'#7c3a00':'#1a1512'}}>{p.name}</div>
+                                  <div className="text-[10px] font-bold mb-2 px-2 py-0.5 rounded-full" style={{color:'#fff',background:tc}}>{tm?.id}</div>
+                                  <div className="flex items-stretch justify-center w-full" style={{borderTop:'1px solid '+(isSel?'#e0b673':'#e5ddcf')}}>
                                     {p.topStats.map((ts:any,i:number)=>(
-                                      <span key={i} className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{background:isSel?'#b45309':'#eee6d6',color:isSel?'#fff':'#6b5f4e'}}>
-                                        {ts.val.toFixed(1)}{STAT_SUFFIX[ts.cat]}
-                                      </span>
+                                      <div key={i} className="flex-1 text-center pt-2" style={{borderLeft:i>0?'1px solid '+(isSel?'#e0b673':'#e5ddcf'):'none'}}>
+                                        <div className="text-lg font-black leading-none" style={{color:isSel?'#b45309':'#2a2420'}}>{ts.val.toFixed(1)}</div>
+                                        <div className="text-[9px] font-bold uppercase tracking-wide mt-0.5" style={{color:'#8a8074'}}>{STAT_SUFFIX[ts.cat]}</div>
+                                      </div>
                                     ))}
                                   </div>
                                 </button>
@@ -328,21 +337,26 @@ export default function AllStarPage() {
                       <span className="inline-block w-1.5 h-6 rounded-full" style={{background:conf==='Eastern'?'#e05050':'#5090d0'}}/>
                       {confLabel(conf)} All-Stars
                     </h2>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {cr.map((r:any)=>{
                         const p=r.players;const tm=teams[p?.team_id];const tc=readableTeamColor(tm?.color||'555')
                         return(
-                          <div key={r.id} className="rounded-2xl p-4 text-center" style={{
+                          <div key={r.id} className="rounded-2xl p-4 text-center flex flex-col items-center" style={{
                             background:r.is_starter?'linear-gradient(160deg, #fdf1d0 0%, #fce4b0 100%)':'#fff',
                             border:'2px solid '+(r.is_starter?'#b45309':'#e5ddcf'),
-                            boxShadow:r.is_starter?'0 10px 24px -8px rgba(180,83,9,0.35)':'0 2px 8px -4px rgba(30,20,10,0.1)'}}>
+                            boxShadow:r.is_starter?'0 14px 30px -8px rgba(180,83,9,0.45)':'0 2px 8px -4px rgba(30,20,10,0.1)'}}>
                             {r.is_starter&&<div className="text-[10px] font-black mb-1.5 tracking-wide" style={{color:'#b45309'}}>⭐ {isPT?'TITULAR':'STARTER'}</div>}
-                            <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-2" style={{background:tc+'22',boxShadow:'0 0 0 3px '+tc+', 0 4px 10px -3px rgba(0,0,0,0.3)'}}>
-                              {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
-                                :<div className="w-full h-full flex items-center justify-center text-base font-black" style={{color:tc}}>{p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                            <div className="rounded-full mb-2" style={{
+                              width:104,height:104,padding:4,
+                              background:`conic-gradient(from 180deg, ${tc}, #fde68a, ${tc})`,
+                              boxShadow:r.is_starter?`0 0 0 4px #fff, 0 0 22px 4px ${tc}99`:`0 0 0 3px #fff, 0 6px 14px -4px rgba(0,0,0,0.35)`}}>
+                              <div className="w-full h-full rounded-full overflow-hidden" style={{background:'#fff'}}>
+                                {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
+                                  :<div className="w-full h-full flex items-center justify-center text-2xl font-black" style={{color:tc,background:tc+'18'}}>{p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                              </div>
                             </div>
-                            <div className="text-xs font-black leading-tight" style={{color:'#1a1612'}}>{p?.name}</div>
-                            <div className="text-[10px] font-bold mt-0.5" style={{color:tc}}>{r.position} · {tm?.id}</div>
+                            <div className="text-sm font-black leading-tight" style={{color:'#1a1612'}}>{p?.name}</div>
+                            <div className="text-[10px] font-bold mt-1 px-2 py-0.5 rounded-full" style={{color:'#fff',background:tc}}>{r.position} · {tm?.id}</div>
                           </div>
                         )
                       })}
