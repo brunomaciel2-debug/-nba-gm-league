@@ -601,14 +601,14 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
 
   const AWARD_LABELS_EN: Record<string,string> = {
     mvp:'Most Valuable Player', dpoy:'Defensive Player of the Year', roy:'Rookie of the Year',
-    coy:'Coach of the Year', mip:'Most Improved Player', finals_mvp:'Finals MVP',
+    coy:'Coach of the Year', mip:'Most Improved Player', finals_mvp:'Finals MVP', smoy:'Sixth Man of the Year',
     all_nba_1:'1st Team All-NBA', all_nba_2:'2nd Team All-NBA', all_nba_3:'3rd Team All-NBA',
     all_rookie_1:'1st Rookie Team', all_rookie_2:'2nd Rookie Team',
     all_star_east:'Eastern Conference All-Star', all_star_west:'Western Conference All-Star',
   }
   const AWARD_LABELS_PT: Record<string,string> = {
     mvp:'MVP', dpoy:'Melhor Defesa da Liga', roy:'Melhor Rookiee da Época',
-    coy:'Melhor Treinador', mip:'Jogador Mais Melhorado', finals_mvp:'MVP das Finais',
+    coy:'Melhor Treinador', mip:'Jogador Mais Melhorado', finals_mvp:'MVP das Finais', smoy:'Melhor Sexto Homem',
     all_nba_1:'1º Quinteto All-NBA', all_nba_2:'2º Quinteto All-NBA', all_nba_3:'3º Quinteto All-NBA',
     all_rookie_1:'1º Quinteto de Rookies', all_rookie_2:'2º Quinteto de Rookies',
     all_star_east:'All-Star da Conferência Este', all_star_west:'All-Star da Conferência Oeste',

@@ -6,7 +6,7 @@ import { readableTeamColor } from '@/lib/color'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslation } from '@/components/I18nProvider'
 import { getStatusForWeek } from '@/lib/season-week-helper'
-import { MIN_ROSTER, MAX_ROSTER } from '@/lib/roster-limits'
+import { MIN_ROSTER, MAX_ROSTER, isTradeDeadlinePassed } from '@/lib/roster-limits'
 import { buildTradeTeamRows, TradeAssetSend, TradeTeamRow } from '@/lib/trade-builder'
 
 const CAP_LIMIT = 180_000_000
@@ -175,10 +175,15 @@ function ProposeTradePage() {
   const [submitError, setSubmitError] = useState('')
   const [commTeamId,  setCommTeamId]  = useState('')
   const [isFAWindow,  setIsFAWindow]  = useState(false)
+  const [deadlinePassed, setDeadlinePassed] = useState(false)
 
   useEffect(() => {
     supabase.from('season_config').select('current_week').eq('id', 1).single()
       .then(({ data: cfg }) => setIsFAWindow(getStatusForWeek((cfg?.current_week || 0) + 1) === 'free-agency'))
+    // Same check the server enforces in /api/trade/propose — shown here so
+    // a GM sees "invalid, deadline expired" up front instead of filling out
+    // a whole trade only to have it rejected on submit.
+    isTradeDeadlinePassed(supabase).then(setDeadlinePassed)
   }, [])
 
   const myTeamId = profile?.team_id
@@ -285,7 +290,7 @@ function ProposeTradePage() {
   const salaryValid = totalOut === 0 && totalIn === 0 ? true : diff <= maxDiff
   const capValid = !myOverCap && !t2OverCap && !t3OverCap
   const rosterValid = !myRosterBad && !t2RosterBad && !t3RosterBad
-  const isValid = hasPlayers && salaryValid && capValid && rosterValid
+  const isValid = hasPlayers && salaryValid && capValid && rosterValid && !deadlinePassed
 
   const submitTrade = async () => {
     if (!user || !effectiveTeamId || !team2Id || !isValid) return
@@ -477,6 +482,7 @@ function ProposeTradePage() {
               {isValid ? (isPT ? 'Troca válida' : 'Trade is valid') : (isPT ? 'Troca inválida' : 'Trade is invalid')}
             </span>
             <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              {deadlinePassed && (isPT ? 'Prazo de Trocas expirado · ' : 'Trade Deadline expired · ')}
               {!hasPlayers && (isPT ? 'Seleciona pelo menos 1 jogador ou escolha em cada lado · ' : 'Select at least 1 player or pick on each side · ')}
               {!salaryValid && (isPT ? 'Diferença salarial excede o limite (±15% + $1M) · ' : `Salary difference exceeds limit (±15% + $1M) · `)}
               {!capValid && (isPT ? 'Uma das equipas ultrapassaria o cap de $180M · ' : `One of the teams would exceed the $180M cap · `)}

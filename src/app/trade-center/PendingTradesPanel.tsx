@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
-import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow } from '@/lib/roster-limits'
+import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow, isTradeDeadlinePassed } from '@/lib/roster-limits'
 
 const CAP_LIMIT = 180_000_000
 
@@ -75,6 +75,10 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
   const [responding, setResponding] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [msg, setMsg] = useState('')
+  // Same check the server enforces in /api/trade/respond — declining a
+  // stale offer stays fine, only accepting is blocked once this is true.
+  const [deadlinePassed, setDeadlinePassed] = useState(false)
+  useEffect(() => { isTradeDeadlinePassed(supabase).then(setDeadlinePassed) }, [])
 
   const loadProposals = async () => {
     setLoading(true)
@@ -319,10 +323,10 @@ export default function PendingTradesPanel({ teamId }: { teamId: string }) {
                       />
 
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => respond(proposal.id, 'accept')} disabled={responding === proposal.id || entry.capOver || entry.rosterBad}
-                          title={entry.capOver || entry.rosterBad ? (isPT?'Não podes aceitar — violaria o tecto ou o limite de plantel':'Cannot accept — would violate the cap or roster limit') : undefined}
-                          style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, background: (entry.capOver || entry.rosterBad) ? '#e2dcd5' : '#15803d', color: (entry.capOver || entry.rosterBad) ? '#8a8279' : '#fff', border: 'none', cursor: (entry.capOver || entry.rosterBad) ? 'not-allowed' : 'pointer', opacity: responding === proposal.id ? 0.6 : 1 }}>
-                          {responding === proposal.id ? (isPT?'A processar...':'Processing...') : (entry.capOver || entry.rosterBad) ? (isPT?'🚫 Não pode ser aceite':'🚫 Cannot be accepted') : (isPT?'✅ Aceitar Troca':'✅ Accept Trade')}
+                        <button onClick={() => respond(proposal.id, 'accept')} disabled={responding === proposal.id || entry.capOver || entry.rosterBad || deadlinePassed}
+                          title={deadlinePassed ? (isPT?'Prazo de Trocas expirado':'Trade Deadline expired') : entry.capOver || entry.rosterBad ? (isPT?'Não podes aceitar — violaria o tecto ou o limite de plantel':'Cannot accept — would violate the cap or roster limit') : undefined}
+                          style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, background: (entry.capOver || entry.rosterBad || deadlinePassed) ? '#e2dcd5' : '#15803d', color: (entry.capOver || entry.rosterBad || deadlinePassed) ? '#8a8279' : '#fff', border: 'none', cursor: (entry.capOver || entry.rosterBad || deadlinePassed) ? 'not-allowed' : 'pointer', opacity: responding === proposal.id ? 0.6 : 1 }}>
+                          {responding === proposal.id ? (isPT?'A processar...':'Processing...') : deadlinePassed ? (isPT?'🔒 Prazo expirado':'🔒 Deadline expired') : (entry.capOver || entry.rosterBad) ? (isPT?'🚫 Não pode ser aceite':'🚫 Cannot be accepted') : (isPT?'✅ Aceitar Troca':'✅ Accept Trade')}
                         </button>
                         <button onClick={() => respond(proposal.id, 'reject')} disabled={responding === proposal.id}
                           style={{ flex: 1, padding: '9px 0', borderRadius: 8, fontSize: 12, fontWeight: 700, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', cursor: 'pointer', opacity: responding === proposal.id ? 0.6 : 1 }}>

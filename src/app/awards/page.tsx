@@ -18,6 +18,7 @@ const AWARD_META_EN: Record<string,{label:string,icon:string,color:string,desc:s
   roy:         {label:'Rookie of the Year',  icon:'ti-bolt',         color:'#6d28d9',desc:'Best First-Year Player'},
   coy:         {label:'Coach of the Year',   icon:'ti-whistle',      color:'#0e7490',desc:'Best Head Coach'},
   mip:         {label:'Most Improved',       icon:'ti-trending-up',  color:'#c2410c',desc:'Most Improved Player'},
+  smoy:        {label:'6th Man of the Year', icon:'ti-armchair',     color:'#4338ca',desc:'Best Bench Player'},
   finals_mvp:  {label:'Finals MVP',          icon:'ti-medal',        color:'#c8102e',desc:'Championship Series MVP'},
   all_nba_1:   {label:'1st Team All-NBA',    icon:'ti-award',        color:'#b45309',desc:''},
   all_nba_2:   {label:'2nd Team All-NBA',    icon:'ti-award',        color:'#5c554e',desc:''},

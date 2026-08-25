@@ -2443,6 +2443,34 @@ player_id:royScores[0].id,score:royScores[0].score,
 notes:'Rookie of the Year'
 },{onConflict:'season,award_type,period'})
 
+// Sixth Man of the Year — same MIN_GAMES pool as every other season award,
+// plus Bruno's explicit eligibility rule: at least half of the games a
+// player actually appeared in have to have been off the bench (started no
+// more than half). box_scores.is_starter is the real per-game record of
+// this — player_stats has no games-started column at all.
+{
+const smoyIds = seasonStats.map((s:any) => s.player_id)
+const startRows = smoyIds.length ? await fetchAllRows<any>((from,to) => supabaseAdmin
+.from('box_scores').select('player_id,is_starter').in('player_id', smoyIds).range(from,to)) : []
+const startCounts: Record<string,{starts:number,total:number}> = {}
+for (const b of startRows) {
+const e = (startCounts[b.player_id] ||= { starts:0, total:0 })
+e.total++
+if (b.is_starter) e.starts++
+}
+const smoyScores = seasonStats
+.filter((s:any) => { const c = startCounts[s.player_id]; return c && c.total > 0 && c.starts <= c.total / 2 })
+.map((s:any) => {
+const g = s.games||1
+return {id:s.player_id, score:(s.pts/g)+(s.reb/g)*0.8+(s.ast/g)*1.2}
+}).sort((a:any,b:any)=>b.score-a.score)
+if (smoyScores[0]) await supabaseAdmin.from('awards').upsert({
+season:'2025-26',award_type:'smoy',period:'season',
+player_id:smoyScores[0].id,score:smoyScores[0].score,
+notes:'Sixth Man of the Year'
+},{onConflict:'season,award_type,period'})
+}
+
 const allNBATeams: [string,number,number][] = [['all_nba_1',0,5],['all_nba_2',5,10],['all_nba_3',10,15]]
 for (const [type,from,to] of allNBATeams) {
 for (const m of mvpScores.slice(from,to)) {
