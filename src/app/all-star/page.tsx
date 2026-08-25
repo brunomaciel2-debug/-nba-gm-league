@@ -114,6 +114,8 @@ export default function AllStarPage() {
         }
         if(r4.status==='fulfilled'&&r4.value.data)setRoster(r4.value.data)
         if(r5.status==='fulfilled'&&r5.value.data)setVoteOpenDate((r5.value.data as any).start_date)
+        if(r6.status==='fulfilled'&&r6.value.data)setRisingStars(r6.value.data)
+        if(r7.status==='fulfilled'&&r7.value.data)setThreePointField(r7.value.data)
       } catch(e){console.error(e)}
       setReady(true)
     }
