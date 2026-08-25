@@ -2637,7 +2637,7 @@ await supabaseAdmin.from('players').update(update).eq('id', r.id)
 // should reflect the WHOLE week's games, not just the first half's.
 if (half === 2) {
 try {
-const allP2 = await fetchAllRows<any>((from,to) => supabaseAdmin.from('players').select('id,moral,team_id,status,usage').in('status',['active','injured']).range(from,to))
+const allP2 = await fetchAllRows<any>((from,to) => supabaseAdmin.from('players').select('id,moral,team_id,status,usage,allstar_boost_until_week').in('status',['active','injured']).range(from,to))
 
 // Mental Coach — morale_management now scales how fast a player's morale
 // drifts toward what it actually "deserves" each week (see moraleTarget()
@@ -2709,6 +2709,11 @@ if (seasonAvg && seasonAvg >= 2) {
 target += Math.max(-12, Math.min(12, (recentAvgPts / seasonAvg - 1) * 30))
 }
 }
+// All-Star selection pride — a real, sustained morale lift for a few
+// months after being named (see ALLSTAR_BOOST_WEEKS), not a one-off bump.
+// Fades on its own once allstar_boost_until_week passes — no separate
+// decay logic needed, this just stops adding once the week check fails.
+if (p.allstar_boost_until_week && week <= p.allstar_boost_until_week) target += 10
 return Math.max(15, Math.min(92, target))
 }
 

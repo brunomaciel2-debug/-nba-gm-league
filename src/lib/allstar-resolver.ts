@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '@/lib/supabase'
-import { VOTING_CLOSES_WEEK, ANNOUNCE_WEEK, minGamesByWeek } from '@/lib/allstar-constants'
+import { VOTING_CLOSES_WEEK, ANNOUNCE_WEEK, ALLSTAR_BOOST_WEEKS, minGamesByWeek } from '@/lib/allstar-constants'
 import { fetchAllRows } from '@/lib/paginate'
+import { notify } from '@/lib/notifications'
+import { getTeamLang, notifAllStarRevealed, notifAllStarSelected } from '@/lib/notifications-helpers'
 export * from '@/lib/allstar-constants'
 
 const SEASON = '2025-26'
@@ -207,6 +209,41 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
     await supabaseAdmin.from('awards').delete().eq('season', SEASON).in('award_type', ['all_star_east', 'all_star_west'])
     const { error: awardErr } = await supabaseAdmin.from('awards').insert(awardRows)
     if (awardErr) console.error('All-Star awards insert failed:', awardErr)
+  }
+
+  // ── NOTIFY EVERY GM the roster is out ──────────────────
+  // Separate from the per-player congrats below — every team hears the
+  // roster dropped, only teams with an actual selection get the extra one.
+  const realTeams = (allTeams || []).filter((t: any) => !['ALL', 'RVS', 'ROO', 'SOP'].includes(t.id))
+  for (const t of realTeams) {
+    const lang = await getTeamLang(t.id)
+    const notif = notifAllStarRevealed(lang)
+    await notify(t.id, 'allstar_announced', notif.subject, notif.body, { view_allstar_page: true })
+  }
+
+  if (selectedPlayers.length > 0) {
+    // Bruno's ask: selected players get a sustained (not one-off) morale
+    // and jersey-sales boost for "a few months" — see moraleTarget() in
+    // run.ts and fameTarget() in merchandising.ts, both of which check this
+    // same column.
+    const boostUntilWeek = currentWeek + ALLSTAR_BOOST_WEEKS
+    await supabaseAdmin.from('players').update({ allstar_boost_until_week: boostUntilWeek })
+      .in('id', selectedPlayers.map((r: any) => r.player_id))
+
+    for (const r of selectedPlayers) {
+      const pl = players?.find((p: any) => p.id === r.player_id)
+      if (!pl?.team_id) continue
+      const awardType = r.conference === 'Eastern' ? 'all_star_east' : 'all_star_west'
+      // Real career total — counts every season (including the one just
+      // inserted above) this player has an all_star award row, not a guess.
+      const { count } = await supabaseAdmin.from('awards').select('id', { count: 'exact', head: true })
+        .eq('player_id', r.player_id).in('award_type', ['all_star_east', 'all_star_west'])
+      const lang = await getTeamLang(pl.team_id)
+      const notif = notifAllStarSelected(lang, pl.name, count || 1)
+      await notify(pl.team_id, 'awards', notif.subject, notif.body, {
+        player_id: r.player_id, player_name: pl.name, award_type: awardType, view_allstar_page: true,
+      })
+    }
   }
 
   return { skipped: false, total: finalRoster.length, auto_votes: autoRows.length }

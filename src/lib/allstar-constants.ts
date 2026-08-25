@@ -23,6 +23,10 @@ export const ALLSTAR_WEEK = 33
 // 3-day window the season_events row describes. Half 2 of the same week
 // still carries a normal (lighter) slate of regular games.
 export const ALLSTAR_HALF = 1 as const
+// How long a selected player's morale/jersey-sales boost lasts after
+// being named — "a few months" per Bruno's request, and a month here is 4
+// simulated weeks (see formatSimMonthName), so 12 weeks ≈ 3 months.
+export const ALLSTAR_BOOST_WEEKS = 12
 
 export function expectedGamesByWeek(week: number): number {
   const weeksElapsed = Math.max(0, Math.min(week, REGULAR_SEASON_END_WEEK) - (REGULAR_SEASON_START_WEEK - 1))

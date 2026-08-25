@@ -97,7 +97,7 @@ export function jerseyRevenue(fame: number): number {
 export function fameTarget(opts: {
   realOvr: number, recentAvgPts: number | null, seasonAvgPts: number | null,
   winPct: number, hasRecentAward: boolean, marketMultiplier: number, nationalityMultiplier?: number,
-  legacyFloor?: number | null,
+  legacyFloor?: number | null, isAllStarBoosted?: boolean,
 }): number {
   const base = starPower(opts.realOvr)
   let modul = 0
@@ -105,6 +105,10 @@ export function fameTarget(opts: {
     modul += Math.max(-6, Math.min(6, (opts.recentAvgPts / opts.seasonAvgPts - 1) * 15))
   }
   if (opts.hasRecentAward) modul += 6
+  // Being named an All-Star is a much bigger deal than a weekly/monthly
+  // award — a real, sustained jersey-sales bump for a few months (see
+  // ALLSTAR_BOOST_WEEKS), not the one-off +6 above.
+  if (opts.isAllStarBoosted) modul += 10
   modul += (opts.winPct - 0.5) * 6
   // Market (US team reach) and nationality (home-country reach) are
   // distinct, independent audiences, so they combine multiplicatively —
@@ -199,7 +203,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
   // ORDER BY here) was silently excluding an arbitrary ~160 real players
   // from monthly jersey-sales revenue.
   const players = await fetchAllRows((from,to) => supabaseAdmin.from('players')
-    .select('id,name,team_id,real_ovr,fame,nationality').eq('status', 'active').not('team_id', 'is', null).range(from,to))
+    .select('id,name,team_id,real_ovr,fame,nationality,allstar_boost_until_week').eq('status', 'active').not('team_id', 'is', null).range(from,to))
   if (!players?.length) return { teams: 0, players: 0 }
   const playerIds = players.map((p: any) => p.id)
 
@@ -274,6 +278,7 @@ export async function resolveMonthlyMerchandising(week: number): Promise<{ teams
       marketMultiplier: effectiveMarketMultiplier(p.real_ovr || 70, p.team_id, followersByTeam[p.team_id]),
       nationalityMultiplier: nationalityMultiplier(p.nationality),
       legacyFloor: legacyFameFloor(p.name),
+      isAllStarBoosted: !!p.allstar_boost_until_week && p.allstar_boost_until_week >= monthStartWeek,
     })
     const newFame = Math.round(Math.max(0, Math.min(100, (p.fame ?? 50) + (target - (p.fame ?? 50)) * DRIFT_RATE)))
     playerFameUpdates.push({ id: p.id, fame: newFame })

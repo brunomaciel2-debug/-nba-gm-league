@@ -479,18 +479,38 @@ export function notifGMInactivity(lang: 'en'|'pt', name: string, days: number) {
   }
 }
 
-export function notifAward(lang: 'en'|'pt', player: string, award: string, isAllStar: boolean) {
+export function notifAward(lang: 'en'|'pt', player: string, award: string) {
   return {
-    subject: lang === 'pt'
-      ? isAllStar ? `⭐ ${player} selecionado para o All-Star!` : `🏆 ${player} venceu o prémio de ${award}!`
-      : isAllStar ? `⭐ ${player} selected as All-Star!` : `🏆 ${player} wins ${award}!`,
+    subject: lang === 'pt' ? `🏆 ${player} venceu o prémio de ${award}!` : `🏆 ${player} wins ${award}!`,
     body: lang === 'pt'
-      ? isAllStar
-        ? `Parabéns! O ${player} foi selecionado para o jogo All-Star. Uma grande honra para a tua franquia.`
-        : `O ${player} foi distinguido com o prémio de ${award}. Um marco histórico para a tua franquia.`
-      : isAllStar
-        ? `Congratulations! ${player} has been selected for the All-Star game. A great honour for your franchise.`
-        : `${player} has been awarded ${award}. A landmark achievement for your franchise.`,
+      ? `O ${player} foi distinguido com o prémio de ${award}. Um marco histórico para a tua franquia.`
+      : `${player} has been awarded ${award}. A landmark achievement for your franchise.`,
+  }
+}
+
+// Sent to EVERY GM once the roster is set — the general "it's out, go
+// look" notice. The per-player congrats (notifAllStarSelected below) is
+// separate and only goes to teams with an actual selection.
+export function notifAllStarRevealed(lang: 'en'|'pt') {
+  return {
+    subject: lang === 'pt' ? `⭐ Os convocados para o All-Star Game foram revelados!` : `⭐ The All-Star rosters have been revealed!`,
+    body: lang === 'pt'
+      ? `Os titulares e reservas de cada conferência para o All-Star Weekend já foram anunciados. Vê a lista completa na página All-Star.`
+      : `Starters and reserves for each conference are now set for All-Star Weekend. Check out the full roster on the All-Star page.`,
+  }
+}
+
+// Sent only to a team with an actual selection — the career count comes
+// from a real query over the awards table (see allstar-resolver.ts), not
+// just "you have a player in it" like the generic awards notice used to say.
+export function notifAllStarSelected(lang: 'en'|'pt', player: string, careerCount: number) {
+  const countPT = careerCount === 1 ? '1 seleção' : `${careerCount} seleções`
+  const countEN = careerCount === 1 ? '1 career All-Star selection' : `${careerCount} career All-Star selections`
+  return {
+    subject: lang === 'pt' ? `⭐ ${player} foi selecionado para o All-Star!` : `⭐ ${player} selected as All-Star!`,
+    body: lang === 'pt'
+      ? `Parabéns! O teu jogador ${player} foi selecionado para o All-Star Game desta época. Com esta seleção, ${player} conta já com ${countPT} para o All-Star.`
+      : `Congratulations! Your player ${player} has been selected for this season's All-Star Game. With this selection, ${player} now has ${countEN}.`,
   }
 }
 

@@ -116,7 +116,27 @@ export default function AllStarPage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return
       const { data: gm } = await supabase.from('gm_profiles').select('team_id').eq('id', user.id).single()
-      if (gm?.team_id) { setGmTeam(gm.team_id); setTeamAutoDetected(true) }
+      if (!gm?.team_id) return
+      setGmTeam(gm.team_id); setTeamAutoDetected(true)
+      // Voting is meant to be a one-time act — the `submitted` flag above is
+      // only local React state, reset by any page reload, so a GM who
+      // already voted and came back later saw the normal voting screen
+      // again with no sign he'd already submitted, and could resubmit
+      // (upsert on the same conflict key) as many times as he liked.
+      // Re-fetching his own already-saved picks and locking the page the
+      // same way a fresh submit does closes that gap.
+      const { data: existingVotes } = await supabase.from('allstar_votes')
+        .select('conference,position,player_id').eq('gm_team_id', gm.team_id).eq('season','2025-26')
+      if (existingVotes && existingVotes.length > 0) {
+        const grouped: Record<string,Record<string,string[]>> = {}
+        for (const v of existingVotes) {
+          if (!grouped[v.conference]) grouped[v.conference] = {}
+          if (!grouped[v.conference][v.position]) grouped[v.conference][v.position] = []
+          grouped[v.conference][v.position].push(v.player_id)
+        }
+        setVotes(grouped)
+        setSubmitted(true)
+      }
     })
   },[])
 

@@ -598,6 +598,11 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
   }
 
   for (const award of (recentAwards||[])) {
+    // All-Star selections get their own richer notification (career
+    // selection count + the league-wide "revealed" notice), sent directly
+    // from allstar-resolver.ts the moment the roster is built — handling
+    // them here too would double-notify every selected player's team.
+    if (award.award_type.startsWith('all_star')) continue
     const playerTeamId = (award.players as any)?.team_id || award.team_id
     const playerName = (award.players as any)?.name || 'A player'
     if (!playerTeamId) continue
@@ -611,8 +616,7 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     if (alreadySent) continue
     const lang = await getTeamLang(playerTeamId)
     const label = lang === 'pt' ? (AWARD_LABELS_PT[award.award_type] || award.award_type) : (AWARD_LABELS_EN[award.award_type] || award.award_type)
-    const isAllStar = award.award_type.startsWith('all_star')
-    const notif = notifAward(lang, playerName, label, isAllStar)
+    const notif = notifAward(lang, playerName, label)
     await notify(playerTeamId, 'awards', notif.subject, notif.body, { player_id: award.player_id, player_name: playerName, award_type: award.award_type })
   }
 
