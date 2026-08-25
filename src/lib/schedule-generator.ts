@@ -213,6 +213,36 @@ function packGamesByDay(
 //   the other division; summed over the conference's other 2 divisions
 //   that's 3+3=6 at 4 games and 2+2=4 at 3 games — see comments below)
 // - 2 games vs each of the 15 other-conference teams (30 games)
+// The Rising Stars and All-Star Games only ever got created at the moment
+// they were actually simulated (see allstar-events-simulator.ts), so unlike
+// every real regular-season game — which shows up on the Schedule page
+// weeks in advance as "Scheduled" — the exhibition games were invisible
+// until the instant they were played. Their date is fully known from fixed
+// constants alone (no roster needed), so a placeholder can exist from the
+// same moment the rest of the season's schedule does. insertGameAndBox()
+// in allstar-events-simulator.ts finds this exact row by season+game_type
+// and finishes it in place instead of creating a second one.
+export async function ensureAllStarExhibitionPlaceholders() {
+  const allstarBlock = getHalfWeekDates(ALLSTAR_WEEK, ALLSTAR_HALF)
+  const dayOffset = (n: number) => { const d = new Date(allstarBlock.start); d.setDate(d.getDate() + n); return ymd(d) }
+  const exhibitions = [
+    { home: 'ROO', away: 'SOP', gameType: 'rising_stars', date: dayOffset(1) },
+    { home: 'ALL', away: 'RVS', gameType: 'allstar', date: dayOffset(2) },
+  ]
+  for (const ex of exhibitions) {
+    const { data: existing } = await supabaseAdmin.from('games').select('id')
+      .eq('season', SEASON).eq('game_type', ex.gameType).maybeSingle()
+    if (existing) continue
+    const { count } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true }).eq('week_number', ALLSTAR_WEEK)
+    await supabaseAdmin.from('games').insert({
+      week_number: ALLSTAR_WEEK, game_number: (count || 0) + 1,
+      home_team: ex.home, away_team: ex.away, season: SEASON,
+      status: 'scheduled', game_type: ex.gameType, scheduled_date: ex.date,
+      day_of_week: WEEKDAY_NAMES[new Date(ex.date + 'T00:00:00').getDay()],
+    })
+  }
+}
+
 // Total: 16 + 36 + 30 = 82 games/team, matching the real NBA format.
 export async function generateRegularSeasonSchedule(opts: { startWeek: number; endWeek: number }) {
   const { startWeek, endWeek } = opts
@@ -339,6 +369,8 @@ export async function generateRegularSeasonSchedule(opts: { startWeek: number; e
     perTeam[g.away] = (perTeam[g.away] || 0) + 1
   }
   const offCount = Object.values(perTeam).filter(c => c !== 82).length
+
+  await ensureAllStarExhibitionPlaceholders()
 
   return { success: true as const, games: inserted, weeks: endWeek - startWeek + 1, teams_off_82: offCount, per_team: perTeam }
 }

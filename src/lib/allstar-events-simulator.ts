@@ -42,23 +42,35 @@ async function insertGameAndBox(opts: {
   const { homeTeamId, awayTeamId, homeTeamObj, awayTeamObj, homePlayers, awayPlayers, homeOrd, awayOrd, gameType, weekNumber, scheduledDate } = opts
   const result = simulateGame(homeTeamObj, awayTeamObj, homePlayers, awayPlayers, homeOrd, awayOrd)
 
-  const { count } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true }).eq('week_number', weekNumber)
-  const { data: gameRec } = await supabaseAdmin.from('games').insert({
-    week_number: weekNumber, game_number: (count || 0) + 1,
-    home_team: homeTeamId, away_team: awayTeamId,
-    home_score: result.homeScore, away_score: result.awayScore, season: SEASON,
+  // A "scheduled" placeholder for this exact exhibition game may already
+  // exist (see ensureExhibitionPlaceholders below — created the moment
+  // rosters are set, same as every regular-season game already shows up on
+  // the Schedule page well before it's played). Finish that same row
+  // instead of inserting a second one, which would otherwise leave a dead
+  // "Scheduled" row sitting on the Schedule page forever alongside the
+  // real final result.
+  const { data: existing } = await supabaseAdmin.from('games').select('id')
+    .eq('season', SEASON).eq('game_type', gameType).eq('status', 'scheduled').maybeSingle()
+
+  const finalFields = {
+    home_score: result.homeScore, away_score: result.awayScore,
     status: 'final', played_at: new Date().toISOString(),
-    // The Schedule page groups/sorts by scheduled_date (the real intended
-    // in-season calendar date), falling back to played_at (the real-world
-    // moment this got simulated) only when it's missing — without this the
-    // exhibition games showed up under whatever real month the commissioner
-    // happened to click "simulate" in, instead of All-Star Weekend itself.
-    scheduled_date: scheduledDate,
-    game_type: gameType, period_scores: result.periods,
-    // Neutral-site exhibition — no real GM's arena/ticket pricing applies,
-    // so attendance/referee are flavor-only flat values, not computed.
+    scheduled_date: scheduledDate, period_scores: result.periods,
     attendance: 19000, is_rivalry: false, referee_id: null, referee_rating: null,
-  }).select().single()
+  }
+  let gameRec: any
+  if (existing) {
+    const { data } = await supabaseAdmin.from('games').update(finalFields).eq('id', existing.id).select().single()
+    gameRec = data
+  } else {
+    const { count } = await supabaseAdmin.from('games').select('*', { count: 'exact', head: true }).eq('week_number', weekNumber)
+    const { data } = await supabaseAdmin.from('games').insert({
+      week_number: weekNumber, game_number: (count || 0) + 1,
+      home_team: homeTeamId, away_team: awayTeamId, season: SEASON,
+      game_type: gameType, ...finalFields,
+    }).select().single()
+    gameRec = data
+  }
   if (!gameRec) throw new Error(`Failed to create ${gameType} game record`)
 
   const mkBox = (rows: any[], teamId: string) => rows.map((b: any) => {

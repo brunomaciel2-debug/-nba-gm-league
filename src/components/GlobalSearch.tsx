@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { supabase } from '@/lib/supabase'
 import { useTranslation } from './I18nProvider'
 
@@ -41,6 +42,11 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  // The results panel renders through a portal (see below) — a ref of its
+  // own so the outside-click handler doesn't treat a click inside it as
+  // "outside" just because it's no longer a DOM descendant of `ref`.
+  const panelRef = useRef<HTMLDivElement>(null)
+  const [panelPos, setPanelPos] = useState<{ top: number, left: number, width: number } | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Club name lookup for player/staff sublabels — fetched once (teams barely
   // change mid-season) rather than re-queried on every keystroke.
@@ -51,10 +57,34 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
   const worldTeamNameById = useRef<Record<string, string>>({})
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (ref.current && !ref.current.contains(target) && panelRef.current && !panelRef.current.contains(target)) setOpen(false)
+    }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  // The results panel used to render inline, right after the input — fine
+  // until the input moved into the top bar, whose row has overflow:hidden
+  // (needed so the row's own flex children never force a horizontal
+  // scrollbar). That clipped the dropdown to nothing the moment it tried to
+  // pop out below the input — the search itself always worked, no result
+  // ever had anywhere visible to show up. A portal renders the panel
+  // straight onto <body>, positioned from the input's own real screen
+  // coordinates, so no ancestor's overflow can clip it.
+  useEffect(() => {
+    if (!open) return
+    const updatePos = () => {
+      if (!ref.current) return
+      const r = ref.current.getBoundingClientRect()
+      setPanelPos({ top: r.bottom + 6, left: r.right - Math.min(460, window.innerWidth * 0.95), width: Math.min(460, window.innerWidth * 0.95) })
+    }
+    updatePos()
+    window.addEventListener('resize', updatePos)
+    window.addEventListener('scroll', updatePos, true)
+    return () => { window.removeEventListener('resize', updatePos); window.removeEventListener('scroll', updatePos, true) }
+  }, [open])
 
   useEffect(() => {
     supabase.from('teams').select('id,name').not('id', 'in', PLACEHOLDER_TEAM_IDS).then(({ data }) => {
@@ -129,9 +159,10 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
         )}
       </div>
 
-      {open && q.trim().length >= 2 && (
-        <div className="absolute right-0 top-full mt-1.5 z-50 rounded-xl overflow-hidden"
-             style={{ background: '#ede8df', border: '1px solid #cec8be', width: 460, maxWidth: '95vw',
+      {open && q.trim().length >= 2 && panelPos && typeof document !== 'undefined' && createPortal(
+        <div ref={panelRef} className="rounded-xl overflow-hidden"
+             style={{ position: 'fixed', top: panelPos.top, left: panelPos.left, width: panelPos.width, zIndex: 9999,
+                      background: '#ede8df', border: '1px solid #cec8be',
                       maxHeight: 460, overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}>
           {loading ? (
             <div className="px-4 py-4 text-xs" style={{ color: '#8a8279' }}>{isPT ? 'A procurar…' : 'Searching…'}</div>
@@ -156,7 +187,8 @@ export default function GlobalSearch({ onNavigate, autoFocus, compact }: { onNav
               ))}
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
