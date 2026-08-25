@@ -479,6 +479,15 @@ export function notifGMInactivity(lang: 'en'|'pt', name: string, days: number) {
   }
 }
 
+export function notifTradeDeadlinePassed(lang: 'en'|'pt') {
+  return {
+    subject: lang === 'pt' ? `🔒 O prazo de trocas terminou!` : `🔒 The trade deadline has passed!`,
+    body: lang === 'pt'
+      ? `O prazo de trocas desta época já terminou. A tua equipa já não pode propor nem aceitar trocas com outras equipas reais — as restantes operações (G-League, agência livre, etc.) continuam disponíveis normalmente.`
+      : `This season's trade deadline has passed. Your team can no longer propose or accept trades with other real teams — everything else (G-League moves, free agency, etc.) still works as normal.`,
+  }
+}
+
 export function notifAward(lang: 'en'|'pt', player: string, award: string) {
   return {
     subject: lang === 'pt' ? `🏆 ${player} venceu o prémio de ${award}!` : `🏆 ${player} wins ${award}!`,

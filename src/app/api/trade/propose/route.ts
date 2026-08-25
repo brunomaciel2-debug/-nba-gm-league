@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyTradeProposed } from '@/lib/notifications'
-import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow, getActiveRosterCount } from '@/lib/roster-limits'
+import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow, getActiveRosterCount, isTradeDeadlinePassed } from '@/lib/roster-limits'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -47,6 +47,9 @@ export async function POST(req: NextRequest) {
   }
   if (!teams.some(t => t.team_id === initiatorTeamId)) {
     return NextResponse.json({ error: 'Initiator team must be one of the trading teams' }, { status: 400 })
+  }
+  if (await isTradeDeadlinePassed(supabaseAdmin)) {
+    return NextResponse.json({ error: 'The trade deadline has passed — no new trades can be proposed this season' }, { status: 400 })
   }
 
   // Same authoritative checks as accept-time — catches an obviously broken

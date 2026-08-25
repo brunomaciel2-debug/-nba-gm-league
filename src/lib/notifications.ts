@@ -1,12 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { getStatusForWeek, getWeekDates, formatWeekRange } from './season-week-helper'
-import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded, notifMonthlySettlement, notifAllStarVoteOpen } from './notifications-helpers'
+import { getTeamLang, clearLangCache, notifWeeklyResults, notifInjury, notifTechnicalFoul, notifDroppedOutPlayoffs, notifLeadingConference, notifWinStreak, notifLossStreak, notifRivalWin, notifDevelopment, notifLowMorale, notifContractExpiring, notifArenaConstruction, notifTrainingCredits, notifOrdersReminder, notifSponsorPayment, notifSeasonEnd, notifGMInactivity, notifAward, notifCapCritical, notifRosterMinimumRisk, notifGLeagueStart, notifTacticalFocusNeeded, notifMonthlySettlement, notifAllStarVoteOpen, notifTradeDeadlinePassed } from './notifications-helpers'
 import { medicalCostAfterInsurance, isSpecialistEligible, SPECIALIST_COST_BY_SEVERITY, SPECIALIST_BOOST_MULTIPLIER_BY_SEVERITY, InjurySeverity } from './injury-constants'
 import { OffSystem, nodesForSystem, isNodeUnlocked } from './tactical-constants'
 import { NBA_SUBSIDY_MONTHLY, UTILITIES_MONTHLY, INSURANCE_MONTHLY } from './finance-constants'
 import { SLOT_ECONOMICS, SLOT_VARIANT_KEYS } from './audience-segments'
 import { VOTING_OPENS_WEEK } from './allstar-constants'
 import { fetchAllRows } from './paginate'
+import { isTradeDeadlinePassed } from './roster-limits'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -548,6 +549,22 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
         const lang = await getTeamLang(team.id)
         const notif = notifAllStarVoteOpen(lang)
         await notify(team.id, 'allstar_vote', notif.subject, notif.body, {})
+      }
+    }
+  }
+
+  // ── 12d. TRADE DEADLINE PASSED ─────────────────────────
+  // Same idempotency pattern as the sections above — fires once, the first
+  // call after the deadline actually passes. Previously this event had no
+  // effect at all (see isTradeDeadlinePassed in roster-limits.ts, now also
+  // enforced in the trade propose/respond routes).
+  if (await isTradeDeadlinePassed(supabase)) {
+    const { data: alreadySent } = await supabase.from('inbox_messages').select('id').eq('type', 'trade_deadline').limit(1).maybeSingle()
+    if (!alreadySent) {
+      for (const team of (teams || [])) {
+        const lang = await getTeamLang(team.id)
+        const notif = notifTradeDeadlinePassed(lang)
+        await notify(team.id, 'trade_deadline', notif.subject, notif.body, {})
       }
     }
   }

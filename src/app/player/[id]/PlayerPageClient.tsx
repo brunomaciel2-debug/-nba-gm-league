@@ -737,13 +737,6 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
                   <div className="text-xs font-medium" style={{color:'#5c554e'}}>{a.notes}</div>
                 )}
               </div>
-              {a.stats_context?.ppg && (
-                <div className="text-xs font-semibold" style={{color:'#5c554e'}}>
-                  {a.stats_context.ppg} PPG
-                  {a.stats_context.rpg && ` · ${a.stats_context.rpg} RPG`}
-                  {a.stats_context.apg && ` · ${a.stats_context.apg} APG`}
-                </div>
-              )}
             </div>
           ))}
         </div>

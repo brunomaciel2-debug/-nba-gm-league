@@ -8,14 +8,14 @@ const TYPE_ICONS: Record<string,string> = {
   preseason_declined:'❌', injury:'🏥', trade:'🔄', contract:'📝', award:'🏆',
   sponsor:'🎯', results:'📊', standings:'📍', streak:'🔥', rivalry:'⚔️',
   development:'📈', morale:'😟', construction:'🏗️', reminder:'⏰', gleague:'⬆️',
-  fa:'👤', training:'🏋️', scouting:'🔍', allstar_vote:'⭐', allstar_announced:'⭐',
+  fa:'👤', training:'🏋️', scouting:'🔍', allstar_vote:'⭐', allstar_announced:'⭐', trade_deadline:'🔒',
 }
 
 const TYPE_COLORS: Record<string,string> = {
   welcome:'#c8102e', injury:'#dc2626', results:'#1d4ed8', standings:'#b45309', streak:'#b45309',
   rivalry:'#7c3aed', development:'#15803d', morale:'#dc2626', construction:'#b45309',
   reminder:'#6b7280', sponsor:'#15803d', award:'#b45309', gleague:'#1d4ed8',
-  contract:'#7c3aed', trade:'#1d4ed8', fa:'#15803d', training:'#7c3aed', scouting:'#0e7490', allstar_vote:'#b45309', allstar_announced:'#b45309',
+  contract:'#7c3aed', trade:'#1d4ed8', fa:'#15803d', training:'#7c3aed', scouting:'#0e7490', allstar_vote:'#b45309', allstar_announced:'#b45309', trade_deadline:'#dc2626',
 }
 
 const TYPE_LABELS_PT: Record<string,string> = {
@@ -23,7 +23,7 @@ const TYPE_LABELS_PT: Record<string,string> = {
   streak:'Séries', rivalry:'Rivalidade', development:'Desenvolvimento', morale:'Moral',
   construction:'Construção', reminder:'Lembretes', sponsor:'Patrocínio', award:'Prémios',
   gleague:'G-League', contract:'Contratos', trade:'Trades', fa:'Free Agency',
-  training:'Treino', scouting:'Scouting', application:'Candidaturas', allstar_vote:'Votação All-Star', allstar_announced:'Anúncio All-Star',
+  training:'Treino', scouting:'Scouting', application:'Candidaturas', allstar_vote:'Votação All-Star', allstar_announced:'Anúncio All-Star', trade_deadline:'Prazo de Trocas',
 }
 
 export default function InboxPage() {

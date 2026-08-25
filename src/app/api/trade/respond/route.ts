@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { notifyTradeAccepted, notifyTradeRejected, notifyPlayerArrival, notify } from '@/lib/notifications'
 import { resolveInteractionsForTradedPlayer } from '@/lib/player-interactions'
-import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow, getActiveRosterCount } from '@/lib/roster-limits'
+import { MIN_ROSTER, MAX_ROSTER, isFreeAgencyWindow, getActiveRosterCount, isTradeDeadlinePassed } from '@/lib/roster-limits'
 import { recordPlayerTransaction, recordTradeLegacyTransaction } from '@/lib/player-transactions'
 
 const supabaseAdmin = createClient(
@@ -38,6 +38,11 @@ export async function POST(req: NextRequest) {
 
   if (!proposal) return NextResponse.json({ error: 'Trade proposal not found' }, { status: 404 })
   if (proposal.status !== 'pending') return NextResponse.json({ error: 'This trade has already been resolved' }, { status: 400 })
+  // Declining a stale offer is always fine — only ACCEPTING actually
+  // executes the trade, which the deadline blocks.
+  if (action === 'accept' && await isTradeDeadlinePassed(supabaseAdmin)) {
+    return NextResponse.json({ error: 'The trade deadline has passed — this trade can no longer be accepted' }, { status: 400 })
+  }
 
   const { data: teams } = await supabaseAdmin
     .from('trade_proposal_teams')
