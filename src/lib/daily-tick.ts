@@ -67,18 +67,23 @@ export async function resolveDailyHealthRecovery(simDate: string) {
     await Promise.all(chunk.map(u => supabaseAdmin.from('players').update(u.fields).eq('id', u.id)))
   }
 
-  const recoveredIds = recoveryUpdates.filter(u => u.recovered).map(u => u.id)
-  if (recoveredIds.length > 0) {
-    // A player's `status` is single-valued, so once he's back to 'active'
-    // every injury_log row still marked 'active' for him is stale, not
-    // just the most recent one (same fix as the original weekly step).
-    const { data: openInjs } = await supabaseAdmin.from('injury_log').select('id')
-      .in('player_id', recoveredIds).eq('status', 'active')
-    const injIds: string[] = (openInjs || []).map((inj: any) => inj.id)
-    for (let i = 0; i < injIds.length; i += 50) {
-      const chunk = injIds.slice(i, i + 50)
-      await Promise.all(chunk.map((id: string) => supabaseAdmin.from('injury_log').update({ status: 'resolved', healed_at: new Date().toISOString(), healed_week: week }).eq('id', id)))
-    }
+  // Self-healing sweep — checks EVERY currently-healthy player against
+  // injury_log, not just whoever crossed the recovery threshold in this
+  // exact tick. Real incident found live: 145 of 226 league-wide "active"
+  // injury_log rows belonged to players who'd already been fully healthy
+  // (players.status='active') for WEEKS — the narrower "only players who
+  // recovered just now" check silently never re-examines anyone whose
+  // status flipped back to active through any other path (or a tick that
+  // didn't run), so a row like that stayed permanently stale, misreporting
+  // stars like LaMelo Ball- and Luka Doncic-tier players as still hurt
+  // everywhere injury_log.status is checked (e.g. All-Star injury
+  // replacements picking a healthy All-Star's replacement instead of him).
+  const { data: staleActiveInjuries } = await supabaseAdmin.from('injury_log')
+    .select('id, players!inner(status)').eq('status', 'active').eq('players.status', 'active')
+  const staleIds: string[] = (staleActiveInjuries || []).map((inj: any) => inj.id)
+  for (let i = 0; i < staleIds.length; i += 50) {
+    const chunk = staleIds.slice(i, i + 50)
+    await Promise.all(chunk.map((id: string) => supabaseAdmin.from('injury_log').update({ status: 'resolved', healed_at: new Date().toISOString(), healed_week: week }).eq('id', id)))
   }
 }
 

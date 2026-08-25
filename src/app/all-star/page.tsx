@@ -380,23 +380,47 @@ export default function AllStarPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {cr.map((r:any)=>{
                         const p=r.players;const tm=teams[p?.team_id];const tc=readableTeamColor(tm?.color||'555')
+                        const full=players.find((pl:any)=>pl.id===r.player_id)
+                        const s=full?.player_stats?.[0]||{};const gp=Math.max(1,s.games||1)
+                        const ppg=(s.pts/gp)||0,rpg=(s.reb/gp)||0,apg=(s.ast/gp)||0
                         return(
-                          <div key={r.id} className="rounded-2xl p-4 text-center flex flex-col items-center" style={{
-                            background:r.is_starter?'linear-gradient(160deg, #fdf1d0 0%, #fce4b0 100%)':'#fff',
-                            border:'2px solid '+(r.is_starter?'#b45309':'#e5ddcf'),
-                            boxShadow:r.is_starter?'0 14px 30px -8px rgba(180,83,9,0.45)':'0 2px 8px -4px rgba(30,20,10,0.1)'}}>
-                            {r.is_starter&&<div className="text-[10px] font-black mb-1.5 tracking-wide" style={{color:'#b45309'}}>⭐ {isPT?'TITULAR':'STARTER'}</div>}
-                            <div className="rounded-full mb-2" style={{
-                              width:104,height:104,padding:4,
-                              background:`conic-gradient(from 180deg, ${tc}, #fde68a, ${tc})`,
-                              boxShadow:r.is_starter?`0 0 0 4px #fff, 0 0 22px 4px ${tc}99`:`0 0 0 3px #fff, 0 6px 14px -4px rgba(0,0,0,0.35)`}}>
+                          <div key={r.id} className="relative rounded-2xl p-4 pt-5 text-center flex flex-col items-center overflow-hidden" style={{
+                            background:r.is_starter
+                              ?`linear-gradient(160deg, #fef3c7 0%, #fbbf24 55%, ${tc} 130%)`
+                              :`linear-gradient(160deg, #fff 0%, ${tc}14 100%)`,
+                            border:'2px solid '+(r.is_starter?'#b45309':tc+'55'),
+                            boxShadow:r.is_starter?`0 16px 34px -8px ${tc}66, 0 14px 30px -8px rgba(180,83,9,0.5)`:`0 6px 16px -6px ${tc}44`}}>
+                            {/* Glossy diagonal shine overlay — the actual "bling" layer, same trick real trading cards use. */}
+                            <div className="absolute inset-0 pointer-events-none" style={{background:'linear-gradient(115deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.25) 100%)'}}/>
+                            <div className="absolute top-2 right-2 text-[9px] font-black px-2 py-0.5 rounded-full" style={{background:'rgba(0,0,0,0.55)',color:'#fde68a'}}>{r.vote_count} {isPT?'VOTOS':'VOTES'}</div>
+                            {r.is_starter&&<div className="text-[10px] font-black mb-1.5 tracking-wide relative" style={{color:'#7c3a00'}}>⭐ {isPT?'TITULAR':'STARTER'}</div>}
+                            <div className="relative mb-2" style={{
+                              width:108,height:108,padding:4,
+                              background:`conic-gradient(from 180deg, ${tc}, #fde68a, #fff, ${tc})`,
+                              borderRadius:'9999px',
+                              boxShadow:r.is_starter?`0 0 0 4px #fff, 0 0 26px 6px ${tc}bb`:`0 0 0 3px #fff, 0 6px 14px -4px rgba(0,0,0,0.35)`}}>
                               <div className="w-full h-full rounded-full overflow-hidden" style={{background:'#fff'}}>
                                 {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
                                   :<div className="w-full h-full flex items-center justify-center text-2xl font-black" style={{color:tc,background:tc+'18'}}>{p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
                               </div>
+                              {tm?.logo_url&&(
+                                <div className="absolute rounded-full overflow-hidden flex items-center justify-center" style={{
+                                  width:34,height:34,right:-4,bottom:-4,background:'#fff',
+                                  border:'2px solid '+tc,boxShadow:'0 3px 8px -2px rgba(0,0,0,0.5)'}}>
+                                  <img src={tm.logo_url} alt="" className="w-full h-full object-contain p-0.5"/>
+                                </div>
+                              )}
                             </div>
-                            <div className="text-sm font-black leading-tight" style={{color:'#1a1612'}}>{p?.name}</div>
-                            <div className="text-[10px] font-bold mt-1 px-2 py-0.5 rounded-full" style={{color:'#fff',background:tc}}>{r.position} · {tm?.id}</div>
+                            <div className="text-sm font-black leading-tight relative" style={{color:r.is_starter?'#3d2400':'#1a1612'}}>{p?.name}</div>
+                            <div className="text-[10px] font-bold mt-1 mb-2 px-2 py-0.5 rounded-full relative" style={{color:'#fff',background:tc}}>{r.position} · {tm?.id}</div>
+                            <div className="flex items-stretch justify-center w-full relative" style={{borderTop:'1px solid '+(r.is_starter?'rgba(124,58,0,0.25)':tc+'33')}}>
+                              {[[ppg,'PPG'],[rpg,'RPG'],[apg,'APG']].map(([val,label]:any,i)=>(
+                                <div key={label} className="flex-1 text-center pt-1.5" style={{borderLeft:i>0?'1px solid '+(r.is_starter?'rgba(124,58,0,0.25)':tc+'33'):'none'}}>
+                                  <div className="text-base font-black leading-none" style={{color:r.is_starter?'#7c3a00':tc}}>{val.toFixed(1)}</div>
+                                  <div className="text-[8px] font-bold uppercase tracking-wide mt-0.5" style={{color:r.is_starter?'#8a5a1a':'#8a8074'}}>{label}</div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )
                       })}

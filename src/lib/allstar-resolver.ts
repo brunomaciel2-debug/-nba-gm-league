@@ -49,12 +49,27 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
   // whichever row PostgREST returns first (often an old, empty season), so
   // this fetches the CURRENT season's rows separately and maps by player_id.
   const { data: statsRows } = await supabaseAdmin.from('player_stats')
-    .select('player_id,games,pts,reb,ast').eq('season', SEASON)
+    .select('player_id,games,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers').eq('season', SEASON)
   const statsByPlayer: Record<string, any> = {}
   ;(statsRows || []).forEach((s: any) => { statsByPlayer[s.player_id] = s })
   const players = (playersRaw || []).map((p: any) => ({ ...p, player_stats: [statsByPlayer[p.id] || {}] }))
 
   const eligible = players.filter((p: any) => (p.player_stats?.[0]?.games || 0) >= minGames)
+
+  // Bruno's tie-break rule: whoever's tied on votes at a position wins by
+  // average Game Score (GmSc) — same formula already used site-wide to pick
+  // each game's MVP (see GameBoxScore.tsx). Real incident this fixed: Giannis
+  // Antetokounmpo and Pascal Siakam tied 31-31 for the SF slot, resolved by
+  // arbitrary object-key order before this existed.
+  const gmScById: Record<number, number> = {}
+  eligible.forEach((p: any) => {
+    const s = p.player_stats?.[0] || {}
+    const gp = Math.max(1, s.games || 1)
+    const per = (k: string) => (s[k] || 0) / gp
+    gmScById[p.id] = per('pts') + 0.4 * per('fgm') - 0.7 * per('fga') - 0.4 * (per('fta') - per('ftm'))
+      + 0.7 * per('off_reb') + 0.3 * per('def_reb') + per('stl') + 0.7 * per('ast') + 0.7 * per('blk')
+      - 0.4 * per('pf') - per('turnovers')
+  })
 
   // Auto-vote for GMs who didn't vote
   const { data: existingVotes } = await supabaseAdmin.from('allstar_votes').select('gm_team_id').eq('season', SEASON)
@@ -86,7 +101,13 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
     tally[v.conference][v.position][v.player_id] = (tally[v.conference][v.position][v.player_id] || 0) + 1
   })
 
-  // Build roster
+  // Build roster — Bruno's explicit spec:
+  //   1. Starters: the single most-voted eligible player AT EACH position.
+  //   2. Position reserves: the 2nd-most-voted eligible player at each
+  //      position (5 of these, one per position, same as starters).
+  //   3. Wildcard reserves: whoever's left with the most votes overall,
+  //      regardless of position — exactly 2 of these.
+  //   Total: 5 + 5 + 2 = 12 per conference, matching the real NBA format.
   // NOTE: object keys (from tally[conf][pos][player_id] = ...) are always
   // coerced to strings by JS, even when player_id is numeric — every pid
   // extracted via Object.entries() below must be converted back to Number
@@ -95,49 +116,74 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
   // auto-votes tallied, 0 roster spots built).
   const rosterRows: any[] = []
   for (const conf of CONFS) {
-    const starters: number[] = []
-    const allCands: { pid: number, votes: number, pos: string }[] = []
-    for (const pos of POSITIONS) {
-      const posV = tally[conf]?.[pos] || {}
-      const sorted = Object.entries(posV).map(([pid, cnt]) => [Number(pid), cnt] as [number, number]).sort((a, b) => b[1] - a[1])
-      for (const [pid, cnt] of sorted) {
-        if (!starters.includes(pid) && eligible.find((p: any) => p.id === pid)) {
-          starters.push(pid)
-          rosterRows.push({ season: SEASON, conference: conf, player_id: pid, position: pos, is_starter: true, vote_count: cnt, is_injured: false })
-          break
-        }
-      }
-      for (const [pid, cnt] of sorted) if (!allCands.find(c => c.pid === pid)) allCands.push({ pid, votes: cnt, pos })
-    }
+    const usedIds = new Set<number>()
 
-    // Guarantee exactly 5 starters per conference. A position can come up
-    // with zero eligible candidates (sparse manual voting + no auto-votes
-    // needed there, since auto-votes only fill for teams that never
-    // voted) — this is the real gap found live (Eastern only got 4
-    // starters). Fill any remaining slot from the conference's best
-    // not-yet-selected eligible player by season production, same
-    // pts/reb/ast-weighted score already used for auto-votes above.
+    // A position can come up with zero eligible candidates (sparse manual
+    // voting) — same production-based fallback used throughout this
+    // function, pts/reb/ast-weighted season score.
     const confElRanked = eligible.filter((p: any) => teamConf[p.team_id] === conf)
       .map((p: any) => { const s = p.player_stats?.[0] || {}; const gp = Math.max(1, s.games || 1); return { ...p, score: (s.pts / gp) * 0.5 + (s.reb / gp) * 0.25 + (s.ast / gp) * 0.25 } })
       .sort((a: any, b: any) => b.score - a.score)
-    while (starters.length < 5) {
-      const filler = confElRanked.find((p: any) => !starters.includes(p.id))
-      if (!filler) break
-      starters.push(filler.id)
-      rosterRows.push({ season: SEASON, conference: conf, player_id: filler.id, position: filler.pos, is_starter: true, vote_count: 0, is_injured: false })
+
+    const topAtPosition = (pos: string): [number, number][] =>
+      Object.entries(tally[conf]?.[pos] || {})
+        .map(([pid, cnt]) => [Number(pid), cnt] as [number, number])
+        .filter(([pid]) => !usedIds.has(pid) && eligible.find((p: any) => p.id === pid))
+        // Tied on votes → higher average Game Score wins (Bruno's rule).
+        .sort((a, b) => b[1] - a[1] || (gmScById[b[0]] || 0) - (gmScById[a[0]] || 0))
+
+    const pickOrFill = (pos: string, isStarter: boolean, rank: number) => {
+      const sorted = topAtPosition(pos)
+      if (sorted[rank]) {
+        const [pid, cnt] = sorted[rank]
+        usedIds.add(pid)
+        rosterRows.push({ season: SEASON, conference: conf, player_id: pid, position: pos, is_starter: isStarter, vote_count: cnt, is_injured: false })
+        return
+      }
+      // Same position-match requirement as the injury-replacement fix below
+      // — without it, a sparsely-voted slot fell back to the single best
+      // remaining player CONFERENCE-WIDE regardless of position (real
+      // incident: Victor Wembanyama, a Center, filled in as a "PF" reserve).
+      const filler = confElRanked.find((p: any) => !usedIds.has(p.id)
+        && (p.pos === pos || (pos === 'SF' && p.pos === 'PF') || (pos === 'PF' && p.pos === 'SF')))
+      if (filler) {
+        usedIds.add(filler.id)
+        rosterRows.push({ season: SEASON, conference: conf, player_id: filler.id, position: pos, is_starter: isStarter, vote_count: 0, is_injured: false })
+      }
     }
 
-    // Exactly 7 reserves per conference (5 starters + 7 reserves = 12,
-    // matching the real NBA format). Same production-based fallback if
-    // fewer than 7 candidates got any votes.
-    const reserves: { pid: number, votes: number, pos: string }[] =
-      allCands.filter(c => !starters.includes(c.pid)).sort((a, b) => b.votes - a.votes).slice(0, 7)
-    while (reserves.length < 7) {
-      const filler = confElRanked.find((p: any) => !starters.includes(p.id) && !reserves.some((r) => r.pid === p.id))
-      if (!filler) break
-      reserves.push({ pid: filler.id, votes: 0, pos: filler.pos })
+    // Step 1 — starters: rank 0 (most votes) at each position.
+    for (const pos of POSITIONS) pickOrFill(pos, true, 0)
+    // Step 2 — position reserves: rank 0 AGAIN now that the winners are in
+    // usedIds — topAtPosition() already excludes them, so this naturally
+    // lands on whoever was 2nd at that position.
+    for (const pos of POSITIONS) pickOrFill(pos, false, 0)
+
+    // Step 3 — the final 2 reserve spots: whoever's left with the most
+    // votes, from ANY position's tally. A player can appear under more
+    // than one position (legacy cross-eligible SF/PF votes cast before
+    // voting was locked to a player's own real position) — keep his best
+    // (highest) vote count and the position it came from.
+    const wildcardPool: { pid: number, votes: number, pos: string }[] = []
+    for (const pos of POSITIONS) {
+      for (const [pid, cnt] of topAtPosition(pos)) {
+        const existing = wildcardPool.find(c => c.pid === pid)
+        if (!existing) wildcardPool.push({ pid, votes: cnt, pos })
+        else if (cnt > existing.votes) { existing.votes = cnt; existing.pos = pos }
+      }
     }
-    for (const r of reserves) rosterRows.push({ season: SEASON, conference: conf, player_id: r.pid, position: r.pos, is_starter: false, vote_count: r.votes, is_injured: false })
+    // Tied on votes → higher average Game Score wins (Bruno's rule).
+    const wildcards = wildcardPool.sort((a, b) => b.votes - a.votes || (gmScById[b.pid] || 0) - (gmScById[a.pid] || 0)).slice(0, 2)
+    for (const w of wildcards) {
+      usedIds.add(w.pid)
+      rosterRows.push({ season: SEASON, conference: conf, player_id: w.pid, position: w.pos, is_starter: false, vote_count: w.votes, is_injured: false })
+    }
+    while (rosterRows.filter(r => r.conference === conf).length < 12) {
+      const filler = confElRanked.find((p: any) => !usedIds.has(p.id))
+      if (!filler) break
+      usedIds.add(filler.id)
+      rosterRows.push({ season: SEASON, conference: conf, player_id: filler.id, position: filler.pos, is_starter: false, vote_count: 0, is_injured: false })
+    }
   }
 
   // Injury replacements — check real, currently-open injuries (injury_log),
@@ -159,7 +205,15 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
   const finalRoster: any[] = []
   for (const row of rosterRows) {
     if (injuredIds.has(row.player_id)) {
-      const rep = eligible.filter((p: any) => teamConf[p.team_id] === row.conference && !usedPlayerIds.has(p.id) && !injuredIds.has(p.id))
+      // Real incident: this had no position filter at all, so it picked
+      // whoever scored highest CONFERENCE-WIDE — LaMelo Ball (a PG) and
+      // Tyrese Maxey (a PG) both got slotted in as replacement "Centers"/
+      // "Power Forwards" simply because they were the best players left,
+      // regardless of what they actually play. Same SF/PF cross-eligibility
+      // already used everywhere else in this file (e.g. the position-loop
+      // above) — the replacement has to actually play the vacated slot.
+      const rep = eligible.filter((p: any) => teamConf[p.team_id] === row.conference && !usedPlayerIds.has(p.id) && !injuredIds.has(p.id)
+          && (p.pos === row.position || (row.position === 'SF' && p.pos === 'PF') || (row.position === 'PF' && p.pos === 'SF')))
         .map((p: any) => { const s = p.player_stats?.[0] || {}; const gp = Math.max(1, s.games || 1); return { ...p, score: (s.pts / gp) * 0.5 + (s.reb / gp) * 0.25 + (s.ast / gp) * 0.25 } })
         .sort((a: any, b: any) => b.score - a.score)[0]
       if (rep) {
