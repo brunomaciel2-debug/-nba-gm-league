@@ -20,7 +20,7 @@ import { assignRefereesToScheduledGames, rateRefereePerformance } from '@/lib/re
 import { resolveMonthlyMerchandising } from '@/lib/merchandising'
 import { resolveAllStarWeekend, resolveRisingStars } from '@/lib/allstar-resolver'
 import { ALLSTAR_WEEK, ALLSTAR_HALF } from '@/lib/allstar-constants'
-import { simulateRisingStarsGame, simulateAllStarGame } from '@/lib/allstar-events-simulator'
+import { simulateRisingStarsGame, simulateAllStarGame, simulateThreePointContest } from '@/lib/allstar-events-simulator'
 import { buildTeamBox } from '@/lib/gleague-simulator'
 import { resolveGLeaguePlayoffs } from '@/lib/gleague-playoff-resolver'
 import { resolveRetirementWarnings, queueRetirementDecisions } from '@/lib/retirement-resolver'
@@ -1437,6 +1437,10 @@ if (half === 1) {
 // self-guarded on their own "_played" flag in allstar_config, so this is
 // safe even if this half gets processed more than once.
 if (week === ALLSTAR_WEEK && ALLSTAR_HALF === 1) {
+try {
+const tpContest = await simulateThreePointContest()
+if (!tpContest.skipped) console.log(`Three-Point Contest resolved: ${tpContest.winnerName}`)
+} catch (tpErr) { console.warn('Three-Point Contest resolution failed:', tpErr) }
 try {
 const rsGame = await simulateRisingStarsGame()
 if (!rsGame.skipped) console.log(`Rising Stars game simulated: ${rsGame.homeScore}-${rsGame.awayScore}`)

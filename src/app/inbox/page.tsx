@@ -9,6 +9,7 @@ const TYPE_ICONS: Record<string,string> = {
   sponsor:'🎯', results:'📊', standings:'📍', streak:'🔥', rivalry:'⚔️',
   development:'📈', morale:'😟', construction:'🏗️', reminder:'⏰', gleague:'⬆️',
   fa:'👤', training:'🏋️', scouting:'🔍', allstar_vote:'⭐', allstar_announced:'⭐', trade_deadline:'🔒',
+  rising_stars_game:'🌟', allstar_game:'⭐', three_point_contest:'🎯',
 }
 
 const TYPE_COLORS: Record<string,string> = {
@@ -16,6 +17,7 @@ const TYPE_COLORS: Record<string,string> = {
   rivalry:'#7c3aed', development:'#15803d', morale:'#dc2626', construction:'#b45309',
   reminder:'#6b7280', sponsor:'#15803d', award:'#b45309', gleague:'#1d4ed8',
   contract:'#7c3aed', trade:'#1d4ed8', fa:'#15803d', training:'#7c3aed', scouting:'#0e7490', allstar_vote:'#b45309', allstar_announced:'#b45309', trade_deadline:'#dc2626',
+  rising_stars_game:'#6d28d9', allstar_game:'#b45309', three_point_contest:'#ca8a04',
 }
 
 const TYPE_LABELS_PT: Record<string,string> = {
@@ -24,6 +26,7 @@ const TYPE_LABELS_PT: Record<string,string> = {
   construction:'Construção', reminder:'Lembretes', sponsor:'Patrocínio', award:'Prémios',
   gleague:'G-League', contract:'Contratos', trade:'Trades', fa:'Free Agency',
   training:'Treino', scouting:'Scouting', application:'Candidaturas', allstar_vote:'Votação All-Star', allstar_announced:'Anúncio All-Star', trade_deadline:'Prazo de Trocas',
+  rising_stars_game:'Rising Stars', allstar_game:'Jogo All-Star', three_point_contest:'Concurso de Triplos',
 }
 
 export default function InboxPage() {

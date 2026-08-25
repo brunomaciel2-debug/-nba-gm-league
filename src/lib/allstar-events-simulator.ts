@@ -3,6 +3,8 @@ import { simulateGame } from '@/lib/game-simulator'
 import { buildAutoDepthChart } from '@/lib/auto-depth-chart'
 import { ALLSTAR_WEEK, ALLSTAR_HALF } from '@/lib/allstar-constants'
 import { getHalfWeekDates } from '@/lib/season-week-helper'
+import { notify } from '@/lib/notifications'
+import { getTeamLang } from '@/lib/notifications-helpers'
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -78,6 +80,33 @@ async function insertGameAndBox(opts: {
   return { gameId: gameRec.id, homeScore: result.homeScore, awayScore: result.awayScore, mvpPlayerId, mvpScore }
 }
 
+// League-wide announcement once an exhibition game is actually played —
+// previously only a console.log, so no GM ever found out these happened
+// short of stumbling onto the Schedule page. metadata.game_id reuses the
+// inbox's existing "View Box Score →" button (see inbox/page.tsx), no new
+// UI needed.
+async function announceExhibitionGame(opts: {
+  type: 'rising_stars' | 'allstar', gameId: string, homeLabel: string, awayLabel: string,
+  homeScore: number, awayScore: number, mvpName: string | null,
+}) {
+  const { type, gameId, homeLabel, awayLabel, homeScore, awayScore, mvpName } = opts
+  const { data: teams } = await supabaseAdmin.from('teams').select('id').not('id', 'in', '(ALL,RVS,ROO,SOP)')
+  for (const t of (teams || [])) {
+    const lang = await getTeamLang(t.id)
+    const isPT = lang === 'pt'
+    const subject = type === 'rising_stars'
+      ? (isPT ? `🌟 Jogo Rising Stars: ${homeScore}-${awayScore}` : `🌟 Rising Stars Game: ${homeScore}-${awayScore}`)
+      : (isPT ? `⭐ Jogo All-Star: ${homeScore}-${awayScore}` : `⭐ All-Star Game: ${homeScore}-${awayScore}`)
+    const eventLabel = type === 'rising_stars'
+      ? (isPT ? 'O Rookie Team venceu o Sophomore Team' : 'The Rookie Team beat the Sophomore Team')
+      : (isPT ? `${homeLabel} venceu ${awayLabel}` : `${homeLabel} beat ${awayLabel}`)
+    const body = `${eventLabel} ${homeScore}-${awayScore}.` + (mvpName
+      ? (isPT ? `\n\nMVP do jogo: ${mvpName}.` : `\n\nGame MVP: ${mvpName}.`)
+      : '')
+    await notify(t.id, type === 'rising_stars' ? 'rising_stars_game' : 'allstar_game', subject, body, { game_id: gameId })
+  }
+}
+
 export async function simulateRisingStarsGame() {
   const { data: claimed } = await supabaseAdmin.from('allstar_config')
     .update({ rising_stars_played: true }).eq('id', 1).eq('rising_stars_played', false).select('id')
@@ -102,11 +131,12 @@ export async function simulateRisingStarsGame() {
   const homeOrd = { depth_chart: depthChartFor(rookiePlayers) }
   const awayOrd = { depth_chart: depthChartFor(sophPlayers) }
 
-  // Real ASW order: Rising Stars on the block's 1st day, the All-Star Game
-  // on its 2nd (see simulateAllStarGame() below) — both land inside
-  // ALLSTAR_HALF's date range (getHalfWeekDates), never real wall-clock
-  // "today".
-  const rsDate = ymd(getHalfWeekDates(ALLSTAR_WEEK, ALLSTAR_HALF).start)
+  // Real ASW order (matches the season_events description): 3-Point Contest
+  // on the block's 1st day (see simulateThreePointContest below — no games
+  // row of its own), Rising Stars on the 2nd, the All-Star Game on the 3rd
+  // (see simulateAllStarGame() below) — all land inside ALLSTAR_HALF's date
+  // range (getHalfWeekDates), never real wall-clock "today".
+  const rsDate = ymd((() => { const d = getHalfWeekDates(ALLSTAR_WEEK, ALLSTAR_HALF).start; d.setDate(d.getDate() + 1); return d })())
 
   const { gameId, homeScore, awayScore, mvpPlayerId, mvpScore } = await insertGameAndBox({
     homeTeamId: 'ROO', awayTeamId: 'SOP',
@@ -122,6 +152,11 @@ export async function simulateRisingStarsGame() {
       player_id: mvpPlayerId, score: +mvpScore.toFixed(2), notes: 'Rising Stars Game MVP',
     })
   }
+
+  await announceExhibitionGame({
+    type: 'rising_stars', gameId, homeLabel: 'Rookie Team', awayLabel: 'Sophomore Team',
+    homeScore, awayScore, mvpName: mvpPlayerId ? (playerMap[mvpPlayerId]?.name || null) : null,
+  })
 
   return { skipped: false as const, gameId, homeScore, awayScore, mvpPlayerId }
 }
@@ -154,7 +189,7 @@ export async function simulateAllStarGame() {
   const homeOrd = { depth_chart: depthChartFor(eastPlayers), ...tactics }
   const awayOrd = { depth_chart: depthChartFor(westPlayers), ...tactics }
 
-  const asDate = ymd((() => { const d = getHalfWeekDates(ALLSTAR_WEEK, ALLSTAR_HALF).start; d.setDate(d.getDate() + 1); return d })())
+  const asDate = ymd((() => { const d = getHalfWeekDates(ALLSTAR_WEEK, ALLSTAR_HALF).start; d.setDate(d.getDate() + 2); return d })())
 
   const { gameId, homeScore, awayScore, mvpPlayerId, mvpScore } = await insertGameAndBox({
     homeTeamId: 'ALL', awayTeamId: 'RVS',
@@ -171,5 +206,65 @@ export async function simulateAllStarGame() {
     })
   }
 
+  await announceExhibitionGame({
+    type: 'allstar', gameId, homeLabel: 'All-Stars East', awayLabel: 'All-Stars West',
+    homeScore, awayScore, mvpName: mvpPlayerId ? (playerMap[mvpPlayerId]?.name || null) : null,
+  })
+
   return { skipped: false as const, gameId, homeScore, awayScore, mvpPlayerId }
+}
+
+// Three-Point Contest — the 8-player field is picked earlier (see
+// resolveAllStarWeekend in allstar-resolver.ts: top 8 season 3PM as of the
+// roster announcement). Bruno's explicit spec for the contest itself is a
+// "sorteio" (lottery) guided by shooting quality, not a deterministic
+// best-shooter-always-wins pick and not a full shot-by-shot round
+// simulation — a weighted random draw on the `three` rating.
+export async function simulateThreePointContest() {
+  const { data: claimed } = await supabaseAdmin.from('allstar_config')
+    .update({ three_point_contest_played: true }).eq('id', 1).eq('three_point_contest_played', false).select('id')
+  if (!claimed || claimed.length === 0) return { skipped: true as const }
+
+  const { data: contestants } = await supabaseAdmin.from('three_point_contest').select('*').eq('season', SEASON)
+  if (!contestants || contestants.length === 0) return { skipped: true as const, reason: 'no contestants' }
+
+  const playerIds = contestants.map((c: any) => c.player_id)
+  const { data: playersRaw } = await supabaseAdmin.from('players').select('id,name,three').in('id', playerIds)
+  const playerMap: Record<string, any> = {}
+  ;(playersRaw || []).forEach((p: any) => { playerMap[p.id] = p })
+
+  // Squaring the 0-100 `three` rating gives real, meaningful odds to the
+  // better shooters (an ~90-rated shooter lands roughly a fifth to a
+  // quarter of an 8-man field this way) without ever guaranteeing the
+  // outcome — a weaker shooter can still genuinely win, same as real life.
+  const weights = contestants.map((c: any) => {
+    const rating = playerMap[c.player_id]?.three || 50
+    return { id: c.player_id, weight: rating * rating }
+  })
+  const totalWeight = weights.reduce((s: number, w: any) => s + w.weight, 0)
+  let roll = Math.random() * totalWeight
+  let winnerId = weights[weights.length - 1].id
+  for (const w of weights) { roll -= w.weight; if (roll <= 0) { winnerId = w.id; break } }
+
+  await supabaseAdmin.from('three_point_contest').update({ is_winner: true }).eq('season', SEASON).eq('player_id', winnerId)
+
+  await supabaseAdmin.from('awards').delete().eq('season', SEASON).eq('award_type', 'three_point_contest')
+  await supabaseAdmin.from('awards').insert({
+    season: SEASON, award_type: 'three_point_contest', period: 'season',
+    player_id: winnerId, notes: 'Three-Point Contest Champion',
+  })
+
+  const winnerName = playerMap[winnerId]?.name || null
+  const { data: teams } = await supabaseAdmin.from('teams').select('id').not('id', 'in', '(ALL,RVS,ROO,SOP)')
+  for (const t of (teams || [])) {
+    const lang = await getTeamLang(t.id)
+    const isPT = lang === 'pt'
+    const subject = isPT ? `🎯 ${winnerName} venceu o Concurso de Triplos!` : `🎯 ${winnerName} wins the Three-Point Contest!`
+    const body = isPT
+      ? `${winnerName} venceu o Concurso de Triplos do All-Star Weekend, entre os 8 maiores marcadores de triplos da época.`
+      : `${winnerName} has won the All-Star Weekend Three-Point Contest, among this season's top 8 three-point shooters.`
+    await notify(t.id, 'three_point_contest', subject, body, { player_id: winnerId })
+  }
+
+  return { skipped: false as const, winnerId, winnerName }
 }

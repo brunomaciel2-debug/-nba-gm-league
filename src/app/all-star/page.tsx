@@ -41,9 +41,11 @@ export default function AllStarPage() {
   const [saving,    setSaving]    = useState(false)
   const [gmTeam,    setGmTeam]    = useState('')
   const [teamAutoDetected, setTeamAutoDetected] = useState(false)
-  const [tab,       setTab]       = useState<'vote'|'results'>('vote')
+  const [tab,       setTab]       = useState<'vote'|'results'|'rising_stars'|'three_point'>('vote')
   const [roster,    setRoster]    = useState<any[]>([])
   const [voteOpenDate, setVoteOpenDate] = useState<string|null>(null)
+  const [risingStars, setRisingStars] = useState<any[]>([])
+  const [threePointField, setThreePointField] = useState<any[]>([])
 
   const VOTING_OPENS  = VOTING_OPENS_WEEK
   const VOTING_CLOSES = VOTING_CLOSES_WEEK
@@ -58,7 +60,7 @@ export default function AllStarPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [r1,r2,r3,r4,r5] = await Promise.allSettled([
+        const [r1,r2,r3,r4,r5,r6,r7] = await Promise.allSettled([
           // player_stats has one row per season — without this filter a
           // veteran's player_stats?.[0] below can grab a stale, all-null
           // past season instead of the current one.
@@ -91,6 +93,13 @@ export default function AllStarPage() {
           // which read as two different answers to "when does voting open."
           // Showing this same date here instead keeps the site consistent.
           supabase.from('season_events').select('start_date').eq('season','2025-26').eq('event_key','allstar_vote').maybeSingle(),
+          // Rising Stars roster — same reveal as the All-Star roster, but
+          // with no votes at all (Bruno's spec: "sem os votos, mas com a
+          // mesma dinâmica"), so nothing here needs a vote_count.
+          supabase.from('rising_stars_roster').select('*, players!rising_stars_roster_player_id_fkey(name,pos,photo_url,team_id)').eq('season','2025-26'),
+          // 3-Point Contest field — 8 rows once resolveAllStarWeekend picks
+          // them, is_winner flips true once simulateThreePointContest runs.
+          supabase.from('three_point_contest').select('*, players!three_point_contest_player_id_fkey(name,pos,photo_url,team_id)').eq('season','2025-26').order('season_makes',{ascending:false}),
         ])
         if(r1.status==='fulfilled'&&r1.value.data)setPlayers(r1.value.data)
         if(r2.status==='fulfilled'&&r2.value.data)setTeams(Object.fromEntries(r2.value.data.map((t:any)=>[t.id,t])))
@@ -254,7 +263,7 @@ export default function AllStarPage() {
           </div>
 
           <div className="flex gap-2 mb-5">
-            {[{k:'vote',l:isPT?'🗳️ Votar':'🗳️ Cast Votes'},{k:'results',l:isPT?'📊 Convocados':'📊 Roster'}].map((tb:any)=>(
+            {[{k:'vote',l:isPT?'🗳️ Votar':'🗳️ Cast Votes'},{k:'results',l:isPT?'📊 Convocados':'📊 Roster'},{k:'rising_stars',l:'🌟 Rising Stars'},{k:'three_point',l:isPT?'🎯 Concurso de Triplos':'🎯 3PT Contest'}].map((tb:any)=>(
               <button key={tb.k} onClick={()=>setTab(tb.k)} className="px-5 py-2.5 rounded-xl text-sm font-black transition-all"
                 style={{background:tab===tb.k?'#b45309':'#faf8f5',color:tab===tb.k?'#fff':'#5c554e',border:'1px solid '+(tab===tb.k?'#b45309':'#d4cdc5'),
                   boxShadow:tab===tb.k?'0 8px 18px -6px rgba(180,83,9,0.5)':'none'}}>
@@ -429,6 +438,127 @@ export default function AllStarPage() {
                 )
               })
             )
+          )}
+
+          {tab==='rising_stars'&&(
+            risingStars.length===0?(
+              <div className="rounded-xl p-10 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+                <div className="text-5xl mb-4">🌟</div>
+                <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>{isPT?'Ainda não anunciado':'Not yet announced'}</h2>
+                <p style={{color:'#6b5f4e'}}>{isPT?'O plantel do Rising Stars será revelado juntamente com o convocado do All-Star.':'The Rising Stars roster is revealed alongside the All-Star roster.'}</p>
+              </div>
+            ):(
+              [['ROO',isPT?'Rookie Team':'Rookie Team','#0d9488'],['SOP',isPT?'Sophomore Team':'Sophomore Team','#0369a1']].map(([teamKey,label,accent]:any)=>{
+                const cr=risingStars.filter((r:any)=>r.team_id===teamKey).sort((a:any,b:any)=>(b.is_starter?1:0)-(a.is_starter?1:0))
+                return(
+                  <div key={teamKey} className="mb-9">
+                    <h2 className="text-xl font-black mb-4 flex items-center gap-2" style={{color:accent}}>
+                      <span className="inline-block w-1.5 h-6 rounded-full" style={{background:accent}}/>
+                      {label}
+                    </h2>
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {cr.map((r:any)=>{
+                        const p=r.players;const tm=teams[p?.team_id];const tc=readableTeamColor(tm?.color||'555')
+                        const full=players.find((pl:any)=>pl.id===r.player_id)
+                        const s=full?.player_stats?.[0]||{};const gp=Math.max(1,s.games||1)
+                        const ppg=(s.pts/gp)||0,rpg=(s.reb/gp)||0,apg=(s.ast/gp)||0
+                        return(
+                          <div key={r.id} className="relative rounded-2xl p-4 pt-5 text-center flex flex-col items-center overflow-hidden" style={{
+                            background:r.is_starter
+                              ?`linear-gradient(160deg, #fef3c7 0%, #fbbf24 55%, ${tc} 130%)`
+                              :`linear-gradient(160deg, #fff 0%, ${tc}14 100%)`,
+                            border:'2px solid '+(r.is_starter?'#b45309':tc+'55'),
+                            boxShadow:r.is_starter?`0 16px 34px -8px ${tc}66, 0 14px 30px -8px rgba(180,83,9,0.5)`:`0 6px 16px -6px ${tc}44`}}>
+                            <div className="absolute inset-0 pointer-events-none" style={{background:'linear-gradient(115deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.25) 100%)'}}/>
+                            {r.is_starter&&<div className="text-[10px] font-black mb-1.5 tracking-wide relative" style={{color:'#7c3a00'}}>⭐ {isPT?'TITULAR':'STARTER'}</div>}
+                            <div className="relative mb-2" style={{
+                              width:108,height:108,padding:4,
+                              background:`conic-gradient(from 180deg, ${tc}, #fde68a, #fff, ${tc})`,
+                              borderRadius:'9999px',
+                              boxShadow:r.is_starter?`0 0 0 4px #fff, 0 0 26px 6px ${tc}bb`:`0 0 0 3px #fff, 0 6px 14px -4px rgba(0,0,0,0.35)`}}>
+                              <div className="w-full h-full rounded-full overflow-hidden" style={{background:'#fff'}}>
+                                {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
+                                  :<div className="w-full h-full flex items-center justify-center text-2xl font-black" style={{color:tc,background:tc+'18'}}>{p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                              </div>
+                              {tm?.logo_url&&(
+                                <div className="absolute rounded-full overflow-hidden flex items-center justify-center" style={{
+                                  width:34,height:34,right:-4,bottom:-4,background:'#fff',
+                                  border:'2px solid '+tc,boxShadow:'0 3px 8px -2px rgba(0,0,0,0.5)'}}>
+                                  <img src={tm.logo_url} alt="" className="w-full h-full object-contain p-0.5"/>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm font-black leading-tight relative" style={{color:r.is_starter?'#3d2400':'#1a1612'}}>{p?.name}</div>
+                            <div className="text-[10px] font-bold mt-1 mb-2 px-2 py-0.5 rounded-full relative" style={{color:'#fff',background:tc}}>{p?.pos} · {tm?.id}</div>
+                            <div className="flex items-stretch justify-center w-full relative" style={{borderTop:'1px solid '+(r.is_starter?'rgba(124,58,0,0.25)':tc+'33')}}>
+                              {[[ppg,'PPG'],[rpg,'RPG'],[apg,'APG']].map(([val,label2]:any,i)=>(
+                                <div key={label2} className="flex-1 text-center pt-1.5" style={{borderLeft:i>0?'1px solid '+(r.is_starter?'rgba(124,58,0,0.25)':tc+'33'):'none'}}>
+                                  <div className="text-base font-black leading-none" style={{color:r.is_starter?'#7c3a00':tc}}>{val.toFixed(1)}</div>
+                                  <div className="text-[8px] font-bold uppercase tracking-wide mt-0.5" style={{color:r.is_starter?'#8a5a1a':'#8a8074'}}>{label2}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })
+            )
+          )}
+
+          {tab==='three_point'&&(
+            threePointField.length===0?(
+              <div className="rounded-xl p-10 text-center" style={{background:'#e8e2d6',border:'1px solid #d4cec3'}}>
+                <div className="text-5xl mb-4">🎯</div>
+                <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>{isPT?'Ainda não anunciado':'Not yet announced'}</h2>
+                <p style={{color:'#6b5f4e'}}>{isPT?'Os 8 participantes serão os maiores marcadores de triplos da época, revelados junto com o convocado do All-Star.':"The 8 contestants will be this season's top three-point scorers, revealed alongside the All-Star roster."}</p>
+              </div>
+            ):(<>
+              <div className="rounded-xl px-4 py-3 mb-5 text-xs" style={{background:'#efe8da',border:'1px solid #d4cec3',color:'#6b5f4e'}}>
+                {isPT?'Os 8 jogadores que mais triplos converteram na época até ao anúncio do All-Star. O vencedor é decidido por sorteio, pesado pela qualidade de lançamento de cada participante.':"The 8 players with the most made threes this season as of the All-Star announcement. The winner is decided by a lottery weighted by each contestant's shooting quality."}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {threePointField.map((r:any)=>{
+                  const p=r.players;const tm=teams[p?.team_id];const tc=readableTeamColor(tm?.color||'555')
+                  return(
+                    <div key={r.id} className="relative rounded-2xl p-4 pt-5 text-center flex flex-col items-center overflow-hidden" style={{
+                      background:r.is_winner
+                        ?`linear-gradient(160deg, #fef3c7 0%, #fbbf24 55%, ${tc} 130%)`
+                        :`linear-gradient(160deg, #fff 0%, ${tc}14 100%)`,
+                      border:'2px solid '+(r.is_winner?'#b45309':tc+'55'),
+                      boxShadow:r.is_winner?`0 16px 34px -8px ${tc}66, 0 14px 30px -8px rgba(180,83,9,0.5)`:`0 6px 16px -6px ${tc}44`}}>
+                      <div className="absolute inset-0 pointer-events-none" style={{background:'linear-gradient(115deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.25) 100%)'}}/>
+                      {r.is_winner&&<div className="text-[10px] font-black mb-1.5 tracking-wide relative" style={{color:'#7c3a00'}}>🏆 {isPT?'CAMPEÃO':'CHAMPION'}</div>}
+                      <div className="relative mb-2" style={{
+                        width:100,height:100,padding:4,
+                        background:`conic-gradient(from 180deg, ${tc}, #fde68a, #fff, ${tc})`,
+                        borderRadius:'9999px',
+                        boxShadow:r.is_winner?`0 0 0 4px #fff, 0 0 26px 6px ${tc}bb`:`0 0 0 3px #fff, 0 6px 14px -4px rgba(0,0,0,0.35)`}}>
+                        <div className="w-full h-full rounded-full overflow-hidden" style={{background:'#fff'}}>
+                          {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
+                            :<div className="w-full h-full flex items-center justify-center text-2xl font-black" style={{color:tc,background:tc+'18'}}>{p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                        </div>
+                        {tm?.logo_url&&(
+                          <div className="absolute rounded-full overflow-hidden flex items-center justify-center" style={{
+                            width:32,height:32,right:-4,bottom:-4,background:'#fff',
+                            border:'2px solid '+tc,boxShadow:'0 3px 8px -2px rgba(0,0,0,0.5)'}}>
+                            <img src={tm.logo_url} alt="" className="w-full h-full object-contain p-0.5"/>
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-sm font-black leading-tight relative" style={{color:r.is_winner?'#3d2400':'#1a1612'}}>{p?.name}</div>
+                      <div className="text-[10px] font-bold mt-1 mb-2 px-2 py-0.5 rounded-full relative" style={{color:'#fff',background:tc}}>{tm?.id}</div>
+                      <div className="w-full pt-1.5 relative" style={{borderTop:'1px solid '+(r.is_winner?'rgba(124,58,0,0.25)':tc+'33')}}>
+                        <div className="text-lg font-black leading-none" style={{color:r.is_winner?'#7c3a00':tc}}>{r.season_makes}</div>
+                        <div className="text-[8px] font-bold uppercase tracking-wide mt-0.5" style={{color:r.is_winner?'#8a5a1a':'#8a8074'}}>{isPT?'Triplos':'3PM'}</div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>)
           )}
         </>
       )}

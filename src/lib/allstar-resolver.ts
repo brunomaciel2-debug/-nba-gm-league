@@ -49,7 +49,7 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
   // whichever row PostgREST returns first (often an old, empty season), so
   // this fetches the CURRENT season's rows separately and maps by player_id.
   const { data: statsRows } = await supabaseAdmin.from('player_stats')
-    .select('player_id,games,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers').eq('season', SEASON)
+    .select('player_id,games,pts,reb,ast,stl,blk,fgm,fga,ftm,fta,off_reb,def_reb,pf,turnovers,tpm').eq('season', SEASON)
   const statsByPlayer: Record<string, any> = {}
   ;(statsRows || []).forEach((s: any) => { statsByPlayer[s.player_id] = s })
   const players = (playersRaw || []).map((p: any) => ({ ...p, player_stats: [statsByPlayer[p.id] || {}] }))
@@ -298,6 +298,21 @@ export async function resolveAllStarWeekend(): Promise<{ skipped: boolean, total
         player_id: r.player_id, player_name: pl.name, award_type: awardType, view_allstar_page: true,
       })
     }
+  }
+
+  // ── 3-POINT CONTEST FIELD — top 8 by season 3PM as of THIS moment ──
+  // Bruno's spec: whoever led the league in made threes by the day the
+  // All-Star roster gets announced, regardless of conference/team/whether
+  // they made the All-Star team at all.
+  const top8Shooters = [...players]
+    .map((p: any) => ({ id: p.id, makes: p.player_stats?.[0]?.tpm || 0 }))
+    .sort((a, b) => b.makes - a.makes)
+    .slice(0, 8)
+  if (top8Shooters.length) {
+    await supabaseAdmin.from('three_point_contest').delete().eq('season', SEASON)
+    await supabaseAdmin.from('three_point_contest').insert(
+      top8Shooters.map(s => ({ season: SEASON, player_id: s.id, season_makes: s.makes }))
+    )
   }
 
   return { skipped: false, total: finalRoster.length, auto_votes: autoRows.length }
