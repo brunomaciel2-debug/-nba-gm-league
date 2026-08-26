@@ -146,6 +146,27 @@ async function resolveFinalsMVP(championId: string, runnerUpId: string) {
 // moment the NBA Finals series completes. Names are snapshotted at the
 // time (not just the id) so the history page never depends on a join that
 // could break across a season reset or franchise relocation.
+// Books a real 'scheduled' games row for a series' NEXT game the moment its
+// date is actually known (computeNextGameDate, called from
+// resolvePlayoffDay below) — regardless of whether that date has arrived
+// yet. Without this, a future playoff/play-in game never showed up on the
+// Schedule page in advance the way every regular-season game already does:
+// the old code only ever created a games row at the instant it simulated
+// the game. Idempotent (checked by season+date+matchup), so calling it
+// again for a game that already has its placeholder is a no-op.
+async function ensurePlayoffPlaceholderGame(homeTeamId: string, awayTeamId: string, gameNumber: number, dateStr: string, week: number) {
+  const { data: existing } = await supabaseAdmin.from('games').select('id')
+    .eq('season', SEASON).eq('game_type', 'playoff').eq('scheduled_date', dateStr)
+    .eq('home_team', homeTeamId).eq('away_team', awayTeamId).maybeSingle()
+  if (existing) return
+  await supabaseAdmin.from('games').insert({
+    season: SEASON, week_number: week, game_number: gameNumber,
+    home_team: homeTeamId, away_team: awayTeamId,
+    status: 'scheduled', game_type: 'playoff',
+    scheduled_date: dateStr, day_of_week: dayOfWeekFor(dateStr),
+  })
+}
+
 async function recordChampionship(championId: string, runnerUpId: string) {
   const { data: teams } = await supabaseAdmin.from('teams').select('id,name').in('id', [championId, runnerUpId])
   const nameById: Record<string, string> = {}
@@ -267,7 +288,6 @@ export async function resolvePlayoffDay(simDate: string): Promise<{ processed: n
       if (!nextGameDate) continue // one team's last game date isn't known yet — shouldn't normally happen
       await supabaseAdmin.from('playoff_series').update({ next_game_date: nextGameDate }).eq('id', s.id)
     }
-    if (nextGameDate > simDate) continue // not due yet
 
     const gameNumber = (s.wins_high || 0) + (s.wins_low || 0) + 1
     // Play-in is a single game (higher seed always hosts); best-of-7 uses
@@ -275,6 +295,13 @@ export async function resolvePlayoffDay(simDate: string): Promise<{ processed: n
     const homeIsHigh = (s.games_needed || 7) === 1 ? true : [1, 2, 5, 7].includes(gameNumber)
     const homeTeamId = homeIsHigh ? s.team_high : s.team_low
     const awayTeamId = homeIsHigh ? s.team_low : s.team_high
+
+    // Book the placeholder as soon as the date is known, whether or not
+    // it's actually due yet — this is what makes the game show up on the
+    // Schedule page in advance.
+    await ensurePlayoffPlaceholderGame(homeTeamId, awayTeamId, gameNumber, nextGameDate, getWeekForDate(nextGameDate))
+
+    if (nextGameDate > simDate) continue // not due yet
 
     const [{ data: hp }, { data: ap }, { data: teamsData }, { data: orders }] = await Promise.all([
       supabaseAdmin.from('players').select('*').eq('team_id', homeTeamId).eq('status', 'active'),
@@ -302,20 +329,44 @@ export async function resolvePlayoffDay(simDate: string): Promise<{ processed: n
     const refereeId = refIds.length ? pickTopTierReferee(refIds, avgRatings) : null
     const refereeRating = refereeId ? rateRefereePerformance(result.homeBox, result.awayBox, false, true) : null
 
-    const { data: gameRec } = await supabaseAdmin.from('games').insert({
-      week_number: week, game_number: gameNumber, home_team: homeTeamId, away_team: awayTeamId,
-      home_score: result.homeScore, away_score: result.awayScore, status: 'final', season: SEASON,
-      played_at: new Date().toISOString(), game_type: 'playoff',
-      scheduled_date: nextGameDate, day_of_week: dayOfWeekFor(nextGameDate),
-      attendance: Math.round((ht.arena_capacity || 18000) * 0.97), is_rivalry: false,
-      referee_id: refereeId, referee_rating: refereeRating,
-      period_scores: result.periods,
-    }).select().single()
+    // The 'scheduled' placeholder for this exact game should already exist
+    // (booked above, the moment its date became known) — finish it in
+    // place, same pattern used for the G-League playoffs and the All-Star
+    // exhibition games. Falls back to a fresh insert only if it's somehow
+    // missing. played_at is the SIMULATED calendar date (nextGameDate), not
+    // real wall-clock time — every other games row (and this same page's
+    // box score header) treats played_at as a date on the simulated season
+    // timeline.
+    const { data: existingGame } = await supabaseAdmin.from('games').select('id')
+      .eq('season', SEASON).eq('game_type', 'playoff').eq('scheduled_date', nextGameDate)
+      .eq('home_team', homeTeamId).eq('away_team', awayTeamId).maybeSingle()
 
-    if (gameRec) {
+    let gameId: string | null = null
+    if (existingGame) {
+      await supabaseAdmin.from('games').update({
+        home_score: result.homeScore, away_score: result.awayScore, status: 'final',
+        played_at: `${nextGameDate}T20:00:00.000Z`,
+        attendance: Math.round((ht.arena_capacity || 18000) * 0.97), is_rivalry: false,
+        referee_id: refereeId, referee_rating: refereeRating, period_scores: result.periods,
+      }).eq('id', existingGame.id)
+      gameId = existingGame.id
+    } else {
+      const { data: gameRec } = await supabaseAdmin.from('games').insert({
+        week_number: week, game_number: gameNumber, home_team: homeTeamId, away_team: awayTeamId,
+        home_score: result.homeScore, away_score: result.awayScore, status: 'final', season: SEASON,
+        played_at: `${nextGameDate}T20:00:00.000Z`, game_type: 'playoff',
+        scheduled_date: nextGameDate, day_of_week: dayOfWeekFor(nextGameDate),
+        attendance: Math.round((ht.arena_capacity || 18000) * 0.97), is_rivalry: false,
+        referee_id: refereeId, referee_rating: refereeRating,
+        period_scores: result.periods,
+      }).select().single()
+      gameId = gameRec?.id || null
+    }
+
+    if (gameId) {
       const boxRows = [
-        ...result.homeBox.map((b: any) => ({ ...b, game_id: gameRec.id, team_id: homeTeamId })),
-        ...result.awayBox.map((b: any) => ({ ...b, game_id: gameRec.id, team_id: awayTeamId })),
+        ...result.homeBox.map((b: any) => ({ ...b, game_id: gameId, team_id: homeTeamId })),
+        ...result.awayBox.map((b: any) => ({ ...b, game_id: gameId, team_id: awayTeamId })),
       ]
       if (boxRows.length) await supabaseAdmin.from('box_scores').insert(boxRows)
     }

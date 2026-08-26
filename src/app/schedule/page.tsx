@@ -26,7 +26,15 @@ function ScheduleContent() {
   const searchParams = useSearchParams()
   // Set by SimulatorBanner's "Now" link (?date=YYYY-MM-DD) so a GM lands
   // straight on today's games instead of having to scroll/hunt for them.
-  const jumpToDate = searchParams.get('date')
+  // Arriving here any other way (the plain "Schedule" nav item) had no such
+  // param at all — every visit silently landed on the very first
+  // Pre-Season game, months before "now", forcing a long scroll every
+  // single time. autoToday is the same "last_sim_day + 1" computation
+  // SimulatorBanner's own pill uses, fetched here as a fallback so the page
+  // lands on today's games regardless of how it was reached.
+  const jumpToDateParam = searchParams.get('date')
+  const [autoToday,setAutoToday]=useState<string|null>(null)
+  const jumpToDate = jumpToDateParam || autoToday
   const [games,setGames]=useState<any[]>([])
   const [teamMap,setTeamMap]=useState<Record<string,any>>({})
   const [worldTeamIds,setWorldTeamIds]=useState<Set<string>>(new Set())
@@ -54,7 +62,13 @@ function ScheduleContent() {
       supabase.from('games').select('*').order('played_at').order('game_number').range(700,1299),
       supabase.from('teams').select('id,name,color,logo_url'),
       supabase.from('preseason_games').select('*').eq('season','2025-26'),
-    ]).then(([{data:g1},{data:g2},{data:teams}, {data:preseason}])=>{
+      supabase.from('season_config').select('last_sim_day').eq('id',1).single(),
+    ]).then(([{data:g1},{data:g2},{data:teams}, {data:preseason}, {data:cfg}])=>{
+      if (cfg?.last_sim_day) {
+        const d = new Date(cfg.last_sim_day+'T00:00:00')
+        d.setDate(d.getDate()+1)
+        setAutoToday(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`)
+      }
       // A preseason_games row for an NBA-vs-NBA friendly gets its own real
       // `games` row once simulated (game_id points to it) — that real row is
       // already in g1/g2, so re-adding a synthetic entry for the same game
@@ -150,7 +164,12 @@ function ScheduleContent() {
       const prev = Object.keys(firstGameIdOfDate).filter(k=>k<jumpToDate).sort().pop()
       target = next || prev || target
     }
-    document.getElementById(`date-${target}`)?.scrollIntoView({ behavior:'smooth', block:'start' })
+    // 'auto' (instant), not 'smooth' — a real incident found while testing
+    // this exact jump: smooth scrollIntoView silently never actually moved
+    // the page in at least one real browser context, leaving the visit
+    // sitting at the very top of the whole season with no visible sign
+    // anything was even attempted. An instant jump has no such failure mode.
+    document.getElementById(`date-${target}`)?.scrollIntoView({ behavior:'auto', block:'start' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[loading, jumpToDate, games.length])
 
