@@ -1353,9 +1353,19 @@ const { data: recentFinals } = await supabaseAdmin
 .eq('status','final').eq('season','2025-26')
 .order('played_at',{ascending:false}).limit(200)
 if (recentFinals && recentFinals.length>0) {
-const { data: existingBoxGameIds } = await supabaseAdmin
-.from('gleague_box_scores').select('game_id').in('game_id', recentFinals.map((g:any)=>g.id))
-const covered = new Set((existingBoxGameIds||[]).map((r:any)=>r.game_id))
+// PostgREST caps any unpaginated query at 1000 rows (see the pagination
+// note atop this file) — 200 games x ~20-26 box rows each easily clears
+// that, so a plain .select() here silently saw only a fraction of the
+// games that already HAD a box score. Every game outside that arbitrary
+// first-1000-rows slice looked "missing" on every single call, and got a
+// fresh (differently-randomized, since buildTeamBox rolls its own dice)
+// box score inserted on top of its real one — a real incident: 418 of 540
+// G-League games ended up with their box scores duplicated up to 15x,
+// each duplicate with different random per-player numbers. Genuine
+// multi-page fetchAllRows (defined above) is required, not a bigger limit.
+const existingBoxGameIds = await fetchAllRows<{game_id:string}>((from,to) =>
+supabaseAdmin.from('gleague_box_scores').select('game_id').in('game_id', recentFinals.map((g:any)=>g.id)).range(from,to))
+const covered = new Set(existingBoxGameIds.map((r:any)=>r.game_id))
 const missing = recentFinals.filter((g:any)=>!covered.has(g.id))
 const scaleToScore = (box:any[], target:number) => {
 const total = box.reduce((s,b)=>s+b.pts,0)

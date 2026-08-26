@@ -60,11 +60,19 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
     ]).then(([{data:t},{data:g},{data:l},{data:ps},{count:prc},{data:champ}])=>{
       setTeams(t||[]); setGames(g||[]); setLeaders(l||[])
       setPlayoffSeries(ps||[]); setPendingRegularCount(prc||0); setChampion(champ||null)
-      const now=new Date(); const weekSet:Record<number,boolean>={}
+      const weekSet:Record<number,boolean>={}
       ;(g||[]).forEach((x:any)=>{weekSet[x.week_number]=true})
       const allWeeks=Object.keys(weekSet).map(Number).sort((a,b)=>a-b)
-      const upcomingGame=(g||[]).find((x:any)=>new Date(x.played_at)>=now)
-      setWeek(upcomingGame?.week_number||allWeeks[0]||1)
+      // Default to the MOST RECENT week that actually has games, not "the
+      // first game whose played_at is still ahead of real wall-clock time"
+      // — every game's played_at lives on the SIMULATED season calendar,
+      // which has no relationship to real-world "now". A real incident:
+      // that comparison was always false (simulated dates never catch up to
+      // real time), so this silently defaulted every single visit to Week 1
+      // / Dec 27 — the very start of the whole season — no matter how far
+      // the season had actually progressed, making the tab look empty of
+      // anything current until manually paged forward week by week.
+      setWeek(allWeeks[allWeeks.length-1]||1)
       setLoading(false)
     })
   },[])
@@ -330,6 +338,29 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
         playoffSeries.forEach((s:any)=>{ seriesByType[s.series_type]=s })
         const bracketSeeded = playoffSeries.length > 0
 
+        // Before the real bracket exists, show the SAME Round-1 matchup
+        // shape (1v8, 4v5, 2v7, 3v6) projected from current standings —
+        // Bruno's explicit ask: the old flat "here's the top 8" list used to
+        // at least hint at who might actually face whom, and a plain
+        // ranking table lost that. These are fake, unsaved series objects
+        // (status 'preview', never 'completed') that only exist for this
+        // render — nothing here is written to the database, and they get
+        // fully replaced by the real seriesByType the moment the bracket is
+        // actually seeded.
+        const previewSeriesByType: Record<string, any> = {}
+        if (!bracketSeeded) {
+          for (const [confKey, ranked] of [['eastern',east],['western',west]] as const) {
+            if (ranked.length >= 8) {
+              const [s1,s2,s3,s4,s5,s6,s7,s8] = ranked
+              previewSeriesByType[`r1_${confKey}_1v8`] = { team_high:s1.id, team_low:s8.id, status:'preview' }
+              previewSeriesByType[`r1_${confKey}_4v5`] = { team_high:s4.id, team_low:s5.id, status:'preview' }
+              previewSeriesByType[`r1_${confKey}_2v7`] = { team_high:s2.id, team_low:s7.id, status:'preview' }
+              previewSeriesByType[`r1_${confKey}_3v6`] = { team_high:s3.id, team_low:s6.id, status:'preview' }
+            }
+          }
+        }
+        const effectiveSeriesByType = bracketSeeded ? seriesByType : previewSeriesByType
+
         // Same round->week_number mapping as gleague-playoff-resolver.ts's
         // weekForSeries() — the playoff_series row itself has no game_id of
         // its own, so a completed series' box score is found by matching
@@ -350,7 +381,8 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
           </div>
         )
         const MatchupBox = ({seriesType,label}:{seriesType:string,label:string})=>{
-          const s = seriesByType[seriesType]
+          const s = effectiveSeriesByType[seriesType]
+          const isPreview = s?.status === 'preview'
           const high = s?.team_high ? teamById[s.team_high] : null
           const low = s?.team_low ? teamById[s.team_low] : null
           const completed = s?.status === 'completed'
@@ -359,8 +391,10 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
           const highScore = game ? (game.home_team===s.team_high?game.home_score:game.away_score) : undefined
           const lowScore = game ? (game.home_team===s.team_low?game.home_score:game.away_score) : undefined
           const box = (
-            <div className="rounded-xl p-2" style={{background:'#f0ece5',border:'1px solid #d4cdc5',minWidth:170}}>
-              <div className="text-xs font-bold uppercase mb-1.5 text-center" style={{color:'#8a8279',letterSpacing:'0.5px'}}>{label}</div>
+            <div className="rounded-xl p-2" style={{background:'#f0ece5',border:'1px solid #d4cdc5',minWidth:170,opacity:isPreview?0.75:1}}>
+              <div className="text-xs font-bold uppercase mb-1.5 text-center" style={{color:'#8a8279',letterSpacing:'0.5px'}}>
+                {label}{isPreview&&<span style={{marginLeft:4,color:'#b45309'}}>({isPT?'projeção':'projected'})</span>}
+              </div>
               <div className="flex flex-col gap-1">
                 <TeamLine team={high} isWinner={winnerId===s?.team_high} empty={!high} score={highScore}/>
                 <TeamLine team={low} isWinner={winnerId===s?.team_low} empty={!low} score={lowScore}/>
@@ -405,30 +439,12 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
                     : `Playoffs begin once every regular-season game has been simulated. ${pendingRegularCount} regular-season game(s) still remaining.`}
                 </p>
                 <p className="text-xs mt-2" style={{color:'#8a8279'}}>
-                  {isPT?'Top 8 por conferência — pré-visualização com a classificação atual:':'Top 8 per conference — preview based on current standings:'}
+                  {isPT?'Confrontos da Ronda 1 projetados com base na classificação atual — sujeitos a mudar:':'Round 1 matchups projected from current standings — subject to change:'}
                 </p>
               </div>
             )}
 
-            {!bracketSeeded ? (
-              <div className="grid md:grid-cols-2 gap-6">
-                {[['Eastern',east],['Western',west]].map(([conf,ranked]:any)=>(
-                  <div key={conf} className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-                    <div className="px-4 py-2" style={{background:conf==='Eastern'?'#1e3a5f':'#7c2d12'}}>
-                      <span className="text-sm font-bold" style={{color:'#fff'}}>{confLabel(conf)}</span>
-                    </div>
-                    {ranked.slice(0,8).map((t:any,i:number)=>(
-                      <div key={t.id} className="flex items-center gap-2 px-4 py-2" style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                        <span className="text-xs font-bold w-4" style={{color:'#15803d'}}>{i+1}</span>
-                        {t.logo_url?<img src={t.logo_url} alt="" className="w-5 h-5 object-contain"/>:null}
-                        <span className="text-xs flex-1 truncate" style={{color:'#1a1512'}}>{t.name}</span>
-                        <span className="text-xs font-semibold" style={{color:'#8a8279'}}>{t.wins}-{t.losses}</span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ) : (
+            {(
               <div className="grid md:grid-cols-[1fr_auto_1fr] gap-6 items-center">
                 <div>
                   <div className="text-xs font-bold uppercase text-center mb-3" style={{color:'#1e3a8a',letterSpacing:'1px'}}>{isPT?'Conferência Este':'Eastern Conference'}</div>

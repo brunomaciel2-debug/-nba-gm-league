@@ -7,12 +7,12 @@ const SEASON = '2025-26'
 
 // Plain local Y-M-D string — NOT toISOString(), which converts to UTC and
 // can roll the date back a day depending on the server's timezone offset.
-function ymd(d: Date): string {
+export function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+export const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-type GameSlot = { home: string; away: string }
+export type GameSlot = { home: string; away: string }
 
 // Packs a flat pool of {home,away} matchups onto real calendar days, one day
 // at a time — replaces the old "4 fixed rounds a week, every other day"
@@ -34,7 +34,7 @@ type GameSlot = { home: string; away: string }
 // which is what naturally spreads everyone across the FULL window instead
 // of the front of it, with back-to-backs surfacing only where real NBA
 // schedules actually have them: catching up, not the default rhythm.
-function packGamesByDay(
+export function packGamesByDay(
   games: GameSlot[],
   startDate: Date,
   endDate: Date,
