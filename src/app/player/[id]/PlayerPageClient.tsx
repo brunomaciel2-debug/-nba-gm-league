@@ -133,6 +133,26 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
     if (cleaned === 'season') return isPT ? 'Época Completa' : 'Full Season'
     return cleaned
   }
+  // Awards store WHEN they were earned in `period` itself (week_N / month_
+  // key / season[_pN]), so that's the reliable signal for grouping —
+  // checking award_type would need a hardcoded list that drifts every time
+  // a new award type is added (rising stars, three-point contest, etc).
+  const categorizeAward = (a:any): 'weekly'|'monthly'|'season' => {
+    if (a.period?.startsWith('week_')) return 'weekly'
+    if (a.period?.startsWith('month_')) return 'monthly'
+    return 'season'
+  }
+  const [awardFilter, setAwardFilter] = useState<'all'|'season'|'monthly'|'weekly'>('all')
+  const seasonAwardsList = playerAwards.filter(a=>categorizeAward(a)==='season')
+  const monthlyAwardsList = playerAwards.filter(a=>categorizeAward(a)==='monthly')
+  const weeklyAwardsList = playerAwards.filter(a=>categorizeAward(a)==='weekly')
+  const AWARD_FILTERS = [
+    ['all', isPT?'Todos':'All', playerAwards.length],
+    ['season', isPT?'Época & All-Star':'Season & All-Star', seasonAwardsList.length],
+    ['monthly', isPT?'Mensais':'Monthly', monthlyAwardsList.length],
+    ['weekly', isPT?'Semanais':'Weekly', weeklyAwardsList.length],
+  ] as const
+
   const p = player
   const tc = teamColor
   // Only shown for a player who's actually appeared in at least one
@@ -718,31 +738,83 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
       {/* AWARDS */}
       <div className="mt-2">
         <div className="sec-hdr mb-4"><span className="sec-title">{isPT?'Prémios & Distinções':'Awards & Honours'}</span></div>
-        <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
-          {playerAwards.length === 0 ? (
+        {playerAwards.length === 0 ? (
+          <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
             <div className="px-4 py-6 text-center" style={{background:'#faf8f5'}}>
               <i className="ti ti-trophy" style={{fontSize:28,color:'#d4cdc5'}}></i>
               <p className="text-sm mt-2" style={{color:'#8a8279'}}>{isPT?'Ainda sem prémios':'No awards yet'}</p>
             </div>
-          ) : playerAwards.map((a:any,i:number) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3"
-                 style={{borderBottom:i<playerAwards.length-1?'1px solid #e2dcd5':'none',
-                         background:i%2===0?'#faf8f5':'#f5f1eb'}}>
-              <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
-              <div className="flex-1">
-                <div className="text-sm font-semibold" style={{color:'#1a1512'}}>{AWARD_LABELS[a.award_type]||a.award_type}</div>
-                <div className="text-xs" style={{color:'#8a8279'}}>
-                  {a.season} · {periodLabel(a.period)}
-                </div>
-                {/* Starter/Reserve (or position) detail for All-Star-style
-                    awards lives in notes and was never shown anywhere before. */}
-                {a.notes && (
-                  <div className="text-xs font-medium" style={{color:'#5c554e'}}>{a.notes}</div>
-                )}
-              </div>
+          </div>
+        ) : (
+          <>
+            {/* A veteran can rack up dozens of weekly awards alone, which used
+                to turn this into one long undifferentiated list. Filtering by
+                how the award was earned (season honor vs monthly vs weekly)
+                keeps the rare, important ones from getting buried under a
+                season's worth of Player/Rookie of the Week wins. */}
+            <div className="flex gap-2 mb-4 flex-wrap">
+              {AWARD_FILTERS.filter(([key,,count])=>key==='all'||count>0).map(([key,label,count])=>(
+                <button key={key} onClick={()=>setAwardFilter(key)}
+                        className="text-xs font-bold px-3 py-1.5 rounded-full transition-all"
+                        style={{cursor:'pointer',border:'1px solid '+(awardFilter===key?'#1a1512':'#d4cdc5'),
+                                background:awardFilter===key?'#1a1512':'#faf8f5',
+                                color:awardFilter===key?'#fff':'#5c554e'}}>
+                  {label} ({count})
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+
+            {(awardFilter==='all'||awardFilter==='season') && seasonAwardsList.length>0 && (
+              <div className="rounded-xl overflow-hidden mb-4" style={{border:'1px solid #d4cdc5'}}>
+                {seasonAwardsList.map((a:any,i:number) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-2.5"
+                       style={{borderBottom:i<seasonAwardsList.length-1?'1px solid #e2dcd5':'none',
+                               background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+                    <i className="ti ti-award" style={{fontSize:16,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold" style={{color:'#1a1512'}}>{AWARD_LABELS[a.award_type]||a.award_type}</div>
+                      <div className="text-xs" style={{color:'#8a8279'}}>
+                        {a.season} · {periodLabel(a.period)}{a.notes?` · ${a.notes}`:''}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(awardFilter==='all'||awardFilter==='monthly') && monthlyAwardsList.length>0 && (
+              <div className="rounded-xl overflow-hidden mb-4" style={{border:'1px solid #d4cdc5'}}>
+                {monthlyAwardsList.map((a:any,i:number) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-2.5"
+                       style={{borderBottom:i<monthlyAwardsList.length-1?'1px solid #e2dcd5':'none',
+                               background:i%2===0?'#faf8f5':'#f5f1eb'}}>
+                    <i className="ti ti-award" style={{fontSize:15,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold" style={{color:'#1a1512'}}>{AWARD_LABELS[a.award_type]||a.award_type}</div>
+                      <div className="text-xs" style={{color:'#8a8279'}}>{periodLabel(a.period)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Weekly awards are the ones that pile up — a dense grid of
+                small chips instead of a full-width row each. */}
+            {(awardFilter==='all'||awardFilter==='weekly') && weeklyAwardsList.length>0 && (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {weeklyAwardsList.map((a:any,i:number) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{background:'#faf8f5',border:'1px solid #e2dcd5'}}>
+                    <i className="ti ti-award" style={{fontSize:13,color:AWARD_COLORS[a.award_type]||'#b45309',flexShrink:0}}></i>
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold truncate" style={{color:'#1a1512'}}>{AWARD_LABELS[a.award_type]||a.award_type}</div>
+                      <div className="text-[10px]" style={{color:'#8a8279'}}>{periodLabel(a.period)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* CONTRACT */}
