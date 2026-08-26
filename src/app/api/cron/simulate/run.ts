@@ -2285,13 +2285,21 @@ console.warn(`Monthly development report failed for ${devMonthKey}:`, oneDevMont
 if (!isPreseason) {
 try {
 const isEndOfMonth = week % 4 === 0
-// Must be exact equality, not >= — this same cron keeps running (and `week`
-// keeps incrementing) all the way through play-in/playoffs/draft, so `>=`
-// would re-fire season-end awards every single week from 40 through 52+
-// instead of once. Awards themselves are upserted (harmless to repeat) but
-// still wasteful and would spam repeat "new award" notifications; the
-// aging/rookie-option blocks below share this exact bug fixed the same way.
-const isEndOfSeason = week === 40 // last week of the Regular Season (see season-week-helper.ts)
+// Real game-completion state, not a guessed week number — a real
+// incident: the regular season's own day-by-day schedule finished 16
+// days ahead of its announced end date (see schedule-generator.ts's
+// pacing history), so `week` could sit well below 40 for several more
+// calls even though every regular-season game was already final —
+// exactly the kind of mismatch that already bit the G-League MVP/
+// playoffs triggers earlier, fixed there the same way. Awards are
+// upserted (harmless to repeat, and doesn't touch created_at on repeat
+// upserts — see runPostSimNotifications' 4-day rolling "new award"
+// window — so re-checking this on every later call re-confirms the
+// same winners without ever re-spamming a notification once one has
+// already gone out.
+const { count: nbaPendingRegularForAwards } = await supabaseAdmin.from('games')
+.select('*', { count: 'exact', head: true }).eq('season', '2025-26').eq('game_type', 'regular').eq('status', 'scheduled')
+const isEndOfSeason = nbaPendingRegularForAwards === 0
 
 // Scoped by week_number+status='final' (every one of this week's games
 // completed SO FAR), not gamesCreated (only THIS call's newly-created
