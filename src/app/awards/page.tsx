@@ -368,15 +368,22 @@ function TeamAward({awards,type,meta,isPT,season}:{awards:any[],type:string,meta
             const s=a.stats_context
             return (
               <Link key={a.id} href={`/player/${p?.id}`} className="relative no-underline group flex flex-col items-center rounded-2xl p-3 pt-4 text-center transition-transform hover:-translate-y-0.5" style={{background:'rgba(255,255,255,0.035)',border:`1px solid ${tc}33`}}>
-                <span className="absolute top-1.5 left-1.5 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center" style={{color:'#0f0b1e',background:tc}}>{i+1}</span>
-                <div className="rounded-full mb-2 p-[2px]" style={{width:56,height:56,background:`conic-gradient(from 180deg, ${tc}, #fff, ${tc})`,boxShadow:`0 0 10px 1px ${tc}66`}}>
+                <span className="absolute top-1.5 left-1.5 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center z-10" style={{color:'#0f0b1e',background:tc}}>{i+1}</span>
+                <div className="relative rounded-full mb-2 p-[2px]" style={{width:64,height:64,background:`conic-gradient(from 180deg, ${tc}, #fff, ${tc})`,boxShadow:`0 0 10px 1px ${tc}66`}}>
                   <div className="w-full h-full rounded-full overflow-hidden" style={{background:DARK_BG_2}}>
                     {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
                       :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>{p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
                   </div>
+                  {p?.teams?.logo_url&&(
+                    <div className="absolute rounded-full overflow-hidden flex items-center justify-center" style={{
+                      width:22,height:22,right:-3,bottom:-3,background:DARK_BG,
+                      border:`2px solid ${tc}`,boxShadow:'0 2px 6px -1px rgba(0,0,0,0.7)'}}>
+                      <img src={p.teams.logo_url} alt="" className="w-full h-full object-contain p-0.5"/>
+                    </div>
+                  )}
                 </div>
-                <div className="text-xs font-black leading-tight group-hover:underline truncate w-full" style={{color:'#fff'}}>{p?.name}</div>
-                <div className="text-[10px] font-bold mt-0.5" style={{color:tc}}>{p?.pos} · {p?.teams?.id}</div>
+                <div className="text-xs font-black leading-tight group-hover:underline w-full" style={{color:'#fff',minHeight:'2.4em',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{p?.name}</div>
+                <div className="text-[10px] font-bold mt-1" style={{color:tc}}>{p?.pos} · {p?.teams?.id}</div>
                 {s&&(
                   <div className="flex gap-2.5 mt-2 pt-2 w-full justify-center" style={{borderTop:'1px solid rgba(255,255,255,0.08)'}}>
                     {s.ppg&&<span className="text-[10px] font-bold" style={{color:TEXT_SECONDARY}}>{s.ppg}<span style={{color:TEXT_MUTED}}> PPG</span></span>}
@@ -568,11 +575,11 @@ export default function AwardsPage() {
                 })}
               </div>
               <SectionHeader color="#fbbf24">{isPT?'Equipas All-NBA':'All-NBA Teams'}</SectionHeader>
-              <div className="grid lg:grid-cols-3 gap-4 mb-8">
+              <div className="flex flex-col gap-4 mb-8">
                 {['all_nba_1','all_nba_2','all_nba_3'].map(type=><TeamAward key={type} awards={yearlyAwards} type={type} meta={AWARD_META[type]} isPT={isPT} season={selectedSeason}/>)}
               </div>
               <SectionHeader color="#a78bfa">{isPT?'Equipas de Caloiros':'All-Rookie Teams'}</SectionHeader>
-              <div className="grid lg:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-4">
                 {['all_rookie_1','all_rookie_2'].map(type=><TeamAward key={type} awards={yearlyAwards} type={type} meta={AWARD_META[type]} isPT={isPT} season={selectedSeason}/>)}
               </div>
             </>
