@@ -46,6 +46,7 @@ export default function AllStarPage() {
   const [voteOpenDate, setVoteOpenDate] = useState<string|null>(null)
   const [risingStars, setRisingStars] = useState<any[]>([])
   const [threePointField, setThreePointField] = useState<any[]>([])
+  const [exhibitionGames, setExhibitionGames] = useState<Record<string,any>>({})
 
   const VOTING_OPENS  = VOTING_OPENS_WEEK
   const VOTING_CLOSES = VOTING_CLOSES_WEEK
@@ -60,7 +61,7 @@ export default function AllStarPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [r1,r2,r3,r4,r5,r6,r7] = await Promise.allSettled([
+        const [r1,r2,r3,r4,r5,r6,r7,r8] = await Promise.allSettled([
           // player_stats has one row per season — without this filter a
           // veteran's player_stats?.[0] below can grab a stale, all-null
           // past season instead of the current one.
@@ -100,6 +101,11 @@ export default function AllStarPage() {
           // 3-Point Contest field — 8 rows once resolveAllStarWeekend picks
           // them, is_winner flips true once simulateThreePointContest runs.
           supabase.from('three_point_contest').select('*, players!three_point_contest_player_id_fkey(name,pos,photo_url,team_id)').eq('season','2025-26').order('season_makes',{ascending:false}),
+          // The Rising Stars/All-Star Games' own game_id — once status is
+          // 'final' this links straight to the real box score (see
+          // allstar-events-simulator.ts, which creates/finishes these same
+          // two rows), matching every other game's "View Box Score" link.
+          supabase.from('games').select('id,game_type,status,home_score,away_score').eq('season','2025-26').in('game_type',['rising_stars','allstar']),
         ])
         if(r1.status==='fulfilled'&&r1.value.data)setPlayers(r1.value.data)
         if(r2.status==='fulfilled'&&r2.value.data)setTeams(Object.fromEntries(r2.value.data.map((t:any)=>[t.id,t])))
@@ -116,6 +122,7 @@ export default function AllStarPage() {
         if(r5.status==='fulfilled'&&r5.value.data)setVoteOpenDate((r5.value.data as any).start_date)
         if(r6.status==='fulfilled'&&r6.value.data)setRisingStars(r6.value.data)
         if(r7.status==='fulfilled'&&r7.value.data)setThreePointField(r7.value.data)
+        if(r8.status==='fulfilled'&&r8.value.data)setExhibitionGames(Object.fromEntries((r8.value.data as any[]).map(g=>[g.game_type,g])))
       } catch(e){console.error(e)}
       setReady(true)
     }
@@ -379,8 +386,16 @@ export default function AllStarPage() {
                 <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>{isPT?'Ainda não anunciado':'Not yet announced'}</h2>
                 <p style={{color:'#6b5f4e'}}>{isPT?`Os convocados serão anunciados pelo Comissário após ${formatWeekRange(VOTING_CLOSES,locale)}.`:`Roster will be announced by the Commissioner after ${formatWeekRange(VOTING_CLOSES,locale)}.`}</p>
               </div>
-            ):(
-              CONFS.map(conf=>{
+            ):(<>
+              {exhibitionGames.allstar?.status==='final'&&(
+                <a href={`/game/${exhibitionGames.allstar.id}`}
+                   className="rounded-xl px-4 py-3 mb-5 flex items-center justify-between no-underline transition-all"
+                   style={{background:'#1d4ed8',color:'#fff'}}>
+                  <span className="text-sm font-bold">🏀 {isPT?'All-Star Game':'All-Star Game'} — {exhibitionGames.allstar.home_score} : {exhibitionGames.allstar.away_score}</span>
+                  <span className="text-xs font-black">{isPT?'Ver Box Score →':'View Box Score →'}</span>
+                </a>
+              )}
+              {CONFS.map(conf=>{
                 const cr=roster.filter((r:any)=>r.conference===conf).sort((a:any,b:any)=>(b.is_starter?1:0)-(a.is_starter?1:0))
                 return(
                   <div key={conf} className="mb-9">
@@ -438,8 +453,8 @@ export default function AllStarPage() {
                     </div>
                   </div>
                 )
-              })
-            )
+              })}
+            </>)
           )}
 
           {tab==='rising_stars'&&(
@@ -449,8 +464,16 @@ export default function AllStarPage() {
                 <h2 className="text-xl font-bold mb-2" style={{color:'#1a1612'}}>{isPT?'Ainda não anunciado':'Not yet announced'}</h2>
                 <p style={{color:'#6b5f4e'}}>{isPT?'O plantel do Rising Stars será revelado juntamente com o convocado do All-Star.':'The Rising Stars roster is revealed alongside the All-Star roster.'}</p>
               </div>
-            ):(
-              [['ROO',isPT?'Rookie Team':'Rookie Team','#0d9488'],['SOP',isPT?'Sophomore Team':'Sophomore Team','#0369a1']].map(([teamKey,label,accent]:any)=>{
+            ):(<>
+              {exhibitionGames.rising_stars?.status==='final'&&(
+                <a href={`/game/${exhibitionGames.rising_stars.id}`}
+                   className="rounded-xl px-4 py-3 mb-5 flex items-center justify-between no-underline transition-all"
+                   style={{background:'#0d9488',color:'#fff'}}>
+                  <span className="text-sm font-bold">🌟 Rising Stars — {exhibitionGames.rising_stars.home_score} : {exhibitionGames.rising_stars.away_score}</span>
+                  <span className="text-xs font-black">{isPT?'Ver Box Score →':'View Box Score →'}</span>
+                </a>
+              )}
+              {[['ROO',isPT?'Rookie Team':'Rookie Team','#0d9488'],['SOP',isPT?'Sophomore Team':'Sophomore Team','#0369a1']].map(([teamKey,label,accent]:any)=>{
                 const cr=risingStars.filter((r:any)=>r.team_id===teamKey).sort((a:any,b:any)=>(b.is_starter?1:0)-(a.is_starter?1:0))
                 return(
                   <div key={teamKey} className="mb-9">
@@ -506,8 +529,8 @@ export default function AllStarPage() {
                     </div>
                   </div>
                 )
-              })
-            )
+              })}
+            </>)
           )}
 
           {tab==='three_point'&&(
