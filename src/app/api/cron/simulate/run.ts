@@ -2556,9 +2556,10 @@ if (seasonStats && seasonStats.length > 0) {
 const mvpScores = seasonStats.map((s:any) => {
 const g = s.games||1
 const base = (s.pts/g)*1.0+(s.reb/g)*1.2+(s.ast/g)*1.5+(s.stl/g)*3+(s.blk/g)*3
-const teamWins = (s.players?.teams?.wins||0)/82
+const tw=s.players?.teams?.wins||0, tl=s.players?.teams?.losses||0
+const teamWins = tw/82
 return {id:s.player_id,score:base*(1+teamWins*0.4),
-stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g}}
+stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g,record:`${tw}-${tl}`}}
 }).sort((a:any,b:any)=>b.score-a.score)
 
 if (mvpScores[0]) await supabaseAdmin.from('awards').upsert({
@@ -2569,18 +2570,22 @@ stats_context:mvpScores[0].stats,notes:'Most Valuable Player'
 
 const { data: teamDef } = await supabaseAdmin
 .from('teams').select('id,pts_against').not('id','in','(ALL,RVS,ROO,SOP)').order('pts_against',{ascending:true})
+const teamDefRank: Record<string,number> = {}
+;(teamDef||[]).forEach((t:any,i:number) => { teamDefRank[t.id] = i+1 })
 const topDefTeams = new Set((teamDef||[]).slice(0,10).map((t:any)=>t.id))
 {
 const dpoyScores = seasonStats.map((s:any)=>{
 const g = s.games||1
 const baseScore = ((s.blk||0)/g)*4 + ((s.stl||0)/g)*4
 const defBonus = topDefTeams.has(s.players?.team_id) ? 1.15 : 1.0
-return { id:s.player_id, score: baseScore * defBonus }
+return { id:s.player_id, score: baseScore * defBonus,
+stats:{bpg:((s.blk||0)/g).toFixed(1),spg:((s.stl||0)/g).toFixed(1),games:g,
+defRank:teamDefRank[s.players?.team_id]||null,teamCount:(teamDef||[]).length} }
 }).sort((a:any,b:any)=>b.score-a.score)
 if (dpoyScores[0]) await supabaseAdmin.from('awards').upsert({
 season:'2025-26',award_type:'dpoy',period:'season',
 player_id:dpoyScores[0].id,score:dpoyScores[0].score,
-notes:'Defensive Player of the Year'
+stats_context:dpoyScores[0].stats,notes:'Defensive Player of the Year'
 },{onConflict:'season,award_type,period'})
 }
 
@@ -2588,12 +2593,13 @@ const royScores = seasonStats
 .filter((s:any) => (s.players?.nba_experience ?? 1) === 0)
 .map((s:any) => {
 const g = s.games||1
-return {id:s.player_id, score:(s.pts/g)+(s.reb/g)*0.8+(s.ast/g)*1.2}
+return {id:s.player_id, score:(s.pts/g)+(s.reb/g)*0.8+(s.ast/g)*1.2,
+stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g}}
 }).sort((a:any,b:any)=>b.score-a.score)
 if (royScores[0]) await supabaseAdmin.from('awards').upsert({
 season:'2025-26',award_type:'roy',period:'season',
 player_id:royScores[0].id,score:royScores[0].score,
-notes:'Rookie of the Year'
+stats_context:royScores[0].stats,notes:'Rookie of the Year'
 },{onConflict:'season,award_type,period'})
 
 // Sixth Man of the Year — same MIN_GAMES pool as every other season award,
@@ -2615,12 +2621,15 @@ const smoyScores = seasonStats
 .filter((s:any) => { const c = startCounts[s.player_id]; return c && c.total > 0 && c.starts <= c.total / 2 })
 .map((s:any) => {
 const g = s.games||1
-return {id:s.player_id, score:(s.pts/g)+(s.reb/g)*0.8+(s.ast/g)*1.2}
+const c = startCounts[s.player_id]
+return {id:s.player_id, score:(s.pts/g)+(s.reb/g)*0.8+(s.ast/g)*1.2,
+stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g,
+starts:c?.starts||0,benchGames:(c?.total||g)-(c?.starts||0)}}
 }).sort((a:any,b:any)=>b.score-a.score)
 if (smoyScores[0]) await supabaseAdmin.from('awards').upsert({
 season:'2025-26',award_type:'smoy',period:'season',
 player_id:smoyScores[0].id,score:smoyScores[0].score,
-notes:'Sixth Man of the Year'
+stats_context:smoyScores[0].stats,notes:'Sixth Man of the Year'
 },{onConflict:'season,award_type,period'})
 }
 
@@ -2641,7 +2650,7 @@ for (const [type,from,to] of allRookieTeams) {
 for (const m of royScores.slice(from,to)) {
 await supabaseAdmin.from('awards').upsert({
 season:'2025-26', award_type:type, period:`season_${m.id}`,
-player_id:m.id, score:m.score
+player_id:m.id, score:m.score, stats_context:(m as any).stats
 }, {onConflict:'season,award_type,period'})
 }
 }
@@ -2678,7 +2687,9 @@ const g = s.games||1, pg = prior.games||1
 const thisScore = (s.pts/g)+(s.reb/g)*0.8+(s.ast/g)*1.2
 const priorScore = (prior.pts/pg)+(prior.reb/pg)*0.8+(prior.ast/pg)*1.2
 return { id:s.player_id, score: thisScore-priorScore,
-stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g} }
+stats:{ppg:(s.pts/g).toFixed(1),rpg:(s.reb/g).toFixed(1),apg:(s.ast/g).toFixed(1),games:g,
+priorPpg:(prior.pts/pg).toFixed(1),priorRpg:(prior.reb/pg).toFixed(1),priorApg:(prior.ast/pg).toFixed(1),
+ppgDelta:((s.pts/g)-(prior.pts/pg)).toFixed(1)} }
 })
 .filter((x:any):x is {id:string,score:number,stats:any} => x !== null && x.score > 0)
 .sort((a:any,b:any)=>b.score-a.score)
@@ -2706,13 +2717,15 @@ const gamesPlayed = (team?.wins||0)+(team?.losses||0)
 if (!team || gamesPlayed === 0) return null
 const actualWinPct = team.wins/gamesPlayed
 const rosterQualityNorm = normalizeRosterQuality(computeRosterQuality(coyRosterByTeam[c.team_id]||[]))
-return { id:c.id, team_id:c.team_id, score: actualWinPct-rosterQualityNorm }
-}).filter((x:any):x is {id:string,team_id:string,score:number} => x !== null)
+return { id:c.id, team_id:c.team_id, score: actualWinPct-rosterQualityNorm,
+stats:{wins:team.wins,losses:team.losses,winPct:(actualWinPct*100).toFixed(1),
+expectedWinPct:(rosterQualityNorm*100).toFixed(1),diffPct:((actualWinPct-rosterQualityNorm)*100).toFixed(1)} }
+}).filter((x:any):x is {id:string,team_id:string,score:number,stats:any} => x !== null)
 .sort((a:any,b:any)=>b.score-a.score)
 if (coyScores[0]) await supabaseAdmin.from('awards').upsert({
 season:'2025-26',award_type:'coy',period:'season',
 coach_id:coyScores[0].id,team_id:coyScores[0].team_id,score:coyScores[0].score,
-notes:'Coach of the Year'
+stats_context:coyScores[0].stats,notes:'Coach of the Year'
 },{onConflict:'season,award_type,period'})
 
 // League-wide "they're out, go look" notice — same shape as

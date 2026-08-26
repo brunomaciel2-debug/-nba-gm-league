@@ -1,10 +1,11 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { readableTeamColor } from '@/lib/color'
 import { useTranslation } from '@/components/I18nProvider'
 import { getWeekDates, formatWeekRange } from '@/lib/season-week-helper'
+import { fetchAllRows } from '@/lib/paginate'
 
 const AWARD_META_EN: Record<string,{label:string,icon:string,color:string,desc:string}> = {
   potw_eastern:{label:'Player of the Week',  icon:'ti-star',         color:'#b45309',desc:'Eastern Conference'},
@@ -130,7 +131,165 @@ function AwardCard({award,meta,isPT}:{award:any,meta:any,isPT:boolean}) {
   )
 }
 
-function TeamAward({awards,type,meta,isPT}:{awards:any[],type:string,meta:any,isPT:boolean}) {
+// Per-award-type "why they won" chips — each award's formula rewards a
+// different stat mix (DPOY = defense, COY = wins above roster expectation,
+// MIP = season-over-season delta), so a single generic ppg/rpg/apg row
+// (the old behavior) hid the actual justification for anything but MVP.
+function StatChip({value,label}:{value:string|number,label:string}) {
+  return (
+    <div className="flex-1 text-center px-1 min-w-0">
+      <div className="text-lg sm:text-xl font-black leading-none truncate" style={{color:'#3d2400'}}>{value}</div>
+      <div className="text-[9px] font-bold uppercase tracking-wide mt-1" style={{color:'#7c3a00b0'}}>{label}</div>
+    </div>
+  )
+}
+
+function awardChips(type:string, stats:any, isPT:boolean) {
+  if(!stats) return []
+  const R = isPT ? {record:'RECORDE',def:'DEFESA',win:'VITÓRIAS',vs:'VS ESPERADO'} : {record:'RECORD',def:'DEFENSE',win:'WIN%',vs:'VS EXPECTED'}
+  switch(type){
+    case 'mvp': case 'roy': case 'finals_mvp':
+      return [
+        <StatChip key="ppg" value={stats.ppg} label="PPG"/>,
+        <StatChip key="rpg" value={stats.rpg} label="RPG"/>,
+        <StatChip key="apg" value={stats.apg} label="APG"/>,
+        ...(stats.record?[<StatChip key="rec" value={stats.record} label={R.record}/>]:[]),
+      ]
+    case 'smoy':
+      return [
+        <StatChip key="ppg" value={stats.ppg} label="PPG"/>,
+        <StatChip key="rpg" value={stats.rpg} label="RPG"/>,
+        <StatChip key="apg" value={stats.apg} label="APG"/>,
+      ]
+    case 'mip':
+      return [
+        <StatChip key="ppg" value={`${stats.priorPpg}→${stats.ppg}`} label="PPG"/>,
+        <StatChip key="rpg" value={stats.rpg} label="RPG"/>,
+        <StatChip key="apg" value={stats.apg} label="APG"/>,
+      ]
+    case 'dpoy':
+      return [
+        <StatChip key="bpg" value={stats.bpg} label="BPG"/>,
+        <StatChip key="spg" value={stats.spg} label="SPG"/>,
+        ...(stats.defRank?[<StatChip key="def" value={`#${stats.defRank}`} label={R.def}/>]:[]),
+      ]
+    case 'coy':
+      return [
+        <StatChip key="rec" value={`${stats.wins}-${stats.losses}`} label={R.record}/>,
+        <StatChip key="win" value={`${stats.winPct}%`} label={R.win}/>,
+        ...(stats.diffPct?[<StatChip key="diff" value={`${Number(stats.diffPct)>=0?'+':''}${stats.diffPct}%`} label={R.vs}/>]:[]),
+      ]
+    default: return []
+  }
+}
+
+function awardWhy(type:string, stats:any, isPT:boolean): string {
+  if(!stats) return ''
+  switch(type){
+    case 'mvp': return isPT
+      ? `${stats.ppg} PPG, ${stats.rpg} RPG e ${stats.apg} APG, liderando a equipa a um recorde de ${stats.record}.`
+      : `${stats.ppg} PPG, ${stats.rpg} RPG and ${stats.apg} APG, leading the team to a ${stats.record} record.`
+    case 'dpoy': return isPT
+      ? `${stats.bpg} BPG e ${stats.spg} SPG, âncora d${stats.defRank?`a #${stats.defRank} melhor`:'e uma das melhores'} defesas da liga.`
+      : `${stats.bpg} BPG and ${stats.spg} SPG, anchoring the league's ${stats.defRank?`#${stats.defRank}-ranked`:'a top'} defense.`
+    case 'roy': return isPT
+      ? `${stats.ppg} PPG, ${stats.rpg} RPG e ${stats.apg} APG em ${stats.games} jogos na época de estreia.`
+      : `${stats.ppg} PPG, ${stats.rpg} RPG and ${stats.apg} APG across ${stats.games} games as a rookie.`
+    case 'smoy': return isPT
+      ? `${stats.ppg} PPG a sair do banco, com apenas ${stats.starts} titularidades em ${stats.games} jogos.`
+      : `${stats.ppg} PPG off the bench, with just ${stats.starts} starts in ${stats.games} games.`
+    case 'mip': return isPT
+      ? `Subiu de ${stats.priorPpg} para ${stats.ppg} PPG (${Number(stats.ppgDelta)>=0?'+':''}${stats.ppgDelta}) face à época anterior.`
+      : `Jumped from ${stats.priorPpg} to ${stats.ppg} PPG (${Number(stats.ppgDelta)>=0?'+':''}${stats.ppgDelta}) from last season.`
+    case 'coy': return isPT
+      ? `Recorde de ${stats.wins}-${stats.losses}, ${stats.diffPct}% acima do esperado para este plantel.`
+      : `${stats.wins}-${stats.losses} record, ${stats.diffPct}% above what this roster projected to win.`
+    case 'finals_mvp': return isPT
+      ? `${stats.ppg} PPG, ${stats.rpg} RPG e ${stats.apg} APG ao longo da série do campeonato.`
+      : `${stats.ppg} PPG, ${stats.rpg} RPG and ${stats.apg} APG across the championship series.`
+    default: return ''
+  }
+}
+
+// Trading-card treatment (gold conic ring, team-color glow, glossy sheen)
+// reused from the All-Star cards — every season award is a trophy moment,
+// so every card gets the "special" gold styling instead of a flat box.
+function SeasonAwardCard({award,meta,isPT,featured}:{award:any,meta:any,isPT:boolean,featured?:boolean}) {
+  const isCoach = award.award_type==='coy'
+  const entity = isCoach ? award.coaches : award.players
+  const team = entity?.teams
+  const tc = team ? readableTeamColor(team.color) : '#b45309'
+  const stats = award.stats_context
+  const chips = awardChips(award.award_type, stats, isPT)
+  const why = awardWhy(award.award_type, stats, isPT)
+
+  if(!entity){
+    return (
+      <div className="rounded-2xl overflow-hidden" style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`4px solid ${meta.color}`}}>
+        <div className="px-5 py-3 flex items-center gap-2" style={{background:'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+          <i className={`ti ${meta.icon}`} style={{fontSize:16,color:meta.color}}></i>
+          <span className="text-xs font-bold uppercase tracking-widest" style={{color:meta.color,letterSpacing:'1px'}}>{meta.label}</span>
+        </div>
+        <div className="p-6 text-center">
+          <i className={`ti ${meta.icon}`} style={{fontSize:32,color:'#d4cdc5'}}></i>
+          <p className="text-sm mt-2" style={{color:'#8a8279'}}>{isPT?'Época em curso':'Season in progress'}</p>
+          <p className="text-xs mt-1" style={{color:'#a89f97'}}>{meta.desc}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const photoSize = featured ? 132 : 92
+  return (
+    <div className="relative rounded-3xl overflow-hidden" style={{
+      background:`linear-gradient(160deg, #fef3c7 0%, #fbbf24 42%, ${tc} 145%)`,
+      border:'2px solid #b45309',
+      boxShadow:`0 20px 40px -12px ${tc}77, 0 16px 32px -10px rgba(180,83,9,0.5)`}}>
+      <div className="absolute inset-0 pointer-events-none" style={{background:'linear-gradient(115deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(255,255,255,0.22) 100%)'}}/>
+      <div className="relative px-5 pt-4 flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <i className={`ti ${meta.icon}`} style={{fontSize:featured?20:15,color:'#7c3a00'}}></i>
+          <span className="font-black uppercase tracking-widest" style={{fontSize:featured?13:11,color:'#5c2e00',letterSpacing:'1.5px'}}>{meta.label}</span>
+        </div>
+        {meta.desc&&<span className="text-[10px] font-bold" style={{color:'#7c3a00aa'}}>{meta.desc}</span>}
+      </div>
+      <Link href={isCoach?`/staff/${entity.id}`:`/player/${entity.id}`} className="no-underline">
+        <div className={`relative flex flex-col items-center px-5 ${featured?'pt-4 pb-6':'pt-3 pb-5'}`}>
+          <div className="rounded-full mb-3" style={{
+            width:photoSize,height:photoSize,padding:4,
+            background:`conic-gradient(from 180deg, ${tc}, #fde68a, #fff, ${tc})`,
+            boxShadow:`0 0 0 4px #fff, 0 0 26px 6px ${tc}bb`}}>
+            <div className="w-full h-full rounded-full overflow-hidden relative" style={{background:'#fff'}}>
+              {entity.photo_url||entity.logo_url
+                ?<img src={entity.photo_url||entity.logo_url} alt="" className="w-full h-full object-cover"/>
+                :<div className="w-full h-full flex items-center justify-center font-black" style={{fontSize:featured?32:22,color:tc,background:tc+'18'}}>
+                   {entity.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}
+                 </div>}
+            </div>
+            {team?.logo_url&&(
+              <div className="absolute rounded-full overflow-hidden flex items-center justify-center" style={{
+                width:featured?38:30,height:featured?38:30,right:-2,bottom:-2,background:'#fff',
+                border:'2px solid '+tc,boxShadow:'0 3px 8px -2px rgba(0,0,0,0.5)'}}>
+                <img src={team.logo_url} alt="" className="w-full h-full object-contain p-0.5"/>
+              </div>
+            )}
+          </div>
+          <div className="font-black text-center leading-tight" style={{fontSize:featured?24:17,color:'#3d2400'}}>{entity.name}</div>
+          <div className="text-xs font-bold mt-0.5" style={{color:'#7c3a00'}}>{entity.pos&&<span className="mr-1">{entity.pos}</span>}{team?.name}</div>
+
+          {chips.length>0&&(
+            <div className="flex items-stretch justify-center w-full mt-4 pt-3" style={{borderTop:'1px solid rgba(124,58,0,0.25)'}}>
+              {chips}
+            </div>
+          )}
+          {why&&<p className="text-[11px] text-center mt-3 leading-snug" style={{color:'#5c2e00cc',maxWidth:featured?420:undefined,marginLeft:'auto',marginRight:'auto'}}>{why}</p>}
+        </div>
+      </Link>
+    </div>
+  )
+}
+
+function TeamAward({awards,type,meta,isPT,season}:{awards:any[],type:string,meta:any,isPT:boolean,season?:string}) {
   const members=awards.filter(a=>a.award_type===type)
   if(!meta)return null
   return (
@@ -138,7 +297,7 @@ function TeamAward({awards,type,meta,isPT}:{awards:any[],type:string,meta:any,is
       <div className="px-5 py-3 flex items-center gap-2" style={{background:'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
         <i className={`ti ${meta.icon}`} style={{fontSize:16,color:meta.color}}></i>
         <span className="text-xs font-bold uppercase tracking-widest" style={{color:meta.color,letterSpacing:'1px'}}>{meta.label}</span>
-        <span className="text-xs ml-auto" style={{color:'#8a8279'}}>2025-26</span>
+        {season&&<span className="text-xs ml-auto" style={{color:'#8a8279'}}>{season}</span>}
       </div>
       <div className="p-4">
         {members.length===0?(
@@ -146,21 +305,28 @@ function TeamAward({awards,type,meta,isPT}:{awards:any[],type:string,meta:any,is
             <p className="text-sm">{isPT?'Disponível no final da época':'Available at end of season'}</p>
           </div>
         ):(
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {members.map((a:any,i:number)=>{
               const p=a.players; const tc=p?.teams?readableTeamColor(p.teams.color):'#5c554e'
+              const s=a.stats_context
               return (
                 <Link key={a.id} href={`/player/${p?.id}`} className="no-underline group flex items-center gap-3 px-3 py-2 rounded-xl transition-all" style={{background:i%2===0?'#f5f1eb':'transparent'}}>
-                  <span className="text-sm font-black w-5" style={{color:meta.color}}>{i+1}</span>
-                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{background:tc+'18'}}>
+                  <span className="text-sm font-black w-5 text-center" style={{color:meta.color}}>{i+1}</span>
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0" style={{background:tc+'18',border:`1.5px solid ${tc}55`}}>
                     {p?.photo_url?<img src={p.photo_url} alt="" className="w-full h-full object-cover"/>
                       :<div className="w-full h-full flex items-center justify-center text-xs font-black" style={{color:tc}}>{p?.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
                   </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-semibold group-hover:underline" style={{color:'#1a1512'}}>{p?.name}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold group-hover:underline truncate" style={{color:'#1a1512'}}>{p?.name}</div>
                     <div className="text-xs" style={{color:tc}}>{p?.pos} · {p?.teams?.name}</div>
                   </div>
-                  {a.stats_context?.ppg&&<span className="text-xs font-semibold" style={{color:'#5c554e'}}>{a.stats_context.ppg} PPG</span>}
+                  {s&&(
+                    <div className="flex gap-2.5 flex-shrink-0">
+                      {s.ppg&&<span className="text-xs font-bold" style={{color:'#3d2400'}}>{s.ppg}<span className="text-[9px] font-semibold ml-0.5" style={{color:'#8a8279'}}>PPG</span></span>}
+                      {s.rpg&&<span className="text-xs font-bold" style={{color:'#3d2400'}}>{s.rpg}<span className="text-[9px] font-semibold ml-0.5" style={{color:'#8a8279'}}>RPG</span></span>}
+                      {s.apg&&<span className="text-xs font-bold" style={{color:'#3d2400'}}>{s.apg}<span className="text-[9px] font-semibold ml-0.5" style={{color:'#8a8279'}}>APG</span></span>}
+                    </div>
+                  )}
                 </Link>
               )
             })}
@@ -179,13 +345,40 @@ export default function AwardsPage() {
   const [awards,setAwards] = useState<any[]>([])
   const [loading,setLoading] = useState(true)
 
+  // Weekly/Monthly always show the current (latest) season — only the
+  // Season Awards tab lets the GM look back at a past season's trophies,
+  // via the dropdown added below. Every season's rows are fetched once up
+  // front (award counts per season are tiny — a season is a handful of
+  // individual/team awards plus ~2-3 weekly/monthly rows — nowhere near the
+  // PostgREST 1000-row page cap) and cached client-side by season so
+  // switching the dropdown never re-fetches.
+  const [allSeasons,setAllSeasons] = useState<string[]>([])
+  const [selectedSeason,setSelectedSeason] = useState<string>('')
+  const [yearlyAwards,setYearlyAwards] = useState<any[]>([])
+  const seasonCacheRef = useRef<Record<string,any[]>>({})
+
   useEffect(()=>{
-    // Load all awards at once
-    supabase.from('awards')
+    fetchAllRows<any>((from,to) => supabase.from('awards')
       .select('*, players(id,name,pos,photo_url,team_id,teams:teams!players_team_id_fkey(id,name,color,logo_url)), coaches(id,name,role,team_id,teams(id,name,color,logo_url))')
-      .eq('season','2025-26').order('award_type').order('created_at',{ascending:false})
-      .then(({data})=>{setAwards(data||[]);setLoading(false)})
+      .order('season',{ascending:false}).order('award_type').order('created_at',{ascending:false}).range(from,to))
+      .then((rows)=>{
+        const seasons=Array.from(new Set(rows.map((r:any)=>r.season))).sort((a,b)=>b.localeCompare(a))
+        const latest=seasons[0]||'2025-26'
+        const cache:Record<string,any[]>={}
+        for(const s of seasons) cache[s]=rows.filter((r:any)=>r.season===s)
+        seasonCacheRef.current=cache
+        setAllSeasons(seasons)
+        setSelectedSeason(latest)
+        setAwards(cache[latest]||[])
+        setYearlyAwards(cache[latest]||[])
+        setLoading(false)
+      })
   },[])
+
+  function selectSeason(season:string) {
+    setSelectedSeason(season)
+    setYearlyAwards(seasonCacheRef.current[season]||[])
+  }
 
   const tabAwards = (type: Tab) => {
     if(type==='weekly')  return awards.filter(a=>['potw_eastern','potw_western'].includes(a.award_type))
@@ -298,34 +491,36 @@ export default function AwardsPage() {
 
           {tab==='yearly'&&(
             <>
+              <div className="flex items-center gap-2 mb-6">
+                <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#5c554e',letterSpacing:'1px'}}>{isPT?'Época:':'Season:'}</span>
+                <select
+                  value={selectedSeason}
+                  onChange={e=>selectSeason(e.target.value)}
+                  disabled={allSeasons.length<=1}
+                  className="text-sm font-semibold px-3 py-2 rounded-lg"
+                  style={{background:'#faf8f5',border:'1px solid #d4cdc5',color:'#1a1512',opacity:allSeasons.length<=1?0.7:1}}>
+                  {allSeasons.map(s=><option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1.5px'}}>{isPT?'Prémio Máximo':'Marquee Award'}</h3>
+              <div className="mb-8">
+                <SeasonAwardCard award={yearlyAwards.find((aw:any)=>aw.award_type==='mvp')||{award_type:'mvp'}} meta={AWARD_META['mvp']} isPT={isPT} featured/>
+              </div>
               <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1.5px'}}>{isPT?'Prémios Individuais':'Individual Awards'}</h3>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                {['mvp','dpoy','roy','coy','mip','smoy','finals_mvp'].map(type=>{
-                  const a=awards.find((aw:any)=>aw.award_type===type)
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+                {['dpoy','roy','coy','mip','smoy','finals_mvp'].map(type=>{
+                  const a=yearlyAwards.find((aw:any)=>aw.award_type===type)
                   const meta=AWARD_META[type]
-                  if(!a)return(
-                    <div key={type} className="rounded-2xl overflow-hidden" style={{background:'#faf8f5',border:'1px solid #d4cdc5',borderTop:`3px solid ${meta.color}`}}>
-                      <div className="px-5 py-3 flex items-center gap-2" style={{background:'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
-                        <i className={`ti ${meta.icon}`} style={{fontSize:16,color:meta.color}}></i>
-                        <span className="text-xs font-bold uppercase tracking-widest" style={{color:meta.color,letterSpacing:'1px'}}>{meta.label}</span>
-                      </div>
-                      <div className="p-5 text-center">
-                        <i className={`ti ${meta.icon}`} style={{fontSize:32,color:'#d4cdc5'}}></i>
-                        <p className="text-sm mt-2" style={{color:'#8a8279'}}>{isPT?'Época em curso':'Season in progress'}</p>
-                        <p className="text-xs mt-1" style={{color:'#a89f97'}}>{meta.desc}</p>
-                      </div>
-                    </div>
-                  )
-                  return <AwardCard key={type} award={a} meta={meta} isPT={isPT}/>
+                  return <SeasonAwardCard key={type} award={a||{award_type:type}} meta={meta} isPT={isPT}/>
                 })}
               </div>
               <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1.5px'}}>{isPT?'Equipas All-NBA':'All-NBA Teams'}</h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                {['all_nba_1','all_nba_2','all_nba_3'].map(type=><TeamAward key={type} awards={awards} type={type} meta={AWARD_META[type]} isPT={isPT}/>)}
+                {['all_nba_1','all_nba_2','all_nba_3'].map(type=><TeamAward key={type} awards={yearlyAwards} type={type} meta={AWARD_META[type]} isPT={isPT} season={selectedSeason}/>)}
               </div>
               <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1.5px'}}>{isPT?'Equipas de Caloiros':'All-Rookie Teams'}</h3>
               <div className="grid sm:grid-cols-2 gap-4">
-                {['all_rookie_1','all_rookie_2'].map(type=><TeamAward key={type} awards={awards} type={type} meta={AWARD_META[type]} isPT={isPT}/>)}
+                {['all_rookie_1','all_rookie_2'].map(type=><TeamAward key={type} awards={yearlyAwards} type={type} meta={AWARD_META[type]} isPT={isPT} season={selectedSeason}/>)}
               </div>
             </>
           )}
