@@ -277,6 +277,11 @@ export default async function HomePage() {
               })}
               <ViewTeamLink teamId={hl.hstreak_team.id} />
             </>
+          ) : hl ? (
+            // hl exists (simulations have run) but no team currently has a
+            // qualifying streak (3+ straight wins) — a real, common state
+            // deep into a season, not the same as "nothing simulated yet".
+            <HighlightEmpty icon='🔥' textEN='No team is currently on a win streak' textPT='Nenhuma equipa está de momento numa série de vitórias' />
           ) : (
             <HighlightEmpty icon='🔥' textEN='Available after first simulation' textPT='Disponível após a primeira simulação' />
           )}
