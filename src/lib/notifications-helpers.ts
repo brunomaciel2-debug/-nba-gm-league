@@ -503,6 +503,34 @@ export function notifTradeDeadlinePassed(lang: 'en'|'pt') {
   }
 }
 
+// Fired once, the moment the Commissioner generates the play-in/playoff
+// bracket (see /api/playoffs/generate) — there was previously no notice at
+// all for the regular season actually ending or the postseason starting,
+// unlike the G-League's equivalent (notifGLeaguePlayoffsBegin).
+export function notifPlayoffsBegin(lang: 'en'|'pt', startDate: string | null) {
+  const dateLabel = startDate ? new Date(startDate + 'T12:00:00').toLocaleDateString(lang === 'pt' ? 'pt-PT' : 'en-US', { month: 'long', day: 'numeric' }) : null
+  return {
+    subject: lang === 'pt' ? `🏁 A época regular terminou!` : `🏁 The regular season has ended!`,
+    body: lang === 'pt'
+      ? `A época regular chegou ao fim e o quadro do Play-In já está definido.${dateLabel ? ` O Play-In Tournament começa a ${dateLabel}.` : ''} Consulta a página de Playoffs para veres os confrontos e a posição da tua equipa.`
+      : `The regular season is over and the Play-In bracket is set.${dateLabel ? ` The Play-In Tournament begins ${dateLabel}.` : ''} Check the Playoffs page to see the matchups and where your team stands.`,
+  }
+}
+
+// Fired once, the moment the season's individual awards (MVP, DPOY, ROY,
+// etc.) are computed — the general "they're out, go look" notice, same
+// shape as notifAllStarRevealed. Each actual winner's team ALSO gets its
+// own specific congrats via the generic new-awards notifier elsewhere in
+// this file; this is just the broad heads-up for everyone else.
+export function notifSeasonAwardsRevealed(lang: 'en'|'pt') {
+  return {
+    subject: lang === 'pt' ? `🏆 Os prémios da época já foram revelados!` : `🏆 The season awards have been revealed!`,
+    body: lang === 'pt'
+      ? `MVP, Defesa do Ano, Rookie do Ano e os restantes prémios individuais da época já foram anunciados. Consulta a página de Awards para veres os vencedores.`
+      : `MVP, Defensive Player of the Year, Rookie of the Year and the rest of this season's individual awards are now out. Check the Awards page to see the winners.`,
+  }
+}
+
 export function notifAward(lang: 'en'|'pt', player: string, award: string) {
   return {
     subject: lang === 'pt' ? `🏆 ${player} venceu o prémio de ${award}!` : `🏆 ${player} wins ${award}!`,

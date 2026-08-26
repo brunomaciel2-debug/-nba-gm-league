@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { checkSponsorObjectives } from '@/lib/check-sponsor-objectives'
 import { generatePowerRankings } from '@/lib/generate-power-rankings'
-import { runPostSimNotifications } from '@/lib/notifications'
+import { runPostSimNotifications, notify } from '@/lib/notifications'
 import { generateWeeklyScoutPoints } from '@/lib/scouting'
 import { homeWinProb, updateElo } from '@/lib/elo-helper'
 import { getStatusForWeek, getHalfWeekDates, getWeekDates, getWeekForDate, SEASON_WEEK_START, formatSimMonthName, formatWeekRange, formatHalfWeekRange } from '@/lib/season-week-helper'
 import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
-import { getTeamLang, notifRookieOptionEligible } from '@/lib/notifications-helpers'
+import { getTeamLang, notifRookieOptionEligible, notifSeasonAwardsRevealed } from '@/lib/notifications-helpers'
 import { rookieOptionSalary } from '@/lib/draft-constants'
 import { medicalCostAfterInsurance, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, mentalIssueSidelines, InjurySeverity } from '@/lib/injury-constants'
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
@@ -2630,6 +2630,21 @@ season:'2025-26',award_type:'coy',period:'season',
 coach_id:coyScores[0].id,team_id:coyScores[0].team_id,score:coyScores[0].score,
 notes:'Coach of the Year'
 },{onConflict:'season,award_type,period'})
+
+// League-wide "they're out, go look" notice — same shape as
+// notifAllStarRevealed. Each actual winner's team separately gets its own
+// specific congrats via runPostSimNotifications' generic new-awards
+// scan; this is the broad heads-up for everyone else. Guarded so the
+// weekly twice-a-call cadence around week 40 doesn't resend it.
+const { data: awardsNoticeSent } = await supabaseAdmin.from('inbox_messages').select('id').eq('type','season_awards_revealed').limit(1).maybeSingle()
+if (!awardsNoticeSent) {
+const { data: allNbaTeamsForNotice } = await supabaseAdmin.from('teams').select('id').not('id','in','(ALL,RVS,ROO,SOP)')
+for (const t of (allNbaTeamsForNotice || [])) {
+const lang = await getTeamLang(t.id)
+const notif = notifSeasonAwardsRevealed(lang)
+await notify(t.id, 'season_awards_revealed', notif.subject, notif.body, {})
+}
+}
 }
 }
 } catch(awardsErr) { console.warn('Awards step failed:', awardsErr) }

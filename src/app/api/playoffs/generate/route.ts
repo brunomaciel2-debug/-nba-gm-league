@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { notify } from '@/lib/notifications'
+import { getTeamLang, notifPlayoffsBegin } from '@/lib/notifications-helpers'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,6 +54,19 @@ export async function POST() {
     await supabaseAdmin.from('playoff_series').delete().eq('season','2025-26')
     const { error } = await supabaseAdmin.from('playoff_series').insert(series)
     if (error) return NextResponse.json({ error: error.message }, { status:500 })
+
+    // League-wide notice — there was previously no message at all for the
+    // regular season ending or the postseason starting. This route is only
+    // ever triggered manually by the Commissioner (once, after Week 40),
+    // so no extra idempotency guard is needed beyond that.
+    const { data: playInEvent } = await supabaseAdmin.from('season_events')
+      .select('start_date').eq('season','2025-26').eq('event_key','play_in').maybeSingle()
+    for (const t of (teams || [])) {
+      const lang = await getTeamLang(t.id)
+      const notif = notifPlayoffsBegin(lang, playInEvent?.start_date || null)
+      await notify(t.id, 'playoffs_begin', notif.subject, notif.body, {})
+    }
+
     return NextResponse.json({ success:true, created:series.length })
   } catch(e:any) {
     return NextResponse.json({ error: e.message }, { status:500 })
