@@ -12,7 +12,6 @@ export default function RetirementsAdminPage() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
-  const [currentWeek, setCurrentWeek] = useState(0)
 
   const load = async () => {
     // retirement_decisions.team_id has no real foreign-key constraint to
@@ -22,74 +21,37 @@ export default function RetirementsAdminPage() {
     // this page's list empty even though the rows genuinely exist. Fetch
     // teams separately and join in JS instead (same pattern already used
     // on the Transactions page for the same reason).
-    const [{ data: dec, error: decErr }, { data: cfg }, { data: teams }] = await Promise.all([
+    const [{ data: dec, error: decErr }, { data: teams }] = await Promise.all([
       supabase.from('retirement_decisions')
         .select('*, players(name,age,pos,photo_url,real_ovr,salary,nba_experience,contract_years)')
         .order('created_at', { ascending: false }),
-      supabase.from('season_config').select('current_week').eq('id', 1).single(),
       supabase.from('teams').select('id,name,color,logo_url'),
     ])
     if (decErr) console.error('Failed to load retirement decisions:', decErr)
     const teamMap: Record<string, any> = {}
     ;(teams || []).forEach((tm: any) => { teamMap[tm.id] = tm })
     setDecisions((dec || []).map((d: any) => ({ ...d, teams: teamMap[d.team_id] })))
-    setCurrentWeek((cfg?.current_week || 0) + 1)
     setLoading(false)
   }
   useEffect(() => { load() }, [])
 
-  // A GM never sees that this was the Commissioner's call — every message
-  // reads like a natural roster event (a player deciding for himself), same
-  // spirit as the retirement_warning heads-up sent earlier in the season.
-  //
-  // "Stay" only means he isn't retiring — it says nothing about WHERE he
-  // plays next. A player with 1 (or 0) contract_years left is finishing the
-  // last season of his deal; nothing obligates him to re-sign with this
-  // team, so he walks into free agency instead of being auto-extended here.
-  // Unlike a cut, this is a natural expiry: no dead cap, and the team's
-  // cap space actually opens back up.
+  // The Commissioner can decide any time, but the actual roster change
+  // (player leaves for free agency, or retires outright) only takes effect
+  // once the season is truly over — playoffs finished, champion crowned.
+  // A player queued to leave is still needed on his team's playoff roster
+  // until then, so this just records the decision; executeDecidedRetirements
+  // (in retirement-resolver.ts) applies it later, right when the NBA
+  // Finals resolve. The GM only sees the real notification at that point,
+  // never a hint that the Commissioner decided this ahead of time.
   const stay = async (d: any) => {
     setProcessing(d.id); setMsg('')
     try {
-      const contractEnded = (d.players?.contract_years ?? 1) <= 1
-      if (contractEnded) {
-        const { data: team } = await supabase.from('teams').select('cap_used').eq('id', d.team_id).single()
-        await supabase.from('players').update({
-          team_id: null, contract_years: 0, previous_team_id: d.team_id, dead_cap_amount: 0,
-        }).eq('id', d.player_id)
-        if (team) {
-          await supabase.from('teams').update({
-            cap_used: Math.max(0, (team.cap_used || 0) - (d.players?.salary || 0)),
-          }).eq('id', d.team_id)
-        }
-      } else {
-        // Still has years left on his deal — nothing changes, he was never leaving.
-      }
       await supabase.from('retirement_decisions').update({
         status: 'decided', decision: 'stay', decided_at: new Date().toISOString(),
       }).eq('id', d.id)
-      await supabase.from('transactions').insert({
-        type: contractEnded ? 'waiver' : 'extension', category: 'player',
-        description: contractEnded
-          ? `${d.players?.name}'s contract with ${d.teams?.name || d.team_id} expires; he decides to keep playing and becomes a free agent`
-          : `${d.players?.name} returns for one more season with ${d.teams?.name || d.team_id}`,
-        teams: [d.team_id], players: [d.players?.name], player_ids: [d.player_id], status: 'completed', week_number: currentWeek,
-      })
-      await supabase.from('inbox_messages').insert({
-        to_team_id: d.team_id, type: 'contract',
-        subject: isPT ? `🏀 ${d.players?.name} vai continuar!` : `🏀 ${d.players?.name} is coming back!`,
-        body: contractEnded
-          ? (isPT
-              ? `Após ponderação, ${d.players?.name} decidiu que ainda não é altura de pendurar as botas. Como o contrato com ${d.teams?.name || d.team_id} chegou ao fim, vai entrar no mercado como agente livre.`
-              : `After careful consideration, ${d.players?.name} has decided it isn't time to hang up his sneakers just yet. With his contract with ${d.teams?.name || d.team_id} up, he'll enter free agency looking for his next team.`)
-          : (isPT
-              ? `Após ponderação, ${d.players?.name} decidiu que ainda não é altura de pendurar as botas — vai continuar a vestir as cores de ${d.teams?.name || d.team_id} por mais uma época.`
-              : `After careful consideration, ${d.players?.name} has decided it isn't time to hang up his sneakers just yet — he'll suit up for ${d.teams?.name || d.team_id} for at least one more season.`),
-        read: false, metadata: { player_id: d.player_id },
-      })
-      setMsg(contractEnded
-        ? (isPT ? `✅ ${d.players?.name} continua a jogar, agora como agente livre.` : `✅ ${d.players?.name} keeps playing, now a free agent.`)
-        : (isPT ? `✅ ${d.players?.name} continua na equipa.` : `✅ ${d.players?.name} stays with the team.`))
+      setMsg(isPT
+        ? `✅ Decisão registada — ${d.players?.name} vai continuar a jogar. Efetiva-se no fim da época.`
+        : `✅ Decision recorded — ${d.players?.name} will keep playing. Takes effect at season's end.`)
       await load()
     } catch (e: any) { setMsg(`${isPT ? 'Erro' : 'Error'}: ` + e.message) }
     setProcessing(null)
@@ -98,31 +60,20 @@ export default function RetirementsAdminPage() {
   const retire = async (d: any) => {
     setProcessing(d.id); setMsg('')
     try {
-      await supabase.from('players').update({ status: 'retired', team_id: null, contract_years: 0 }).eq('id', d.player_id)
       await supabase.from('retirement_decisions').update({
         status: 'decided', decision: 'retire', decided_at: new Date().toISOString(),
       }).eq('id', d.id)
-      await supabase.from('transactions').insert({
-        type: 'retirement', category: 'player',
-        description: `${d.players?.name} announces his retirement after ${d.players?.nba_experience ?? '?'} season${d.players?.nba_experience === 1 ? '' : 's'} in the league`,
-        teams: [d.team_id], players: [d.players?.name], player_ids: [d.player_id], status: 'completed', week_number: currentWeek,
-      })
-      await supabase.from('inbox_messages').insert({
-        to_team_id: d.team_id, type: 'contract',
-        subject: isPT ? `👋 ${d.players?.name} anuncia a reforma` : `👋 ${d.players?.name} has retired`,
-        body: isPT
-          ? `Após ponderação, ${d.players?.name} decidiu que chegou a altura de pendurar as botas e encerrar a carreira profissional. Obrigado pelas memórias.`
-          : `After careful consideration, ${d.players?.name} has decided it's time to hang up his sneakers and step away from professional basketball. Thank you for the memories.`,
-        read: false, metadata: { player_id: d.player_id },
-      })
-      setMsg(isPT ? `${d.players?.name} retirou-se.` : `${d.players?.name} has retired.`)
+      setMsg(isPT
+        ? `Decisão registada — ${d.players?.name} vai reformar-se. Efetiva-se no fim da época.`
+        : `Decision recorded — ${d.players?.name} will retire. Takes effect at season's end.`)
       await load()
     } catch (e: any) { setMsg(`${isPT ? 'Erro' : 'Error'}: ` + e.message) }
     setProcessing(null)
   }
 
   const pending = decisions.filter(d => d.status === 'pending')
-  const decided = decisions.filter(d => d.status !== 'pending')
+  const decidedAwaiting = decisions.filter(d => d.status === 'decided')
+  const decided = decisions.filter(d => d.status === 'executed')
 
   if (loading) return <div className="max-w-4xl mx-auto px-4 py-12 text-center" style={{ color: '#6b5f4e' }}>{t('common.loading')}</div>
 
@@ -134,7 +85,7 @@ export default function RetirementsAdminPage() {
             🏀 {isPT ? 'Decisões de Retirada' : 'Retirement Decisions'}
           </h1>
           <p className="text-sm" style={{ color: '#6b5f4e' }}>
-            {pending.length} {isPT ? 'pendentes' : 'pending'} · {decided.length} {isPT ? 'decididas' : 'decided'}
+            {pending.length} {isPT ? 'pendentes' : 'pending'} · {decidedAwaiting.length} {isPT ? 'decididas (aguardam fim da época)' : 'decided (awaiting season end)'} · {decided.length} {isPT ? 'efetivadas' : 'finalized'}
           </p>
         </div>
         <Link href="/admin" className="text-xs px-3 py-1.5 rounded-lg no-underline" style={{ background: '#d4cdc5', color: '#6b5f4e' }}>← Admin</Link>
@@ -144,7 +95,7 @@ export default function RetirementsAdminPage() {
         <div className="mb-4 p-3 rounded-lg text-sm font-semibold" style={{ background: '#dcfce7', color: '#15803d' }}>{msg}</div>
       )}
 
-      {pending.length === 0 && decided.length === 0 && (
+      {pending.length === 0 && decidedAwaiting.length === 0 && decided.length === 0 && (
         <div className="text-center py-12" style={{ color: '#6b5f4e' }}>
           {isPT ? 'Nenhuma decisão de retirada ainda — aparecem aqui no fim da época regular.' : 'No retirement decisions yet — these appear here at the end of the regular season.'}
         </div>
@@ -203,10 +154,39 @@ export default function RetirementsAdminPage() {
         </>
       )}
 
+      {decidedAwaiting.length > 0 && (
+        <>
+          <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#0e7490' }}>
+            ⏱ {isPT ? 'Decididas — Aguardam Fim da Época' : 'Decided — Awaiting Season End'}
+          </h2>
+          <p className="text-xs mb-3" style={{ color: '#8a8279' }}>
+            {isPT
+              ? 'A decisão foi tomada, mas só produz efeito (saída para free agency ou reforma) quando a época terminar — para não tirar jogadores dos plantéis a meio dos playoffs.'
+              : "The decision is made, but it only takes effect (free agency or retirement) once the season ends — so no one gets pulled from a roster mid-playoffs."}
+          </p>
+          <div className="flex flex-col gap-2 mb-8">
+            {decidedAwaiting.map((d: any) => (
+              <div key={d.id} className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: '#ecfeff', border: '1px solid #a5f3fc' }}>
+                <div className="flex-1">
+                  <span className="font-semibold text-sm" style={{ color: '#1a1512' }}>{d.players?.name}</span>
+                  <span className="text-xs ml-2" style={{ color: '#8a8279' }}>{d.teams?.name || d.team_id}</span>
+                </div>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{
+                  background: d.decision === 'stay' ? '#dcfce7' : '#fef3c7',
+                  color: d.decision === 'stay' ? '#15803d' : '#b45309',
+                }}>
+                  {d.decision === 'stay' ? (isPT ? 'Vai Continuar' : 'Will Stay') : (isPT ? 'Vai Retirar-se' : 'Will Retire')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {decided.length > 0 && (
         <>
           <h2 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#6b5f4e' }}>
-            ✔ {isPT ? 'Decididas' : 'Decided'}
+            ✔ {isPT ? 'Efetivadas' : 'Finalized'}
           </h2>
           <div className="flex flex-col gap-2">
             {decided.map((d: any) => (

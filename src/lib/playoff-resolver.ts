@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { simulateGame } from '@/lib/game-simulator'
 import { getRefereeAvgRatings, pickTopTierReferee, rateRefereePerformance } from '@/lib/referees'
 import { getWeekForDate } from '@/lib/season-week-helper'
+import { executeDecidedRetirements } from '@/lib/retirement-resolver'
 
 const SEASON = '2025-26'
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -300,7 +301,15 @@ export async function resolvePlayoffDay(simDate: string): Promise<{ processed: n
       const loserId = s.wins_high > s.wins_low ? s.team_low : s.team_high
       await supabaseAdmin.from('playoff_series').update({ status: 'completed', next_game_date: null }).eq('id', s.id)
       await advanceWinner(s.series_type, winnerId, loserId)
-      if (s.series_type === 'nba_finals') { await resolveFinalsMVP(winnerId, loserId); await recordChampionship(winnerId, loserId) }
+      if (s.series_type === 'nba_finals') {
+        await resolveFinalsMVP(winnerId, loserId)
+        await recordChampionship(winnerId, loserId)
+        // Every retirement decision made throughout the season finally takes
+        // effect now that the champion is crowned — not the moment the
+        // Commissioner clicked it (a player queued for free agency was still
+        // needed on his team's playoff roster until this exact point).
+        try { await executeDecidedRetirements(week) } catch (retErr) { console.error('Failed to execute decided retirements:', retErr) }
+      }
       continue
     }
 
@@ -424,7 +433,15 @@ export async function resolvePlayoffDay(simDate: string): Promise<{ processed: n
       const winnerId = newWinsHigh > newWinsLow ? s.team_high : s.team_low
       const loserId = newWinsHigh > newWinsLow ? s.team_low : s.team_high
       await advanceWinner(s.series_type, winnerId, loserId)
-      if (s.series_type === 'nba_finals') { await resolveFinalsMVP(winnerId, loserId); await recordChampionship(winnerId, loserId) }
+      if (s.series_type === 'nba_finals') {
+        await resolveFinalsMVP(winnerId, loserId)
+        await recordChampionship(winnerId, loserId)
+        // Every retirement decision made throughout the season finally takes
+        // effect now that the champion is crowned — not the moment the
+        // Commissioner clicked it (a player queued for free agency was still
+        // needed on his team's playoff roster until this exact point).
+        try { await executeDecidedRetirements(week) } catch (retErr) { console.error('Failed to execute decided retirements:', retErr) }
+      }
     }
   }
   return { processed }
