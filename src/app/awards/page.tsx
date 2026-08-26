@@ -38,6 +38,7 @@ const AWARD_META_PT: Record<string,{label:string,icon:string,color:string,desc:s
   roy:         {label:'Caloiro do Ano',      icon:'ti-bolt',         color:'#6d28d9',desc:'Melhor Jogador de 1º Ano'},
   coy:         {label:'Treinador do Ano',    icon:'ti-whistle',      color:'#0e7490',desc:'Melhor Head Coach'},
   mip:         {label:'Mais Melhorado',      icon:'ti-trending-up',  color:'#c2410c',desc:'Jogador Mais Melhorado'},
+  smoy:        {label:'6º Homem do Ano',     icon:'ti-armchair',     color:'#4338ca',desc:'Melhor Jogador Suplente'},
   finals_mvp:  {label:'MVP das Finais',      icon:'ti-medal',        color:'#c8102e',desc:'MVP das Finais do Campeonato'},
   all_nba_1:   {label:'1ª Equipa All-NBA',   icon:'ti-award',        color:'#b45309',desc:''},
   all_nba_2:   {label:'2ª Equipa All-NBA',   icon:'ti-award',        color:'#5c554e',desc:''},
@@ -189,7 +190,7 @@ export default function AwardsPage() {
   const tabAwards = (type: Tab) => {
     if(type==='weekly')  return awards.filter(a=>['potw_eastern','potw_western'].includes(a.award_type))
     if(type==='monthly') return awards.filter(a=>['potm_eastern','potm_western'].includes(a.award_type))
-    return awards.filter(a=>['mvp','dpoy','roy','coy','mip','finals_mvp','all_nba_1','all_nba_2','all_nba_3','all_rookie_1','all_rookie_2'].includes(a.award_type))
+    return awards.filter(a=>['mvp','dpoy','roy','coy','mip','smoy','finals_mvp','all_nba_1','all_nba_2','all_nba_3','all_rookie_1','all_rookie_2'].includes(a.award_type))
   }
 
   const weeklyPeriods=Array.from(new Set(awards.filter(a=>a.award_type.startsWith('potw')||a.award_type==='rotw').map((a:any)=>a.period))).sort((a:any,b:any)=>parseInt(b.split('_')[1]||'0')-parseInt(a.split('_')[1]||'0'))
@@ -299,7 +300,7 @@ export default function AwardsPage() {
             <>
               <h3 className="text-xs font-bold uppercase tracking-widest mb-4" style={{color:'#5c554e',letterSpacing:'1.5px'}}>{isPT?'Prémios Individuais':'Individual Awards'}</h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                {['mvp','dpoy','roy','coy','mip','finals_mvp'].map(type=>{
+                {['mvp','dpoy','roy','coy','mip','smoy','finals_mvp'].map(type=>{
                   const a=awards.find((aw:any)=>aw.award_type===type)
                   const meta=AWARD_META[type]
                   if(!a)return(
