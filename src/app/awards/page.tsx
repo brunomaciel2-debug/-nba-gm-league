@@ -107,6 +107,18 @@ function SectionHeader({children,color='#f43f5e'}:{children:React.ReactNode,colo
   )
 }
 
+// Mini cards only have room for PPG + one more stat — showing RPG
+// unconditionally buried a playmaking guard's real calling card (e.g. an
+// 8+ APG floor general) behind a plain rebounding number. Pick whichever of
+// RPG/APG is actually higher for that player, since both are per-game
+// counting stats on the same rough scale.
+function bestSecondaryStat(s:any): {value:string,label:string}|null {
+  if(!s) return null
+  const rpg = parseFloat(s.rpg||'0'), apg = parseFloat(s.apg||'0')
+  if(!s.rpg && !s.apg) return null
+  return apg >= rpg ? {value:s.apg,label:'APG'} : {value:s.rpg,label:'RPG'}
+}
+
 function EmptyState({icon,title,subtitle}:{icon:string,title:string,subtitle:string}) {
   return (
     <div className="relative rounded-3xl overflow-hidden text-center py-16" style={{background:cardGradient('#8f88ad'),border:'1px solid rgba(255,255,255,0.08)'}}>
@@ -366,6 +378,7 @@ function TeamAward({awards,type,meta,isPT,season}:{awards:any[],type:string,meta
           {members.map((a:any,i:number)=>{
             const p=a.players; const tc=p?.teams?readableTeamColorOnDark(p.teams.color):meta.color
             const s=a.stats_context
+            const secondary=bestSecondaryStat(s)
             return (
               <Link key={a.id} href={`/player/${p?.id}`} className="relative no-underline group flex flex-col items-center rounded-2xl p-3 pt-4 text-center transition-transform hover:-translate-y-0.5" style={{background:'rgba(255,255,255,0.035)',border:`1px solid ${tc}33`}}>
                 <span className="absolute top-1.5 left-1.5 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center z-10" style={{color:'#0f0b1e',background:tc}}>{i+1}</span>
@@ -387,7 +400,7 @@ function TeamAward({awards,type,meta,isPT,season}:{awards:any[],type:string,meta
                 {s&&(
                   <div className="flex gap-3 mt-2.5 pt-2.5 w-full justify-center" style={{borderTop:'1px solid rgba(255,255,255,0.08)'}}>
                     {s.ppg&&<span className="text-sm font-black" style={{color:TEXT_SECONDARY}}>{s.ppg}<span className="text-[10px] font-bold" style={{color:TEXT_MUTED}}> PPG</span></span>}
-                    {s.rpg&&<span className="text-sm font-black" style={{color:TEXT_SECONDARY}}>{s.rpg}<span className="text-[10px] font-bold" style={{color:TEXT_MUTED}}> RPG</span></span>}
+                    {secondary&&<span className="text-sm font-black" style={{color:TEXT_SECONDARY}}>{secondary.value}<span className="text-[10px] font-bold" style={{color:TEXT_MUTED}}> {secondary.label}</span></span>}
                   </div>
                 )}
               </Link>
