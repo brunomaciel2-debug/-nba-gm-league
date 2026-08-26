@@ -35,11 +35,59 @@ function weekForSeries(seriesType: string): number {
   return 17 // gl_finals
 }
 
-async function fillSlot(seriesType: string, slot: 'team_high' | 'team_low', teamId: string) {
-  await supabaseAdmin.from('gleague_playoff_series').update({ [slot]: teamId, status: 'active' }).eq('season', SEASON).eq('series_type', seriesType)
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-async function seedBracket() {
+// When a round is actually DUE to be played — separate from when its
+// matchup becomes KNOWN (see ensurePlaceholderGame below), so a round can
+// show up on the Schedule tab as a real "Scheduled" game, with its real
+// opponent and date, well before it's simulated. Round 1/2/Conf-Finals are
+// spaced 2 days apart starting at the announced "G League Playoffs Begin"
+// date (season_events.gleague_playoffs); the Finals uses the announced "G
+// League Finals" date directly (season_events.gleague_finals), which the
+// calendar already books as its own separate window.
+function dateForSeries(seriesType: string, playoffsStart: string, finalsStart: string): string {
+  if (seriesType.startsWith('r1_')) return playoffsStart
+  if (seriesType.startsWith('r2_')) return addDays(playoffsStart, 2)
+  if (seriesType.startsWith('cf_')) return addDays(playoffsStart, 4)
+  return finalsStart // gl_finals
+}
+
+// The moment a series' matchup is fully known (both slots filled) — which
+// can happen well before that round is actually due — this books a real
+// 'scheduled' gleague_games row for it, dated to its real future play date.
+// Without this, a future playoff round genuinely couldn't show up on the
+// Schedule tab in advance the way every regular-season game already does:
+// the old code only ever created a game row at the INSTANT it simulated a
+// series, so nothing about an upcoming round — not the date, not even who's
+// playing — was visible on the schedule until the moment it was already
+// decided. Idempotent (checked by season+week+matchup) so calling it again
+// for a series that already has its placeholder is a no-op.
+async function ensurePlaceholderGame(seriesType: string, homeTeamId: string, awayTeamId: string, dateStr: string) {
+  const week = weekForSeries(seriesType)
+  const { data: existing } = await supabaseAdmin.from('gleague_games').select('id')
+    .eq('season', SEASON).eq('game_type', 'playoff').eq('week_number', week)
+    .eq('home_team', homeTeamId).eq('away_team', awayTeamId).maybeSingle()
+  if (existing) return
+  await supabaseAdmin.from('gleague_games').insert({
+    season: SEASON, week_number: week, home_team: homeTeamId, away_team: awayTeamId,
+    status: 'scheduled', game_type: 'playoff', played_at: `${dateStr}T20:00:00.000Z`,
+  })
+}
+
+async function fillSlot(seriesType: string, slot: 'team_high' | 'team_low', teamId: string, playoffsStart: string, finalsStart: string) {
+  const { data } = await supabaseAdmin.from('gleague_playoff_series')
+    .update({ [slot]: teamId, status: 'active' }).eq('season', SEASON).eq('series_type', seriesType)
+    .select().single()
+  if (data?.team_high && data?.team_low) {
+    await ensurePlaceholderGame(seriesType, data.team_high, data.team_low, dateForSeries(seriesType, playoffsStart, finalsStart))
+  }
+}
+
+async function seedBracket(playoffsStart: string, finalsStart: string) {
   const { data: teams } = await supabaseAdmin.from('gleague_teams').select('id,conference,wins,losses')
   if (!teams?.length) return
 
@@ -53,6 +101,9 @@ async function seedBracket() {
   }
 
   const rows: any[] = []
+  // Round 1 pairings, per conference, with home team + date already known —
+  // used right below to also book their placeholder games.
+  const round1Pairs: { seriesType: string, home: string, low: string }[] = []
   for (const [conf, teamsList] of Object.entries(seedsByConf)) {
     const seeds = teamsList.slice(0, 8) // top 8 — matches /gleague's own "Top 8 qualify" text
     if (seeds.length < 8) continue
@@ -62,6 +113,10 @@ async function seedBracket() {
     rows.push({ season: SEASON, series_type: `r1_${key}_4v5`, team_high: s4.id, team_low: s5.id, games_needed: 1, status: 'active' })
     rows.push({ season: SEASON, series_type: `r1_${key}_2v7`, team_high: s2.id, team_low: s7.id, games_needed: 1, status: 'active' })
     rows.push({ season: SEASON, series_type: `r1_${key}_3v6`, team_high: s3.id, team_low: s6.id, games_needed: 1, status: 'active' })
+    round1Pairs.push({ seriesType: `r1_${key}_1v8`, home: s1.id, low: s8.id })
+    round1Pairs.push({ seriesType: `r1_${key}_4v5`, home: s4.id, low: s5.id })
+    round1Pairs.push({ seriesType: `r1_${key}_2v7`, home: s2.id, low: s7.id })
+    round1Pairs.push({ seriesType: `r1_${key}_3v6`, home: s3.id, low: s6.id })
     rows.push({ season: SEASON, series_type: `r2_${key}_a`, team_high: null, team_low: null, games_needed: 1, status: 'pending' })
     rows.push({ season: SEASON, series_type: `r2_${key}_b`, team_high: null, team_low: null, games_needed: 1, status: 'pending' })
     rows.push({ season: SEASON, series_type: `cf_${key}`, team_high: null, team_low: null, games_needed: 1, status: 'pending' })
@@ -69,27 +124,32 @@ async function seedBracket() {
   if (!rows.length) return
   rows.push({ season: SEASON, series_type: 'gl_finals', team_high: null, team_low: null, games_needed: 1, status: 'pending' })
   await supabaseAdmin.from('gleague_playoff_series').insert(rows.map(r => ({ ...r, wins_high: 0, wins_low: 0 })))
+
+  // Round 1 always falls on the announced playoffs-start date itself
+  // (dateForSeries('r1_...')) — using playoffsStart directly here instead.
+  for (const p of round1Pairs) await ensurePlaceholderGame(p.seriesType, p.home, p.low, playoffsStart)
 }
 
-async function advanceWinner(seriesType: string, winnerId: string) {
+async function advanceWinner(seriesType: string, winnerId: string, playoffsStart: string, finalsStart: string) {
   if (seriesType === 'cf_eastern' || seriesType === 'cf_western') {
     const { data: finals } = await supabaseAdmin.from('gleague_playoff_series').select('*').eq('season', SEASON).eq('series_type', 'gl_finals').single()
     const { data: winnerTeam } = await supabaseAdmin.from('gleague_teams').select('wins,losses').eq('id', winnerId).single()
     const otherSlotFilled = finals?.team_high || finals?.team_low
-    if (!otherSlotFilled) { await fillSlot('gl_finals', 'team_high', winnerId); return }
+    if (!otherSlotFilled) { await fillSlot('gl_finals', 'team_high', winnerId, playoffsStart, finalsStart); return }
     const { data: otherTeam } = await supabaseAdmin.from('gleague_teams').select('wins,losses').eq('id', otherSlotFilled).single()
     const winnerPct = (winnerTeam?.wins || 0) / Math.max(1, (winnerTeam?.wins || 0) + (winnerTeam?.losses || 0))
     const otherPct = (otherTeam?.wins || 0) / Math.max(1, (otherTeam?.wins || 0) + (otherTeam?.losses || 0))
     if (winnerPct > otherPct) {
       await supabaseAdmin.from('gleague_playoff_series').update({ team_high: winnerId, team_low: otherSlotFilled }).eq('season', SEASON).eq('series_type', 'gl_finals')
+      await ensurePlaceholderGame('gl_finals', winnerId, otherSlotFilled, dateForSeries('gl_finals', playoffsStart, finalsStart))
     } else {
-      await fillSlot('gl_finals', 'team_low', winnerId)
+      await fillSlot('gl_finals', 'team_low', winnerId, playoffsStart, finalsStart)
     }
     return
   }
   const advance = ADVANCE_MAP[seriesType]
   if (!advance) return
-  await fillSlot(advance.seriesType, advance.slot, winnerId)
+  await fillSlot(advance.seriesType, advance.slot, winnerId, playoffsStart, finalsStart)
 }
 
 async function recordChampionship(championId: string, runnerUpId: string) {
@@ -103,26 +163,32 @@ async function recordChampionship(championId: string, runnerUpId: string) {
   })
 }
 
-// Advances the bracket by one game per still-open series, per call — same
-// idempotent, call-repeatedly shape as playoff-resolver.ts. Only begins
-// once every regular-season G-League game has actually been played (the
-// real schedule decides, never a guessed week number — see the comment
-// history in run.ts's G-League catch-up block for why that matters here)
-// AND the calendar has actually reached the announced "G League Playoffs
-// Begin" date (season_events.gleague_playoffs). Without this second gate,
-// a real incident: the regular season finished (Mar 26) several days
-// before that announced date (Mar 31), and this function — having nothing
-// else to check — seeded the bracket and blew through Round 1 and Round 2
-// on the very next two calls, all before the date the app itself was
-// telling GMs the playoffs would begin.
+// Advances the bracket by one game per still-open, DUE series, per call —
+// same idempotent, call-repeatedly shape as playoff-resolver.ts. Seeding
+// (and booking each round's real 'scheduled' game the moment its matchup
+// becomes known) happens as soon as the regular season actually finishes —
+// that's just displaying already-known facts (final standings), not
+// deciding anything early. Only the SIMULATION of a round — turning its
+// 'scheduled' placeholder into a real result — waits for that round's own
+// due date (dateForSeries), anchored to the announced "G League Playoffs
+// Begin"/"G League Finals" dates (season_events). A real incident this
+// split fixes: the regular season finished (Mar 26) several days before
+// the announced playoffs date (Mar 31), and the old code — seeding AND
+// simulating in the same step — blew through Round 1 and Round 2 the
+// moment it got the chance, with no way for a GM to ever see a future
+// round's matchup or date in advance the way every regular-season game
+// already shows up on the Schedule tab weeks ahead.
 export async function resolveGLeaguePlayoffs(week: number, simDate: string): Promise<{ processed: number }> {
-  const { data: playoffsEvent } = await supabaseAdmin.from('season_events')
-    .select('start_date').eq('season', SEASON).eq('event_key', 'gleague_playoffs').maybeSingle()
-  if (playoffsEvent?.start_date && simDate < playoffsEvent.start_date) return { processed: 0 }
-
   const { count: pendingRegular } = await supabaseAdmin.from('gleague_games')
     .select('*', { count: 'exact', head: true }).eq('season', SEASON).eq('game_type', 'regular').eq('status', 'scheduled')
   if (pendingRegular && pendingRegular > 0) return { processed: 0 }
+
+  const { data: playoffsEvent } = await supabaseAdmin.from('season_events')
+    .select('start_date').eq('season', SEASON).eq('event_key', 'gleague_playoffs').maybeSingle()
+  const { data: finalsEvent } = await supabaseAdmin.from('season_events')
+    .select('start_date').eq('season', SEASON).eq('event_key', 'gleague_finals').maybeSingle()
+  if (!playoffsEvent?.start_date || !finalsEvent?.start_date) return { processed: 0 }
+  const playoffsStart = playoffsEvent.start_date, finalsStart = finalsEvent.start_date
 
   const { count: existingSeries } = await supabaseAdmin.from('gleague_playoff_series')
     .select('*', { count: 'exact', head: true }).eq('season', SEASON)
@@ -132,7 +198,7 @@ export async function resolveGLeaguePlayoffs(week: number, simDate: string): Pro
     const { count: anyPlayed } = await supabaseAdmin.from('gleague_games')
       .select('*', { count: 'exact', head: true }).eq('season', SEASON).eq('game_type', 'regular').eq('status', 'final')
     if (!anyPlayed) return { processed: 0 }
-    await seedBracket()
+    await seedBracket(playoffsStart, finalsStart)
   }
 
   const { data: series } = await supabaseAdmin.from('gleague_playoff_series').select('*').eq('season', SEASON).neq('status', 'completed')
@@ -141,6 +207,9 @@ export async function resolveGLeaguePlayoffs(week: number, simDate: string): Pro
   let processed = 0
   for (const s of series) {
     if (!s.team_high || !s.team_low) continue // still waiting on a previous round
+
+    const dueDate = dateForSeries(s.series_type, playoffsStart, finalsStart)
+    if (simDate < dueDate) continue // matchup is known and already booked on the schedule, just not due yet
 
     const homeTeamId = s.team_high // single game — higher seed / better record always hosts
     const awayTeamId = s.team_low
@@ -153,24 +222,35 @@ export async function resolveGLeaguePlayoffs(week: number, simDate: string): Pro
     const homeScore = homeBox.reduce((sum, b) => sum + b.pts, 0)
     const awayScore = awayBox.reduce((sum, b) => sum + b.pts, 0)
 
-    const { data: gameRec } = await supabaseAdmin.from('gleague_games').insert({
-      season: SEASON, week_number: weekForSeries(s.series_type),
-      home_team: homeTeamId, away_team: awayTeamId,
-      home_score: homeScore, away_score: awayScore, status: 'final',
-      // The SIMULATED calendar date this call is processing, not real
-      // wall-clock time — every other gleague_games row (and the /gleague
-      // Schedule tab's own week grouping, which buckets purely off
-      // played_at) treats played_at as a date on the simulated season
-      // timeline. A real incident: this used to stamp new Date() (today's
-      // real-world date), so a playoff game "played" on the simulated
-      // calendar's Mar 31 showed up dated whatever day the cron actually
-      // ran in real life — nowhere near the games it was supposed to sit
-      // beside on the schedule.
-      played_at: `${simDate}T20:00:00.000Z`, game_type: 'playoff',
-    }).select().single()
+    // The 'scheduled' placeholder for this series should already exist
+    // (booked the moment its matchup became known, in seedBracket/fillSlot
+    // above) — finish it in place, same pattern insertGameAndBox() in
+    // allstar-events-simulator.ts uses for the All-Star exhibition games.
+    // Falls back to a fresh insert only if it's somehow missing (a series
+    // seeded before this placeholder logic existed, etc).
+    const week_number = weekForSeries(s.series_type)
+    const { data: existingGame } = await supabaseAdmin.from('gleague_games').select('id')
+      .eq('season', SEASON).eq('game_type', 'playoff').eq('week_number', week_number)
+      .eq('home_team', homeTeamId).eq('away_team', awayTeamId).maybeSingle()
 
-    if (gameRec) {
-      const withGameId = [...homeBox, ...awayBox].map(b => ({ ...b, game_id: gameRec.id }))
+    let gameId: string | null = null
+    if (existingGame) {
+      await supabaseAdmin.from('gleague_games').update({
+        home_score: homeScore, away_score: awayScore, status: 'final',
+        played_at: `${simDate}T20:00:00.000Z`,
+      }).eq('id', existingGame.id)
+      gameId = existingGame.id
+    } else {
+      const { data: gameRec } = await supabaseAdmin.from('gleague_games').insert({
+        season: SEASON, week_number, home_team: homeTeamId, away_team: awayTeamId,
+        home_score: homeScore, away_score: awayScore, status: 'final',
+        played_at: `${simDate}T20:00:00.000Z`, game_type: 'playoff',
+      }).select().single()
+      gameId = gameRec?.id || null
+    }
+
+    if (gameId) {
+      const withGameId = [...homeBox, ...awayBox].map(b => ({ ...b, game_id: gameId }))
       await supabaseAdmin.from('gleague_box_scores').insert(withGameId)
     }
     processed++
@@ -185,7 +265,7 @@ export async function resolveGLeaguePlayoffs(week: number, simDate: string): Pro
     await supabaseAdmin.from('gleague_playoff_series').update({
       status: 'completed', wins_high: homeWon ? 1 : 0, wins_low: homeWon ? 0 : 1,
     }).eq('id', s.id)
-    await advanceWinner(s.series_type, winnerId)
+    await advanceWinner(s.series_type, winnerId, playoffsStart, finalsStart)
     if (s.series_type === 'gl_finals') await recordChampionship(winnerId, loserId)
   }
   return { processed }
