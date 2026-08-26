@@ -241,6 +241,7 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
                   return(
                     <Link key={g.id} href={`/gleague/game/${g.id}`} className="flex items-center gap-3 px-4 py-3 no-underline hover:brightness-95 transition-all" style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                       <div className="text-xs w-16 flex-shrink-0" style={{color:'#8a8279'}}>{g.played_at?new Date(g.played_at).toLocaleDateString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric'}):'—'}</div>
+                      {g.game_type==='playoff'&&<span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{background:'#fef2f2',color:'#dc2626'}}>{isPT?'PLAYOFF':'PLAYOFF'}</span>}
                       <div className="flex items-center gap-2 flex-1 justify-end"><span className="text-sm font-semibold" style={{color:hWon?htc:'#5c554e'}}>{g.home?.name}</span>{g.home?.logo_url&&<img src={g.home.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}</div>
                       <div className="flex items-center gap-2 flex-shrink-0 px-2">
                         <span className="text-base font-black w-8 text-right" style={{color:hWon?'#15803d':'#dc2626'}}>{g.home_score}</span>
@@ -265,6 +266,7 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
                   return(
                     <div key={g.id} className="flex items-center gap-3 px-4 py-3" style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                       <div className="text-xs w-16 flex-shrink-0" style={{color:'#8a8279'}}>{dt?dt.toLocaleDateString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric'}):'TBD'}</div>
+                      {g.game_type==='playoff'&&<span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{background:'#fef2f2',color:'#dc2626'}}>{isPT?'PLAYOFF':'PLAYOFF'}</span>}
                       <div className="flex items-center gap-2 flex-1 justify-end"><span className="text-sm font-semibold" style={{color:htc}}>{g.home?.name}</span>{g.home?.logo_url&&<img src={g.home.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}</div>
                       <div className="flex items-center justify-center w-12 flex-shrink-0"><span className="text-xs font-bold px-2 py-1 rounded" style={{background:'#f0ece5',color:'#8a8279'}}>vs</span></div>
                       <div className="flex items-center gap-2 flex-1">{g.away?.logo_url&&<img src={g.away.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}<span className="text-sm font-semibold" style={{color:atc}}>{g.away?.name}</span></div>
