@@ -31,6 +31,9 @@ export async function POST(req: NextRequest) {
       description: `${playerName} assigned to the G-League (${glTeam.name})`,
       teams: [teamId], players: [playerName], player_ids: [playerId],
       status: 'completed', week_number: cfg?.current_week ?? null,
+      // Structured from/to so the Transactions feed can draw a real
+      // logo-to-logo arrow instead of just naming one team in prose.
+      details: { from: { kind: 'nba_team', id: teamId }, to: { kind: 'gleague_team', id: glTeam.id } },
     })
   } catch (legacyErr) { console.warn('Failed to record G-League assignment transaction', legacyErr) }
 

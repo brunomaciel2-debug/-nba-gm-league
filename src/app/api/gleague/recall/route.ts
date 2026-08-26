@@ -29,6 +29,9 @@ export async function POST(req: NextRequest) {
       description: `${playerName} recalled from the G-League${glTeam?.name ? ` (${glTeam.name})` : ''}`,
       teams: player?.team_id ? [player.team_id] : [], players: [playerName], player_ids: [playerId],
       status: 'completed', week_number: cfg?.current_week ?? null,
+      // Structured from/to so the Transactions feed can draw a real
+      // logo-to-logo arrow instead of just naming one team in prose.
+      details: { from: { kind: 'gleague_team', id: player?.gleague_team_id || null }, to: { kind: 'nba_team', id: player?.team_id || null } },
     })
   } catch (legacyErr) { console.warn('Failed to record G-League recall transaction', legacyErr) }
 

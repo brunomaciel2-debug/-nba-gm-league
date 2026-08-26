@@ -22,6 +22,7 @@ export default function TransactionsPage() {
   const isPT = t('common.save') === 'Guardar'
   const [txs,setTxs] = useState<any[]>([])
   const [teamMap,setTeamMap] = useState<Record<string,any>>({})
+  const [gleagueTeamMap,setGleagueTeamMap] = useState<Record<string,any>>({})
   const [playerPhotos,setPlayerPhotos] = useState<Record<string,string>>({})
   const [loading,setLoading] = useState(true)
 
@@ -32,12 +33,16 @@ export default function TransactionsPage() {
       .then(async ({data})=>{
         const list = data||[]
         setTxs(list)
-        const [{data:teams}] = await Promise.all([
+        const [{data:teams},{data:glTeams}] = await Promise.all([
           supabase.from('teams').select('id,name,logo_url,color'),
+          supabase.from('gleague_teams').select('id,name,logo_url,color'),
         ])
         const tMap: Record<string,any> = {}
         ;(teams||[]).forEach((tm:any)=>{ tMap[tm.id]=tm })
         setTeamMap(tMap)
+        const glMap: Record<string,any> = {}
+        ;(glTeams||[]).forEach((tm:any)=>{ glMap[tm.id]=tm })
+        setGleagueTeamMap(glMap)
 
         const playerIds = Array.from(new Set(list.flatMap((tx:any)=>tx.player_ids||[]).filter(Boolean)))
         if (playerIds.length) {
@@ -49,6 +54,15 @@ export default function TransactionsPage() {
         setLoading(false)
       })
   },[])
+
+  // Resolves a structured details.from/details.to endpoint (see
+  // gleague/assign+recall/route.ts) into a real name/logo/color, whichever
+  // table it actually lives in.
+  const resolveEndpoint = (ep: {kind:string,id:string|null}|undefined) => {
+    if (!ep?.id) return null
+    if (ep.kind === 'gleague_team') return gleagueTeamMap[ep.id] || null
+    return teamMap[ep.id] || null
+  }
 
   const TYPE_LABELS_PT: Record<string,string> = {
     trade:'Trade',signing:'Contrato',waiver:'Waiver',suspension:'Suspensão',extension:'Renovação',retirement:'Retirada',
@@ -78,22 +92,68 @@ export default function TransactionsPage() {
             const teams = (tx.teams||[]).map((tid:string)=>teamMap[tid]).filter(Boolean)
             const primaryColor = teams[0]?.color ? readableTeamColorOnDark(teams[0].color) : accent
             const players = (tx.players||[]).map((name:string,i:number)=>({ name, id: tx.player_ids?.[i] }))
+            // A structured from->to move (currently G-League assign/recall —
+            // see gleague/assign+recall/route.ts) gets its own clear
+            // logo-to-logo arrow instead of the generic avatar-stack layout,
+            // so "which direction did this actually go" reads at a glance
+            // instead of only living in the description text.
+            const fromEndpoint = resolveEndpoint(tx.details?.from)
+            const toEndpoint = resolveEndpoint(tx.details?.to)
+            const hasFlow = !!(fromEndpoint && toEndpoint)
             return(
               <div key={tx.id} className="relative overflow-hidden rounded-2xl"
                 style={{
-                  background:`linear-gradient(120deg, ${primaryColor}33 0%, #140f24 32%, #140f24 68%, ${accent}22 100%), repeating-linear-gradient(115deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px, transparent 2px, transparent 14px), #140f24`,
+                  background:`linear-gradient(120deg, ${primaryColor}22 0%, #140f24 28%, #140f24 72%, ${accent}18 100%), repeating-linear-gradient(115deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 2px, transparent 2px, transparent 14px), #140f24`,
                   border:'1px solid rgba(255,255,255,0.08)',
                   boxShadow:`0 10px 30px -12px ${primaryColor}55, inset 0 1px 0 rgba(255,255,255,0.05)`,
                 }}>
                 {/* Top accent beam — bright, futuristic, keyed to the transaction type */}
                 <div className="absolute top-0 left-0 right-0 h-[3px]" style={{background:`linear-gradient(90deg, transparent, ${accent}, transparent)`, boxShadow:`0 0 16px 1px ${accent}aa`}}/>
 
-                <div className="flex items-center gap-4 p-4">
+                {hasFlow && (
+                  <div className="flex items-center justify-center gap-4 pt-4 px-4">
+                    {[fromEndpoint,toEndpoint].map((ep:any,i:number)=>{
+                      const epColor = ep.color ? readableTeamColorOnDark(ep.color) : accent
+                      return (
+                        <div key={i} className="flex flex-col items-center gap-1.5" style={{width:76}}>
+                          <div className="rounded-full flex items-center justify-center" style={{width:52,height:52,background:`radial-gradient(circle, ${epColor}33 0%, transparent 75%)`,border:`2px solid ${epColor}88`,boxShadow:`0 0 16px 2px ${epColor}55`}}>
+                            {ep.logo_url?<img src={ep.logo_url} alt="" className="w-8 h-8 object-contain"/>:<span className="text-lg">🏀</span>}
+                          </div>
+                          <span className="text-[10px] font-bold text-center leading-tight" style={{color:'#d6d0e8'}}>{ep.name}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {hasFlow && (
+                  <div className="relative flex items-center justify-center" style={{marginTop:-52,height:52,pointerEvents:'none'}}>
+                    {/* Arrow shaft between the two logos, with the moving player's
+                        photo riding on top of it — the actual "who" behind the move. */}
+                    <div className="flex items-center" style={{width:'calc(100% - 152px)',maxWidth:220}}>
+                      <div className="flex-1 h-[2px]" style={{background:`linear-gradient(90deg, transparent, ${accent})`}}/>
+                      <div style={{width:0,height:0,borderTop:'5px solid transparent',borderBottom:'5px solid transparent',borderLeft:`8px solid ${accent}`,filter:`drop-shadow(0 0 4px ${accent}aa)`}}/>
+                    </div>
+                    {players[0]&&(
+                      <div className="absolute rounded-full p-[2px]" style={{width:34,height:34,background:`conic-gradient(from 180deg, ${accent}, #fff, ${accent})`,boxShadow:`0 0 10px 2px ${accent}77`}}>
+                        <div className="w-full h-full rounded-full overflow-hidden" style={{background:'#241c3d'}}>
+                          {playerPhotos[players[0].id]
+                            ?<img src={playerPhotos[players[0].id]} alt="" className="w-full h-full object-cover"/>
+                            :<div className="w-full h-full flex items-center justify-center text-[9px] font-black" style={{color:accent}}>{players[0].name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-4" style={hasFlow?{padding:'2px 16px 16px'}:{padding:16}}>
                   {/* Player avatar stack — conic-gradient ring (same "trading card"
                       language as the All-Star cards elsewhere in the app), with a
                       team logo badge floating on its corner. Falls back to a plain
                       glowing type-icon when there's no individual player (e.g. a
-                      pure team-level entry). */}
+                      pure team-level entry). Skipped when the flow header above
+                      already shows the player riding the arrow — showing it twice
+                      would be redundant. */}
+                  {!hasFlow && (
                   <div className="flex -space-x-4 flex-shrink-0">
                     {players.length>0 ? players.slice(0,3).map((p:any,i:number)=>{
                       const pTeam = teams[Math.min(i,teams.length-1)]
@@ -127,6 +187,7 @@ export default function TransactionsPage() {
                       </div>
                     )}
                   </div>
+                  )}
 
                   <div className="flex-1 min-w-0">
                     <span className="inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full mb-1.5"
@@ -143,8 +204,8 @@ export default function TransactionsPage() {
                         </span>
                       )) : tx.description}
                     </p>
-                    {players.length>0 && <p className="text-xs mt-0.5" style={{color:'#9d94b8'}}>{tx.description}</p>}
-                    {teams.length>0&&(
+                    {players.length>0 && <p className="text-xs mt-0.5" style={{color:'#c4bcd9'}}>{tx.description}</p>}
+                    {!hasFlow && teams.length>0&&(
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                         {teams.map((tm:any,i:number)=>(
                           <Link key={tm.id+i} href={`/team/${tm.id}`}
@@ -158,11 +219,11 @@ export default function TransactionsPage() {
                     )}
                   </div>
 
-                  <span className="text-xs flex-shrink-0 text-right" style={{color:'#8a83a3'}}>
+                  <span className="text-xs flex-shrink-0 text-right" style={{color:'#b3ace0'}}>
                     {tx.week_number ? (
                       <>
-                        <div className="font-semibold" style={{color:'#c9c2e0'}}>{formatSimDate(tx.week_number, isPT?'pt-PT':'en-US')}</div>
-                        <div style={{fontSize:10,opacity:0.7}}>
+                        <div className="font-semibold" style={{color:'#e4dff5'}}>{formatSimDate(tx.week_number, isPT?'pt-PT':'en-US')}</div>
+                        <div style={{fontSize:10,opacity:0.85}}>
                           {new Date(tx.created_at).toLocaleTimeString(isPT?'pt-PT':'en-US',{hour:'2-digit',minute:'2-digit'})}
                         </div>
                       </>
