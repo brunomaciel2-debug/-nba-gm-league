@@ -12,6 +12,7 @@ export default function RetirementsAdminPage() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
+  const [currentWeek, setCurrentWeek] = useState(0)
 
   const load = async () => {
     // retirement_decisions.team_id has no real foreign-key constraint to
@@ -21,16 +22,18 @@ export default function RetirementsAdminPage() {
     // this page's list empty even though the rows genuinely exist. Fetch
     // teams separately and join in JS instead (same pattern already used
     // on the Transactions page for the same reason).
-    const [{ data: dec, error: decErr }, { data: teams }] = await Promise.all([
+    const [{ data: dec, error: decErr }, { data: teams }, { data: cfg }] = await Promise.all([
       supabase.from('retirement_decisions')
         .select('*, players(name,age,pos,photo_url,real_ovr,salary,nba_experience,contract_years)')
         .order('created_at', { ascending: false }),
       supabase.from('teams').select('id,name,color,logo_url'),
+      supabase.from('season_config').select('current_week').eq('id', 1).single(),
     ])
     if (decErr) console.error('Failed to load retirement decisions:', decErr)
     const teamMap: Record<string, any> = {}
     ;(teams || []).forEach((tm: any) => { teamMap[tm.id] = tm })
     setDecisions((dec || []).map((d: any) => ({ ...d, teams: teamMap[d.team_id] })))
+    setCurrentWeek((cfg?.current_week || 0) + 1)
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -43,12 +46,27 @@ export default function RetirementsAdminPage() {
   // (in retirement-resolver.ts) applies it later, right when the NBA
   // Finals resolve. The GM only sees the real notification at that point,
   // never a hint that the Commissioner decided this ahead of time.
+  //
+  // The public Transactions feed is different — Bruno wants the league to
+  // hear the news the moment it's decided, same as real-world "player
+  // intends to retire" reporting. So a purely informational row goes there
+  // right away, in clear future tense (nothing has actually happened yet:
+  // no player/team row is touched here).
   const stay = async (d: any) => {
     setProcessing(d.id); setMsg('')
     try {
       await supabase.from('retirement_decisions').update({
         status: 'decided', decision: 'stay', decided_at: new Date().toISOString(),
       }).eq('id', d.id)
+      const contractEnded = (d.players?.contract_years ?? 1) <= 1
+      const teamName = d.teams?.name || d.team_id
+      await supabase.from('transactions').insert({
+        type: contractEnded ? 'waiver' : 'extension', category: 'player',
+        description: contractEnded
+          ? `${d.players?.name} will keep playing next season — his contract with ${teamName} is up, so he'll enter free agency at season's end`
+          : `${d.players?.name} will return for one more season with ${teamName}`,
+        teams: [d.team_id], players: [d.players?.name], player_ids: [d.player_id], status: 'completed', week_number: currentWeek,
+      })
       setMsg(isPT
         ? `✅ Decisão registada — ${d.players?.name} vai continuar a jogar. Efetiva-se no fim da época.`
         : `✅ Decision recorded — ${d.players?.name} will keep playing. Takes effect at season's end.`)
@@ -63,6 +81,11 @@ export default function RetirementsAdminPage() {
       await supabase.from('retirement_decisions').update({
         status: 'decided', decision: 'retire', decided_at: new Date().toISOString(),
       }).eq('id', d.id)
+      await supabase.from('transactions').insert({
+        type: 'retirement', category: 'player',
+        description: `${d.players?.name} will retire at the end of the season after ${d.players?.nba_experience ?? '?'} season${d.players?.nba_experience === 1 ? '' : 's'} in the league`,
+        teams: [d.team_id], players: [d.players?.name], player_ids: [d.player_id], status: 'completed', week_number: currentWeek,
+      })
       setMsg(isPT
         ? `Decisão registada — ${d.players?.name} vai reformar-se. Efetiva-se no fim da época.`
         : `Decision recorded — ${d.players?.name} will retire. Takes effect at season's end.`)
