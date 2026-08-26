@@ -424,7 +424,10 @@ export async function resolvePlayoffDay(simDate: string): Promise<{ processed: n
         ...result.homeBox.map((b: any) => ({ ...b, game_id: gameId, team_id: homeTeamId })),
         ...result.awayBox.map((b: any) => ({ ...b, game_id: gameId, team_id: awayTeamId })),
       ]
-      if (boxRows.length) await supabaseAdmin.from('box_scores').insert(boxRows)
+      // upsert on (game_id, player_id) — see ADICIONAR_UNIQUE_BOX_SCORES.sql
+      // — a physical guarantee against duplication, not just the atomic
+      // series-claim above.
+      if (boxRows.length) await supabaseAdmin.from('box_scores').upsert(boxRows, { onConflict: 'game_id,player_id' })
     }
 
     processed++

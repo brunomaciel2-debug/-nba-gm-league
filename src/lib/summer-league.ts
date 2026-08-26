@@ -224,7 +224,9 @@ async function simulateAndStore(season: string, round: string, gameNumber: numbe
     ...result.homeBox.map((b: any) => ({ ...b, game_id: game.id, team_id: homeTeamId })),
     ...result.awayBox.map((b: any) => ({ ...b, game_id: game.id, team_id: awayTeamId })),
   ]
-  if (boxRows.length) await supabaseAdmin.from('summer_league_box_scores').insert(boxRows)
+  // upsert on (game_id, player_id) — see ADICIONAR_UNIQUE_BOX_SCORES.sql —
+  // a physical guarantee against duplication.
+  if (boxRows.length) await supabaseAdmin.from('summer_league_box_scores').upsert(boxRows, { onConflict: 'game_id,player_id' })
 
   return game
 }

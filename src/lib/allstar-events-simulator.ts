@@ -79,7 +79,9 @@ async function insertGameAndBox(opts: {
   })
   const homeBoxRows = mkBox(result.homeBox, homeTeamId)
   const awayBoxRows = mkBox(result.awayBox, awayTeamId)
-  const { error: boxErr } = await supabaseAdmin.from('box_scores').insert([...homeBoxRows, ...awayBoxRows])
+  // upsert on (game_id, player_id) — see ADICIONAR_UNIQUE_BOX_SCORES.sql —
+  // so a retried or re-triggered write can never double a player's line.
+  const { error: boxErr } = await supabaseAdmin.from('box_scores').upsert([...homeBoxRows, ...awayBoxRows], { onConflict: 'game_id,player_id' })
   if (boxErr) console.warn(`box_scores insert failed for ${gameType} game:`, boxErr.message)
   if (result.pbp?.length) await supabaseAdmin.from('play_by_play').insert(result.pbp.map((p: any) => ({ ...p, game_id: gameRec.id })))
 

@@ -282,7 +282,10 @@ export async function resolveGLeaguePlayoffs(week: number, simDate: string): Pro
 
     if (gameId) {
       const withGameId = [...homeBox, ...awayBox].map(b => ({ ...b, game_id: gameId }))
-      await supabaseAdmin.from('gleague_box_scores').insert(withGameId)
+      // upsert on (game_id, player_id) — see ADICIONAR_UNIQUE_BOX_SCORES.sql
+      // — a physical guarantee against duplication, not just the atomic
+      // series-claim above.
+      await supabaseAdmin.from('gleague_box_scores').upsert(withGameId, { onConflict: 'game_id,player_id' })
     }
     processed++
 

@@ -509,7 +509,14 @@ await supabaseAdmin.from('franchise_finances').update({ fan_satisfaction: newSat
 // wiping every player's box score for the game while it still gets
 // created with a real final score. Rounding again right here is a
 // last-resort backstop so a future formula change can't reintroduce that.
-const { error: boxErr } = await supabaseAdmin.from('box_scores').insert([
+//
+// upsert on (game_id, player_id) instead of a plain insert — a real
+// incident duplicated box scores when this game's row (updated from
+// 'scheduled' above, not freshly created) got picked up and simulated
+// twice; the DB-level unique constraint (see ADICIONAR_UNIQUE_BOX_SCORES.sql)
+// now makes a second write for the same game+player a no-op update instead
+// of a second row, no matter what code path causes the re-write.
+const { error: boxErr } = await supabaseAdmin.from('box_scores').upsert([
 ...result.homeBox.map((b:any) => {
 const dc = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length
 return { ...b, mins: Math.round(b.mins||0), game_id: gameRec.id, team_id: ht.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
@@ -518,7 +525,7 @@ return { ...b, mins: Math.round(b.mins||0), game_id: gameRec.id, team_id: ht.id,
 const dc = [b.pts||0,b.reb||0,b.ast||0,b.stl||0,b.blk||0].filter((v:number)=>v>=10).length
 return { ...b, mins: Math.round(b.mins||0), game_id: gameRec.id, team_id: at.id, is_double_double: dc >= 2, is_triple_double: dc >= 3 }
 }),
-])
+], { onConflict: 'game_id,player_id' })
 if (boxErr) console.warn(`box_scores insert failed for game ${gameRec.id}:`, boxErr.message)
 if (result.pbp.length > 0) {
 await supabaseAdmin.from('play_by_play').insert(result.pbp.map((p:any) => ({ ...p, game_id: gameRec.id })))
@@ -1310,7 +1317,12 @@ if (homeBox.length>0 || awayBox.length>0) {
 // reload and a retry couldn't have fixed this, since the request itself
 // was always malformed.
 const withGameId = [...homeBox, ...awayBox].map(b => ({ ...b, game_id: game.id }))
-await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId), `gleague_box_scores insert for game ${game.id}`)
+// upsert, not insert — the real incident this fixed: the insert succeeded
+// on the server but the client saw a transient error, so withRetry retried
+// the exact same rows and doubled every player's line. A DB-level unique
+// constraint on (game_id, player_id) (see ADICIONAR_UNIQUE_BOX_SCORES.sql)
+// turns that retry into a harmless no-op update instead of a duplicate row.
+await withRetry(() => supabaseAdmin.from('gleague_box_scores').upsert(withGameId, { onConflict: 'game_id,player_id' }), `gleague_box_scores insert for game ${game.id}`)
 }
 
 const homeRec = ensureTeamRecord(game.home)
@@ -1414,7 +1426,10 @@ const homeBox2 = scaleToScore(buildTeamBox((roster2||[]).filter((p:any)=>p.gleag
 const awayBox2 = scaleToScore(buildTeamBox((roster2||[]).filter((p:any)=>p.gleague_team_id===g.away_team), g.away_team), g.away_score||0)
 if (homeBox2.length>0 || awayBox2.length>0) {
 const withGameId2 = [...homeBox2, ...awayBox2].map(b=>({...b, game_id: g.id}))
-await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId2), `gleague_box_scores backfill for game ${g.id}`)
+// upsert (see the matching note above) — this exact self-heal backfill,
+// retried after an ambiguous client-side error, is the real incident that
+// produced two full sets of randomized box scores for the same game.
+await withRetry(() => supabaseAdmin.from('gleague_box_scores').upsert(withGameId2, { onConflict: 'game_id,player_id' }), `gleague_box_scores backfill for game ${g.id}`)
 }
 }
 }
