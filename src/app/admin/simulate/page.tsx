@@ -221,21 +221,29 @@ export default function AdminSimulatePage() {
         // tell which one was real. Refreshing after every block (not just
         // at the very end) keeps them in sync with what's actually
         // happening throughout the whole run.
-        await loadPreview()
+        try { await loadPreview() } catch {}
         window.dispatchEvent(new Event('sim-updated'))
       }
     } catch (e: any) {
       const msg = `❌ ${e.message}`
       setLog(prev => [...prev, msg])
       setResult({ error: e.message })
+    } finally {
+      // A real incident: the backend fully finished (season_config had
+      // already advanced) but this final refresh's own Supabase call hit a
+      // transient error, which — sitting outside the try/catch above —
+      // threw past setLoading(false) and left the button stuck showing
+      // "Simulating..." forever. Wrapping loadPreview in its own try/catch,
+      // and moving this whole cleanup into `finally`, means setLoading(false)
+      // always runs no matter what fails.
+      try { await loadPreview() } catch {}
+      // SimulatorBanner lives in the root layout's Navbar and stays mounted
+      // across client-side navigation, so it can't tell on its own that a
+      // simulation just ran on this page — this tells it to refetch now,
+      // not just whenever the user happens to navigate elsewhere.
+      window.dispatchEvent(new Event('sim-updated'))
+      setLoading(false)
     }
-    await loadPreview()
-    // SimulatorBanner lives in the root layout's Navbar and stays mounted
-    // across client-side navigation, so it can't tell on its own that a
-    // simulation just ran on this page — this tells it to refetch now,
-    // not just whenever the user happens to navigate elsewhere.
-    window.dispatchEvent(new Event('sim-updated'))
-    setLoading(false)
   }
 
   // "Simulate 1 Day" — caps this call to just the earliest unsimulated
@@ -278,14 +286,17 @@ export default function AdminSimulatePage() {
     } catch (e: any) {
       setLog(prev => [...prev, `❌ ${e.message}`])
       setResult({ error: e.message })
+    } finally {
+      // See the matching note in simulate() — a failed refresh here must
+      // never prevent setLoading(false) from running.
+      try { await loadPreview() } catch {}
+      // SimulatorBanner lives in the root layout's Navbar and stays mounted
+      // across client-side navigation, so it can't tell on its own that a
+      // simulation just ran on this page — this tells it to refetch now,
+      // not just whenever the user happens to navigate elsewhere.
+      window.dispatchEvent(new Event('sim-updated'))
+      setLoading(false)
     }
-    await loadPreview()
-    // SimulatorBanner lives in the root layout's Navbar and stays mounted
-    // across client-side navigation, so it can't tell on its own that a
-    // simulation just ran on this page — this tells it to refetch now,
-    // not just whenever the user happens to navigate elsewhere.
-    window.dispatchEvent(new Event('sim-updated'))
-    setLoading(false)
   }
 
   // "Simulate 1 Week" — keeps calling complete-block until the CURRENT week
@@ -315,14 +326,17 @@ export default function AdminSimulatePage() {
     } catch (e: any) {
       setLog(prev => [...prev, `❌ ${e.message}`])
       setResult({ error: e.message })
+    } finally {
+      // See the matching note in simulate() — a failed refresh here must
+      // never prevent setLoading(false) from running.
+      try { await loadPreview() } catch {}
+      // SimulatorBanner lives in the root layout's Navbar and stays mounted
+      // across client-side navigation, so it can't tell on its own that a
+      // simulation just ran on this page — this tells it to refetch now,
+      // not just whenever the user happens to navigate elsewhere.
+      window.dispatchEvent(new Event('sim-updated'))
+      setLoading(false)
     }
-    await loadPreview()
-    // SimulatorBanner lives in the root layout's Navbar and stays mounted
-    // across client-side navigation, so it can't tell on its own that a
-    // simulation just ran on this page — this tells it to refetch now,
-    // not just whenever the user happens to navigate elsewhere.
-    window.dispatchEvent(new Event('sim-updated'))
-    setLoading(false)
   }
 
   const resetLog = () => setLog([])
