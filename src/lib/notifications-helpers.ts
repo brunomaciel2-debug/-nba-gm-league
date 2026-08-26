@@ -452,6 +452,21 @@ export function notifSeasonEnd(lang: 'en'|'pt', weeksLeft: number) {
   }
 }
 
+// League-wide notice fired once, the moment the G-League regular season
+// actually ends and its playoff bracket is seeded (see
+// gleague-playoff-resolver.ts) — mirrors notifGLeagueStart's own real-
+// calendar-date framing rather than an NBA week number, since the two
+// leagues run on completely separate schedules.
+export function notifGLeaguePlayoffsBegin(lang: 'en'|'pt', startDate: string) {
+  const dateLabel = new Date(startDate + 'T12:00:00').toLocaleDateString(lang === 'pt' ? 'pt-PT' : 'en-US', { month: 'long', day: 'numeric' })
+  return {
+    subject: lang === 'pt' ? `🏆 A época regular da G-League terminou!` : `🏆 The G-League regular season has ended!`,
+    body: lang === 'pt'
+      ? `A época regular da G-League chegou ao fim e o quadro de playoffs já está definido. Os jogos começam a ${dateLabel} — consulta a página da G-League (menu G-League → Playoffs) para veres os confrontos.`
+      : `The G-League regular season is over and the playoff bracket is set. Games begin ${dateLabel} — check the G-League page (G-League menu → Playoffs) to see the matchups.`,
+  }
+}
+
 export function notifGLeagueStart(lang: 'en'|'pt') {
   return {
     subject: lang === 'pt' ? `🏀 A G-League está prestes a começar` : `🏀 The G-League is about to start`,

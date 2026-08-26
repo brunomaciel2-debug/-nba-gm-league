@@ -1407,6 +1407,55 @@ const glpResult = await resolveGLeaguePlayoffs(week, lastProcessedDayForPlayoffs
 if (glpResult.processed > 0) console.log(`G-League playoffs — games simulated: ${glpResult.processed}`)
 } catch (glpErr) { console.warn('G-League playoff step failed:', glpErr) }
 
+// G-League MVP — revealed only once the G-League's OWN regular season
+// ends (its own real calendar, matching every other G-League step in this
+// file — never the NBA's week===40), not gated behind the playoffs having
+// started. Same Game Score formula used everywhere else this season (game
+// MVP, All-Star tiebreaks, Rising Stars/3PT Contest selection), averaged
+// across the whole regular season. Eligibility floor is scaled to the
+// G-League's much shorter 36-game season at the same proportion the NBA's
+// own MVP award uses for its 82-game one (65/82 ≈ 78% → 28/36) — a flat
+// copy of 65 would disqualify almost the entire G-League. Naturally
+// idempotent (upsert) like the NBA awards above, so recomputing on every
+// later call is harmless and just re-confirms the same winner.
+try {
+const { count: glPendingRegularForMvp } = await supabaseAdmin.from('gleague_games')
+.select('*', { count: 'exact', head: true }).eq('season', '2025-26').eq('game_type', 'regular').eq('status', 'scheduled')
+if (glPendingRegularForMvp === 0) {
+const GL_MVP_MIN_GAMES = 28
+const { data: glMvpStats } = await supabaseAdmin.from('gleague_player_stats')
+.select('*').eq('season', '2025-26').gte('games', GL_MVP_MIN_GAMES)
+if (glMvpStats && glMvpStats.length > 0) {
+const glMvpScores = glMvpStats.map((s:any) => {
+const g = s.games || 1
+const gmSc = (s.pts||0) + 0.4*(s.fgm||0) - 0.7*(s.fga||0) - 0.4*((s.fta||0)-(s.ftm||0))
++ 0.7*(s.off_reb||0) + 0.3*(s.def_reb||0) + (s.stl||0) + 0.7*(s.ast||0) + 0.7*(s.blk||0)
+- 0.4*(s.fouls||0) - (s.turnovers||0)
+return { id: s.player_id, score: gmSc/g,
+stats: { ppg:(s.pts/g).toFixed(1), rpg:(s.reb/g).toFixed(1), apg:(s.ast/g).toFixed(1), games:g } }
+}).sort((a:any,b:any)=>b.score-a.score)
+if (glMvpScores[0]) {
+// A pure G-League player has no NBA players.team_id of his own (that's
+// what runPostSimNotifications' generic "new award" notifier normally
+// reads to find who to tell) — his gleague_team_id's NBA affiliate is
+// the actual GM this award is relevant to, so it's stamped onto the
+// award row's own team_id, which that notifier falls back to.
+const { data: mvpPlayer } = await supabaseAdmin.from('players').select('gleague_team_id').eq('id', glMvpScores[0].id).single()
+let affiliateTeamId: string | null = null
+if (mvpPlayer?.gleague_team_id) {
+const { data: glTeam } = await supabaseAdmin.from('gleague_teams').select('nba_affiliate').eq('id', mvpPlayer.gleague_team_id).single()
+affiliateTeamId = glTeam?.nba_affiliate || null
+}
+await supabaseAdmin.from('awards').upsert({
+season:'2025-26', award_type:'gleague_mvp', period:'season',
+player_id:glMvpScores[0].id, team_id: affiliateTeamId, score:glMvpScores[0].score,
+stats_context:glMvpScores[0].stats, notes:'G League Most Valuable Player'
+},{onConflict:'season,award_type,period'})
+}
+}
+}
+} catch (glMvpErr) { console.warn('G-League MVP step failed:', glMvpErr) }
+
 // A capped call that didn't cover every day in this half yet (pre-season
 // friendlies/ticks have no other way to detect "still more to do" the way
 // the regular-season games check above does, since preseason has no

@@ -605,6 +605,9 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     all_nba_1:'1st Team All-NBA', all_nba_2:'2nd Team All-NBA', all_nba_3:'3rd Team All-NBA',
     all_rookie_1:'1st Rookie Team', all_rookie_2:'2nd Rookie Team',
     all_star_east:'Eastern Conference All-Star', all_star_west:'Western Conference All-Star',
+    rising_stars_rookie:'Rising Stars (Rookie)', rising_stars_sophomore:'Rising Stars (Sophomore)',
+    rising_stars_mvp:'Rising Stars MVP', three_point_contest:'Three-Point Contest Champion',
+    gleague_mvp:'G League MVP',
   }
   const AWARD_LABELS_PT: Record<string,string> = {
     mvp:'MVP', dpoy:'Melhor Defesa da Liga', roy:'Melhor Rookiee da Época',
@@ -612,6 +615,9 @@ export async function runPostSimNotifications(week: number, gamesCreated: string
     all_nba_1:'1º Quinteto All-NBA', all_nba_2:'2º Quinteto All-NBA', all_nba_3:'3º Quinteto All-NBA',
     all_rookie_1:'1º Quinteto de Rookies', all_rookie_2:'2º Quinteto de Rookies',
     all_star_east:'All-Star da Conferência Este', all_star_west:'All-Star da Conferência Oeste',
+    rising_stars_rookie:'Rising Stars (Rookie)', rising_stars_sophomore:'Rising Stars (Sophomore)',
+    rising_stars_mvp:'MVP do Rising Stars', three_point_contest:'Campeão do Concurso de Triplos',
+    gleague_mvp:'MVP da G League',
   }
 
   for (const award of (recentAwards||[])) {

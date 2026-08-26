@@ -1,5 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildTeamBox } from '@/lib/gleague-simulator'
+import { notify } from '@/lib/notifications'
+import { getTeamLang, notifGLeaguePlayoffsBegin } from '@/lib/notifications-helpers'
 
 const SEASON = '2025-26'
 
@@ -128,6 +130,16 @@ async function seedBracket(playoffsStart: string, finalsStart: string) {
   // Round 1 always falls on the announced playoffs-start date itself
   // (dateForSeries('r1_...')) — using playoffsStart directly here instead.
   for (const p of round1Pairs) await ensurePlaceholderGame(p.seriesType, p.home, p.low, playoffsStart)
+
+  // League-wide notice — seedBracket() only ever runs once per season (the
+  // caller only invokes it when no series exist yet), so no extra
+  // idempotency guard is needed here.
+  const { data: nbaTeams } = await supabaseAdmin.from('teams').select('id').not('id', 'in', '(ALL,RVS,ROO,SOP)')
+  for (const t of (nbaTeams || [])) {
+    const lang = await getTeamLang(t.id)
+    const notif = notifGLeaguePlayoffsBegin(lang, playoffsStart)
+    await notify(t.id, 'gleague_playoffs_begin', notif.subject, notif.body, {})
+  }
 }
 
 async function advanceWinner(seriesType: string, winnerId: string, playoffsStart: string, finalsStart: string) {
