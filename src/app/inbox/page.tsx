@@ -306,6 +306,12 @@ export default function InboxPage() {
                             {isPT?'Ver All-Stars →':'View All-Stars →'}
                           </a>
                         )}
+                        {msg.metadata?.view_retirements_page&&(
+                          <a href="/admin/retirements"
+                             style={{display:'inline-block',fontSize:12,fontWeight:600,padding:'5px 12px',borderRadius:6,background:'#b45309',color:'#fff',textDecoration:'none'}}>
+                            {isPT?'Rever Retiros →':'Review Retirements →'}
+                          </a>
+                        )}
                         {/* Whatever entity this notification is about — same
                             "quiet chip" pattern as Box Score/Review Trade
                             above, added here instead of turning the body text

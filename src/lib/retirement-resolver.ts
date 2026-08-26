@@ -65,7 +65,7 @@ export async function queueRetirementDecisions(): Promise<{ queued: number }> {
     to_team_id: 'commissioner', type: 'system',
     subject: `🏀 ${toQueue.length} retirement decision${toQueue.length !== 1 ? 's' : ''} pending`,
     body: `${toQueue.length} veteran player${toQueue.length !== 1 ? 's are' : ' is'} old enough to consider retirement this season. Review at /admin/retirements.`,
-    read: false, metadata: { count: toQueue.length },
+    read: false, metadata: { count: toQueue.length, view_retirements_page: true },
   })
 
   return { queued: toQueue.length }
