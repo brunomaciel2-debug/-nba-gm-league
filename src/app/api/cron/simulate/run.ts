@@ -8,7 +8,8 @@ import { homeWinProb, updateElo } from '@/lib/elo-helper'
 import { getStatusForWeek, getHalfWeekDates, getWeekDates, getWeekForDate, SEASON_WEEK_START, formatSimMonthName, formatWeekRange, formatHalfWeekRange } from '@/lib/season-week-helper'
 import { simulateGame } from '@/lib/game-simulator'
 import { simulatePreseasonGame } from '@/lib/preseason-simulator'
-import { getTeamLang, notifRookieOptionEligible, notifSeasonAwardsRevealed } from '@/lib/notifications-helpers'
+import { getTeamLang, notifRookieOptionEligible, notifSeasonAwardsRevealed, notifPlayoffsBegin } from '@/lib/notifications-helpers'
+import { seedNBAPlayoffBracket } from '@/lib/playoff-resolver'
 import { rookieOptionSalary } from '@/lib/draft-constants'
 import { medicalCostAfterInsurance, recurrenceWindowWeeks, recurrenceBodyPartWeightBoost, mentalIssueSidelines, InjurySeverity } from '@/lib/injury-constants'
 import { checkForNewInteractions, refreshMonitoredProgress, resolveMonitoredInteractions } from '@/lib/player-interactions'
@@ -1390,6 +1391,45 @@ await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId
 }
 }
 } catch(glErr) { console.warn('G-League sim error:', glErr) }
+
+// NBA Play-In/playoff bracket — seeded automatically the moment the
+// regular season actually has no scheduled games left, rather than
+// requiring the Commissioner to remember to click "Generate Playoffs" in
+// Admin. Checks the real games table (never a guessed week number) so it
+// still fires correctly even when the season's own schedule finishes
+// early or late relative to its nominal week boundary — the exact
+// mismatch a real incident already exposed once (the schedule finished 16
+// days ahead of its announced end date). Guarded to run exactly once per
+// season; the manual "Generate Playoffs" button still works afterward as
+// a re-seed/override if ever needed.
+try {
+const { count: nbaPendingRegular } = await supabaseAdmin.from('games')
+.select('*', { count: 'exact', head: true }).eq('season', '2025-26').eq('game_type', 'regular').eq('status', 'scheduled')
+if (nbaPendingRegular === 0) {
+const { count: nbaExistingPlayoffSeries } = await supabaseAdmin.from('playoff_series')
+.select('*', { count: 'exact', head: true }).eq('season', '2025-26')
+if (!nbaExistingPlayoffSeries) {
+const { count: nbaAnyPlayed } = await supabaseAdmin.from('games')
+.select('*', { count: 'exact', head: true }).eq('season', '2025-26').eq('game_type', 'regular').eq('status', 'final')
+if (nbaAnyPlayed && nbaAnyPlayed > 0) {
+const seedResult = await seedNBAPlayoffBracket()
+if (seedResult.success) {
+console.log(`NBA playoff bracket seeded automatically — ${seedResult.created} series created`)
+const { data: nbaTeamsForNotice } = await supabaseAdmin.from('teams').select('id').not('id', 'in', '(ALL,RVS,ROO,SOP)')
+const { data: playInEvent } = await supabaseAdmin.from('season_events')
+.select('start_date').eq('season', '2025-26').eq('event_key', 'play_in').maybeSingle()
+for (const t of (nbaTeamsForNotice || [])) {
+const lang = await getTeamLang(t.id)
+const notif = notifPlayoffsBegin(lang, playInEvent?.start_date || null)
+await notify(t.id, 'playoffs_begin', notif.subject, notif.body, {})
+}
+} else {
+console.warn('NBA playoff bracket auto-seed failed:', seedResult.error)
+}
+}
+}
+}
+} catch (nbaPlayoffSeedErr) { console.warn('NBA playoff auto-seed step failed:', nbaPlayoffSeedErr) }
 
 // G-League playoffs — runs on the G-League's own calendar (see
 // gleague-playoff-resolver.ts's self-guard), completely independent of
