@@ -55,8 +55,10 @@ export default function RetirementsAdminPage() {
       })
       await supabase.from('inbox_messages').insert({
         to_team_id: d.team_id, type: 'contract',
-        subject: `🏀 ${d.players?.name} is returning for one more season!`,
-        body: `${d.players?.name} has decided to continue his career for at least one more year with your team.`,
+        subject: isPT ? `🏀 ${d.players?.name} vai continuar!` : `🏀 ${d.players?.name} is coming back!`,
+        body: isPT
+          ? `Após ponderação, ${d.players?.name} decidiu que ainda não é altura de pendurar as botas — vai continuar a vestir as cores de ${d.teams?.name || d.team_id} por mais uma época.`
+          : `After careful consideration, ${d.players?.name} has decided it isn't time to hang up his sneakers just yet — he'll suit up for ${d.teams?.name || d.team_id} for at least one more season.`,
         read: false, metadata: { player_id: d.player_id },
       })
       setMsg(isPT ? `✅ ${d.players?.name} continua na equipa.` : `✅ ${d.players?.name} stays with the team.`)
@@ -79,8 +81,10 @@ export default function RetirementsAdminPage() {
       })
       await supabase.from('inbox_messages').insert({
         to_team_id: d.team_id, type: 'contract',
-        subject: `👋 ${d.players?.name} has retired`,
-        body: `${d.players?.name} has announced his retirement from professional basketball. Thank you for the memories.`,
+        subject: isPT ? `👋 ${d.players?.name} anuncia a reforma` : `👋 ${d.players?.name} has retired`,
+        body: isPT
+          ? `Após ponderação, ${d.players?.name} decidiu que chegou a altura de pendurar as botas e encerrar a carreira profissional. Obrigado pelas memórias.`
+          : `After careful consideration, ${d.players?.name} has decided it's time to hang up his sneakers and step away from professional basketball. Thank you for the memories.`,
         read: false, metadata: { player_id: d.player_id },
       })
       setMsg(isPT ? `${d.players?.name} retirou-se.` : `${d.players?.name} has retired.`)
