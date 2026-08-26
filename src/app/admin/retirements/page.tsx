@@ -15,13 +15,24 @@ export default function RetirementsAdminPage() {
   const [currentWeek, setCurrentWeek] = useState(0)
 
   const load = async () => {
-    const [{ data: dec }, { data: cfg }] = await Promise.all([
+    // retirement_decisions.team_id has no real foreign-key constraint to
+    // teams.id (it's just a plain text column that happens to hold a team
+    // abbreviation), so PostgREST can't embed teams(...) directly — asking
+    // for it fails the WHOLE query with a PGRST200 error, silently leaving
+    // this page's list empty even though the rows genuinely exist. Fetch
+    // teams separately and join in JS instead (same pattern already used
+    // on the Transactions page for the same reason).
+    const [{ data: dec, error: decErr }, { data: cfg }, { data: teams }] = await Promise.all([
       supabase.from('retirement_decisions')
-        .select('*, players(name,age,pos,photo_url,real_ovr,salary,nba_experience), teams(name,color,logo_url)')
+        .select('*, players(name,age,pos,photo_url,real_ovr,salary,nba_experience)')
         .order('created_at', { ascending: false }),
       supabase.from('season_config').select('current_week').eq('id', 1).single(),
+      supabase.from('teams').select('id,name,color,logo_url'),
     ])
-    setDecisions(dec || [])
+    if (decErr) console.error('Failed to load retirement decisions:', decErr)
+    const teamMap: Record<string, any> = {}
+    ;(teams || []).forEach((tm: any) => { teamMap[tm.id] = tm })
+    setDecisions((dec || []).map((d: any) => ({ ...d, teams: teamMap[d.team_id] })))
     setCurrentWeek((cfg?.current_week || 0) + 1)
     setLoading(false)
   }
