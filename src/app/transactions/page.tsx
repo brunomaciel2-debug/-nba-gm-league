@@ -12,6 +12,8 @@ const TYPE_STYLE: Record<string,{bg:string,color:string}> = {
   suspension: {bg:'#1a1a00',color:'#ffcc00'},
   extension:  {bg:'#0a2030',color:'#0ea5e9'},
   retirement: {bg:'#2a1808',color:'#fbbf24'},
+  gleague_assign: {bg:'#0a1f2a',color:'#38bdf8'},
+  gleague_recall: {bg:'#0a1f2a',color:'#38bdf8'},
 }
 
 // The "Player(s)"/"Staff" tag at the start of each row — orthogonal to the
@@ -45,7 +47,11 @@ export default function TransactionsPage() {
   },[])
 
   const TYPE_LABELS_PT: Record<string,string> = {
-    trade:'TRADE',signing:'CONTRATO',waiver:'WAIVER',suspension:'SUSPENSÃO',extension:'RENOVAÇÃO',retirement:'RETIRADA'
+    trade:'TRADE',signing:'CONTRATO',waiver:'WAIVER',suspension:'SUSPENSÃO',extension:'RENOVAÇÃO',retirement:'RETIRADA',
+    gleague_assign:'G-LEAGUE ↓',gleague_recall:'G-LEAGUE ↑'
+  }
+  const TYPE_LABELS_EN: Record<string,string> = {
+    gleague_assign:'G-LEAGUE ↓',gleague_recall:'G-LEAGUE ↑'
   }
   const CATEGORY_LABELS_PT: Record<string,string> = { player:'Jogador(es)', staff:'Staff' }
   const CATEGORY_LABELS_EN: Record<string,string> = { player:'Player(s)', staff:'Staff' }
@@ -65,7 +71,7 @@ export default function TransactionsPage() {
         <div className="flex flex-col gap-3">
           {txs.map((tx:any)=>{
             const style=TYPE_STYLE[tx.type]||{bg:'#f0ece5',color:'#6b5f4e'}
-            const typeLabel = isPT ? (TYPE_LABELS_PT[tx.type]||tx.type.toUpperCase()) : tx.type.toUpperCase()
+            const typeLabel = isPT ? (TYPE_LABELS_PT[tx.type]||tx.type.toUpperCase()) : (TYPE_LABELS_EN[tx.type]||tx.type.toUpperCase())
             const category = tx.category || 'player'
             const catStyle = CATEGORY_STYLE[category] || CATEGORY_STYLE.player
             const catLabel = isPT ? (CATEGORY_LABELS_PT[category]||category) : (CATEGORY_LABELS_EN[category]||category)
