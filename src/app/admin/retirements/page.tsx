@@ -24,7 +24,7 @@ export default function RetirementsAdminPage() {
     // on the Transactions page for the same reason).
     const [{ data: dec, error: decErr }, { data: cfg }, { data: teams }] = await Promise.all([
       supabase.from('retirement_decisions')
-        .select('*, players(name,age,pos,photo_url,real_ovr,salary,nba_experience)')
+        .select('*, players(name,age,pos,photo_url,real_ovr,salary,nba_experience,contract_years)')
         .order('created_at', { ascending: false }),
       supabase.from('season_config').select('current_week').eq('id', 1).single(),
       supabase.from('teams').select('id,name,color,logo_url'),
@@ -41,27 +41,55 @@ export default function RetirementsAdminPage() {
   // A GM never sees that this was the Commissioner's call — every message
   // reads like a natural roster event (a player deciding for himself), same
   // spirit as the retirement_warning heads-up sent earlier in the season.
+  //
+  // "Stay" only means he isn't retiring — it says nothing about WHERE he
+  // plays next. A player with 1 (or 0) contract_years left is finishing the
+  // last season of his deal; nothing obligates him to re-sign with this
+  // team, so he walks into free agency instead of being auto-extended here.
+  // Unlike a cut, this is a natural expiry: no dead cap, and the team's
+  // cap space actually opens back up.
   const stay = async (d: any) => {
     setProcessing(d.id); setMsg('')
     try {
-      await supabase.from('players').update({ contract_years: 1 }).eq('id', d.player_id)
+      const contractEnded = (d.players?.contract_years ?? 1) <= 1
+      if (contractEnded) {
+        const { data: team } = await supabase.from('teams').select('cap_used').eq('id', d.team_id).single()
+        await supabase.from('players').update({
+          team_id: null, contract_years: 0, previous_team_id: d.team_id, dead_cap_amount: 0,
+        }).eq('id', d.player_id)
+        if (team) {
+          await supabase.from('teams').update({
+            cap_used: Math.max(0, (team.cap_used || 0) - (d.players?.salary || 0)),
+          }).eq('id', d.team_id)
+        }
+      } else {
+        // Still has years left on his deal — nothing changes, he was never leaving.
+      }
       await supabase.from('retirement_decisions').update({
         status: 'decided', decision: 'stay', decided_at: new Date().toISOString(),
       }).eq('id', d.id)
       await supabase.from('transactions').insert({
-        type: 'extension', category: 'player',
-        description: `${d.players?.name} returns for one more season with ${d.teams?.name || d.team_id}`,
+        type: contractEnded ? 'waiver' : 'extension', category: 'player',
+        description: contractEnded
+          ? `${d.players?.name}'s contract with ${d.teams?.name || d.team_id} expires; he decides to keep playing and becomes a free agent`
+          : `${d.players?.name} returns for one more season with ${d.teams?.name || d.team_id}`,
         teams: [d.team_id], players: [d.players?.name], player_ids: [d.player_id], status: 'completed', week_number: currentWeek,
       })
       await supabase.from('inbox_messages').insert({
         to_team_id: d.team_id, type: 'contract',
         subject: isPT ? `🏀 ${d.players?.name} vai continuar!` : `🏀 ${d.players?.name} is coming back!`,
-        body: isPT
-          ? `Após ponderação, ${d.players?.name} decidiu que ainda não é altura de pendurar as botas — vai continuar a vestir as cores de ${d.teams?.name || d.team_id} por mais uma época.`
-          : `After careful consideration, ${d.players?.name} has decided it isn't time to hang up his sneakers just yet — he'll suit up for ${d.teams?.name || d.team_id} for at least one more season.`,
+        body: contractEnded
+          ? (isPT
+              ? `Após ponderação, ${d.players?.name} decidiu que ainda não é altura de pendurar as botas. Como o contrato com ${d.teams?.name || d.team_id} chegou ao fim, vai entrar no mercado como agente livre.`
+              : `After careful consideration, ${d.players?.name} has decided it isn't time to hang up his sneakers just yet. With his contract with ${d.teams?.name || d.team_id} up, he'll enter free agency looking for his next team.`)
+          : (isPT
+              ? `Após ponderação, ${d.players?.name} decidiu que ainda não é altura de pendurar as botas — vai continuar a vestir as cores de ${d.teams?.name || d.team_id} por mais uma época.`
+              : `After careful consideration, ${d.players?.name} has decided it isn't time to hang up his sneakers just yet — he'll suit up for ${d.teams?.name || d.team_id} for at least one more season.`),
         read: false, metadata: { player_id: d.player_id },
       })
-      setMsg(isPT ? `✅ ${d.players?.name} continua na equipa.` : `✅ ${d.players?.name} stays with the team.`)
+      setMsg(contractEnded
+        ? (isPT ? `✅ ${d.players?.name} continua a jogar, agora como agente livre.` : `✅ ${d.players?.name} keeps playing, now a free agent.`)
+        : (isPT ? `✅ ${d.players?.name} continua na equipa.` : `✅ ${d.players?.name} stays with the team.`))
       await load()
     } catch (e: any) { setMsg(`${isPT ? 'Erro' : 'Error'}: ` + e.message) }
     setProcessing(null)
@@ -131,6 +159,7 @@ export default function RetirementsAdminPage() {
             {pending.map((d: any) => {
               const tc = readableTeamColor(d.teams?.color || '555')
               const p = d.players
+              const contractEnded = (p?.contract_years ?? 1) <= 1
               return (
                 <div key={d.id} className="rounded-xl p-4" style={{ background: '#faf8f5', border: '1px solid #d4cdc5', borderLeft: '4px solid #b45309' }}>
                   <div className="flex items-center gap-3 mb-3">
@@ -139,7 +168,14 @@ export default function RetirementsAdminPage() {
                         : <div className="w-full h-full flex items-center justify-center text-sm font-black" style={{ color: tc }}>{p?.name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}</div>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-lg" style={{ color: '#1a1512' }}>{p?.name}</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="font-bold text-lg" style={{ color: '#1a1512' }}>{p?.name}</div>
+                        {contractEnded && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#fef3c7', color: '#b45309' }}>
+                            {isPT ? 'Contrato termina esta época' : 'Contract ends this season'}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs" style={{ color: '#6b5f4e' }}>
                         {p?.pos} · {isPT ? 'Idade' : 'Age'} {p?.age} · OVR {p?.real_ovr} · {d.teams?.name || d.team_id}
                         {p?.nba_experience != null && ` · ${p.nba_experience} ${isPT ? 'época(s) na liga' : 'season(s) in the league'}`}
@@ -149,7 +185,11 @@ export default function RetirementsAdminPage() {
                   <div className="flex gap-2 pt-3" style={{ borderTop: '1px solid #e2dcd5' }}>
                     <button onClick={() => stay(d)} disabled={processing === d.id}
                       className="px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-40" style={{ background: '#15803d', color: '#fff' }}>
-                      {processing === d.id ? (isPT ? 'A processar...' : 'Processing...') : `🏀 ${isPT ? 'Fica +1 Ano' : 'Stays +1 Year'}`}
+                      {processing === d.id
+                        ? (isPT ? 'A processar...' : 'Processing...')
+                        : contractEnded
+                          ? `🏀 ${isPT ? 'Continua a Jogar (Free Agent)' : 'Keeps Playing (Free Agent)'}`
+                          : `🏀 ${isPT ? 'Fica +1 Ano' : 'Stays +1 Year'}`}
                     </button>
                     <button onClick={() => retire(d)} disabled={processing === d.id}
                       className="px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-40" style={{ background: '#b45309', color: '#fff' }}>
