@@ -157,7 +157,16 @@ export async function resolveGLeaguePlayoffs(week: number, simDate: string): Pro
       season: SEASON, week_number: weekForSeries(s.series_type),
       home_team: homeTeamId, away_team: awayTeamId,
       home_score: homeScore, away_score: awayScore, status: 'final',
-      played_at: new Date().toISOString(), game_type: 'playoff',
+      // The SIMULATED calendar date this call is processing, not real
+      // wall-clock time — every other gleague_games row (and the /gleague
+      // Schedule tab's own week grouping, which buckets purely off
+      // played_at) treats played_at as a date on the simulated season
+      // timeline. A real incident: this used to stamp new Date() (today's
+      // real-world date), so a playoff game "played" on the simulated
+      // calendar's Mar 31 showed up dated whatever day the cron actually
+      // ran in real life — nowhere near the games it was supposed to sit
+      // beside on the schedule.
+      played_at: `${simDate}T20:00:00.000Z`, game_type: 'playoff',
     }).select().single()
 
     if (gameRec) {

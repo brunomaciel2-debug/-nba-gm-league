@@ -231,7 +231,7 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
                 {finalGames.map((g:any,i:number)=>{
                   const hWon=(g.home_score||0)>(g.away_score||0); const htc=readableTeamColor(g.home?.color||'#1d4ed8'); const atc=readableTeamColor(g.away?.color||'#c8102e')
                   return(
-                    <div key={g.id} className="flex items-center gap-3 px-4 py-3" style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
+                    <Link key={g.id} href={`/gleague/game/${g.id}`} className="flex items-center gap-3 px-4 py-3 no-underline hover:brightness-95 transition-all" style={{background:i%2===0?'#faf8f5':'#f5f1eb',borderBottom:'1px solid #e2dcd5'}}>
                       <div className="text-xs w-16 flex-shrink-0" style={{color:'#8a8279'}}>{g.played_at?new Date(g.played_at).toLocaleDateString(isPT?'pt-PT':'en-US',{month:'short',day:'numeric'}):'—'}</div>
                       <div className="flex items-center gap-2 flex-1 justify-end"><span className="text-sm font-semibold" style={{color:hWon?htc:'#5c554e'}}>{g.home?.name}</span>{g.home?.logo_url&&<img src={g.home.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}</div>
                       <div className="flex items-center gap-2 flex-shrink-0 px-2">
@@ -240,7 +240,7 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
                         <span className="text-base font-black w-8" style={{color:!hWon?'#15803d':'#dc2626'}}>{g.away_score}</span>
                       </div>
                       <div className="flex items-center gap-2 flex-1">{g.away?.logo_url&&<img src={g.away.logo_url} alt="" className="w-6 h-6 object-contain flex-shrink-0"/>}<span className="text-sm font-semibold" style={{color:!hWon?atc:'#5c554e'}}>{g.away?.name}</span></div>
-                    </div>
+                    </Link>
                   )
                 })}
               </div>
@@ -330,10 +330,22 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
         playoffSeries.forEach((s:any)=>{ seriesByType[s.series_type]=s })
         const bracketSeeded = playoffSeries.length > 0
 
-        const TeamLine = ({team,isWinner,empty}:{team:any,isWinner:boolean,empty:boolean})=>(
+        // Same round->week_number mapping as gleague-playoff-resolver.ts's
+        // weekForSeries() — the playoff_series row itself has no game_id of
+        // its own, so a completed series' box score is found by matching
+        // its round's week_number against the two teams involved in the
+        // already-loaded `games` list (single game per series, so this pair
+        // is always unique).
+        const weekForRound = (seriesType:string) => seriesType.startsWith('r1_')?14 : seriesType.startsWith('r2_')?15 : seriesType.startsWith('cf_')?16 : 17
+        const findSeriesGame = (seriesType:string, teamHigh:string, teamLow:string) => games.find((g:any) =>
+          g.game_type==='playoff' && g.week_number===weekForRound(seriesType) &&
+          ((g.home_team===teamHigh && g.away_team===teamLow) || (g.home_team===teamLow && g.away_team===teamHigh)))
+
+        const TeamLine = ({team,isWinner,empty,score}:{team:any,isWinner:boolean,empty:boolean,score?:number})=>(
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{background:isWinner?'#dcfce7':'#faf8f5',border:'1px solid '+(isWinner?'#15803d':'#d4cdc5'),opacity:empty?0.5:1}}>
             {team?.logo_url?<img src={team.logo_url} alt="" style={{width:22,height:22,objectFit:'contain',flexShrink:0}}/>:<div style={{width:22,height:22,flexShrink:0}}/>}
             <span className="text-xs font-semibold truncate flex-1" style={{color:isWinner?'#15803d':'#1a1512'}}>{team?.name||'TBD'}</span>
+            {score!=null&&<span className="text-xs font-black" style={{color:isWinner?'#15803d':'#8a8279'}}>{score}</span>}
             {isWinner&&<span style={{fontSize:11,color:'#15803d'}}>✓</span>}
           </div>
         )
@@ -343,15 +355,20 @@ supabase.from('gleague_player_stats').select('*, player:players(id,name,pos,age,
           const low = s?.team_low ? teamById[s.team_low] : null
           const completed = s?.status === 'completed'
           const winnerId = completed ? (s.wins_high > s.wins_low ? s.team_high : s.team_low) : null
-          return (
+          const game = completed ? findSeriesGame(seriesType, s.team_high, s.team_low) : null
+          const highScore = game ? (game.home_team===s.team_high?game.home_score:game.away_score) : undefined
+          const lowScore = game ? (game.home_team===s.team_low?game.home_score:game.away_score) : undefined
+          const box = (
             <div className="rounded-xl p-2" style={{background:'#f0ece5',border:'1px solid #d4cdc5',minWidth:170}}>
               <div className="text-xs font-bold uppercase mb-1.5 text-center" style={{color:'#8a8279',letterSpacing:'0.5px'}}>{label}</div>
               <div className="flex flex-col gap-1">
-                <TeamLine team={high} isWinner={winnerId===s?.team_high} empty={!high}/>
-                <TeamLine team={low} isWinner={winnerId===s?.team_low} empty={!low}/>
+                <TeamLine team={high} isWinner={winnerId===s?.team_high} empty={!high} score={highScore}/>
+                <TeamLine team={low} isWinner={winnerId===s?.team_low} empty={!low} score={lowScore}/>
               </div>
+              {game&&<div className="text-center text-[10px] font-bold mt-1" style={{color:'#1d4ed8'}}>{isPT?'Ver Box Score →':'View Box Score →'}</div>}
             </div>
           )
+          return game ? <Link href={`/gleague/game/${game.id}`} className="no-underline hover:brightness-95 transition-all">{box}</Link> : box
         }
         const ConfBracket = ({conf}:{conf:'eastern'|'western'})=>(
           <div className="flex flex-col gap-3 items-center">
