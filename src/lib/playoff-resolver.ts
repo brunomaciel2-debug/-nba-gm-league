@@ -228,8 +228,32 @@ async function mostRecentGameDate(teamId: string): Promise<string | null> {
 // own "day yes, day no" cadence from its own last game (a rest day in
 // between, so +2 — e.g. Apr 20 -> Apr 21 off -> Apr 22); both teams share
 // that same last game, so no max needed.
+//
+// The Play-In round is the one exception: "each team's own last game + 3
+// rest days" only ever looks at the TWO teams in that one series, with no
+// idea what the rest of the league — or the calendar — is doing. A real
+// incident: PHI and DET both happened to wrap up their regular seasons on
+// the same early date, so their Play-In game landed 3 days later — a date
+// that turned out to be BEFORE some other team's own regular-season game
+// even got played (the schedule doesn't force every team to finish on the
+// same day), and three and a half weeks before the real announced Play-In
+// start (season_events.play_in). Anchoring Play-In games to that announced
+// date instead — and the bye-team Round 1 matchups (3v6/4v5, whose 6
+// seeds never touch a Play-In game at all) to right after the Play-In
+// window closes — keeps every round genuinely sequential on the league's
+// real calendar instead of racing ahead the moment just two teams happen
+// to be individually ready.
 async function computeNextGameDate(s: any): Promise<string | null> {
   if ((s.wins_high || 0) + (s.wins_low || 0) === 0) {
+    if (s.round === 1) {
+      const { data: playInEvent } = await supabaseAdmin.from('season_events')
+        .select('start_date,end_date').eq('season', SEASON).eq('event_key', 'play_in').maybeSingle()
+      if (s.series_type?.startsWith('playin_')) {
+        if (playInEvent?.start_date) return playInEvent.start_date
+      } else if (playInEvent?.end_date) {
+        return addDays(playInEvent.end_date, 1)
+      }
+    }
     const [highDate, lowDate] = await Promise.all([mostRecentGameDate(s.team_high), mostRecentGameDate(s.team_low)])
     if (!highDate || !lowDate) return null
     const readyDate = highDate > lowDate ? highDate : lowDate

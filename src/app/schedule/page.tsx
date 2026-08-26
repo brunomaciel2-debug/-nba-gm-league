@@ -150,6 +150,17 @@ function ScheduleContent() {
     const key=ymd(d)
     if(!(key in firstGameIdOfDate))firstGameIdOfDate[key]=g.id
   })
+  // Earliest date with a still-'scheduled' (not yet decided) game — used
+  // below to prefer landing there over the plain "closest date to today"
+  // pick. Real incident this fixes: a batch of Play-In games got booked
+  // across a couple of different due-dates a day or two apart (each
+  // team's own regular season had wrapped up on a slightly different
+  // day), and "closest to today" landed on the LATEST of those dates —
+  // leaving an earlier, equally-upcoming game sitting just above the fold,
+  // invisible unless you happened to scroll up past the landing point.
+  const earliestUpcomingDate = Object.keys(firstGameIdOfDate)
+    .filter(k=>games.find((g:any)=>g.id===firstGameIdOfDate[k])?.status!=='final')
+    .sort()[0]
 
   // Runs once the page has finished loading AND rendered the games list —
   // the target row's id doesn't exist in the DOM until then. If the exact
@@ -160,9 +171,13 @@ function ScheduleContent() {
     if (loading || !jumpToDate) return
     let target = jumpToDate
     if (!(target in firstGameIdOfDate)) {
+      // Any still-undecided game takes priority over the plain "closest
+      // date to today" pick — it's exactly what "what's coming up" means,
+      // even if it's dated a day or two before today's exact date (see
+      // earliestUpcomingDate above for the real incident this covers).
       const next = Object.keys(firstGameIdOfDate).filter(k=>k>=jumpToDate).sort()[0]
       const prev = Object.keys(firstGameIdOfDate).filter(k=>k<jumpToDate).sort().pop()
-      target = next || prev || target
+      target = earliestUpcomingDate || next || prev || target
     }
     // 'auto' (instant), not 'smooth' — a real incident found while testing
     // this exact jump: smooth scrollIntoView silently never actually moved

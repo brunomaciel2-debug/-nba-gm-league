@@ -110,40 +110,52 @@ export default function TransactionsPage() {
                 {/* Top accent beam — bright, futuristic, keyed to the transaction type */}
                 <div className="absolute top-0 left-0 right-0 h-[3px]" style={{background:`linear-gradient(90deg, transparent, ${accent}, transparent)`, boxShadow:`0 0 16px 1px ${accent}aa`}}/>
 
-                {hasFlow && (
-                  <div className="flex items-center justify-center gap-4 pt-4 px-4">
-                    {[fromEndpoint,toEndpoint].map((ep:any,i:number)=>{
-                      const epColor = ep.color ? readableTeamColorOnDark(ep.color) : accent
-                      return (
-                        <div key={i} className="flex flex-col items-center gap-1.5" style={{width:76}}>
-                          <div className="rounded-full flex items-center justify-center" style={{width:52,height:52,background:`radial-gradient(circle, ${epColor}33 0%, transparent 75%)`,border:`2px solid ${epColor}88`,boxShadow:`0 0 16px 2px ${epColor}55`}}>
-                            {ep.logo_url?<img src={ep.logo_url} alt="" className="w-8 h-8 object-contain"/>:<span className="text-lg">🏀</span>}
-                          </div>
-                          <span className="text-[10px] font-bold text-center leading-tight" style={{color:'#d6d0e8'}}>{ep.name}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-                {hasFlow && (
-                  <div className="relative flex items-center justify-center" style={{marginTop:-52,height:52,pointerEvents:'none'}}>
-                    {/* Arrow shaft between the two logos, with the moving player's
-                        photo riding on top of it — the actual "who" behind the move. */}
-                    <div className="flex items-center" style={{width:'calc(100% - 152px)',maxWidth:220}}>
+                {hasFlow && (()=>{
+                  // Player-in-the-middle layout: FROM logo -> arrow -> PLAYER
+                  // photo (the largest, dominant element — the actual subject
+                  // of the move) -> arrow -> TO logo. Every team logo sits on
+                  // a plain light circle (never the team's own color) so a
+                  // logo that happens to share the team's accent hue (very
+                  // common — most crests ARE the team color) never blends
+                  // into its own backdrop the way a color-tinted circle did.
+                  const player = players[0]
+                  const Arrow = () => (
+                    <div className="flex items-center flex-1" style={{minWidth:24,maxWidth:56}}>
                       <div className="flex-1 h-[2px]" style={{background:`linear-gradient(90deg, transparent, ${accent})`}}/>
                       <div style={{width:0,height:0,borderTop:'5px solid transparent',borderBottom:'5px solid transparent',borderLeft:`8px solid ${accent}`,filter:`drop-shadow(0 0 4px ${accent}aa)`}}/>
                     </div>
-                    {players[0]&&(
-                      <div className="absolute rounded-full p-[2px]" style={{width:34,height:34,background:`conic-gradient(from 180deg, ${accent}, #fff, ${accent})`,boxShadow:`0 0 10px 2px ${accent}77`}}>
-                        <div className="w-full h-full rounded-full overflow-hidden" style={{background:'#241c3d'}}>
-                          {playerPhotos[players[0].id]
-                            ?<img src={playerPhotos[players[0].id]} alt="" className="w-full h-full object-cover"/>
-                            :<div className="w-full h-full flex items-center justify-center text-[9px] font-black" style={{color:accent}}>{players[0].name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                  )
+                  const TeamBadge = ({ep}:{ep:any}) => {
+                    const epColor = ep.color ? readableTeamColorOnDark(ep.color) : accent
+                    return (
+                      <div className="flex flex-col items-center gap-1.5 flex-shrink-0" style={{width:72}}>
+                        <div className="rounded-full flex items-center justify-center" style={{width:56,height:56,background:'#f5f1eb',border:`2.5px solid ${epColor}`,boxShadow:`0 0 14px 1px ${epColor}77`}}>
+                          {ep.logo_url?<img src={ep.logo_url} alt="" className="w-9 h-9 object-contain"/>:<span className="text-lg">🏀</span>}
                         </div>
+                        <span className="text-[10px] font-bold text-center leading-tight" style={{color:'#d6d0e8'}}>{ep.name}</span>
                       </div>
-                    )}
-                  </div>
-                )}
+                    )
+                  }
+                  return (
+                    <div className="flex items-center justify-center gap-2 pt-4 px-4">
+                      <TeamBadge ep={fromEndpoint}/>
+                      <Arrow/>
+                      {player && (
+                        <div className="flex flex-col items-center gap-1.5 flex-shrink-0" style={{width:88}}>
+                          <div className="rounded-full p-[3px]" style={{width:80,height:80,background:`conic-gradient(from 180deg, ${accent}, #fff, ${accent}, #fde68a, ${accent})`,boxShadow:`0 0 20px 3px ${accent}77`}}>
+                            <div className="w-full h-full rounded-full overflow-hidden" style={{background:'#241c3d'}}>
+                              {playerPhotos[player.id]
+                                ?<img src={playerPhotos[player.id]} alt="" className="w-full h-full object-cover"/>
+                                :<div className="w-full h-full flex items-center justify-center text-lg font-black" style={{color:accent}}>{player.name?.split(' ').map((n:string)=>n[0]).join('').slice(0,2)}</div>}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <Arrow/>
+                      <TeamBadge ep={toEndpoint}/>
+                    </div>
+                  )
+                })()}
 
                 <div className="flex items-center gap-4" style={hasFlow?{padding:'2px 16px 16px'}:{padding:16}}>
                   {/* Player avatar stack — conic-gradient ring (same "trading card"
