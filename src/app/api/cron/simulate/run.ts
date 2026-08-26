@@ -23,7 +23,7 @@ import { resolveAllStarWeekend, resolveRisingStars } from '@/lib/allstar-resolve
 import { ALLSTAR_WEEK, ALLSTAR_HALF } from '@/lib/allstar-constants'
 import { simulateRisingStarsGame, simulateAllStarGame, simulateThreePointContest } from '@/lib/allstar-events-simulator'
 import { buildTeamBox } from '@/lib/gleague-simulator'
-import { resolveGLeaguePlayoffs } from '@/lib/gleague-playoff-resolver'
+import { resolveGLeaguePlayoffs, recallExpiredGLeagueAssignments } from '@/lib/gleague-playoff-resolver'
 import { resolveRetirementWarnings, queueRetirementDecisions } from '@/lib/retirement-resolver'
 import { getAllTeamsTacticalState } from '@/lib/tactical-resolver'
 import { computeFamiliarity, computeTacticalMods, OffSystem } from '@/lib/tactical-constants'
@@ -74,6 +74,34 @@ return all
 // in one full-block call or several one-day-at-a-time ones.
 export async function runWeeklySimulation(opts?: { dayLimit?: number }) {
 const dayLimit = opts?.dayLimit
+
+// Global lock — a real incident: two calls to this function landed about
+// half a minute apart (an admin double-click, or a manual trigger
+// overlapping a cron tick) and both independently read and resolved the
+// same not-yet-committed G-League playoff series, each writing its own
+// randomly-simulated result on top of the other's. This function does a
+// huge amount of sequential work per call (games, awards, notifications,
+// playoffs, ...) with dozens of early-return branches, any of which could
+// otherwise let two overlapping calls step on each other's writes
+// somewhere else, not just the one spot this was actually caught. One lock
+// around the WHOLE function makes "only one simulate runs at a time" an
+// actual guarantee instead of a per-function judgment call repeated
+// wherever a race happens to get noticed.
+// A stale lock (the last call crashed/timed out mid-run without reaching
+// the `finally` below) self-clears after 10 minutes — comfortably longer
+// than this function's own maxDuration budget would ever need for a
+// legitimate run, so it can never mask a real still-in-progress call.
+const LOCK_STALE_MS = 10 * 60 * 1000
+const staleThreshold = new Date(Date.now() - LOCK_STALE_MS).toISOString()
+const { data: claimedLock } = await supabaseAdmin.from('season_config')
+.update({ simulating_since: new Date().toISOString() })
+.eq('id', 1)
+.or(`simulating_since.is.null,simulating_since.lt.${staleThreshold}`)
+.select()
+if (!claimedLock || claimedLock.length === 0) {
+return NextResponse.json({ success: false, message: 'A simulation is already running — try again in a moment.' }, { status: 409 })
+}
+
 try {
 // Pending GM decisions (flat-rate FA pickups, staff-offer hiring, Free
 // Agency week negotiation, Draft rounds/lottery, expired confirmations)
@@ -1446,6 +1474,14 @@ const lastProcessedDayForPlayoffs = cappedDates.length > 0 ? cappedDates[cappedD
 const glpResult = await resolveGLeaguePlayoffs(week, lastProcessedDayForPlayoffs)
 if (glpResult.processed > 0) console.log(`G-League playoffs — games simulated: ${glpResult.processed}`)
 } catch (glpErr) { console.warn('G-League playoff step failed:', glpErr) }
+
+// Auto-recall NBA players on G-League assignment the moment their
+// affiliate's OWN season is over (eliminated, or never qualified) — was
+// previously left entirely to the GM to notice and undo manually.
+try {
+const recallResult = await recallExpiredGLeagueAssignments()
+if (recallResult.recalled > 0) console.log(`G-League assignments auto-recalled: ${recallResult.recalled}`)
+} catch (recallErr) { console.warn('G-League auto-recall step failed:', recallErr) }
 
 // G-League MVP — revealed only once the G-League's OWN regular season
 // ends (its own real calendar, matching every other G-League step in this
@@ -3003,6 +3039,13 @@ console.log(`Scouting points generated for ${scoutResult.updated} teams`)
 return NextResponse.json({ success: true, week, half: 2, games_simulated: gamesSimulated, friendlies_simulated: friendliesSimulated })
 } catch (err: any) {
 return NextResponse.json({ error: err.message }, { status: 500 })
+} finally {
+// Always release the lock, however this call actually exits — the dozens
+// of early `return`s scattered through the try block above all still run
+// through this same finally on their way out, same as a normal fall-
+// through or the catch above; only a hard process kill would skip it,
+// which is exactly what the 10-minute staleness fallback above covers.
+await supabaseAdmin.from('season_config').update({ simulating_since: null }).eq('id', 1)
 }
 }
 

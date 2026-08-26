@@ -1,7 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildTeamBox } from '@/lib/gleague-simulator'
 import { notify } from '@/lib/notifications'
-import { getTeamLang, notifGLeaguePlayoffsBegin } from '@/lib/notifications-helpers'
+import { getTeamLang, notifGLeaguePlayoffsBegin, notifGLeagueSeasonRecall } from '@/lib/notifications-helpers'
 
 const SEASON = '2025-26'
 
@@ -233,6 +233,25 @@ export async function resolveGLeaguePlayoffs(week: number, simDate: string): Pro
 
     const homeScore = homeBox.reduce((sum, b) => sum + b.pts, 0)
     const awayScore = awayBox.reduce((sum, b) => sum + b.pts, 0)
+    const homeWon = homeScore > awayScore
+    const winnerId = homeWon ? homeTeamId : awayTeamId
+    const loserId = homeWon ? awayTeamId : homeTeamId
+
+    // Atomic claim, BEFORE writing anything else — a real incident: two
+    // simulate calls landed ~33 seconds apart, both read this same series
+    // while it was still 'active', both built and wrote a full (differently
+    // randomized) box score for it, and both called advanceWinner. The
+    // `.eq('status', s.status)` guard means only the FIRST of two
+    // concurrent calls actually flips the row — Postgres serializes
+    // concurrent UPDATEs to the same row, so exactly one of them observes
+    // its own write taking effect and gets rows back; the other's WHERE no
+    // longer matches (status already changed under it) and gets none back,
+    // and bails out here before touching gleague_games/box_scores/
+    // advanceWinner at all.
+    const { data: claimed } = await supabaseAdmin.from('gleague_playoff_series')
+      .update({ status: 'completed', wins_high: homeWon ? 1 : 0, wins_low: homeWon ? 0 : 1 })
+      .eq('id', s.id).eq('status', s.status).select()
+    if (!claimed || claimed.length === 0) continue // another call already resolved this series
 
     // The 'scheduled' placeholder for this series should already exist
     // (booked the moment its matchup became known, in seedBracket/fillSlot
@@ -271,14 +290,60 @@ export async function resolveGLeaguePlayoffs(week: number, simDate: string): Pro
     // gleague_teams.wins/losses (same as the NBA bracket): those numbers
     // are the regular-season record this bracket was seeded from, and must
     // stay that way for next season's seeding too.
-    const homeWon = homeScore > awayScore
-    const winnerId = homeWon ? homeTeamId : awayTeamId
-    const loserId = homeWon ? awayTeamId : homeTeamId
-    await supabaseAdmin.from('gleague_playoff_series').update({
-      status: 'completed', wins_high: homeWon ? 1 : 0, wins_low: homeWon ? 0 : 1,
-    }).eq('id', s.id)
     await advanceWinner(s.series_type, winnerId, playoffsStart, finalsStart)
     if (s.series_type === 'gl_finals') await recordChampionship(winnerId, loserId)
   }
   return { processed }
+}
+
+// Automatically recalls any NBA player on assignment the moment his
+// G-League affiliate's OWN season is genuinely over — eliminated from the
+// playoffs, or never qualified in the first place — instead of leaving him
+// parked there indefinitely until his GM remembers to bring him back
+// manually. A team's season is over once it appears in no still-open
+// (non-completed) playoff series AND has no games left on the schedule —
+// true immediately after the regular season ends for the 14 non-playoff
+// teams (they never touch a playoff_series row at all), and true for a
+// playoff team the moment its most recent series completes without it
+// advancing to fill the next round's slot.
+export async function recallExpiredGLeagueAssignments(): Promise<{ recalled: number }> {
+  const { count: pendingRegular } = await supabaseAdmin.from('gleague_games')
+    .select('*', { count: 'exact', head: true }).eq('season', SEASON).eq('game_type', 'regular').eq('status', 'scheduled')
+  if (pendingRegular && pendingRegular > 0) return { recalled: 0 } // regular season still going — nobody's "done" yet
+
+  const { data: assigned } = await supabaseAdmin.from('players')
+    .select('id,name,team_id,gleague_team_id').eq('on_gleague_assignment', true).not('gleague_team_id', 'is', null)
+  if (!assigned?.length) return { recalled: 0 }
+
+  const [{ data: openSeries }, { data: scheduledGames }] = await Promise.all([
+    supabaseAdmin.from('gleague_playoff_series').select('team_high,team_low').eq('season', SEASON).neq('status', 'completed'),
+    supabaseAdmin.from('gleague_games').select('home_team,away_team').eq('season', SEASON).eq('status', 'scheduled'),
+  ])
+  const teamsStillPlaying = new Set<string>()
+  for (const s of (openSeries || [])) { if (s.team_high) teamsStillPlaying.add(s.team_high); if (s.team_low) teamsStillPlaying.add(s.team_low) }
+  for (const g of (scheduledGames || [])) { teamsStillPlaying.add(g.home_team); teamsStillPlaying.add(g.away_team) }
+
+  let recalled = 0
+  for (const p of assigned) {
+    if (teamsStillPlaying.has(p.gleague_team_id)) continue // this team still has a game left
+
+    const { data: glTeam } = await supabaseAdmin.from('gleague_teams').select('name').eq('id', p.gleague_team_id).single()
+    await supabaseAdmin.from('players').update({ on_gleague_assignment: false, gleague_team_id: null }).eq('id', p.id)
+    recalled++
+
+    if (!p.team_id) continue // shouldn't normally happen — an assigned player always keeps his NBA team_id
+    const lang = await getTeamLang(p.team_id)
+    const notif = notifGLeagueSeasonRecall(lang, p.name, glTeam?.name || p.gleague_team_id)
+    await notify(p.team_id, 'gleague_recall', notif.subject, notif.body, {})
+    try {
+      await supabaseAdmin.from('transactions').insert({
+        type: 'gleague_recall', category: 'player',
+        description: `${p.name} recalled from the G-League (${glTeam?.name || p.gleague_team_id} — season ended)`,
+        teams: [p.team_id], players: [p.name], player_ids: [p.id],
+        status: 'completed',
+        details: { from: { kind: 'gleague_team', id: p.gleague_team_id }, to: { kind: 'nba_team', id: p.team_id } },
+      })
+    } catch (txErr) { console.warn('Failed to record automatic G-League recall transaction', txErr) }
+  }
+  return { recalled }
 }

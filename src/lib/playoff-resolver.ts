@@ -353,6 +353,29 @@ export async function resolvePlayoffDay(simDate: string): Promise<{ processed: n
     const refereeId = refIds.length ? pickTopTierReferee(refIds, avgRatings) : null
     const refereeRating = refereeId ? rateRefereePerformance(result.homeBox, result.awayBox, false, true) : null
 
+    const homeWon = result.homeScore > result.awayScore
+    const newWinsHigh = (s.wins_high || 0) + (homeIsHigh ? (homeWon ? 1 : 0) : (homeWon ? 0 : 1))
+    const newWinsLow = (s.wins_low || 0) + (homeIsHigh ? (homeWon ? 0 : 1) : (homeWon ? 1 : 0))
+    const seriesDone = newWinsHigh >= majorityNeeded || newWinsLow >= majorityNeeded
+
+    // Atomic claim, BEFORE writing the game/box scores — a real incident on
+    // the G-League side (same shape of code): two simulate calls landed
+    // about half a minute apart, both read this same series before either
+    // had written back, both simulated and saved a full (differently
+    // randomized) game for it. The `.eq('wins_high', s.wins_high)
+    // .eq('wins_low', s.wins_low)` guard means only the FIRST of two
+    // concurrent calls actually advances the series' win count — Postgres
+    // serializes concurrent UPDATEs to the same row, so the other call's
+    // WHERE no longer matches (the counts already moved under it) and gets
+    // no rows back, bailing out here before touching games/box_scores/
+    // advanceWinner at all.
+    const { data: claimed } = await supabaseAdmin.from('playoff_series')
+      .update(seriesDone
+        ? { wins_high: newWinsHigh, wins_low: newWinsLow, status: 'completed', next_game_date: null }
+        : { wins_high: newWinsHigh, wins_low: newWinsLow, next_game_date: addDays(nextGameDate, 2) })
+      .eq('id', s.id).eq('wins_high', s.wins_high).eq('wins_low', s.wins_low).select()
+    if (!claimed || claimed.length === 0) continue // another call already advanced this series
+
     // The 'scheduled' placeholder for this exact game should already exist
     // (booked above, the moment its date became known) — finish it in
     // place, same pattern used for the G-League playoffs and the All-Star
@@ -395,21 +418,13 @@ export async function resolvePlayoffDay(simDate: string): Promise<{ processed: n
       if (boxRows.length) await supabaseAdmin.from('box_scores').insert(boxRows)
     }
 
-    const homeWon = result.homeScore > result.awayScore
-    const newWinsHigh = (s.wins_high || 0) + (homeIsHigh ? (homeWon ? 1 : 0) : (homeWon ? 0 : 1))
-    const newWinsLow = (s.wins_low || 0) + (homeIsHigh ? (homeWon ? 0 : 1) : (homeWon ? 1 : 0))
     processed++
 
-    if (newWinsHigh >= majorityNeeded || newWinsLow >= majorityNeeded) {
+    if (seriesDone) {
       const winnerId = newWinsHigh > newWinsLow ? s.team_high : s.team_low
       const loserId = newWinsHigh > newWinsLow ? s.team_low : s.team_high
-      await supabaseAdmin.from('playoff_series').update({ wins_high: newWinsHigh, wins_low: newWinsLow, status: 'completed', next_game_date: null }).eq('id', s.id)
       await advanceWinner(s.series_type, winnerId, loserId)
       if (s.series_type === 'nba_finals') { await resolveFinalsMVP(winnerId, loserId); await recordChampionship(winnerId, loserId) }
-    } else {
-      // Series continues — "day yes, day no": one rest day in between, so
-      // the next game is 2 days after this one.
-      await supabaseAdmin.from('playoff_series').update({ wins_high: newWinsHigh, wins_low: newWinsLow, next_game_date: addDays(nextGameDate, 2) }).eq('id', s.id)
     }
   }
   return { processed }

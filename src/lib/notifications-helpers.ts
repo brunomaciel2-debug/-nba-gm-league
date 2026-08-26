@@ -457,6 +457,19 @@ export function notifSeasonEnd(lang: 'en'|'pt', weeksLeft: number) {
 // gleague-playoff-resolver.ts) — mirrors notifGLeagueStart's own real-
 // calendar-date framing rather than an NBA week number, since the two
 // leagues run on completely separate schedules.
+// Fired once per player, the moment their G-League affiliate's own season
+// is genuinely finished (no regular-season or playoff games left for THAT
+// specific team — eliminated, or never qualified) — an automatic recall,
+// not something the GM has to remember to do manually.
+export function notifGLeagueSeasonRecall(lang: 'en'|'pt', player: string, gleagueTeamName: string) {
+  return {
+    subject: lang === 'pt' ? `🔼 ${player} regressou da G-League!` : `🔼 ${player} is back from the G-League!`,
+    body: lang === 'pt'
+      ? `A época dos ${gleagueTeamName} na G-League terminou, por isso ${player} voltou automaticamente à tua equipa principal.`
+      : `${gleagueTeamName}'s G-League season has ended, so ${player} has automatically returned to your main roster.`,
+  }
+}
+
 export function notifGLeaguePlayoffsBegin(lang: 'en'|'pt', startDate: string) {
   const dateLabel = new Date(startDate + 'T12:00:00').toLocaleDateString(lang === 'pt' ? 'pt-PT' : 'en-US', { month: 'long', day: 'numeric' })
   return {
