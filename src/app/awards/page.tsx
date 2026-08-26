@@ -309,7 +309,7 @@ function SeasonAwardCard({award,meta,isPT,featured}:{award:any,meta:any,isPT:boo
       </div>
       <Link href={isCoach?`/staff/${entity.id}`:`/player/${entity.id}`} className="no-underline">
         <div className={`relative flex flex-col items-center px-5 ${featured?'pt-5 pb-7':'pt-3 pb-5'}`}>
-          <div className="rounded-full mb-4" style={{
+          <div className="relative rounded-full mb-4" style={{
             width:photoSize,height:photoSize,padding:4,
             background:`conic-gradient(from 180deg, ${tc}, #fff, ${tc}, ${meta.color}, ${tc})`,
             boxShadow:`0 0 0 4px ${DARK_BG}, 0 0 32px 6px ${tc}aa`}}>
