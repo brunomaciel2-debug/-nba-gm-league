@@ -142,12 +142,19 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
     if (a.period?.startsWith('month_')) return 'monthly'
     return 'season'
   }
+  // Only one season exists today, but the awards table already carries a
+  // real `season` column per row — this dropdown just needs to keep
+  // working once a second season's worth of rows shows up, defaulting to
+  // the most recent one instead of dumping every season into one list.
+  const awardSeasons = Array.from(new Set(playerAwards.map((a:any)=>a.season))).sort((a,b)=>b.localeCompare(a))
+  const [selectedAwardSeason, setSelectedAwardSeason] = useState<string>(awardSeasons[0]||'')
+  const awardsForSeason = playerAwards.filter((a:any)=>a.season===selectedAwardSeason)
   const [awardFilter, setAwardFilter] = useState<'all'|'season'|'monthly'|'weekly'>('all')
-  const seasonAwardsList = playerAwards.filter(a=>categorizeAward(a)==='season')
-  const monthlyAwardsList = playerAwards.filter(a=>categorizeAward(a)==='monthly')
-  const weeklyAwardsList = playerAwards.filter(a=>categorizeAward(a)==='weekly')
+  const seasonAwardsList = awardsForSeason.filter(a=>categorizeAward(a)==='season')
+  const monthlyAwardsList = awardsForSeason.filter(a=>categorizeAward(a)==='monthly')
+  const weeklyAwardsList = awardsForSeason.filter(a=>categorizeAward(a)==='weekly')
   const AWARD_FILTERS = [
-    ['all', isPT?'Todos':'All', playerAwards.length],
+    ['all', isPT?'Todos':'All', awardsForSeason.length],
     ['season', isPT?'Época & All-Star':'Season & All-Star', seasonAwardsList.length],
     ['monthly', isPT?'Mensais':'Monthly', monthlyAwardsList.length],
     ['weekly', isPT?'Semanais':'Weekly', weeklyAwardsList.length],
@@ -737,7 +744,22 @@ export default function PlayerPageClient({ player, stats, teamMap, transactions,
 
       {/* AWARDS */}
       <div className="mt-2">
-        <div className="sec-hdr mb-4"><span className="sec-title">{isPT?'Prémios & Distinções':'Awards & Honours'}</span></div>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+          <div className="sec-hdr" style={{marginBottom:0}}><span className="sec-title">{isPT?'Prémios & Distinções':'Awards & Honours'}</span></div>
+          {awardSeasons.length>0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-widest" style={{color:'#8a8279',letterSpacing:'1px'}}>{isPT?'Época:':'Season:'}</span>
+              <select
+                value={selectedAwardSeason}
+                onChange={e=>{setSelectedAwardSeason(e.target.value);setAwardFilter('all')}}
+                disabled={awardSeasons.length<=1}
+                className="text-sm font-semibold px-3 py-1.5 rounded-lg"
+                style={{background:'#faf8f5',border:'1px solid #d4cdc5',color:'#1a1512',opacity:awardSeasons.length<=1?0.7:1}}>
+                {awardSeasons.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
         {playerAwards.length === 0 ? (
           <div className="rounded-xl overflow-hidden" style={{border:'1px solid #d4cdc5'}}>
             <div className="px-4 py-6 text-center" style={{background:'#faf8f5'}}>
