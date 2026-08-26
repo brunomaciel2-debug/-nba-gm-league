@@ -107,8 +107,19 @@ async function recordChampionship(championId: string, runnerUpId: string) {
 // idempotent, call-repeatedly shape as playoff-resolver.ts. Only begins
 // once every regular-season G-League game has actually been played (the
 // real schedule decides, never a guessed week number — see the comment
-// history in run.ts's G-League catch-up block for why that matters here).
-export async function resolveGLeaguePlayoffs(week: number): Promise<{ processed: number }> {
+// history in run.ts's G-League catch-up block for why that matters here)
+// AND the calendar has actually reached the announced "G League Playoffs
+// Begin" date (season_events.gleague_playoffs). Without this second gate,
+// a real incident: the regular season finished (Mar 26) several days
+// before that announced date (Mar 31), and this function — having nothing
+// else to check — seeded the bracket and blew through Round 1 and Round 2
+// on the very next two calls, all before the date the app itself was
+// telling GMs the playoffs would begin.
+export async function resolveGLeaguePlayoffs(week: number, simDate: string): Promise<{ processed: number }> {
+  const { data: playoffsEvent } = await supabaseAdmin.from('season_events')
+    .select('start_date').eq('season', SEASON).eq('event_key', 'gleague_playoffs').maybeSingle()
+  if (playoffsEvent?.start_date && simDate < playoffsEvent.start_date) return { processed: 0 }
+
   const { count: pendingRegular } = await supabaseAdmin.from('gleague_games')
     .select('*', { count: 'exact', head: true }).eq('season', SEASON).eq('game_type', 'regular').eq('status', 'scheduled')
   if (pendingRegular && pendingRegular > 0) return { processed: 0 }

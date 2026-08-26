@@ -1387,7 +1387,13 @@ await withRetry(() => supabaseAdmin.from('gleague_box_scores').insert(withGameId
 // season G-League catch-up above matches real calendar dates instead of
 // the NBA's week_number.
 try {
-const glpResult = await resolveGLeaguePlayoffs(week)
+// Same "last day THIS call actually simulated, falling back to the
+// already-stored last_sim_day" cutoff as the G-League regular-season
+// catch-up above (cappedDates/cfg are both in scope here too) — the real
+// calendar date this call has reached, used to gate the playoffs' own
+// announced start date.
+const lastProcessedDayForPlayoffs = cappedDates.length > 0 ? cappedDates[cappedDates.length-1] : cfg?.last_sim_day
+const glpResult = await resolveGLeaguePlayoffs(week, lastProcessedDayForPlayoffs)
 if (glpResult.processed > 0) console.log(`G-League playoffs — games simulated: ${glpResult.processed}`)
 } catch (glpErr) { console.warn('G-League playoff step failed:', glpErr) }
 
