@@ -210,22 +210,38 @@ async function advanceWinner(seriesType: string, winnerId: string, loserId: stri
   if (advance.loserTo) await fillSeriesSlot(advance.loserTo.seriesType, advance.loserTo.slot, loserId)
 }
 
-// Maps a series to the season_events row that announces its round's start
-// date. r1/r2/conf_final/nba_finals only — Play-In has its own handling
-// below since both its "day 1" (a/b) and "day 2" (c) games key off the
-// single play_in event instead of a per-round one.
-function roundEventKeyFor(seriesType: string): string | null {
-  if (seriesType.startsWith('r1_')) return 'playoffs_r1'
-  if (seriesType.startsWith('r2_')) return 'playoffs_semis'
-  if (seriesType.startsWith('conf_final_')) return 'playoffs_conf_finals'
-  if (seriesType === 'nba_finals') return 'nba_finals'
+// Every round after Play-In cascades from ONE anchor — play_in.start_date —
+// instead of depending on 4 separately hand-set season_events rows
+// (playoffs_r1/semis/conf_finals/nba_finals) that a human has to remember
+// to space far enough apart every single season. A real incident: those
+// rows were sized for a "typical" run, and Conference Finals / NBA Finals
+// both had less than the 12 days a full 7-game round can actually take —
+// a maximal series would have bled into (or past) the next round's
+// announced start.
+//
+// ROUND_GAP_DAYS (16) is 12 days for a round that goes the full distance
+// (Game 7 = round start + 6*2 days) plus 4 rest days before the next round
+// begins — generous enough that a round can never spill into the next one,
+// this season or any future one, without anyone re-deriving this by hand
+// again. Only play_in.start_date (and whatever sets that — tied to the
+// regular season's real end) needs to be configured per season; everything
+// else below is pure arithmetic from it.
+const PLAYIN_TO_R1_GAP_DAYS = 7
+const ROUND_GAP_DAYS = 16
+
+// Days from play_in.start_date to THIS round's own start date.
+function roundStartOffsetDays(seriesType: string): number | null {
+  if (seriesType.startsWith('r1_')) return PLAYIN_TO_R1_GAP_DAYS
+  if (seriesType.startsWith('r2_')) return PLAYIN_TO_R1_GAP_DAYS + ROUND_GAP_DAYS
+  if (seriesType.startsWith('conf_final_')) return PLAYIN_TO_R1_GAP_DAYS + ROUND_GAP_DAYS * 2
+  if (seriesType === 'nba_finals') return PLAYIN_TO_R1_GAP_DAYS + ROUND_GAP_DAYS * 3
   return null
 }
 
 // Fixed calendar, not reactive team-readiness. Every game's date is fixed
 // the moment its ROUND begins — Game N of any series is always that
-// round's announced start_date + (N-1)*2 days — regardless of when its
-// actual participants get decided or how far along any OTHER series in the
+// round's start_date + (N-1)*2 days — regardless of when its actual
+// participants get decided or how far along any OTHER series in the
 // bracket is. A not-yet-determined matchup just has no game_id or games
 // row until it resolves; the date itself never depends on it.
 //
@@ -242,27 +258,25 @@ function roundEventKeyFor(seriesType: string): string | null {
 // fixed per-round calendar instead of team readiness, can't drift either
 // way again.
 async function computeNextGameDate(s: any): Promise<string | null> {
+  const { data: playInEvent } = await supabaseAdmin.from('season_events')
+    .select('start_date').eq('season', SEASON).eq('event_key', 'play_in').maybeSingle()
+  if (!playInEvent?.start_date) return null
+
   if (s.series_type?.startsWith('playin_a_') || s.series_type?.startsWith('playin_b_')) {
-    const { data: playInEvent } = await supabaseAdmin.from('season_events')
-      .select('start_date').eq('season', SEASON).eq('event_key', 'play_in').maybeSingle()
-    return playInEvent?.start_date || null
+    return playInEvent.start_date
   }
   if (s.series_type?.startsWith('playin_c_')) {
     // One fixed day after the a/b games — the c-game's own opponents
     // (loser of a, winner of b) are only known once those finish, but the
     // DATE itself never needed to wait on that.
-    const { data: playInEvent } = await supabaseAdmin.from('season_events')
-      .select('start_date').eq('season', SEASON).eq('event_key', 'play_in').maybeSingle()
-    return playInEvent?.start_date ? addDays(playInEvent.start_date, 1) : null
+    return addDays(playInEvent.start_date, 1)
   }
 
-  const eventKey = roundEventKeyFor(s.series_type)
-  if (!eventKey) return null
-  const { data: roundEvent } = await supabaseAdmin.from('season_events')
-    .select('start_date').eq('season', SEASON).eq('event_key', eventKey).maybeSingle()
-  if (!roundEvent?.start_date) return null
+  const offset = roundStartOffsetDays(s.series_type)
+  if (offset == null) return null
+  const roundStart = addDays(playInEvent.start_date, offset)
   const gameNumber = (s.wins_high || 0) + (s.wins_low || 0) + 1
-  return addDays(roundEvent.start_date, (gameNumber - 1) * 2)
+  return addDays(roundStart, (gameNumber - 1) * 2)
 }
 
 // Advances the playoff bracket by at most one game per still-open series

@@ -68,11 +68,18 @@ function ScheduleContent() {
     const d=new Date(dateStr+'T12:00:00'); d.setDate(d.getDate()+days)
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
   }
-  const roundEventKeyFor=(seriesType:string):string|null=>{
-    if(seriesType.startsWith('r1_'))return 'playoffs_r1'
-    if(seriesType.startsWith('r2_'))return 'playoffs_semis'
-    if(seriesType.startsWith('conf_final_'))return 'playoffs_conf_finals'
-    if(seriesType==='nba_finals')return 'nba_finals'
+  // Every round after Play-In cascades from ONE anchor (play_in.start_date)
+  // instead of 4 separately hand-set season_events rows — see the matching
+  // constants in computeNextGameDate (playoff-resolver.ts). 16 days per
+  // round is 12 days for a full 7-game round plus 4 rest days, generous
+  // enough a round can never spill into the next one.
+  const PLAYIN_TO_R1_GAP_DAYS=7
+  const ROUND_GAP_DAYS=16
+  const roundStartOffsetDays=(seriesType:string):number|null=>{
+    if(seriesType.startsWith('r1_'))return PLAYIN_TO_R1_GAP_DAYS
+    if(seriesType.startsWith('r2_'))return PLAYIN_TO_R1_GAP_DAYS+ROUND_GAP_DAYS
+    if(seriesType.startsWith('conf_final_'))return PLAYIN_TO_R1_GAP_DAYS+ROUND_GAP_DAYS*2
+    if(seriesType==='nba_finals')return PLAYIN_TO_R1_GAP_DAYS+ROUND_GAP_DAYS*3
     return null
   }
   const SERIES_LABEL_EN: Record<string,string> = {
@@ -86,6 +93,16 @@ function ScheduleContent() {
     r2_western_a:'Meia-Final Oeste A', r2_western_b:'Meia-Final Oeste B',
     conf_final_eastern:'Final da Conferência Este', conf_final_western:'Final da Conferência Oeste',
     nba_finals:'Finais da NBA',
+  }
+  // Round 1 has no fixed label (unlike round 2+, whose series_type alone
+  // doesn't say who's playing) — built from its seeds instead, e.g.
+  // "East Round 1 (#2 vs #7)".
+  const seriesBaseLabel = (s:any): string|undefined => {
+    if (s.series_type?.startsWith('r1_')) {
+      const conf = s.conference==='Eastern' ? (isPT?'Este':'East') : (isPT?'Oeste':'West')
+      return isPT ? `${conf} 1ª Ronda (#${s.seed_high} vs #${s.seed_low})` : `${conf} Round 1 (#${s.seed_high} vs #${s.seed_low})`
+    }
+    return isPT ? SERIES_LABEL_PT[s.series_type] : SERIES_LABEL_EN[s.series_type]
   }
 
   useEffect(()=>{
@@ -124,40 +141,61 @@ function ScheduleContent() {
           box_score: g.box_score || null,
           isWorldFriendly: true,
         }))
-      // Playoff series whose participants aren't fully known yet (still
-      // waiting on Play-In or an earlier round) never get a real `games`
-      // row — the resolver only books one once it actually has two teams
-      // to schedule. Synthesize a TBD placeholder instead, using the exact
-      // same fixed per-round calendar the resolver itself computes (see
-      // computeNextGameDate in playoff-resolver.ts): the date is known and
-      // real the moment the round starts, even before the matchup is.
+      // A best-of-7 series only ever gets ONE real `games` row booked ahead
+      // of time — the game actually due next (see "book the placeholder as
+      // soon as the date is known" in resolvePlayoffDay) — so the schedule
+      // only ever showed a single date per series, reading as if the whole
+      // round was decided in one day no matter how many games it could
+      // actually take. Synthesize the REMAINING slots (up to games_needed,
+      // normally 7) too, each on its own fixed date from the same per-round
+      // calendar the resolver computes (see computeNextGameDate in
+      // playoff-resolver.ts) — TBD for a side not decided yet, the real
+      // team once it is, since the date never depended on that anyway.
       const eventMap = Object.fromEntries((events||[]).map((e:any)=>[e.event_key,e.start_date]))
-      const normalizedSeries = (series||[])
-        .filter((s:any)=> !s.team_high || !s.team_low)
-        .map((s:any)=>{
-          let date: string|null = null
-          if (s.series_type?.startsWith('playin_a_') || s.series_type?.startsWith('playin_b_')) {
-            date = eventMap['play_in'] || null
-          } else if (s.series_type?.startsWith('playin_c_')) {
-            date = eventMap['play_in'] ? addDaysLocal(eventMap['play_in'],1) : null
-          } else {
-            const key = roundEventKeyFor(s.series_type)
-            date = key && eventMap[key] ? eventMap[key] : null
-          }
-          if (!date) return null
-          const label = isPT ? SERIES_LABEL_PT[s.series_type] : SERIES_LABEL_EN[s.series_type]
-          return {
-            id: `series-${s.id}`,
-            week_number: 0, game_number: 0,
-            home_team: s.team_high || null, away_team: s.team_low || null,
+      const realPlayoffGames = [...(g1||[]),...(g2||[])].filter((g:any)=>g.game_type==='playoff')
+      const normalizedSeries: any[] = []
+      ;(series||[]).forEach((s:any)=>{
+        let roundStart: string|null = null
+        if (s.series_type?.startsWith('playin_a_') || s.series_type?.startsWith('playin_b_')) {
+          roundStart = eventMap['play_in'] || null
+        } else if (s.series_type?.startsWith('playin_c_')) {
+          roundStart = eventMap['play_in'] ? addDaysLocal(eventMap['play_in'],1) : null
+        } else {
+          const offset = roundStartOffsetDays(s.series_type)
+          roundStart = (offset!=null && eventMap['play_in']) ? addDaysLocal(eventMap['play_in'], offset) : null
+        }
+        if (!roundStart) return
+
+        const gamesNeeded = s.games_needed || 7
+        // How many of this series' games already have a real row (played,
+        // or already booked as the next one due) — matched by team pair
+        // regardless of home/away side, so the slots below never repeat one
+        // the resolver already created.
+        const coveredCount = (s.team_high && s.team_low)
+          ? realPlayoffGames.filter((g:any)=>
+              (g.home_team===s.team_high && g.away_team===s.team_low) || (g.home_team===s.team_low && g.away_team===s.team_high)
+            ).length
+          : 0
+        const base = seriesBaseLabel(s)
+        for (let n=coveredCount+1; n<=gamesNeeded; n++) {
+          const date = addDaysLocal(roundStart, (n-1)*2)
+          // Same 2-2-1-1-1 home/away pattern the resolver itself uses.
+          const homeIsHigh = gamesNeeded===1 ? true : [1,2,5,7].includes(n)
+          normalizedSeries.push({
+            id: `series-${s.id}-g${n}`,
+            week_number: 0, game_number: n,
+            home_team: (homeIsHigh ? s.team_high : s.team_low) || null,
+            away_team: (homeIsHigh ? s.team_low : s.team_high) || null,
             home_score: null, away_score: null,
             status: 'scheduled',
             played_at: `${date}T12:00:00`,
             game_type: 'playoff',
-            seriesLabel: label,
-          }
-        })
-        .filter(Boolean)
+            seriesLabel: gamesNeeded>1
+              ? `${base?base+' · ':''}${isPT?`Jogo ${n} de ${gamesNeeded}`:`Game ${n} of ${gamesNeeded}`}`
+              : base,
+          })
+        }
+      })
       setGames([...(g1||[]),...(g2||[]),...normalizedPreseason,...normalizedSeries])
       setTeamMap(Object.fromEntries((teams||[]).map((t:any)=>[t.id,t])))
 
