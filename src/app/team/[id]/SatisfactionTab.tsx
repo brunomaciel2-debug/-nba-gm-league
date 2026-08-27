@@ -152,16 +152,31 @@ function DeltaArrow({ current, previous }: { current: number | null | undefined,
   return <span style={{ color: up ? '#15803d' : '#b91c1c', fontSize: 12, fontWeight: 700 }}>{up ? '▲' : '▼'} {Math.abs(delta).toFixed(0)}</span>
 }
 
+// A fixed-width SVG line instead of one rigid 5px+gap bar per data point —
+// a real incident: by week 40+ of the season that bar-per-week layout had
+// grown to 40 bars wanting ~280px in a header with maybe 90px to spare,
+// spilling clean past the card's right edge (and the page). An SVG polyline
+// plotted against a fixed viewBox stays exactly W px wide no matter how
+// many weeks of history feed it — points just pack closer together — so
+// this can never overflow again, this season or a much longer future one.
 function Sparkline({ values, color }: { values: number[], color: string }) {
   if (values.length < 2) return null
+  const W = 64, H = 24, PAD = 3
   const max = Math.max(...values, 100), min = Math.min(...values, 0)
   const range = max - min || 1
+  const coords = values.map((v, i) => ({
+    x: PAD + (i / (values.length - 1)) * (W - PAD * 2),
+    y: PAD + (H - PAD * 2) - ((v - min) / range) * (H - PAD * 2),
+  }))
+  const last = coords[coords.length - 1]
   return (
-    <div className="flex items-end gap-0.5" style={{ height: 28 }}>
-      {values.map((v, i) => (
-        <div key={i} style={{ width: 5, height: `${Math.max(6, ((v - min) / range) * 28)}px`, background: color, opacity: 0.4 + (i / values.length) * 0.6, borderRadius: 1 }} />
-      ))}
-    </div>
+    <svg width={W} height={H} className="flex-shrink-0">
+      <polyline
+        points={coords.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')}
+        fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" opacity={0.7}
+      />
+      <circle cx={last.x} cy={last.y} r={2.2} fill={color} />
+    </svg>
   )
 }
 
