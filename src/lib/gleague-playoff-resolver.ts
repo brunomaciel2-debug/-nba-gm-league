@@ -346,6 +346,16 @@ export async function recallExpiredGLeagueAssignments(): Promise<{ recalled: num
         status: 'completed',
         details: { from: { kind: 'gleague_team', id: p.gleague_team_id }, to: { kind: 'nba_team', id: p.team_id } },
       })
+      // Also mirror into player_transactions — powers the player page's
+      // Transfer History panel and the team page's Transactions tab, both
+      // of which only read this table and never showed any G-League move
+      // (manual or this automatic season-end one) since it only ever wrote
+      // to the legacy feed above.
+      await supabaseAdmin.from('player_transactions').insert({
+        player_id: p.id, type: 'gleague_recall',
+        from_team_id: p.gleague_team_id, to_team_id: p.team_id,
+        season: SEASON, week_number: null,
+      })
     } catch (txErr) { console.warn('Failed to record automatic G-League recall transaction', txErr) }
   }
   return { recalled }

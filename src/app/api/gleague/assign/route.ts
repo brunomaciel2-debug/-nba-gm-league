@@ -26,14 +26,25 @@ export async function POST(req: NextRequest) {
       admin.from('season_config').select('current_week').eq('id', 1).single(),
     ])
     const playerName = player?.name || `Player #${playerId}`
+    const week = cfg?.current_week ?? null
     await admin.from('transactions').insert({
       type: 'gleague_assign', category: 'player',
       description: `${playerName} assigned to the G-League (${glTeam.name})`,
       teams: [teamId], players: [playerName], player_ids: [playerId],
-      status: 'completed', week_number: cfg?.current_week ?? null,
+      status: 'completed', week_number: week,
       // Structured from/to so the Transactions feed can draw a real
       // logo-to-logo arrow instead of just naming one team in prose.
       details: { from: { kind: 'nba_team', id: teamId }, to: { kind: 'gleague_team', id: glTeam.id } },
+    })
+    // Also mirror into player_transactions — this is what powers the
+    // player page's Transfer History panel and the team page's
+    // Transactions tab, both of which only ever read this table and never
+    // showed a G-League move at all before this, since it only ever wrote
+    // to the legacy feed above.
+    await admin.from('player_transactions').insert({
+      player_id: playerId, type: 'gleague_assign',
+      from_team_id: teamId, to_team_id: glTeam.id,
+      season: '2025-26', week_number: week,
     })
   } catch (legacyErr) { console.warn('Failed to record G-League assignment transaction', legacyErr) }
 

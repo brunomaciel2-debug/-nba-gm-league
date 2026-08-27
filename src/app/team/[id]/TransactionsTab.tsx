@@ -4,11 +4,12 @@ import { supabase } from '@/lib/supabase'
 import { useTranslation } from '@/components/I18nProvider'
 import { formatWeekRange } from '@/lib/season-week-helper'
 
-const TX_LABELS_PT: Record<string,string> = { trade:'Troca', fa_signing:'Assinatura FA', cut:'Corte', draft:'Draft' }
-const TX_LABELS_EN: Record<string,string> = { trade:'Trade', fa_signing:'FA Signing', cut:'Cut', draft:'Draft' }
+const TX_LABELS_PT: Record<string,string> = { trade:'Troca', fa_signing:'Assinatura FA', cut:'Corte', draft:'Draft', gleague_assign:'Cedência à G-League', gleague_recall:'Regresso da G-League' }
+const TX_LABELS_EN: Record<string,string> = { trade:'Trade', fa_signing:'FA Signing', cut:'Cut', draft:'Draft', gleague_assign:'G-League Assignment', gleague_recall:'G-League Recall' }
 const TX_COLORS: Record<string,{color:string,bg:string}> = {
   trade:{color:'#1d4ed8',bg:'#dbeafe'}, fa_signing:{color:'#15803d',bg:'#dcfce7'},
   cut:{color:'#dc2626',bg:'#fee2e2'}, draft:{color:'#6d28d9',bg:'#ede9fe'},
+  gleague_assign:{color:'#0e7490',bg:'#cffafe'}, gleague_recall:{color:'#0e7490',bg:'#cffafe'},
 }
 
 export default function TransactionsTab({ teamId, teamColor }: { teamId: string, teamColor: string }) {
@@ -18,6 +19,7 @@ export default function TransactionsTab({ teamId, teamColor }: { teamId: string,
   const [txs, setTxs] = useState<any[]>([])
   const [playerMap, setPlayerMap] = useState<Record<string, any>>({})
   const [teamMap, setTeamMap] = useState<Record<string, any>>({})
+  const [gleagueIds, setGleagueIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     Promise.all([
@@ -25,10 +27,16 @@ export default function TransactionsTab({ teamId, teamColor }: { teamId: string,
         .or(`from_team_id.eq.${teamId},to_team_id.eq.${teamId}`)
         .order('season', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('teams').select('id,name,logo_url,color'),
-    ]).then(async ([{ data: tx }, { data: teams }]) => {
+      supabase.from('gleague_teams').select('id,name'),
+    ]).then(async ([{ data: tx }, { data: teams }, { data: glTeams }]) => {
       const tMap: Record<string, any> = {}
       for (const t2 of (teams || [])) tMap[t2.id] = t2
+      // G-League assign/recall moves store a gleague_teams id in from/to_team_id;
+      // merge those in too so the row doesn't render as a misleading "Free Agent".
+      const glSet = new Set<string>()
+      for (const g of (glTeams || [])) { tMap[g.id] = g; glSet.add(String(g.id)) }
       setTeamMap(tMap)
+      setGleagueIds(glSet)
 
       const playerIds = Array.from(new Set((tx || []).map((x: any) => x.player_id)))
       const pMap: Record<string, any> = {}
@@ -91,7 +99,7 @@ export default function TransactionsTab({ teamId, teamColor }: { teamId: string,
                     </a>
                     <div className="flex items-center gap-1.5 text-xs flex-1 min-w-0" style={{color:'#6b5f4e'}}>
                       {fromTeam ? (
-                        <a href={`/team/${fromTeam.id}`} className="no-underline" style={{fontWeight: isIncoming ? 400 : 700, color: isIncoming ? '#6b5f4e' : '#dc2626'}}>
+                        <a href={`${gleagueIds.has(String(tx.from_team_id)) ? '/gleague' : '/team'}/${fromTeam.id}`} className="no-underline" style={{fontWeight: isIncoming ? 400 : 700, color: isIncoming ? '#6b5f4e' : '#dc2626'}}>
                           {fromTeam.name}
                         </a>
                       ) : (
@@ -101,7 +109,7 @@ export default function TransactionsTab({ teamId, teamColor }: { teamId: string,
                       )}
                       <span style={{color:'#b0a89e'}}>→</span>
                       {toTeam ? (
-                        <a href={`/team/${toTeam.id}`} className="no-underline" style={{fontWeight: isIncoming ? 700 : 400, color: isIncoming ? '#15803d' : '#6b5f4e'}}>
+                        <a href={`${gleagueIds.has(String(tx.to_team_id)) ? '/gleague' : '/team'}/${toTeam.id}`} className="no-underline" style={{fontWeight: isIncoming ? 700 : 400, color: isIncoming ? '#15803d' : '#6b5f4e'}}>
                           {toTeam.name}
                         </a>
                       ) : (

@@ -24,14 +24,22 @@ export async function POST(req: NextRequest) {
       ? await admin.from('gleague_teams').select('name').eq('id', player.gleague_team_id).single()
       : { data: null }
     const { data: cfg } = await admin.from('season_config').select('current_week').eq('id', 1).single()
+    const week = cfg?.current_week ?? null
     await admin.from('transactions').insert({
       type: 'gleague_recall', category: 'player',
       description: `${playerName} recalled from the G-League${glTeam?.name ? ` (${glTeam.name})` : ''}`,
       teams: player?.team_id ? [player.team_id] : [], players: [playerName], player_ids: [playerId],
-      status: 'completed', week_number: cfg?.current_week ?? null,
+      status: 'completed', week_number: week,
       // Structured from/to so the Transactions feed can draw a real
       // logo-to-logo arrow instead of just naming one team in prose.
       details: { from: { kind: 'gleague_team', id: player?.gleague_team_id || null }, to: { kind: 'nba_team', id: player?.team_id || null } },
+    })
+    // Also mirror into player_transactions — see the matching note in
+    // gleague/assign/route.ts for why this was missing entirely before.
+    await admin.from('player_transactions').insert({
+      player_id: playerId, type: 'gleague_recall',
+      from_team_id: player?.gleague_team_id || null, to_team_id: player?.team_id || null,
+      season: '2025-26', week_number: week,
     })
   } catch (legacyErr) { console.warn('Failed to record G-League recall transaction', legacyErr) }
 
