@@ -43,6 +43,58 @@ function Seed({ team, seed, extra }: { team: any, seed: number|null, extra?: str
   )
 }
 
+// One Play-In result row — a plain "vs" plus a caption underneath used to
+// bury who actually won. Winner now gets a green highlight + checkmark,
+// loser gets faded + struck through + a red "Eliminated" or blue "→ Game C"
+// tag, so the outcome reads at a glance without following text elsewhere.
+function PlayInTeamRow({ team, seed, isWinner, isLoser, fate, isPT }: { team:any, seed:number, isWinner:boolean, isLoser:boolean, fate?:'eliminated'|'advances', isPT:boolean }) {
+  const tc = team ? readableTeamColor(team.color) : '#9c9088'
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{
+      background: isWinner ? '#dcfce7' : '#faf8f5',
+      border: `1.5px solid ${isWinner ? '#15803d' : '#e2dcd5'}`,
+      opacity: isLoser ? 0.6 : 1,
+    }}>
+      <span className="text-xs font-black w-4 flex-shrink-0" style={{color: isWinner?'#15803d':'#8a8279'}}>{seed}</span>
+      {team?.logo_url
+        ? <img src={team.logo_url} alt="" style={{width:24,height:24,objectFit:'contain',flexShrink:0}}/>
+        : <div style={{width:24,height:24,borderRadius:3,background:tc+'22',flexShrink:0}}/>}
+      <Link href={team?`/team/${team.id}`:'#'} className="no-underline truncate flex-1" style={{
+        fontSize:13, fontWeight: isWinner?800:600, color: isLoser?'#8a8279':'#1a1512',
+        textDecoration: isLoser?'line-through':'none', pointerEvents: team?'auto':'none',
+      }}>
+        {team?.name || 'TBD'}
+      </Link>
+      {isWinner && <i className="ti ti-check" style={{color:'#15803d',fontSize:14,flexShrink:0}}></i>}
+      {fate && (
+        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0" style={{
+          background: fate==='eliminated' ? '#fee2e2' : '#dbeafe',
+          color: fate==='eliminated' ? '#dc2626' : '#1d4ed8',
+        }}>
+          {fate==='eliminated' ? (isPT?'ELIMINADO':'ELIMINATED') : (isPT?'→ JOGO C':'→ GAME C')}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// A full Play-In game card — both team rows plus a small header naming the
+// game and, once decided, what's at stake for the loser (elimination vs a
+// second life in Game C) instead of a caption line below the whole thing.
+function PlayInGameCard({ label, hiTeam, hiSeed, loTeam, loSeed, completed, hiWon, loserFate, isPT }: {
+  label:string, hiTeam:any, hiSeed:number, loTeam:any, loSeed:number, completed:boolean, hiWon:boolean, loserFate:'eliminated'|'advances', isPT:boolean
+}) {
+  return (
+    <div className="rounded-xl p-2" style={{background:'#fff',border:'1px solid #e2dcd5'}}>
+      <div className="text-[10px] font-black uppercase tracking-wide mb-1.5 px-1" style={{color:'#b45309',letterSpacing:'0.5px'}}>{label}</div>
+      <div className="flex flex-col gap-1">
+        <PlayInTeamRow team={hiTeam} seed={hiSeed} isWinner={completed&&hiWon} isLoser={completed&&!hiWon} fate={completed&&!hiWon?loserFate:undefined} isPT={isPT}/>
+        <PlayInTeamRow team={loTeam} seed={loSeed} isWinner={completed&&!hiWon} isLoser={completed&&hiWon} fate={completed&&hiWon?loserFate:undefined} isPT={isPT}/>
+      </div>
+    </div>
+  )
+}
+
 function Matchup({ hiTeam, loTeam, hiSeed, loSeed, series }: { hiTeam:any, loTeam:any, hiSeed:number|null, loSeed:number|null, series?:any }) {
   // Each row reads "own wins - opponent wins" from that team's own
   // perspective (matching real broadcasts), not the same shared string
@@ -271,39 +323,25 @@ export default function PlayoffsPage() {
         <div className="grid sm:grid-cols-2 gap-4">
           {([[isPT?'Este':'Eastern','eastern',eTop],[isPT?'Oeste':'Western','western',wTop]] as [string,'eastern'|'western',any[]][]).map(([conf,c,ranked]) => {
             const a = seriesByType[`playin_a_${c}`], b = seriesByType[`playin_b_${c}`], cc = seriesByType[`playin_c_${c}`]
+            const aHi = hasRealBracket?(a?.team_high?teamMap[a.team_high]:null):ranked[6]
+            const aLo = hasRealBracket?(a?.team_low?teamMap[a.team_low]:null):ranked[7]
+            const bHi = hasRealBracket?(b?.team_high?teamMap[b.team_high]:null):ranked[8]
+            const bLo = hasRealBracket?(b?.team_low?teamMap[b.team_low]:null):ranked[9]
+            const aCompleted = hasRealBracket && a?.status==='completed'
+            const bCompleted = hasRealBracket && b?.status==='completed'
+            const ccHi = hasRealBracket && cc?.team_high ? teamMap[cc.team_high] : null
+            const ccLo = hasRealBracket && cc?.team_low ? teamMap[cc.team_low] : null
+            const ccCompleted = hasRealBracket && cc?.status==='completed'
             return (
-              <div key={conf}>
-                <div className="text-xs font-semibold mb-2" style={{color:'#8a8279'}}>{conf}</div>
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2 text-xs flex-wrap" style={{color:'#5c554e'}}>
-                    <span className="font-bold" style={{color:'#b45309'}}>{isPT?'Jogo A:':'Game A:'}</span>
-                    <Seed team={hasRealBracket?(a?.team_high?teamMap[a.team_high]:null):ranked[6]} seed={7} />
-                    <span>vs</span>
-                    <Seed team={hasRealBracket?(a?.team_low?teamMap[a.team_low]:null):ranked[7]} seed={8} />
-                    <span style={{color:'#8a8279'}}>
-                      {hasRealBracket && a?.status==='completed'
-                        ? (isPT?`→ ${teamMap[a.wins_high>a.wins_low?a.team_high:a.team_low]?.name} = posição #7`:`→ ${teamMap[a.wins_high>a.wins_low?a.team_high:a.team_low]?.name} = #7 seed`)
-                        : (isPT?'→ vencedor = posição #7':'→ winner = #7 seed')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs flex-wrap" style={{color:'#5c554e'}}>
-                    <span className="font-bold" style={{color:'#b45309'}}>{isPT?'Jogo B:':'Game B:'}</span>
-                    <Seed team={hasRealBracket?(b?.team_high?teamMap[b.team_high]:null):ranked[8]} seed={9} />
-                    <span>vs</span>
-                    <Seed team={hasRealBracket?(b?.team_low?teamMap[b.team_low]:null):ranked[9]} seed={10} />
-                    <span style={{color:'#8a8279'}}>
-                      {hasRealBracket && b?.status==='completed'
-                        ? (isPT?`→ ${teamMap[b.wins_high>b.wins_low?b.team_low:b.team_high]?.name} eliminado`:`→ ${teamMap[b.wins_high>b.wins_low?b.team_low:b.team_high]?.name} eliminated`)
-                        : (isPT?'→ perdedor eliminado':'→ loser eliminated')}
-                    </span>
-                  </div>
-                  <div className="text-xs" style={{color:'#8a8279'}}>
-                    {hasRealBracket && cc?.team_high && cc?.team_low
-                      ? (isPT
-                          ? `Jogo C: ${teamMap[cc.team_high]?.name} vs ${teamMap[cc.team_low]?.name}${cc.status==='completed'?` → ${teamMap[cc.wins_high>cc.wins_low?cc.team_high:cc.team_low]?.name} = posição #8`:''}`
-                          : `Game C: ${teamMap[cc.team_high]?.name} vs ${teamMap[cc.team_low]?.name}${cc.status==='completed'?` → ${teamMap[cc.wins_high>cc.wins_low?cc.team_high:cc.team_low]?.name} = #8 seed`:''}`)
-                      : (isPT ? 'Jogo C: perdedor(A) vs vencedor(B) → vencedor = posição #8' : 'Game C: loser(A) vs winner(B) → winner = #8 seed')}
-                  </div>
+              <div key={conf} className="rounded-xl p-3" style={{background:'#fffdf5',border:'1px solid #f0e6b8'}}>
+                <div className="text-xs font-bold mb-2" style={{color:'#8a8279'}}>{conf}</div>
+                <div className="flex flex-col gap-2">
+                  <PlayInGameCard label={isPT?'Jogo A':'Game A'} hiTeam={aHi} hiSeed={7} loTeam={aLo} loSeed={8}
+                    completed={aCompleted} hiWon={!!(a && a.wins_high>a.wins_low)} loserFate="advances" isPT={isPT}/>
+                  <PlayInGameCard label={isPT?'Jogo B':'Game B'} hiTeam={bHi} hiSeed={9} loTeam={bLo} loSeed={10}
+                    completed={bCompleted} hiWon={!!(b && b.wins_high>b.wins_low)} loserFate="eliminated" isPT={isPT}/>
+                  <PlayInGameCard label={isPT?'Jogo C — decide a posição #8':'Game C — decides the #8 seed'} hiTeam={ccHi} hiSeed={8} loTeam={ccLo} loSeed={9}
+                    completed={ccCompleted} hiWon={!!(cc && cc.wins_high>cc.wins_low)} loserFate="eliminated" isPT={isPT}/>
                 </div>
               </div>
             )
