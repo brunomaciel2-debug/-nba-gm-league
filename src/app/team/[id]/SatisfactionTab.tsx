@@ -244,13 +244,20 @@ function StorylineRow({ severity, text }: { severity: string, text: string }) {
 // reasonable scale is derived from the threshold/current values themselves
 // (used by the Sponsors checklist, whose objective types vary too much to
 // hardcode a single scale).
-function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel, valueLabel, tip, scaleMax, noBar }: {
-  achieved: boolean, description: React.ReactNode, currentValue: number | null, threshold: number | null, groupLabel: string, valueLabel?: string, tip?: string, scaleMax?: number, noBar?: boolean
+function ObjectiveRow({ achieved, description, currentValue, threshold, groupLabel, valueLabel, tip, scaleMax, noBar, lowerIsBetter }: {
+  achieved: boolean, description: React.ReactNode, currentValue: number | null, threshold: number | null, groupLabel: string, valueLabel?: string, tip?: string, scaleMax?: number, noBar?: boolean, lowerIsBetter?: boolean
 }) {
   // noBar opts out of the auto-scale fallback for values that can go
   // negative or swing wildly (money, attribute deltas) — a 0-scaleMax bar
   // fill only makes visual sense for "higher is better, bounded" metrics.
-  const effectiveScaleMax = noBar ? null : (scaleMax ?? (threshold != null && currentValue != null ? Math.max(threshold, currentValue, 1) * 1.1 : null))
+  // lowerIsBetter (standings-rank objectives like "finish top 2 in your
+  // division", where currentValue=3 is WORSE than a threshold of 2) is the
+  // same story from the other direction — a bar built for "bigger number =
+  // more progress" rendered a rank of 3 against a target of 2 as if it were
+  // 150% of the way there, full orange bar and all. Ranks have no natural
+  // bounded scale to fill a bar against anyway, so this just shows the
+  // current-vs-target rank as text instead of forcing it through a bar.
+  const effectiveScaleMax = (noBar || lowerIsBetter) ? null : (scaleMax ?? (threshold != null && currentValue != null ? Math.max(threshold, currentValue, 1) * 1.1 : null))
   const showBar = effectiveScaleMax != null && threshold != null && currentValue != null
   return (
     <div className="text-xs py-1" style={{ borderBottom: '1px solid #e2dcd5' }}>
@@ -264,7 +271,7 @@ function ObjectiveRow({ achieved, description, currentValue, threshold, groupLab
           <span className="flex-shrink-0" style={{ color: achieved ? '#15803d' : '#8a8279', fontWeight: 600 }}>{valueLabel}</span>
         ) : threshold != null && currentValue != null && (
           <span className="flex-shrink-0" style={{ color: achieved ? '#15803d' : '#8a8279', fontWeight: 600 }}>
-            {Math.round(currentValue)}/{threshold}
+            {lowerIsBetter ? `#${Math.round(currentValue)} → Top ${threshold}` : `${Math.min(Math.round(currentValue), threshold)}/${threshold}`}
           </span>
         )}
       </div>
@@ -387,14 +394,18 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
       setSnapshots(data || [])
 
       // Real chosen sponsor objectives for this team's active contracts —
-      // the actual checklist, not just an aggregate count.
+      // the actual checklist, not just an aggregate count. Must filter to
+      // 'active' the same way SponsorsTab/GoalsTab already do — without it,
+      // an expired or replaced sponsor's objectives from earlier this
+      // season kept stacking onto this checklist forever, showing far more
+      // objectives than the GM actually has under contract right now.
       const { data: contracts } = await supabase.from('sponsor_contracts')
         .select('id,tier,status,template:sponsor_templates(company_name)')
-        .eq('team_id', teamId).eq('season', SEASON)
+        .eq('team_id', teamId).eq('season', SEASON).eq('status', 'active')
       const contractIds = (contracts || []).map((c: any) => c.id)
       const { data: tracking } = contractIds.length
         ? await supabase.from('sponsor_objective_tracking')
-            .select('id,contract_id,achieved,current_value,objective:sponsor_objectives(description,threshold)')
+            .select('id,contract_id,achieved,current_value,objective:sponsor_objectives(description,threshold,objective_type)')
             .in('contract_id', contractIds)
         : { data: [] as any[] }
       const contractById: Record<string, any> = {}
@@ -435,7 +446,6 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
 
   const fb = latest.fans_breakdown || {}
   const ob = latest.owners_breakdown || {}
-  const sb = latest.sponsors_breakdown || {}
 
   return (
     <div>
@@ -552,9 +562,16 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
           <div className="text-xs mb-2" style={{ color: '#5c554e', lineHeight: 1.5 }}>
             {isPT ? 'Distância a cumprir todos os objetivos escolhidos pelos teus patrocinadores esta época.' : 'How far you are from meeting every objective your sponsors set this season.'}
           </div>
-          {sb.totalEvaluable ? (
+          {objectives.length > 0 ? (
             <div className="text-xs mb-2" style={{ color: '#5c554e' }}>
-              {isPT ? 'Objetivos cumpridos' : 'Objectives met'}: <strong>{sb.totalAchieved}/{sb.totalEvaluable}</strong>
+              {/* Counted live from the checklist shown right below, not from
+                  the stored satisfaction snapshot (sb.totalAchieved/
+                  totalEvaluable) — that denominator deliberately excludes
+                  every not-yet-achieved objective under a still-active
+                  contract (it only tracks achieved vs. given-up-on), so it
+                  could read "3/3 = 100%" while several pending objectives
+                  sat unchecked in the list underneath it. */}
+              {isPT ? 'Objetivos cumpridos' : 'Objectives met'}: <strong>{objectives.filter((o: any) => o.achieved).length}/{objectives.length}</strong>
             </div>
           ) : (
             <div className="text-xs mb-2" style={{ color: '#8a8279' }}>{isPT ? 'Sem patrocinadores ativos' : 'No active sponsors'}</div>
@@ -568,6 +585,7 @@ export default function SatisfactionTab({ teamId, teamColor }: { teamId: string,
                   currentValue={o.current_value}
                   threshold={o.objective?.threshold}
                   groupLabel={o.companyName || ''}
+                  lowerIsBetter={['top_division','top_conference'].includes(o.objective?.objective_type)}
                 />
               ))}
             </div>

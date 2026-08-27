@@ -183,9 +183,15 @@ export function computeOwnersScore(inputs: OwnersInputs): { score: number, break
 // Literally "número de objetivos atingidos por cada sponsor" — a team with
 // no active sponsor engagement this season gets a mild penalty (40), not a
 // neutral 50, since disengaging from the sponsor system is itself a choice.
-export function computeSponsorsScore(totalAchieved: number, totalEvaluable: number): number {
-  if (totalEvaluable <= 0) return 40
-  return clamp(100 * totalAchieved / totalEvaluable)
+// 100 is reserved for genuinely having met EVERY tracked objective — the
+// denominator is every objective under an active or expired contract this
+// season, not just the ones already decided one way or the other. A real
+// incident: excluding still-pending objectives from the denominator let
+// this read 100/100 while most of the checklist sat unmet, simply because
+// nothing had failed YET.
+export function computeSponsorsScore(totalAchieved: number, totalObjectives: number): number {
+  if (totalObjectives <= 0) return 40
+  return clamp(100 * totalAchieved / totalObjectives)
 }
 
 export function computeCompositeScore(fansScore: number, ownersScore: number, sponsorsScore: number): number {
@@ -577,8 +583,6 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
 
   const sponsorContractIdsByTeam: Record<string, string[]> = {}
   ;(sponsorContracts || []).forEach((c: any) => { (sponsorContractIdsByTeam[c.team_id] ||= []).push(c.id) })
-  const contractStatusById: Record<string, string> = {}
-  ;(sponsorContracts || []).forEach((c: any) => { contractStatusById[c.id] = c.status })
 
   const allContractIds = (sponsorContracts || []).map((c: any) => c.id)
   const { data: tracking } = allContractIds.length
@@ -722,11 +726,16 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
     const contractIds = sponsorContractIdsByTeam[team.id] || []
     const teamTracking = (tracking || []).filter((t: any) => contractIds.includes(t.contract_id))
     const totalAchieved = teamTracking.filter((t: any) => t.achieved).length
-    // "evaluable" = achieved, OR the objective belongs to an expired
-    // contract (relationship concluded — a not-yet-achieved objective under
-    // a STILL-ACTIVE contract isn't a failure yet, there's still time).
-    const totalEvaluable = teamTracking.filter((t: any) => t.achieved || contractStatusById[t.contract_id] === 'expired').length
-    const sponsorsScore = computeSponsorsScore(totalAchieved, totalEvaluable)
+    // Every objective tracked this season, active contract or expired —
+    // Bruno's explicit rule: 100/100 only when EVERY objective has actually
+    // been met, not just every one that's been decided so far. A
+    // still-pending objective under an active contract still counts against
+    // the total (it just isn't a FAILURE yet), instead of being excluded
+    // from the denominator entirely — that previously let this read
+    // 100/100 while most of the checklist sat unmet, simply because
+    // nothing had failed yet.
+    const totalObjectives = teamTracking.length
+    const sponsorsScore = computeSponsorsScore(totalAchieved, totalObjectives)
 
     const performanceScore = computeCompositeScore(fans.score, owners.score, sponsorsScore)
 
@@ -735,7 +744,7 @@ export async function resolveWeeklyGmSatisfaction(week: number): Promise<{ teams
       win_now_index: wni, win_now_label: label,
       fans_score: fans.score, fans_breakdown: fans.breakdown,
       owners_score: owners.score, owners_breakdown: owners.breakdown,
-      sponsors_score: sponsorsScore, sponsors_breakdown: { totalAchieved, totalEvaluable },
+      sponsors_score: sponsorsScore, sponsors_breakdown: { totalAchieved, totalObjectives },
       performance_score: performanceScore,
       franchise_storylines: franchiseStorylines,
     }, { onConflict: 'team_id,season,week_number' })

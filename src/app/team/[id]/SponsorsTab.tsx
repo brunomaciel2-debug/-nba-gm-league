@@ -64,6 +64,7 @@ type PoolEntry = {
   template_id: string
   tier: string
   chosen: boolean
+  value_multiplier?: number
   template?: Template
   objectives?: Objective[]
 }
@@ -386,6 +387,20 @@ function SponsorCard({
         )}
       </div>
 
+      {/* A returning sponsor's offer moves based on how the LAST deal with
+          this exact team went — never on a sponsor never signed before. */}
+      {entry.value_multiplier != null && entry.value_multiplier !== 1 && (
+        <div style={{
+          fontSize:10, fontWeight:700, padding:'4px 10px', borderRadius:8, marginBottom:10,
+          background: entry.value_multiplier > 1 ? '#dcfce7' : '#fee2e2',
+          color: entry.value_multiplier > 1 ? '#15803d' : '#dc2626',
+        }}>
+          {entry.value_multiplier > 1
+            ? (isPT ? '▲ +20% — cumpriste os objectivos da última vez' : '▲ +20% — you met the objectives last time')
+            : (isPT ? '▼ -20% — não cumpriste os objectivos da última vez' : '▼ -20% — you missed the objectives last time')}
+        </div>
+      )}
+
       {/* Financials */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
         <Tip text={isPT?'Pagamento fixo garantido, independentemente do desempenho':'Guaranteed fixed payment regardless of performance'}>
@@ -472,7 +487,24 @@ export default function SponsorsTab({ teamId, teamColor }: { teamId: string, tea
       supabase.from('sponsor_jersey_images')
         .select('*').eq('team_id', teamId).eq('season','2025-26'),
     ]).then(([{data:p},{data:c},{data:o},{data:j}]) => {
-      setPool(p || [])
+      // A sponsor's re-offer reflects its confidence in this specific team
+      // (see generate-sponsor-pool/route.ts) — +20%/-20% baked into
+      // value_multiplier, applied here once so every downstream read of
+      // entry.template.fixed_annual/variable_max (display, signing) already
+      // sees the adjusted numbers without needing its own special case.
+      const adjustedPool = (p || []).map((entry: any) => {
+        const mult = entry.value_multiplier ?? 1
+        if (mult === 1 || !entry.template) return entry
+        return {
+          ...entry,
+          template: {
+            ...entry.template,
+            fixed_annual: Math.round(entry.template.fixed_annual * mult),
+            variable_max: Math.round(entry.template.variable_max * mult),
+          },
+        }
+      })
+      setPool(adjustedPool)
       setContracts(c || [])
       setObjectives(o || [])
       setJerseys(j || [])

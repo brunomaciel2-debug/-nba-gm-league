@@ -58,6 +58,32 @@ export async function POST(req: NextRequest) {
   const sponsorsScoreByTeam: Record<string, number> = {}
   ;(prevSnapshots || []).forEach((s: any) => { if (!(s.team_id in sponsorsScoreByTeam)) sponsorsScoreByTeam[s.team_id] = s.sponsors_score ?? 55 })
 
+  // Sponsor confidence dynamic: a template this team signed last season
+  // offers +20% this time if every one of that contract's objectives was
+  // achieved, -20% if not — a template never signed by this team stays
+  // unchanged (1x). Keyed per team+template, not stored on the shared
+  // sponsor_templates row itself, so one team's history with a sponsor
+  // never changes what that same sponsor offers a different team.
+  const { data: prevContracts } = await supabase
+    .from('sponsor_contracts')
+    .select('id,team_id,template_id')
+    .eq('season', prevSeason).eq('status', 'active')
+  const valueMultiplierByTeamTemplate: Record<string, number> = {}
+  if (prevContracts?.length) {
+    const prevContractIds = prevContracts.map((c: any) => c.id)
+    const { data: prevTracking } = await supabase
+      .from('sponsor_objective_tracking')
+      .select('contract_id,achieved')
+      .in('contract_id', prevContractIds)
+    const trackingByContract: Record<string, boolean[]> = {}
+    ;(prevTracking || []).forEach((tr: any) => { (trackingByContract[tr.contract_id] ||= []).push(!!tr.achieved) })
+    for (const c of prevContracts) {
+      const results = trackingByContract[c.id] || []
+      const allAchieved = results.length > 0 && results.every(Boolean)
+      valueMultiplierByTeamTemplate[`${c.team_id}|${c.template_id}`] = allAchieved ? 1.2 : 0.8
+    }
+  }
+
   const templatesByTier: Record<string, any[]> = {}
   templates.forEach((tpl: any) => { (templatesByTier[tpl.tier] ||= []).push(tpl) })
   Object.values(templatesByTier).forEach(list => list.sort((a, b) => (a.fixed_annual || 0) - (b.fixed_annual || 0)))
@@ -81,6 +107,7 @@ export async function POST(req: NextRequest) {
       .filter((tpl: any) => !chosenKeys.has(`${t.id}|${tpl.id}`) && allowed.has(tpl.id))
       .map((tpl: any) => ({
         team_id: t.id, template_id: tpl.id, tier: tpl.tier, season: targetSeason, chosen: false,
+        value_multiplier: valueMultiplierByTeamTemplate[`${t.id}|${tpl.id}`] ?? 1,
       }))
   })
 
