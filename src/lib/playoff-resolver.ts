@@ -210,58 +210,59 @@ async function advanceWinner(seriesType: string, winnerId: string, loserId: stri
   if (advance.loserTo) await fillSeriesSlot(advance.loserTo.seriesType, advance.loserTo.slot, loserId)
 }
 
-// A team's most recent FINAL game date, any game_type — the anchor used to
-// work out when their next game is allowed. Chains regular season → play-in
-// → each playoff round uniformly, with no special-casing per transition.
-async function mostRecentGameDate(teamId: string): Promise<string | null> {
-  const { data } = await supabaseAdmin.from('games').select('scheduled_date')
-    .or(`home_team.eq.${teamId},away_team.eq.${teamId}`).eq('status', 'final')
-    .not('scheduled_date', 'is', null)
-    .order('scheduled_date', { ascending: false }).limit(1).maybeSingle()
-  return data?.scheduled_date || null
+// Maps a series to the season_events row that announces its round's start
+// date. r1/r2/conf_final/nba_finals only — Play-In has its own handling
+// below since both its "day 1" (a/b) and "day 2" (c) games key off the
+// single play_in event instead of a per-round one.
+function roundEventKeyFor(seriesType: string): string | null {
+  if (seriesType.startsWith('r1_')) return 'playoffs_r1'
+  if (seriesType.startsWith('r2_')) return 'playoffs_semis'
+  if (seriesType.startsWith('conf_final_')) return 'playoffs_conf_finals'
+  if (seriesType === 'nba_finals') return 'nba_finals'
+  return null
 }
 
-// A fresh series (no games played yet) needs BOTH teams rested — 2 full
-// rest days off since whatever they last played (regular season, play-in,
-// or a previous round), so the next game is the 3rd day after (e.g. last
-// game Apr 17 -> Apr 18/19 off -> next game Apr 20) — so it opens on
-// whichever team is ready later. A series already underway continues its
-// own "day yes, day no" cadence from its own last game (a rest day in
-// between, so +2 — e.g. Apr 20 -> Apr 21 off -> Apr 22); both teams share
-// that same last game, so no max needed.
+// Fixed calendar, not reactive team-readiness. Every game's date is fixed
+// the moment its ROUND begins — Game N of any series is always that
+// round's announced start_date + (N-1)*2 days — regardless of when its
+// actual participants get decided or how far along any OTHER series in the
+// bracket is. A not-yet-determined matchup just has no game_id or games
+// row until it resolves; the date itself never depends on it.
 //
-// The Play-In round is the one exception: "each team's own last game + 3
-// rest days" only ever looks at the TWO teams in that one series, with no
-// idea what the rest of the league — or the calendar — is doing. A real
-// incident: PHI and DET both happened to wrap up their regular seasons on
-// the same early date, so their Play-In game landed 3 days later — a date
-// that turned out to be BEFORE some other team's own regular-season game
-// even got played (the schedule doesn't force every team to finish on the
-// same day), and three and a half weeks before the real announced Play-In
-// start (season_events.play_in). Anchoring Play-In games to that announced
-// date instead — and the bye-team Round 1 matchups (3v6/4v5, whose 6
-// seeds never touch a Play-In game at all) to right after the Play-In
-// window closes — keeps every round genuinely sequential on the league's
-// real calendar instead of racing ahead the moment just two teams happen
-// to be individually ready.
+// Replaced a "wait for both teams' last game, then +2/+3 rest days"
+// approach after two real incidents it couldn't avoid: (1) the Play-In
+// c-game's date was anchored to the SAME start_date as the a/b games it
+// depends on, double-booking a team into playing twice in one calendar
+// day; (2) real Round 1 series are stored with round:2 (round:1 is
+// Play-In), but the code's calendar-anchoring only ever checked
+// `s.round === 1` — so Round 1 silently fell through to the reactive
+// per-team formula instead of the intended play-in-anchored one, drifting
+// to whatever date each team's own last game happened to land on. Keying
+// directly off series_type instead of the numeric round field, and off a
+// fixed per-round calendar instead of team readiness, can't drift either
+// way again.
 async function computeNextGameDate(s: any): Promise<string | null> {
-  if ((s.wins_high || 0) + (s.wins_low || 0) === 0) {
-    if (s.round === 1) {
-      const { data: playInEvent } = await supabaseAdmin.from('season_events')
-        .select('start_date,end_date').eq('season', SEASON).eq('event_key', 'play_in').maybeSingle()
-      if (s.series_type?.startsWith('playin_')) {
-        if (playInEvent?.start_date) return playInEvent.start_date
-      } else if (playInEvent?.end_date) {
-        return addDays(playInEvent.end_date, 1)
-      }
-    }
-    const [highDate, lowDate] = await Promise.all([mostRecentGameDate(s.team_high), mostRecentGameDate(s.team_low)])
-    if (!highDate || !lowDate) return null
-    const readyDate = highDate > lowDate ? highDate : lowDate
-    return addDays(readyDate, 3)
+  if (s.series_type?.startsWith('playin_a_') || s.series_type?.startsWith('playin_b_')) {
+    const { data: playInEvent } = await supabaseAdmin.from('season_events')
+      .select('start_date').eq('season', SEASON).eq('event_key', 'play_in').maybeSingle()
+    return playInEvent?.start_date || null
   }
-  const lastDate = await mostRecentGameDate(s.team_high)
-  return lastDate ? addDays(lastDate, 2) : null
+  if (s.series_type?.startsWith('playin_c_')) {
+    // One fixed day after the a/b games — the c-game's own opponents
+    // (loser of a, winner of b) are only known once those finish, but the
+    // DATE itself never needed to wait on that.
+    const { data: playInEvent } = await supabaseAdmin.from('season_events')
+      .select('start_date').eq('season', SEASON).eq('event_key', 'play_in').maybeSingle()
+    return playInEvent?.start_date ? addDays(playInEvent.start_date, 1) : null
+  }
+
+  const eventKey = roundEventKeyFor(s.series_type)
+  if (!eventKey) return null
+  const { data: roundEvent } = await supabaseAdmin.from('season_events')
+    .select('start_date').eq('season', SEASON).eq('event_key', eventKey).maybeSingle()
+  if (!roundEvent?.start_date) return null
+  const gameNumber = (s.wins_high || 0) + (s.wins_low || 0) + 1
+  return addDays(roundEvent.start_date, (gameNumber - 1) * 2)
 }
 
 // Advances the playoff bracket by at most one game per still-open series

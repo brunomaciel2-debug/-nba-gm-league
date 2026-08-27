@@ -56,6 +56,38 @@ function ScheduleContent() {
   }
   const GAME_TYPE_LABEL = isPT ? GAME_TYPE_LABEL_PT : GAME_TYPE_LABEL_EN
 
+  // Fixed per-round calendar, mirroring computeNextGameDate in
+  // src/lib/playoff-resolver.ts — kept in sync there and here rather than
+  // shared, since the backend only computes/caches a series' next_game_date
+  // once BOTH its teams are known (it has a real game to actually book).
+  // This page needs the date to show up EARLIER than that, the moment the
+  // round itself starts, with the still-undecided side rendered as TBD —
+  // exactly the gap Bruno flagged: the schedule had nothing at all for a
+  // series whose participants weren't determined yet.
+  const addDaysLocal=(dateStr:string,days:number)=>{
+    const d=new Date(dateStr+'T12:00:00'); d.setDate(d.getDate()+days)
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+  }
+  const roundEventKeyFor=(seriesType:string):string|null=>{
+    if(seriesType.startsWith('r1_'))return 'playoffs_r1'
+    if(seriesType.startsWith('r2_'))return 'playoffs_semis'
+    if(seriesType.startsWith('conf_final_'))return 'playoffs_conf_finals'
+    if(seriesType==='nba_finals')return 'nba_finals'
+    return null
+  }
+  const SERIES_LABEL_EN: Record<string,string> = {
+    r2_eastern_a:'East Semifinal A', r2_eastern_b:'East Semifinal B',
+    r2_western_a:'West Semifinal A', r2_western_b:'West Semifinal B',
+    conf_final_eastern:'Eastern Conference Finals', conf_final_western:'Western Conference Finals',
+    nba_finals:'NBA Finals',
+  }
+  const SERIES_LABEL_PT: Record<string,string> = {
+    r2_eastern_a:'Meia-Final Este A', r2_eastern_b:'Meia-Final Este B',
+    r2_western_a:'Meia-Final Oeste A', r2_western_b:'Meia-Final Oeste B',
+    conf_final_eastern:'Final da Conferência Este', conf_final_western:'Final da Conferência Oeste',
+    nba_finals:'Finais da NBA',
+  }
+
   useEffect(()=>{
     Promise.all([
       supabase.from('games').select('*').order('played_at').order('game_number').range(0,699),
@@ -63,7 +95,9 @@ function ScheduleContent() {
       supabase.from('teams').select('id,name,color,logo_url'),
       supabase.from('preseason_games').select('*').eq('season','2025-26'),
       supabase.from('season_config').select('last_sim_day').eq('id',1).single(),
-    ]).then(([{data:g1},{data:g2},{data:teams}, {data:preseason}, {data:cfg}])=>{
+      supabase.from('playoff_series').select('*').eq('season','2025-26').neq('status','completed'),
+      supabase.from('season_events').select('event_key,start_date').eq('season','2025-26'),
+    ]).then(([{data:g1},{data:g2},{data:teams}, {data:preseason}, {data:cfg}, {data:series}, {data:events}])=>{
       if (cfg?.last_sim_day) {
         const d = new Date(cfg.last_sim_day+'T00:00:00')
         d.setDate(d.getDate()+1)
@@ -90,7 +124,41 @@ function ScheduleContent() {
           box_score: g.box_score || null,
           isWorldFriendly: true,
         }))
-      setGames([...(g1||[]),...(g2||[]),...normalizedPreseason])
+      // Playoff series whose participants aren't fully known yet (still
+      // waiting on Play-In or an earlier round) never get a real `games`
+      // row — the resolver only books one once it actually has two teams
+      // to schedule. Synthesize a TBD placeholder instead, using the exact
+      // same fixed per-round calendar the resolver itself computes (see
+      // computeNextGameDate in playoff-resolver.ts): the date is known and
+      // real the moment the round starts, even before the matchup is.
+      const eventMap = Object.fromEntries((events||[]).map((e:any)=>[e.event_key,e.start_date]))
+      const normalizedSeries = (series||[])
+        .filter((s:any)=> !s.team_high || !s.team_low)
+        .map((s:any)=>{
+          let date: string|null = null
+          if (s.series_type?.startsWith('playin_a_') || s.series_type?.startsWith('playin_b_')) {
+            date = eventMap['play_in'] || null
+          } else if (s.series_type?.startsWith('playin_c_')) {
+            date = eventMap['play_in'] ? addDaysLocal(eventMap['play_in'],1) : null
+          } else {
+            const key = roundEventKeyFor(s.series_type)
+            date = key && eventMap[key] ? eventMap[key] : null
+          }
+          if (!date) return null
+          const label = isPT ? SERIES_LABEL_PT[s.series_type] : SERIES_LABEL_EN[s.series_type]
+          return {
+            id: `series-${s.id}`,
+            week_number: 0, game_number: 0,
+            home_team: s.team_high || null, away_team: s.team_low || null,
+            home_score: null, away_score: null,
+            status: 'scheduled',
+            played_at: `${date}T12:00:00`,
+            game_type: 'playoff',
+            seriesLabel: label,
+          }
+        })
+        .filter(Boolean)
+      setGames([...(g1||[]),...(g2||[]),...normalizedPreseason,...normalizedSeries])
       setTeamMap(Object.fromEntries((teams||[]).map((t:any)=>[t.id,t])))
 
       const missingIds = Array.from(new Set(normalizedPreseason.flatMap((g:any)=>[g.home_team,g.away_team])
@@ -237,11 +305,20 @@ function ScheduleContent() {
                     </div>
                     <span className="text-xs font-bold px-2 py-0.5 rounded flex-shrink-0" style={{background:typeInfo.bg,color:typeInfo.color,fontSize:10}}>{typeInfo.label}</span>
                     <div className="flex-1 flex items-center gap-2 min-w-0 flex-wrap">
-                      {home?.logo_url&&<img src={home.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
-                      <Link href={worldTeamIds.has(g.home_team)?`/world/${g.home_team}`:`/team/${g.home_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='away'?'#8a8279':homeColor}}>{home?.name||g.home_team}</Link>
+                      {g.home_team?(
+                        <>
+                          {home?.logo_url&&<img src={home.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
+                          <Link href={worldTeamIds.has(g.home_team)?`/world/${g.home_team}`:`/team/${g.home_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='away'?'#8a8279':homeColor}}>{home?.name||g.home_team}</Link>
+                        </>
+                      ):<span className="text-sm font-semibold" style={{color:'#9c9088'}}>TBD</span>}
                       {isFinal?<span className="font-black text-sm mx-1" style={{color:'#1a1512'}}>{g.home_score}–{g.away_score}</span>:<span className="text-xs mx-1" style={{color:'#8a8279'}}>vs</span>}
-                      {away?.logo_url&&<img src={away.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
-                      <Link href={worldTeamIds.has(g.away_team)?`/world/${g.away_team}`:`/team/${g.away_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='home'?'#8a8279':awayColor}}>{away?.name||g.away_team}</Link>
+                      {g.away_team?(
+                        <>
+                          {away?.logo_url&&<img src={away.logo_url} alt="" className="w-5 h-5 object-contain flex-shrink-0"/>}
+                          <Link href={worldTeamIds.has(g.away_team)?`/world/${g.away_team}`:`/team/${g.away_team}`} className="text-sm font-semibold no-underline hover:underline" style={{color:winner==='home'?'#8a8279':awayColor}}>{away?.name||g.away_team}</Link>
+                        </>
+                      ):<span className="text-sm font-semibold" style={{color:'#9c9088'}}>TBD</span>}
+                      {g.seriesLabel&&<span className="text-xs" style={{color:'#8a8279'}}>({g.seriesLabel})</span>}
                     </div>
                     {isFinal
                       ?(g.isWorldFriendly
